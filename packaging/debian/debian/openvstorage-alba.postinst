@@ -1,1 +1,10 @@
 #!/bin/bash
+ipython -c """
+import ConfigParser
+filename = '/opt/OpenvStorage/config/ovs.cfg'
+config = ConfigParser.ConfigParser()
+config.read(filename)
+config.set('plugins', 'backend.alba', 1)
+with open(filename, 'wb') as configfile:
+    config.write(configfile)
+"""

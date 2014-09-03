@@ -1,2 +1,1 @@
-ovs              opt/OpenvStorage
-config/alba.cfg  opt/OpenvStorage/config
+ovs  opt/OpenvStorage
