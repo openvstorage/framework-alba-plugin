@@ -1,0 +1,26 @@
+{
+    "license": [
+        "Copyright 2014 CloudFounders NV",
+        "All rights reserved"
+    ],
+    "generic": {
+        "accesskey": "Access key",
+        "details": "Details",
+        "statistics": "Statistics",
+        "getss": "Gets/s",
+        "putss": "Puts/s",
+        "nrofdevices": "# Kinetic devices",
+        "devices": "Kinetic devices",
+        "serial": "Serial",
+        "ips": "IP",
+        "capacity": "Capacity",
+        "freespace": "Free",
+        "add": "Add"
+    },
+    "detail": {
+        "title": "Alternate Backend"
+    },
+    "icons": {
+        "devices": "&#xf0a0;"
+    }
+}

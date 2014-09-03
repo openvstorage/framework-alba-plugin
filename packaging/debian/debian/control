@@ -1,0 +1,12 @@
+Source: openvstorage-alba
+Maintainer: Kenneth Henderick <kenneth.henderick@cloudfounders.com>
+Standards-Version: 3.9.4.0
+Section: python
+Priority: optional
+Build-Depends: python (>= 2.7.2)
+
+Package: openvstorage-alba
+Architecture: amd64
+Depends: ipython, openvstorage (>= 1.5.0), openvstorage-core, openvstorage-webapps
+Description: openvStorage ALBA plugin
+ Open vStorage ALBA plugin
