@@ -1,5 +1,39 @@
 #!/usr/bin/make -f
 
+openvstorage-alba-core:
+	dh_testdir
+	dh_testroot
+	dh_installdirs  -p$@
+	dh_installchangelogs  -p$@  CHANGELOG.txt
+	dh_install -p$@
+	dh_installman  -p$@
+	dh_link  -p$@
+	dh_strip  -p$@
+	dh_compress  -p$@
+	dh_fixperms  -p$@
+	dh_installdeb -p$@
+	dh_shlibdeps  -p$@
+	dh_gencontrol  -p$@
+	dh_md5sums  -p$@
+	dh_builddeb  -p$@
+
+openvstorage-alba-webapps:
+	dh_testdir
+	dh_testroot
+	dh_installdirs  -p$@
+	dh_installchangelogs  -p$@  CHANGELOG.txt
+	dh_install -p$@
+	dh_installman  -p$@
+	dh_link  -p$@
+	dh_strip  -p$@
+	dh_compress  -p$@
+	dh_fixperms  -p$@
+	dh_installdeb -p$@
+	dh_shlibdeps  -p$@
+	dh_gencontrol  -p$@
+	dh_md5sums  -p$@
+	dh_builddeb  -p$@
+
 openvstorage-alba:
 	dh_testdir
 	dh_testroot
@@ -19,7 +53,9 @@ openvstorage-alba:
 
 clean:
 	if [ -f debian/openvstorage-alba ]; then rm debian/openvstorage-alba; fi
+	if [ -f debian/openvstorage-alba-core ]; then rm debian/openvstorage-alba-core; fi
+	if [ -f debian/openvstorage-alba-webapps ]; then rm debian/openvstorage-alba-webapps; fi
 
-binary: openvstorage-alba
+binary: openvstorage-alba-core openvstorage-alba-webapps openvstorage-alba
 
 .PHONY: clean build
