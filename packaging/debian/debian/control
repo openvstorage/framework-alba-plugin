@@ -7,13 +7,13 @@ Build-Depends: python (>= 2.7.2)
 
 Package: openvstorage-alba-core
 Architecture: amd64
-Depends: ipython, openvstorage-core (>= 1.5.0)
+Pre-Depends: ipython, openvstorage-core (>= 1.5.0)
 Description: openvStorage ALBA plugin core
  Core components for the Open vStorage ALBA plugin
 
 Package: openvstorage-alba-webapps
 Architecture: amd64
-Depends: ipython, openvstorage-webapps (>= 1.5.0)
+Pre-Depends: ipython, openvstorage-webapps (>= 1.5.0)
 Description: openvStorage ALBA plugin Web Applications
  Web components for the Open vStorage ALBA plugin
 
