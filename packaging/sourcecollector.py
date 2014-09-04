@@ -265,7 +265,7 @@ class SourceCollector(object):
         # Building archive
         print '  Building archive'
         SourceCollector._run(
-            "tar -czf {0}/openvstorage-alba_{1}.tar.gz --transform 's,^,openvstorage-alba-{1}/,' --exclude='*__init__.py' config ovs webapps *.txt".format(
+            "tar -czf {0}/openvstorage-alba_{1}.tar.gz --transform 's,^,openvstorage-alba-{1}/,' --exclude='*__init__.py' ovs webapps *.txt".format(
                 SourceCollector.package_path, version_string
             ), SourceCollector.repo_path_code
         )
