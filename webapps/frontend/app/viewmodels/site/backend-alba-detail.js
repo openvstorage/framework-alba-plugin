@@ -4,13 +4,15 @@
 define([
     'jquery', 'knockout',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
-    '../containers/backend', '../containers/backendtype', '../containers/albabackend'
-], function($, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend) {
+    '../containers/backend', '../containers/backendtype', '../containers/albabackend',
+    '../containers/livekineticdevice'
+], function($, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, LiveKineticDevice) {
     "use strict";
     return function() {
         var self = this;
 
         // Variables
+        self.generic       = generic;
         self.shared        = shared;
         self.guard         = { authenticated: true };
         self.refresher     = new Refresher();
@@ -32,12 +34,13 @@ define([
             { key: 'putss',      value: $.t('alba:generic.putss'),     width: 100       }
         ];
         self.discoveredDeviceHeaders = [
-            { key: 'serial',    value: $.t('alba:generic.serial'),    width: 250       },
-            { key: 'ips',       value: $.t('alba:generic.ips'),       width: 200       },
-            { key: 'capacity',  value: $.t('alba:generic.capacity'),  width: 110       },
-            { key: 'freespace', value: $.t('alba:generic.freespace'), width: undefined },
-            { key: 'actions',   value: $.t('alba:generic.add'),       width: 50        }
+            { key: 'serial',   value: $.t('alba:generic.serial'),    width: 400       },
+            { key: 'ips',      value: $.t('alba:generic.ips'),       width: 200       },
+            { key: 'capacity', value: $.t('alba:generic.capacity'),  width: 110       },
+            { key: 'model',    value: $.t('alba:generic.model'),     width: undefined },
+            { key: 'actions',  value: $.t('alba:generic.add'),       width: 50        }
         ];
+        self.discoveredDevicesHandle = {};
 
         // Observables
         self.backend                      = ko.observable();
@@ -95,9 +98,42 @@ define([
             // Not yet implemented
             self.vPoolsInitialLoad(false);
         };
-        self.refreshDiscoveredDevices = function() {
+        self.refreshDiscoveredDevices = function(page) {
+            return $.Deferred(function(deferred) {
+                if (generic.xhrCompleted(self.discoveredDevicesHandle[page])) {
+                    var options = { contents: '_dynamics' };
+                    if (page !== undefined) {
+                        options.page = page;
+                    }
+                    self.discoveredDevicesHandle[page] = api.get('alba/livekineticdevices', {}, options)
+                        .done(function(data) {
+                            var serials = [], kdata = {};
+                            $.each(data, function(index, item) {
+                                serials.push(item.configuration.serialNumber);
+                                kdata[item.configuration.serialNumber] = item;
+                            });
+                            generic.crossFiller(
+                                serials, self.discoveredDevices,
+                                function(serialNumber) {
+                                    return new LiveKineticDevice(serialNumber);
+                                }, 'serialNumber'
+                            );
+                            $.each(self.discoveredDevices(), function(index, device) {
+                                if (kdata.hasOwnProperty(device.serialNumber())) {
+                                    device.fillData(kdata[device.serialNumber()]);
+                                }
+                            });
+                            self.discoveredDevicesInitialLoad(false);
+                            deferred.resolve();
+                        })
+                        .fail(deferred.reject);
+                } else {
+                    deferred.reject();
+                }
+            }).promise();
+        };
+        self.addDevice = function(serial) {
             // Not yet implemented
-            self.discoveredDevicesInitialLoad(false);
         };
 
         // Durandal

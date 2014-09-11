@@ -11,11 +11,13 @@
         "putss": "Puts/s",
         "nrofdevices": "# Kinetic devices",
         "devices": "Kinetic devices",
+        "unclaimeddevices": "Unclaimed Kinetic devices",
         "serial": "Serial",
         "ips": "IP",
         "capacity": "Capacity",
         "freespace": "Free",
-        "add": "Add"
+        "add": "Add",
+        "model": "Model"
     },
     "detail": {
         "title": "Alternate Backend"

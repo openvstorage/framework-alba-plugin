@@ -17,7 +17,7 @@ from oauth2.toolbox import Toolbox as OAuth2Toolbox
 
 class AlbaBackendViewSet(viewsets.ViewSet):
     """
-    Information about Groups
+    Information about ALBA Backends
     """
     permission_classes = (IsAuthenticated,)
     prefix = r'alba/backends'

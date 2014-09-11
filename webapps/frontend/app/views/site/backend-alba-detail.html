@@ -126,17 +126,29 @@ All rights reserved
                 </div>
             </div>
             <div class="tab-pane" id="management" style="padding: 15px;" data-bind="visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
-                <h4 data-i18n="alba:generic.devices"></h4>
+                <h4 data-i18n="alba:generic.unclaimeddevices"></h4>
                 <div data-bind="pager: { items: discoveredDevices, headers: discoveredDeviceHeaders, initialLoad: discoveredDevicesInitialLoad,
                                          viewportRefresh: refreshDiscoveredDevices, viewportRefreshInterval: 5000, controls: true }">
                     <table data-dummy="dummy">
                         <tr data-part="vitem">
-                            <td>n/a</td>
-                            <td>n/a</td>
-                            <td>n/a</td>
-                            <td>n/a</td>
-                            <td>n/a</td>
-                            <td>n/a</td>
+                            <td data-bind="text: serialNumber"></td>
+                            <td>
+                                <span data-bind="foreach: networkInterfaces"><span data-bind="visible: $index() > 0">,</span>
+                                <span data-bind="text: $data.ip_address"></span></span>
+                            </td>
+                            <td data-bind="text: capacity() !== undefined ? $root.generic.formatBytes(capacity().nominal) : ''"></td>
+                            <td data-bind="text: capacity() !== undefined ? configuration().model : ''"></td>
+                            <td>
+                                <i data-bind="attr: { id: 'kineticAdd_' + serialNumber() },
+                                              click: function() {
+                                                  if ($.inArray('manage', $root.shared.user.roles()) !== -1 && false) {
+                                                      $root.addDevice(serialNumber());
+                                                  }
+                                              },
+                                              tooltip: 'alba:generic.add',
+                                              style: { color: $.inArray('manage', $root.shared.user.roles()) !== -1 && false ? 'black' : 'lightgrey' }"
+                                   class="hand fa fa-fw" data-i18n="[html]ovs:icons.add"></i>
+                            </td>
                         </tr>
                     </table>
                 </div>

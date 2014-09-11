@@ -8,7 +8,7 @@ AlbaController module
 from ovs.celery import celery
 from ovs.log.logHandler import LogHandler
 
-logger = LogHandler('lib', name='alba')
+logger = LogHandler('alba.lib', name='alba')
 
 
 class AlbaController(object):
@@ -17,7 +17,7 @@ class AlbaController(object):
     """
 
     @staticmethod
-    @celery.task(name='ovs.alba.dummy')
+    @celery.task(name='alba.alba.dummy')
     def dummy(identifier):
         """
         Dummy does whatever dummies do.
