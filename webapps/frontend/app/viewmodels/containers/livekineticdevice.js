@@ -23,10 +23,12 @@ define([
         self.limits            = ko.observable();
         self.utilization       = ko.observable();
         self.configuration     = ko.observable();
+        self.putsPerSecond     = ko.deltaObservable(generic.formatNumber);
+        self.getsPerSecond     = ko.deltaObservable(generic.formatNumber);
 
         // Computed
         self.guid = ko.computed(function() {
-            if (self.networkInterfaces.length === 0) {
+            if (self.networkInterfaces().length === 0) {
                 return '00000000-0000-0000-0000-000000000000';
             }
             var ip = self.networkInterfaces()[0].ip_address,
@@ -34,7 +36,7 @@ define([
                 port = self.networkInterfaces()[0].port;
             return generic.padLeft(ipParts[0], '0', 8) + '-' + generic.padLeft(ipParts[1], '0', 4) +
                 '-' + generic.padLeft(ipParts[2], '0', 4) + '-' + generic.padLeft(ipParts[3], '0', 4) +
-                '-' + generic.padLeft(port, '0', 12);
+                '-' + generic.padLeft(port.toString(), '0', 12);
         });
 
         // Functions
@@ -46,15 +48,22 @@ define([
             generic.trySet(self.limits, data, 'limits');
             generic.trySet(self.utilization, data, 'utilization');
             generic.trySet(self.configuration, data, 'configuration');
+            if (data.hasOwnProperty('statistics')) {
+                self.putsPerSecond(data.statistics.PUT.count);
+                self.getsPerSecond(data.statistics.GET.count);
+            }
 
             self.loaded(true);
             self.loading(false);
         };
-        self.load = function() {
+        self.refresh = function() {
+            if (!self.loaded()) {
+                return;
+            }
             return $.Deferred(function(deferred) {
                 self.loading(true);
                 if (generic.xhrCompleted(self.loadHandle)) {
-                    self.loadHandle = api.get('alba/livekineticdrives/' + self.guid())
+                    self.loadHandle = api.get('alba/livekineticdevices/' + self.guid())
                         .done(function(data) {
                             self.fillData(data);
                             deferred.resolve(data);

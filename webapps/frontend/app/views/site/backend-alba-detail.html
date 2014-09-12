@@ -131,12 +131,15 @@ All rights reserved
                                          viewportRefresh: refreshDiscoveredDevices, viewportRefreshInterval: 5000, controls: true }">
                     <table data-dummy="dummy">
                         <tr data-part="vitem">
-                            <td data-bind="text: serialNumber"></td>
+                            <td>
+                                <a data-bind="text: serialNumber,
+                                              attr: { href: $root.shared.routing.loadHash('alba-livekinetic-detail', { guid: guid }) }"></a>
+                            </td>
                             <td>
                                 <span data-bind="foreach: networkInterfaces"><span data-bind="visible: $index() > 0">,</span>
                                 <span data-bind="text: $data.ip_address"></span></span>
                             </td>
-                            <td data-bind="text: capacity() !== undefined ? $root.generic.formatBytes(capacity().nominal) : ''"></td>
+                            <td data-bind="text: capacity() !== undefined ? $root.formatBytes(capacity().nominal) : ''"></td>
                             <td data-bind="text: capacity() !== undefined ? configuration().model : ''"></td>
                             <td>
                                 <i data-bind="attr: { id: 'kineticAdd_' + serialNumber() },

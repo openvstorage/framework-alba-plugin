@@ -17,12 +17,31 @@
         "capacity": "Capacity",
         "freespace": "Free",
         "add": "Add",
-        "model": "Model"
+        "model": "Model",
+        "firmware": "Firmware",
+        "totalgets": "Total gets",
+        "totalputs": "Total puts",
+        "chassis": "Chassis",
+        "temperaturecpu": "Temperature (CPU)",
+        "bay": "Bay",
+        "utilizationcpu": "Utilization (CPU)",
+        "failurezone": "Failure zone",
+        "port": "Port",
+        "nics": "NICs",
+        "warnings": "Warnings",
+        "degc": "&deg;C",
+        "interface": "Interface",
+        "macaddress": "MAC",
+        "ipaddress": "IP"
     },
     "detail": {
         "title": "Alternate Backend"
     },
+    "livekinetic": {
+        "title": "Live Kinetic device"
+    },
     "icons": {
-        "devices": "&#xf0a0;"
+        "devices": "&#xf0a0;",
+        "nics": "&#xf0ec;"
     }
 }

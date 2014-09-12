@@ -12,7 +12,6 @@ define([
         var self = this;
 
         // Variables
-        self.generic       = generic;
         self.shared        = shared;
         self.guard         = { authenticated: true };
         self.refresher     = new Refresher();
@@ -92,7 +91,7 @@ define([
         };
         self.refreshDevices = function() {
             // Not yet implemented
-            self.devicesInitialLoad(false)
+            self.devicesInitialLoad(false);
         };
         self.refreshVPools = function() {
             // Not yet implemented
@@ -105,7 +104,7 @@ define([
                     if (page !== undefined) {
                         options.page = page;
                     }
-                    self.discoveredDevicesHandle[page] = api.get('alba/livekineticdevices', {}, options)
+                    self.discoveredDevicesHandle[page] = api.get('alba/livekineticdevices', { queryparams: options })
                         .done(function(data) {
                             var serials = [], kdata = {};
                             $.each(data, function(index, item) {
@@ -134,6 +133,9 @@ define([
         };
         self.addDevice = function(serial) {
             // Not yet implemented
+        };
+        self.formatBytes = function(value) {
+            return generic.formatBytes(value);
         };
 
         // Durandal
