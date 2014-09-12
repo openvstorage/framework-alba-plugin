@@ -2,11 +2,11 @@
 // All rights reserved
 /*global define */
 define([
-    'jquery', 'knockout',
+    'jquery', 'durandal/app', 'knockout',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/backend', '../containers/backendtype', '../containers/albabackend',
-    '../containers/livekineticdevice'
-], function($, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, LiveKineticDevice) {
+    '../containers/kineticdevice', '../containers/livekineticdevice'
+], function($, app, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, KineticDevice, LiveKineticDevice) {
     "use strict";
     return function() {
         var self = this;
@@ -18,7 +18,7 @@ define([
         self.widgets       = [];
         self.initializing  = false;
         self.deviceHeaders = [
-            { key: 'serial',    value: $.t('alba:generic.serial'),    width: 250       },
+            { key: 'serial',    value: $.t('alba:generic.serial'),    width: 400       },
             { key: 'ips',       value: $.t('alba:generic.ips'),       width: 200       },
             { key: 'capacity',  value: $.t('alba:generic.capacity'),  width: 110       },
             { key: 'freespace', value: $.t('alba:generic.freespace'), width: undefined },
@@ -40,6 +40,7 @@ define([
             { key: 'actions',  value: $.t('alba:generic.add'),       width: 50        }
         ];
         self.discoveredDevicesHandle = {};
+        self.devicesHandle           = {};
 
         // Observables
         self.backend                      = ko.observable();
@@ -50,6 +51,23 @@ define([
         self.vPoolsInitialLoad            = ko.observable(true);
         self.discoveredDevices            = ko.observableArray([]);
         self.discoveredDevicesInitialLoad = ko.observable(true);
+
+        // Computed
+        self.availableDevices = ko.computed(function() {
+            var devices = [], found;
+            $.each(self.discoveredDevices(), function(i, discoveredDevice) {
+                found = false;
+                $.each(self.devices(), function(j, presentDevice) {
+                    if (presentDevice.serialNumber() === discoveredDevice.serialNumber()) {
+                        found = true;
+                    }
+                });
+                if (!found) {
+                    devices.push(discoveredDevice);
+                }
+            });
+            return devices;
+        });
 
         // Functions
         self.load = function() {
@@ -89,18 +107,52 @@ define([
                     .always(deferred.resolve);
             }).promise();
         };
-        self.refreshDevices = function() {
-            // Not yet implemented
-            self.devicesInitialLoad(false);
+        self.refreshDevices = function(page) {
+            return $.Deferred(function(deferred) {
+                if (generic.xhrCompleted(self.devicesHandle[page])) {
+                    var options = { contents: '_dynamics' };
+                    if (page !== undefined) {
+                        options.page = page;
+                    }
+                    self.devicesHandle[page] = api.get('alba/kineticdevices', { queryparams: options })
+                        .done(function(data) {
+                            var guids = [], ddata = {};
+                            $.each(data, function(index, item) {
+                                guids.push(item.guid);
+                                ddata[item.guid] = item;
+                            });
+                            generic.crossFiller(
+                                guids, self.devices,
+                                function(guid) {
+                                    return new KineticDevice(guid);
+                                }, 'guid'
+                            );
+                            $.each(self.devices(), function(index, device) {
+                                if (ddata.hasOwnProperty(device.guid())) {
+                                    device.fillData(ddata[device.guid()]);
+                                }
+                            });
+                            self.devicesInitialLoad(false);
+                            deferred.resolve();
+                        })
+                        .fail(deferred.reject);
+                } else {
+                    deferred.reject();
+                }
+            }).promise();
         };
         self.refreshVPools = function() {
             // Not yet implemented
             self.vPoolsInitialLoad(false);
         };
-        self.refreshDiscoveredDevices = function(page) {
+        self.refreshDiscoveredDevices = function(page, fresh) {
+            fresh = fresh === undefined ? true : fresh;
             return $.Deferred(function(deferred) {
                 if (generic.xhrCompleted(self.discoveredDevicesHandle[page])) {
-                    var options = { contents: '_dynamics' };
+                    var options = {
+                        contents: '_dynamics',
+                        fresh: fresh
+                    };
                     if (page !== undefined) {
                         options.page = page;
                     }
@@ -132,15 +184,60 @@ define([
             }).promise();
         };
         self.addDevice = function(serial) {
-            // Not yet implemented
+            var device;
+            $.each(self.availableDevices(), function(i, availableDevice) {
+                if (availableDevice.serialNumber() === serial) {
+                    device = availableDevice;
+                }
+            });
+            if (device !== undefined) {
+                app.showMessage(
+                    $.t('alba:livekinetic.add.warning', { what: serial }),
+                    $.t('ovs:generic.areyousure'),
+                    [$.t('ovs:generic.no'), $.t('ovs:generic.yes')]
+                )
+                    .done(function (answer) {
+                        if (answer === $.t('ovs:generic.yes')) {
+                            api.post('/alba/backends/' + self.albaBackend().guid() + '/add_device', { data: {
+                                ip: device.nic().ip_address,
+                                port: device.nic().port,
+                                serial: device.serialNumber()
+                            }})
+                                .then(self.shared.tasks.wait)
+                                .done(function() {
+                                        generic.alertSuccess(
+                                            $.t('alba:livekinetic.add.done'),
+                                            $.t('alba:livekinetic.add.donemsg', { what: serial })
+                                        );
+                                    })
+                                    .fail(function(error) {
+                                        generic.alertError(
+                                            $.t('ovs:generic.error'),
+                                            $.t('ovs:generic.messages.errorwhile', {
+                                                context: 'error',
+                                                what: $.t('alba:livekinetic.add.errormsg', { what: serial }),
+                                                error: error
+                                            })
+                                        );
+                                    });
+                        }
+                    });
+            }
         };
         self.formatBytes = function(value) {
             return generic.formatBytes(value);
+        };
+        self.formatPercentage = function(value) {
+            return generic.formatPercentage(value);
         };
 
         // Durandal
         self.activate = function(mode, guid) {
             self.backend(new Backend(guid));
+
+            self.refreshDevices();
+            self.refreshVPools();
+            self.refreshDiscoveredDevices(undefined, false);
 
             self.refresher.init(self.load, 5000);
             self.refresher.run();

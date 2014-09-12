@@ -99,12 +99,25 @@ All rights reserved
                                          viewportRefresh: refreshDevices, viewportRefreshInterval: 5000, controls: true }">
                     <table data-dummy="dummy">
                         <tr data-part="vitem">
-                            <td>n/a</td>
-                            <td>n/a</td>
-                            <td>n/a</td>
-                            <td>n/a</td>
-                            <td>n/a</td>
-                            <td>n/a</td>
+                            <td>
+                                <a data-bind="text: serialNumber,
+                                              attr: { href: $root.shared.routing.loadHash('alba-livekinetic-detail', { guid: liveguid }) }"></a>
+                            </td>
+                            <td>
+                                <span data-bind="foreach: networkInterfaces"><span data-bind="visible: $index() > 0">,</span>
+                                <span data-bind="text: $data.ip_address"></span></span>
+                            </td>
+                            <td data-bind="text: capacity() !== undefined ? $root.formatBytes(capacity()) : ''"></td>
+                            <td data-bind="text: capacity() !== undefined ? $root.formatPercentage(percentFree()) : ''"></td>
+                            <td>
+                                <div data-bind="status: {
+                                                    colors: {
+                                                        green: false
+                                                    },
+                                                    defaultColor: 'lightgrey'
+                                                }"
+                                     style="width: 14px; height: 14px;"></div>
+                            </td>
                         </tr>
                     </table>
                 </div>
@@ -127,7 +140,7 @@ All rights reserved
             </div>
             <div class="tab-pane" id="management" style="padding: 15px;" data-bind="visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
                 <h4 data-i18n="alba:generic.unclaimeddevices"></h4>
-                <div data-bind="pager: { items: discoveredDevices, headers: discoveredDeviceHeaders, initialLoad: discoveredDevicesInitialLoad,
+                <div data-bind="pager: { items: availableDevices, headers: discoveredDeviceHeaders, initialLoad: discoveredDevicesInitialLoad,
                                          viewportRefresh: refreshDiscoveredDevices, viewportRefreshInterval: 5000, controls: true }">
                     <table data-dummy="dummy">
                         <tr data-part="vitem">
@@ -144,12 +157,12 @@ All rights reserved
                             <td>
                                 <i data-bind="attr: { id: 'kineticAdd_' + serialNumber() },
                                               click: function() {
-                                                  if ($.inArray('manage', $root.shared.user.roles()) !== -1 && false) {
+                                                  if ($.inArray('manage', $root.shared.user.roles()) !== -1) {
                                                       $root.addDevice(serialNumber());
                                                   }
                                               },
                                               tooltip: 'alba:generic.add',
-                                              style: { color: $.inArray('manage', $root.shared.user.roles()) !== -1 && false ? 'black' : 'lightgrey' }"
+                                              style: { color: $.inArray('manage', $root.shared.user.roles()) !== -1 ? 'black' : 'lightgrey' }"
                                    class="hand fa fa-fw" data-i18n="[html]ovs:icons.add"></i>
                             </td>
                         </tr>

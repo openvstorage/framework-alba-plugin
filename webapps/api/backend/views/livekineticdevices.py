@@ -25,7 +25,7 @@ class LiveKineticDeviceViewSet(viewsets.ViewSet):
 
     @required_roles(['read'])
     @load()
-    def list(self, request):
+    def list(self, request, fresh=False):
         """
         Lists all Kinetic devices that can be discovered
         """
@@ -34,7 +34,21 @@ class LiveKineticDeviceViewSet(viewsets.ViewSet):
         page = request.QUERY_PARAMS.get('page')
         page = int(page) if page is not None and page.isdigit() else None
 
-        devices = KineticDeviceController.discover.delay(interval=31, contents=contents).get()
+        found_devices = KineticDeviceController.discover.delay(interval=31, fresh=fresh).get()
+        if contents is not None:
+            devices = []
+            properties = ['network_interfaces', 'utilization', 'temperature', 'capacity',
+                         'configuration', 'statistics', 'limits']
+            for device in found_devices:
+                cleaned_device = {}
+                if '_dynamics' in contents or any(c in contents for c in properties):
+                    for prop in properties:
+                        if ('_dynamics' in contents or prop in contents) and '-{0}'.format(prop) not in contents:
+                            cleaned_device[prop] = device[prop]
+                devices.append(cleaned_device)
+        else:
+            devices = found_devices
+
         if page is not None:
             max_page = int(math.ceil(len(devices) / 10.0))
             if page > max_page:

@@ -7,6 +7,9 @@ AlbaController module
 
 from ovs.celery import celery
 from ovs.log.logHandler import LogHandler
+from ovs.lib.kineticdevice import KineticDeviceController
+from ovs.dal.hybrids.kineticdevice import KineticDevice
+from ovs.dal.hybrids.albabackend import AlbaBackend
 
 logger = LogHandler('alba.lib', name='alba')
 
@@ -17,10 +20,19 @@ class AlbaController(object):
     """
 
     @staticmethod
-    @celery.task(name='alba.alba.dummy')
-    def dummy(identifier):
+    @celery.task(name='alba.alba.add_device')
+    def add_device(alba_backend_guid, ip, port, serial):
         """
-        Dummy does whatever dummies do.
+        Adds a device to the given ALBA backend
         """
-        _ = identifier
-        return True
+        device = KineticDeviceController.get_device_info(ip, port)
+        if device['configuration']['serialNumber'] != serial:
+            raise RuntimeError('The Kinetic device has a different serial number')
+
+        model_device = KineticDevice()
+        model_device.alba_backend = AlbaBackend(alba_backend_guid)
+        model_device.serial_number = serial
+        model_device.connection_info = (ip, port)
+        model_device.save()
+
+        # @TODO: Actually do something like adding the device to the backend

@@ -7,12 +7,14 @@ Contains the AlbaBackendViewSet
 
 from backend.serializers.serializers import FullSerializer
 from rest_framework.response import Response
-from backend.decorators import required_roles, return_object, return_list, load
+from backend.decorators import required_roles, return_object, return_list, load, return_task
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from oauth2.toolbox import Toolbox as OAuth2Toolbox
+from rest_framework.decorators import action
+from ovs.lib.alba import AlbaController
 
 
 class AlbaBackendViewSet(viewsets.ViewSet):
@@ -56,3 +58,13 @@ class AlbaBackendViewSet(viewsets.ViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaBackend)
+    def add_device(self, albabackend, ip, port, serial):
+        """
+        Add a device to the backend, giving its ip, port and the serial
+        """
+        return AlbaController.add_device.delay(albabackend.guid, ip, port, serial)

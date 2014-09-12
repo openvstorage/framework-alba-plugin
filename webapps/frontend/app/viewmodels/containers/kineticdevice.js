@@ -6,7 +6,7 @@ define([
     'ovs/generic', 'ovs/api'
 ], function($, ko, generic, api) {
     "use strict";
-    return function(serialNumber) {
+    return function(guid) {
         var self = this;
 
         // Handles
@@ -15,16 +15,12 @@ define([
         // Observables
         self.loading           = ko.observable(false);
         self.loaded            = ko.observable(false);
-        self.serialNumber      = ko.observable(serialNumber);
-        self.networkInterfaces = ko.observableArray([]);
-        self.statistics        = ko.observable();
+        self.guid              = ko.observable(guid);
+        self.serialNumber      = ko.observable();
+        self.connectionInfo    = ko.observable();
         self.capacity          = ko.observable();
-        self.temperature       = ko.observable();
-        self.limits            = ko.observable();
-        self.utilization       = ko.observable();
-        self.configuration     = ko.observable();
-        self.putsPerSecond     = ko.deltaObservable(generic.formatNumber);
-        self.getsPerSecond     = ko.deltaObservable(generic.formatNumber);
+        self.percentFree       = ko.observable();
+        self.networkInterfaces = ko.observableArray([]);
 
         // Computed
         self.nic = ko.computed(function() {
@@ -36,7 +32,7 @@ define([
             });
             return self.networkInterfaces()[0];
         });
-        self.guid = ko.computed(function() {
+        self.liveguid = ko.computed(function() {
             var nic = self.nic(), ip, ipParts, port;
             if (nic === undefined) {
                 return '00000000-0000-0000-0000-000000000000';
@@ -51,29 +47,20 @@ define([
 
         // Functions
         self.fillData = function(data) {
-            generic.trySet(self.networkInterfaces, data, 'network_interfaces');
-            generic.trySet(self.statistics, data, 'statistics');
+            self.serialNumber(data.serial_number);
+            self.connectionInfo(data.connection_info);
             generic.trySet(self.capacity, data, 'capacity');
-            generic.trySet(self.temperature, data, 'temperature');
-            generic.trySet(self.limits, data, 'limits');
-            generic.trySet(self.utilization, data, 'utilization');
-            generic.trySet(self.configuration, data, 'configuration');
-            if (data.hasOwnProperty('statistics')) {
-                self.putsPerSecond(data.statistics.PUT.count);
-                self.getsPerSecond(data.statistics.GET.count);
-            }
+            generic.trySet(self.percentFree, data, 'percent_free');
+            generic.trySet(self.networkInterfaces, data, 'network_interfaces');
 
             self.loaded(true);
             self.loading(false);
         };
-        self.refresh = function() {
-            if (!self.loaded()) {
-                return;
-            }
+        self.load = function() {
             return $.Deferred(function(deferred) {
                 self.loading(true);
                 if (generic.xhrCompleted(self.loadHandle)) {
-                    self.loadHandle = api.get('alba/livekineticdevices/' + self.guid())
+                    self.loadHandle = api.get('alba/kineticdevices/' + self.guid())
                         .done(function(data) {
                             self.fillData(data);
                             deferred.resolve(data);
