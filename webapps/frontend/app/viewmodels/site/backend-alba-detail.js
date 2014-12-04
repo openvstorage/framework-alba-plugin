@@ -90,8 +90,10 @@ define([
                                 if (!self.initializing) {
                                     self.initializing = true;
                                     api.post('alba/backends', {
-                                        backend_guid: self.backend().guid(),
-                                        accesskey: generic.getTimestamp().toString()
+                                        data: {
+                                            backend_guid: self.backend().guid(),
+                                            accesskey: generic.getTimestamp().toString()
+                                        }
                                     })
                                         .fail(function() {
                                             self.initializing = false;
@@ -107,79 +109,58 @@ define([
                     .always(deferred.resolve);
             }).promise();
         };
-        self.refreshDevices = function(page) {
+        self.loadDevices = function(page) {
             return $.Deferred(function(deferred) {
                 if (generic.xhrCompleted(self.devicesHandle[page])) {
-                    var options = { contents: '_dynamics' };
-                    if (page !== undefined) {
-                        options.page = page;
-                    }
+                    var options = {
+                        sort: 'name',
+                        page: page,
+                        contents: '_dynamics'
+                    };
                     self.devicesHandle[page] = api.get('alba/kineticdevices', { queryparams: options })
                         .done(function(data) {
-                            var guids = [], ddata = {};
-                            $.each(data, function(index, item) {
-                                guids.push(item.guid);
-                                ddata[item.guid] = item;
-                            });
-                            generic.crossFiller(
-                                guids, self.devices,
-                                function(guid) {
+                            deferred.resolve({
+                                data: data,
+                                loader: function(guid) {
                                     return new KineticDevice(guid);
-                                }, 'guid'
-                            );
-                            $.each(self.devices(), function(index, device) {
-                                if (ddata.hasOwnProperty(device.guid())) {
-                                    device.fillData(ddata[device.guid()]);
                                 }
                             });
-                            self.devicesInitialLoad(false);
-                            deferred.resolve();
                         })
-                        .fail(deferred.reject);
+                        .fail(function() { deferred.reject(); });
                 } else {
-                    deferred.reject();
+                    deferred.resolve();
                 }
             }).promise();
         };
-        self.refreshVPools = function() {
+        self.loadVPools = function(page) {
             // Not yet implemented
-            self.vPoolsInitialLoad(false);
+            return $.Deferred(function(deferred) {
+                self.vPoolsInitialLoad(false);
+                deferred.resolve();
+            }).promise();
         };
-        self.refreshDiscoveredDevices = function(page, fresh) {
-            fresh = fresh === undefined ? true : fresh;
+        self.loadDiscoveredDevices = function(page, fresh) {
+            fresh = (fresh === undefined ? true : fresh);
             return $.Deferred(function(deferred) {
                 if (generic.xhrCompleted(self.discoveredDevicesHandle[page])) {
                     var options = {
+                        sort: 'name',
+                        page: page,
                         contents: '_dynamics',
                         fresh: fresh
                     };
-                    if (page !== undefined) {
-                        options.page = page;
-                    }
                     self.discoveredDevicesHandle[page] = api.get('alba/livekineticdevices', { queryparams: options })
                         .done(function(data) {
-                            var serials = [], kdata = {};
-                            $.each(data, function(index, item) {
-                                serials.push(item.configuration.serialNumber);
-                                kdata[item.configuration.serialNumber] = item;
-                            });
-                            generic.crossFiller(
-                                serials, self.discoveredDevices,
-                                function(serialNumber) {
+                            deferred.resolve({
+                                data: data,
+                                loader: function(serialNumber) {
                                     return new LiveKineticDevice(serialNumber);
-                                }, 'serialNumber'
-                            );
-                            $.each(self.discoveredDevices(), function(index, device) {
-                                if (kdata.hasOwnProperty(device.serialNumber())) {
-                                    device.fillData(kdata[device.serialNumber()]);
                                 }
                             });
-                            self.discoveredDevicesInitialLoad(false);
-                            deferred.resolve();
                         })
-                        .fail(deferred.reject);
+                        .fail(function() { deferred.reject(); });
                 } else {
-                    deferred.reject();
+                    deferred.resolve();
                 }
             }).promise();
         };
@@ -198,11 +179,13 @@ define([
                 )
                     .done(function (answer) {
                         if (answer === $.t('ovs:generic.yes')) {
-                            api.post('/alba/backends/' + self.albaBackend().guid() + '/add_device', { data: {
-                                ip: device.nic().ip_address,
-                                port: device.nic().port,
-                                serial: device.serialNumber()
-                            }})
+                            api.post('/alba/backends/' + self.albaBackend().guid() + '/add_device', {
+                                data: {
+                                    ip: device.nic().ip_address,
+                                    port: device.nic().port,
+                                    serial: device.serialNumber()
+                                }
+                            })
                                 .then(self.shared.tasks.wait)
                                 .done(function() {
                                         generic.alertSuccess(
@@ -235,9 +218,8 @@ define([
         self.activate = function(mode, guid) {
             self.backend(new Backend(guid));
 
-            self.refreshDevices();
-            self.refreshVPools();
-            self.refreshDiscoveredDevices(undefined, false);
+            self.loadVPools();
+            self.loadDiscoveredDevices(1, false);
 
             self.refresher.init(self.load, 5000);
             self.refresher.run();

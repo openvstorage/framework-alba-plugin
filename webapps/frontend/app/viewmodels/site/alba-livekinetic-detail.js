@@ -49,9 +49,9 @@ define([
             return $.Deferred(function (deferred) {
                 api.get('alba/livekineticdevices/' + self.deviceGuid())
                     .done(function(data) {
-                        var device = new LiveKineticDevice(data.configuration.serialNumber);
+                        var device = new LiveKineticDevice(data.data.configuration.serialNumber);
                         self.device(device);
-                        device.fillData(data);
+                        device.fillData(data.data);
                         deferred.resolve();
                     })
             }).promise();
@@ -61,8 +61,11 @@ define([
                 self.device().refresh();
             }
         };
-        self.refreshNics = function() {
-            // Not un use, for mapping only
+        self.loadNetworkInterfaces = function() {
+            return $.Deferred(function(deferred) {
+                deferred.resolve();
+                // Not un use yet, for mapping only
+            }).promise();
         };
         self.formatBytes = function(value) {
             return generic.formatBytes(value);

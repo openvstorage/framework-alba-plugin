@@ -105,8 +105,7 @@ All rights reserved
                 <div class="tab-content">
                     <div class="tab-pane active" id="nics" style="padding: 15px;">
                         <h4 data-i18n="alba:generic.nics"></h4>
-                        <div data-bind="pager: { items: networkInterfaces, headers: $root.nicHeaders, initialLoad: $root.loading,
-                                         viewportRefresh: $root.refreshNics, viewportRefreshInterval: 5000, controls: true }">
+                        <div data-bind="pager: { loadData: loadNetworkInterfaces, headers: $root.nicHeaders, refreshInterval: 5000, controls: true }">
                             <table data-dummy="dummy">
                                 <tr data-part="vitem">
                                     <td><span data-bind="text: interface"></span></td>

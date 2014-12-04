@@ -5,7 +5,7 @@
 AlbaController module
 """
 
-from ovs.celery import celery
+from ovs.celery_run import celery
 from ovs.log.logHandler import LogHandler
 from ovs.lib.kineticdevice import KineticDeviceController
 from ovs.dal.hybrids.kineticdevice import KineticDevice

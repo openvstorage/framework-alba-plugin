@@ -95,8 +95,7 @@ All rights reserved
         <div class="tab-content">
             <div class="tab-pane active" id="devices" style="padding: 15px;">
                 <h4 data-i18n="alba:generic.devices"></h4>
-                <div data-bind="pager: { items: devices, headers: deviceHeaders, initialLoad: devicesInitialLoad,
-                                         viewportRefresh: refreshDevices, viewportRefreshInterval: 5000, controls: true }">
+                <div data-bind="pager: { loadData: loadDevices, headers: deviceHeaders, refreshInterval: 5000, controls: true }">
                     <table data-dummy="dummy">
                         <tr data-part="vitem">
                             <td>
@@ -124,8 +123,7 @@ All rights reserved
             </div>
             <div class="tab-pane" id="vpools" style="padding: 15px;">
                 <h4 data-i18n="ovs:generic.vpools"></h4>
-                <div data-bind="pager: { items: vPools, headers: vPoolHeaders, initialLoad: vPoolsInitialLoad,
-                                         viewportRefresh: refreshVPools, viewportRefreshInterval: 5000, controls: true }">
+                <div data-bind="pager: { loadData: loadVPools, headers: vPoolHeaders, refreshInterval: 5000, controls: true }">
                     <table data-dummy="dummy">
                         <tr data-part="vitem">
                             <td>n/a</td>
@@ -140,8 +138,8 @@ All rights reserved
             </div>
             <div class="tab-pane" id="management" style="padding: 15px;" data-bind="visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
                 <h4 data-i18n="alba:generic.unclaimeddevices"></h4>
-                <div data-bind="pager: { items: availableDevices, headers: discoveredDeviceHeaders, initialLoad: discoveredDevicesInitialLoad,
-                                         viewportRefresh: refreshDiscoveredDevices, viewportRefreshInterval: 5000, controls: true }">
+                <div data-bind="pager: { loadData: loadDiscoveredDevices, headers: discoveredDeviceHeaders, refreshInterval: 5000,
+                                         controls: true, key: 'serialNumber' }">
                     <table data-dummy="dummy">
                         <tr data-part="vitem">
                             <td>

@@ -5,7 +5,7 @@
 KineticDeviceController module
 """
 
-from ovs.celery import celery
+from ovs.celery_run import celery
 from ovs.log.logHandler import LogHandler
 from ovs.extensions.storage.volatilefactory import VolatileFactory
 from ovs.extensions.generic.seagatekinetic import Kinetic
