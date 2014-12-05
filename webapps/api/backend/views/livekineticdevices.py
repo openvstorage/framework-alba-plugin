@@ -29,16 +29,20 @@ class LiveKineticDeviceViewSet(viewsets.ViewSet):
         """
         Lists all Kinetic devices that can be discovered
         """
-        contents = request.QUERY_PARAMS.get('contents')
-        contents = None if contents is None else contents.split(',')
         page = request.QUERY_PARAMS.get('page')
         page = int(page) if page is not None and page.isdigit() else None
+        contents = request.QUERY_PARAMS.get('contents')
+        contents = None if contents is None else contents.split(',')
 
         found_devices = KineticDeviceController.discover.delay(interval=31, fresh=fresh).get()
+
+        # Filter contents
+        # - All properties are considered to be dynamic properties. However, it doesn't make sense to not load all
+        #   dynamics, since they are all loaded anyway
         if contents is not None:
             devices = []
             properties = ['network_interfaces', 'utilization', 'temperature', 'capacity',
-                         'configuration', 'statistics', 'limits']
+                          'configuration', 'statistics', 'limits']
             for device in found_devices:
                 cleaned_device = {}
                 if '_dynamics' in contents or any(c in contents for c in properties):
@@ -49,19 +53,48 @@ class LiveKineticDeviceViewSet(viewsets.ViewSet):
         else:
             devices = found_devices
 
+        # Paging
+        items_pp = 10
+        total_items = len(devices)
+        page_metadata = {'total_items': total_items,
+                         'current_page': 1,
+                         'max_page': 1,
+                         'start_number': min(1, total_items),
+                         'end_number': total_items}
         if page is not None:
-            max_page = int(math.ceil(len(devices) / 10.0))
+            max_page = int(math.ceil(total_items / (items_pp * 1.0)))
             if page > max_page:
                 page = max_page
-            page -= 1
-            devices = devices[page * 10: (page + 1) * 10]
-        return Response(devices, status=status.HTTP_200_OK)
+            if page == 0:
+                start_number = -1
+                end_number = 0
+            else:
+                start_number = (page - 1) * items_pp  # Index - e.g. 0 for page 1, 10 for page 2
+                end_number = start_number + items_pp  # Index - e.g. 10 for page 1, 20 for page 2
+            devices = devices[start_number: end_number]
+            page_metadata = dict(page_metadata.items() + {'current_page': max(1, page),
+                                                          'max_page': max(1, max_page),
+                                                          'start_number': start_number + 1,
+                                                          'end_number': min(total_items, end_number)}.items())
+
+        # Sorting
+        # - There is no sorting yet here, the devices are returned in the order they are received from the discover
+        #   method, which is sorted by serial number
+
+        result = {'data': devices,
+                  '_paging': page_metadata,
+                  '_contents': contents,
+                  '_sorting': []}
+        return Response(result, status=status.HTTP_200_OK)
 
     @required_roles(['read'])
     @load()
     def retrieve(self, pk):
         """
-        Load information about a given live Kinetic device
+        Load information about a given live Kinetic device.
+
+        The primary key here is actually a fake guid containing the ip and port:
+        E.g. 10.100.169.100 port 1803 would be encoded like: 00000010-0100-0169-0100-000000001803
         """
         if re.match('^[0-9]{8}\-[0-9]{4}\-[0-9]{4}\-[0-9]{4}\-[0-9]{12}$', pk):
             pieces = pk.split('-')

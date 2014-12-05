@@ -37,6 +37,8 @@ define([
             return self.networkInterfaces()[0];
         });
         self.guid = ko.computed(function() {
+            // The guid in this container object is fake; it contains the ip and port wrapped as a guid for passing
+            // to the API. This way, the API can use this ip/port to load certain information.
             var nic = self.nic(), ip, ipParts, port;
             if (nic === undefined) {
                 return '00000000-0000-0000-0000-000000000000';
