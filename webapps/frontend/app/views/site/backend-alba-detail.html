@@ -74,7 +74,7 @@ All rights reserved
                 </div>
             <!-- /ko -->
             <!-- ko if: albaBackend() === undefined -->
-                <div class="tab-pane active" id="information" style="padding: 15px;">
+                <div class="tab-pane active" id="information-undefined" style="padding: 15px;">
                     <span class="fa fa-spin" data-i18n="[html]ovs:icons.loading"></span>
                 </div>
             <!-- /ko -->
@@ -143,7 +143,7 @@ All rights reserved
                     <table data-dummy="dummy">
                         <tr data-part="vitem">
                             <td>
-                                <a data-bind="text: serialNumber,
+                                <a data-bind="text: capacity() !== undefined ? serialNumber : '',
                                               attr: { href: $root.shared.routing.loadHash('alba-livekinetic-detail', { guid: guid }) }"></a>
                             </td>
                             <td>

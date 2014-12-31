@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# Update ownership
+TARGET=/opt/OpenvStorage/ovs/
+chown -R ovs:ovs ${TARGET}

@@ -11,9 +11,8 @@ from backend.decorators import required_roles, load
 from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from ovs.lib.kineticdevice import KineticDeviceController
+from ovs.lib.storagebackend import StorageBackendController
 from rest_framework.exceptions import NotAcceptable
-
 
 class LiveKineticDeviceViewSet(viewsets.ViewSet):
     """
@@ -34,15 +33,14 @@ class LiveKineticDeviceViewSet(viewsets.ViewSet):
         contents = request.QUERY_PARAMS.get('contents')
         contents = None if contents is None else contents.split(',')
 
-        found_devices = KineticDeviceController.discover.delay(interval=31, fresh=fresh).get()
-
+        found_devices = StorageBackendController.discover.delay(interval=11, fresh=fresh).get()
         # Filter contents
         # - All properties are considered to be dynamic properties. However, it doesn't make sense to not load all
         #   dynamics, since they are all loaded anyway
         if contents is not None:
             devices = []
             properties = ['network_interfaces', 'utilization', 'temperature', 'capacity',
-                          'configuration', 'statistics', 'limits']
+                          'configuration', 'statistics', 'limits', 'serialNumber']
             for device in found_devices:
                 cleaned_device = {}
                 if '_dynamics' in contents or any(c in contents for c in properties):

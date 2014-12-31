@@ -54,16 +54,17 @@ define([
         // Functions
         self.fillData = function(data) {
             generic.trySet(self.networkInterfaces, data, 'network_interfaces');
+            generic.trySet(self.configuration, data, 'configuration');
             generic.trySet(self.statistics, data, 'statistics');
             generic.trySet(self.capacity, data, 'capacity');
             generic.trySet(self.temperature, data, 'temperature');
             generic.trySet(self.limits, data, 'limits');
             generic.trySet(self.utilization, data, 'utilization');
-            generic.trySet(self.configuration, data, 'configuration');
-            if (data.hasOwnProperty('statistics')) {
-                self.putsPerSecond(data.statistics.PUT.count);
-                self.getsPerSecond(data.statistics.GET.count);
-            }
+
+            //if (data.hasOwnProperty('statistics')) {
+            //    self.putsPerSecond(data.statistics.PUT.count);
+            //    self.getsPerSecond(data.statistics.GET.count);
+            //}
 
             self.loaded(true);
             self.loading(false);
