@@ -14,9 +14,9 @@ import os
 import errno
 import json
 from subprocess import check_output
-from kinetic.common import LogTypes
-from kinetic.kinetic_pb2 import Message
-from kinetic import AdminClient
+# from kinetic.common import LogTypes
+# from kinetic.kinetic_pb2 import Message
+# from kinetic import AdminClient
 from ovs.log.logHandler import LogHandler
 
 logger = LogHandler('alba.extensions', name='kinetic')
@@ -112,37 +112,38 @@ class Kinetic(object):
         """
         Loads information about a Kinetic device
         """
-        messagetypes = Message.MessageType.DESCRIPTOR.values_by_number
-        logtypes = LogTypes.all()
-        client = AdminClient(ip, port)
-        client.connect()
-        information = client.getLog(logtypes)
-        client.close()
-        interfaces = [i for i in information.configuration.interface
-                      if hasattr(i, 'MAC') and i.ipv4Address != '127.0.0.1' and Kinetic.is_valid(i.ipv4Address, i.MAC)]
-        return {'utilization': dict((u.name, u.value) for u in information.utilization),
-                'temperature': dict((t.name, {'current': t.current,
-                                              'minimum': t.minimum,
-                                              'maximum': t.maximum,
-                                              'target': t.target}) for t in information.temperature),
-                'capacity': {'nominal': information.capacity.nominalCapacityInBytes,
-                             'percent_empty': information.capacity.portionFull},
-                'configuration': dict((p, getattr(information.configuration, p)) for p in dir(information.configuration)
-                                      if p in ['model', 'protocolCompilationDate', 'protocolSourceHash',
-                                               'protocolVersion', 'serialNumber', 'sourceHash', 'vendor',
-                                               'version', 'worldWideName']),
-                'statistics': dict((messagetypes[s.messageType].name, {'count': s.count,
-                                                                       'bytes': s.bytes})
-                                   for s in information.statistics),
-                'limits': dict((l, getattr(information.limits, l)) for l in dir(information.limits)
-                               if l in ['maxConnections', 'maxIdentityCount', 'maxKeyRangeCount', 'maxKeySize',
-                                        'maxMessageSize', 'maxOutstandingReadRequests', 'maxOutstandingWriteRequests',
-                                        'maxTagSize', 'maxValueSize', 'maxVersionSize']),
-                'network_interfaces': [{'ip_address': i.ipv4Address,
-                                        'mac_address': i.MAC,
-                                        'interface': i.name,
-                                        'port': information.configuration.port,
-                                        'tlsPort': information.configuration.tlsPort} for i in interfaces]}
+        # messagetypes = Message.MessageType.DESCRIPTOR.values_by_number
+        # logtypes = LogTypes.all()
+        # client = AdminClient(ip, port)
+        # client.connect()
+        # information = client.getLog(logtypes)
+        # client.close()
+        return True
+        # interfaces = [i for i in information.configuration.interface
+        #               if hasattr(i, 'MAC') and i.ipv4Address != '127.0.0.1' and Kinetic.is_valid(i.ipv4Address, i.MAC)]
+        # return {'utilization': dict((u.name, u.value) for u in information.utilization),
+        #         'temperature': dict((t.name, {'current': t.current,
+        #                                       'minimum': t.minimum,
+        #                                       'maximum': t.maximum,
+        #                                       'target': t.target}) for t in information.temperature),
+        #         'capacity': {'nominal': information.capacity.nominalCapacityInBytes,
+        #                      'percent_empty': information.capacity.portionFull},
+        #         'configuration': dict((p, getattr(information.configuration, p)) for p in dir(information.configuration)
+        #                               if p in ['model', 'protocolCompilationDate', 'protocolSourceHash',
+        #                                        'protocolVersion', 'serialNumber', 'sourceHash', 'vendor',
+        #                                        'version', 'worldWideName']),
+        #         'statistics': dict((messagetypes[s.messageType].name, {'count': s.count,
+        #                                                                'bytes': s.bytes})
+        #                            for s in information.statistics),
+        #         'limits': dict((l, getattr(information.limits, l)) for l in dir(information.limits)
+        #                        if l in ['maxConnections', 'maxIdentityCount', 'maxKeyRangeCount', 'maxKeySize',
+        #                                 'maxMessageSize', 'maxOutstandingReadRequests', 'maxOutstandingWriteRequests',
+        #                                 'maxTagSize', 'maxValueSize', 'maxVersionSize']),
+        #         'network_interfaces': [{'ip_address': i.ipv4Address,
+        #                                 'mac_address': i.MAC,
+        #                                 'interface': i.name,
+        #                                 'port': information.configuration.port,
+        #                                 'tlsPort': information.configuration.tlsPort} for i in interfaces]}
 
     @staticmethod
     def is_valid(ip, mac, port=None):
