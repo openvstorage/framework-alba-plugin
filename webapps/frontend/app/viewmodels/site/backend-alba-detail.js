@@ -39,12 +39,19 @@ define([
             { key: 'model',    value: $.t('alba:generic.model'),     width: undefined },
             { key: 'actions',  value: $.t('alba:generic.add'),       width: 50        }
         ];
+        self.discoveredUnitHeaders = [
+            { key: 'id',        value: $.t('alba:generic.id'),        width: 400       },
+            { key: 'nrOfDisks', value: $.t('alba:generic.nrofdisks'), width: 200       },
+            { key: 'capacity',  value: $.t('alba:generic.capacity'),  width: 110       },
+            { key: 'actions',   value: $.t('alba:generic.add'),       width: 50        }
+        ];
         self.discoveredDevicesHandle = {};
         self.devicesHandle           = {};
 
         // Observables
         self.backend                      = ko.observable();
         self.albaBackend                  = ko.observable();
+        self.discoveredUnits              = ko.observableArray([]);
         self.devices                      = ko.observableArray([]);
         self.devicesInitialLoad           = ko.observable(true);
         self.vPools                       = ko.observableArray([]);
@@ -151,6 +158,25 @@ define([
                     };
                     self.discoveredDevicesHandle[page] = api.get('alba/livekineticdevices', { queryparams: options })
                         .done(function(data) {
+                            var units = [];
+                            $.each(data.data, function(index, item) {
+                                var i, found = false;
+                                for (i = 0; i < units.length; i += 1) {
+                                    if (item.configuration.chassis === units[i].id) {
+                                        found = true;
+                                        units[i].nrOfDisks = units[i].nrOfDisks + 1;
+                                        units[i].capacity = parseInt(units[i].capacity) + parseInt(item.capacity.nominal);
+                                    }
+                                }
+                                if (found === false) {
+                                    units.push({id: item.configuration.chassis,
+                                                nrOfDisks: 1,
+                                                capacity: item.capacity.nominal});
+                                }
+                            });
+
+                            generic.syncObservableArray(units, self.discoveredUnits, 'id', true);
+
                             deferred.resolve({
                                 data: data,
                                 loader: function(serialNumber) {
