@@ -9,7 +9,7 @@ from ovs.dal.hybrids.backendtype import BackendType
 from ovs.dal.hybrids.servicetype import ServiceType
 
 
-class ALBAMigrator():
+class ALBAMigrator(object):
     """
     Handles all model related migrations
     """
