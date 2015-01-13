@@ -26,7 +26,7 @@ class LiveKineticDeviceViewSet(viewsets.ViewSet):
     @load()
     def list(self, request, fresh=False):
         """
-        Lists all Kinetic devices that can be discovered
+        Lists all discovered devices
         """
         page = request.QUERY_PARAMS.get('page')
         page = int(page) if page is not None and page.isdigit() else None
@@ -98,5 +98,5 @@ class LiveKineticDeviceViewSet(viewsets.ViewSet):
             pieces = pk.split('-')
             ip = '{0}.{1}.{2}.{3}'.format(int(pieces[0]), int(pieces[1]), int(pieces[2]), int(pieces[3]))
             port = int(pieces[4])
-            return Response(KineticDeviceController.get_device_info.delay(ip, port).get(), status=status.HTTP_200_OK)
+            return Response(StorageBackendController.get_device_info.delay(ip, port).get(), status=status.HTTP_200_OK)
         raise NotAcceptable('Invalid key (should be a guid where the first 4 parts represent the ip, and the last one the port. E.g. 192.168.1.100 port 8123 would be 00000192-0168-0001-0100-000000008123)')

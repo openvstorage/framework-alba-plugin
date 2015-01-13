@@ -94,20 +94,14 @@ All rights reserved
         </ul>
         <div class="tab-content">
             <div class="tab-pane active" id="devices" style="padding: 15px;">
-                <h4 data-i18n="alba:generic.devices"></h4>
-                <div data-bind="pager: { loadData: loadDevices, headers: deviceHeaders, refreshInterval: 5000, controls: true }">
+                <h4 data-i18n="alba:storageunit.registeredunits"></h4>
+                <div data-bind="pager: { loadData: loadRegisteredDevices, items: registeredUnits, headers: registeredDeviceHeaders, refreshInterval: 5000,
+                                         controls: true, key: 'id' }">
                     <table data-dummy="dummy">
                         <tr data-part="vitem">
-                            <td>
-                                <a data-bind="text: serialNumber,
-                                              attr: { href: $root.shared.routing.loadHash('alba-livekinetic-detail', { guid: liveguid }) }"></a>
-                            </td>
-                            <td>
-                                <span data-bind="foreach: networkInterfaces"><span data-bind="visible: $index() > 0">,</span>
-                                <span data-bind="text: $data.ip_address"></span></span>
-                            </td>
-                            <td data-bind="text: capacity() !== undefined ? $root.formatBytes(capacity()) : ''"></td>
-                            <td data-bind="text: capacity() !== undefined ? $root.formatPercentage(percentFree()) : ''"></td>
+                            <td data-bind="text: id"></td>
+                            <td data-bind="text: nrOfDisks"></td>
+                            <td data-bind="text: $root.formatBytes(capacity)"></td>
                             <td>
                                 <div data-bind="status: {
                                                     colors: {
@@ -137,7 +131,7 @@ All rights reserved
                 </div>
             </div>
             <div class="tab-pane" id="management" style="padding: 15px;" data-bind="visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
-                <h4 data-i18n="alba:generic.unclaimeddevices"></h4>
+                <h4 data-i18n="alba:storageunit.unclaimedunits"></h4>
                 <div data-bind="pager: { loadData: loadDiscoveredDevices, items: discoveredUnits, headers: discoveredUnitHeaders, refreshInterval: 5000,
                                          controls: true, key: 'id' }">
                     <table data-dummy="dummy">
@@ -149,7 +143,7 @@ All rights reserved
                                 <i data-bind="attr: { id: 'kineticAdd_' + id },
                                               click: function() {
                                                   if ($.inArray('manage', $root.shared.user.roles()) !== -1) {
-                                                      $root.addDevice(serialNumber());
+                                                      $root.addUnit(id);
                                                   }
                                               },
                                               tooltip: 'alba:generic.add',
