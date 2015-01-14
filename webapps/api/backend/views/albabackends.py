@@ -18,6 +18,7 @@ from ovs.lib.albacontroller import AlbaController
 
 import math
 
+
 class AlbaBackendViewSet(viewsets.ViewSet):
     """
     Information about ALBA Backends
@@ -104,7 +105,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         #   dynamics, since they are all loaded anyway
 
         # [{"box-id": "2000",
-        #   "ip": ["10.100.186.211"],
+        #   "ips": ["10.100.186.211"],
         #   "port": 8001,
         #   "kind": "Asd",
         #   "hostnames": ["::1"],
@@ -112,15 +113,17 @@ class AlbaBackendViewSet(viewsets.ViewSet):
 
         if contents is not None:
             devices = []
-            print '** devices ' + str(registered_devices)
-            properties = ['ip', 'port', 'box_id', 'kind', 'asd_id']
+            properties = ['box_id', 'ips', 'port', 'kind', 'asd_id']
             for device in registered_devices:
-                print device
                 cleaned_device = {}
                 if '_dynamics' in contents or any(c in contents for c in properties):
                     for prop in properties:
                         if ('_dynamics' in contents or prop in contents) and '-{0}'.format(prop) not in contents:
-                            cleaned_device[prop] = device[prop]
+                            if prop == 'ip':
+                                # @todo: handling of multiple ips: OVS-1600
+                                cleaned_device[prop] = device[prop[0]]
+                            else:
+                                cleaned_device[prop] = device[prop]
                 devices.append(cleaned_device)
         else:
             devices = registered_devices
