@@ -1,16 +1,30 @@
 #!/bin/bash
 
-if [ -z "$1" ]
-  then
-    echo "Specify only 1 argument specifying alba pkg version to update to"
-    echo "E.g. alba-b79a413"
-    exit 1
+if [ -z "$1" -o "$1" = "-h" ]; then
+  echo "command: <PKG> [-clean]"
+  echo "e.g.:"
+  echo "Update alba binaries and keep data + configuration: "
+  echo "./update_alba.sh alba-0.1.0-467-gd939655"
+  echo ""
+  echo "Update and clean database/asd id:"
+  echo "./update_alba.sh alba-0.1.0-467-gd939655 -clean"
+  echo ""
+  exit 0
 fi
 
 mkdir -p /opt/alba/bin
 mkdir -p /opt/alba/lib
 
 PKG=$1
+BOX_ID=1
+
+# status asds
+echo
+echo "Status:"
+status alba-data1
+status alba-data2
+status alba-data3
+status alba-data4
 
 # stop asds
 echo
@@ -24,29 +38,44 @@ echo
 rm /root/${PKG}.tgz
 rm -rf /root/${PKG}
 
+if [ "$2" = "-clean" ]; then
+    rm -rf /mnt/data*/*
+fi
+
 wget http://jenkins.cloudfounders.com/view/alba/job/alba_package/lastSuccessfulBuild/artifact/${PKG}.tgz
 gunzip ${PKG}.tgz
 tar xvf ${PKG}.tar
 cd ${PKG}
 cp bin/alba.native /opt/alba/bin/alba
 
-cp shared_libs/libcrypto.so.1.0.0 /opt/alba/lib/
-cp shared_libs/libssl.so.1.0.0 /opt/alba/lib/
-cp shared_libs/libpthread.so.0 /opt/alba/lib/
-cp shared_libs/libffi.so.6 /opt/alba/lib/
-cp shared_libs/libstdc++.so.6 /opt/alba/lib/
-cp shared_libs/libsnappy.so.1 /opt/alba/lib/
-cp shared_libs/libbz2.so.1.0 /opt/alba/lib/
-cp shared_libs/libz.so.1 /opt/alba/lib/
-cp shared_libs/librocksdb.so /opt/alba/lib/
-cp shared_libs/libJerasure.so.2 /opt/alba/lib/
-cp shared_libs/libm.so.6 /opt/alba/lib/
-cp shared_libs/libdl.so.2 /opt/alba/lib/
-cp shared_libs/libgcc_s.so.1 /opt/alba/lib/
-cp shared_libs/libc.so.6 /opt/alba/lib/
-cp shared_libs/libgf_complete.so.1 /opt/alba/lib
+cp shared_libs/* /opt/alba/lib/
 
 chmod 755 /opt/alba/bin/*
+
+port=8000
+for asd in data1 data2 data3 data4; do
+  (( port = port + 1))
+  if [ "$2" = "-clean" -o ! -f "/etc/init/alba-${asd}.conf" ]; then
+  cat <<EOF > /etc/init/alba-${asd}.conf
+description "alba osd startup"
+
+start on (local-filesystems and started networking)
+stop on runlevel [016]
+
+kill timeout 60
+respawn
+respawn limit 10 5
+console log
+setuid alba
+setgid alba
+
+env LD_LIBRARY_PATH=/opt/alba/lib
+chdir /opt/alba
+
+exec /opt/alba/bin/alba asd-start --path /mnt/${asd} --host 10.100.186.211 --port ${port} --box-id ${BOX_ID}
+EOF
+  fi
+done
 
 echo
 start alba-data1
@@ -67,3 +96,5 @@ tail /var/log/upstart/alba-data1.log
 tail /var/log/upstart/alba-data2.log
 tail /var/log/upstart/alba-data3.log
 tail /var/log/upstart/alba-data4.log
+
+ps -ef | grep alba
