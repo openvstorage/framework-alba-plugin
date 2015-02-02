@@ -6,10 +6,13 @@ AlbaController module
 """
 
 from ovs.celery_run import celery
-from ovs.log.logHandler import LogHandler
-from ovs.lib.kineticdevice import KineticDeviceController
 from ovs.dal.hybrids.kineticdevice import KineticDevice
 from ovs.dal.hybrids.albabackend import AlbaBackend
+from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
+from ovs.lib.kineticdevice import KineticDeviceController
+from ovs.lib.setup import System
+from ovs.log.logHandler import LogHandler
+
 from subprocess import check_output
 import json
 
@@ -72,3 +75,34 @@ class AlbaController(object):
         output = check_output(cmd, shell=True).strip()
 
         return json.loads(output)
+
+    @staticmethod
+    @celery.task(name='alba.add_cluster')
+    def add_cluster(cluster_name, ip, base_dir=None, client_port=None, messaging_port=None):
+        """
+        Adds an arakoon cluster to service backend
+        """
+        # @todo: parameters should be dynamically retrieved from modelled Service(s)
+
+        ovs_config = System.read_ovs_config()
+        if base_dir is None:
+            base_dir = ovs_config.get('arakoon', 'base.dir')
+        if client_port is None:
+            client_port = ovs_config.get('arakoon', 'client.port')
+        if messaging_port is None:
+            messaging_port = ovs_config.get('arakoon', 'messaging.port')
+
+        alba_manager = cluster_name + "-abm_0"
+        namespace_manager = cluster_name + "-nsm_0"
+
+        ArakoonInstaller.create_cluster(base_dir, alba_manager, ip, client_port, messaging_port, ArakoonInstaller.ABM_PLUGIN)
+        ArakoonInstaller.create_cluster(base_dir, namespace_manager, ip, client_port, messaging_port, ArakoonInstaller.NSM_PLUGIN)
+
+    @staticmethod
+    @celery.task(name='alba.extend_cluster')
+    def extend_cluster(cluster_name, source_ip):
+        """
+        Extends an arakoon cluster to local host based on existing config on source ip
+        """
+        # @todo: to be implemented
+        pass

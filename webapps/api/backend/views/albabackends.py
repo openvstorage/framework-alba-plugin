@@ -12,6 +12,7 @@ from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albabackendlist import AlbaBackendList
+from ovs.dal.lists.storagerouterlist import StorageRouterList
 from oauth2.toolbox import Toolbox as OAuth2Toolbox
 from rest_framework.decorators import action, link
 from ovs.lib.albacontroller import AlbaController
@@ -32,7 +33,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @load()
     def list(self):
         """
-        Lists all available ALBABackends
+        Lists all available ALBA Backends
         """
         return AlbaBackendList.get_albabackends()
 
@@ -56,6 +57,9 @@ class AlbaBackendViewSet(viewsets.ViewSet):
             alba_backend = serializer.object
             alba_backend.accesskey = OAuth2Toolbox.create_hash(32)
             alba_backend.save()
+            master_ips = [master.ip for master in StorageRouterList.get_masters()]
+            master_ips.sort()
+            AlbaController.add_cluster.delay(alba_backend.backend.name, master_ips[0])
             serializer = FullSerializer(AlbaBackend, instance=alba_backend)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
