@@ -8,10 +8,13 @@ if [ -z "$1" ]
 fi
 
 mkdir -p /opt/alba/bin
-mkdir -p /opt/alba/cfg
 mkdir -p /opt/alba/arakoon/bin
 mkdir -p /opt/alba/arakoon/cfg
 mkdir -p /opt/alba/lib
+mkdir -p /opt/alba/plugins
+
+ln -s /opt/alba/plugins/albamgr_plugin.cmxs /opt/alba/arakoon/albamgr_plugin.cmxs
+ln -s /opt/alba/plugins/nsm_host_plugin.cmxs /opt/alba/arakoon/nsm_host_plugin.cmxs
 
 cat <<EOF > /opt/alba/arakoon/cfg/alba.ini
 [global]
@@ -26,12 +29,6 @@ client_port = 4000
 messaging_port = 4010
 home = /opt/alba/arakoon
 log_level = debug
-EOF
-
-cat <<EOF > /opt/alba/cfg/alba-proxy.json
-{
-    "albamgr_config_file" : "/opt/alba/arakoon/cfg/alba.ini"
-}
 EOF
 
 PKG=$1
@@ -53,14 +50,14 @@ cd ${PKG}
 cp bin/alba.native /opt/alba/bin/alba
 cp bin/arakoon.native /opt/alba/arakoon/bin/alba-arakoon
 
-cp plugins/* /opt/alba/arakoon/
+cp plugins/* /opt/alba/plugins/
 
 cp shared_libs/* /opt/alba/lib/
 
 chmod 755 /opt/alba/bin/*
 chmod 755 /opt/alba/arakoon/bin/*
 
-cat <<EOF > /etc/init/alba-proxy.conf]
+cat <<EOF > /etc/init/alba-proxy.conf
 description "alba proxy"
 
 start on (local-filesystems and started networking)
@@ -119,3 +116,4 @@ echo
 tail /var/log/upstart/alba-arakoon.log
 tail /var/log/upstart/alba-proxy.log
 
+ps -ef | grep alba
