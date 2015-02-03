@@ -101,7 +101,7 @@ All rights reserved
                         <tr data-part="vitem">
                             <td data-bind="text: id"></td>
                             <td data-bind="text: nrOfDisks"></td>
-                            <td data-bind="text: $root.formatBytes(capacity)"></td>
+                            <td data-bind="text: $root.formatBytes(capacity())"></td>
                             <td>
                                 <div data-bind="status: {
                                                     colors: {
@@ -138,7 +138,7 @@ All rights reserved
                         <tr data-part="vitem">
                             <td data-bind="text: id"></td>
                             <td data-bind="text: nrOfDisks"></td>
-                            <td data-bind="text: $root.formatBytes(capacity)"></td>
+                            <td data-bind="text: $root.formatBytes(capacity())"></td>
                             <td>
                                 <i data-bind="attr: { id: 'kineticAdd_' + id },
                                               click: function() {

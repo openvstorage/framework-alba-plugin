@@ -2,7 +2,7 @@
 # All rights reserved
 
 """
-KineticDeviceController module
+StorageBackendController module
 """
 
 from ovs.celery_run import celery

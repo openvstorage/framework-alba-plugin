@@ -9,7 +9,6 @@ from ovs.celery_run import celery
 from ovs.dal.hybrids.kineticdevice import KineticDevice
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
-from ovs.lib.kineticdevice import KineticDeviceController
 from ovs.lib.setup import System
 from ovs.log.logHandler import LogHandler
 
@@ -30,9 +29,7 @@ class AlbaController(object):
         """
         Adds a storage unit to an Alba backend
         """
-        device = KineticDeviceController.get_device_info(ip, port)
-        if device['configuration']['serialNumber'] != serial:
-            raise RuntimeError('The Kinetic device has a different serial number')
+        # @TODO: Try to validate whether the ip and port are matching the given serial (maybe ask the AM?)
 
         model_device = KineticDevice()
         model_device.alba_backend = AlbaBackend(alba_backend_guid)

@@ -14,6 +14,7 @@ from rest_framework.permissions import IsAuthenticated
 from ovs.lib.storagebackend import StorageBackendController
 from rest_framework.exceptions import NotAcceptable
 
+
 class LiveKineticDeviceViewSet(viewsets.ViewSet):
     """
     Information about live Kinetic devices

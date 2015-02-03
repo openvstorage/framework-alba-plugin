@@ -135,8 +135,7 @@ class Storagebackend(object):
                 if 'ipv4_addr' in interface and interface['ipv4_addr'] != '127.0.0.1':
                     # @todo: only add reachable ip's ?
                     network_interfaces.append({'ip_address': interface['ipv4_addr'],
-                                               'port': data['port']
-                                               })
+                                               'port': data['port']})
             if not network_interfaces:
                 continue
 
