@@ -57,6 +57,8 @@ class AlbaBackendViewSet(viewsets.ViewSet):
             alba_backend = serializer.object
             alba_backend.accesskey = OAuth2Toolbox.create_hash(32)
             alba_backend.save()
+            alba_backend.backend.status = 'INSTALLING'
+            alba_backend.backend.save()
             master_ips = [master.ip for master in StorageRouterList.get_masters()]
             master_ips.sort()
             AlbaController.add_cluster.delay(alba_backend.backend.name, master_ips[0])

@@ -75,7 +75,7 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.add_cluster')
-    def add_cluster(cluster_name, ip, base_dir=None, client_port=None, messaging_port=None):
+    def add_cluster(alba_backend_guid, ip, base_dir=None, client_port=None, messaging_port=None):
         """
         Adds an arakoon cluster to service backend
         """
@@ -89,11 +89,15 @@ class AlbaController(object):
         if messaging_port is None:
             messaging_port = ovs_config.get('arakoon', 'messaging.port')
 
-        alba_manager = cluster_name + "-abm_0"
-        namespace_manager = cluster_name + "-nsm_0"
+        albabackend = AlbaBackend(alba_backend_guid)
+        abm_name = albabackend.backend.name + "-abm"
+        nsm_name = albabackend.backend.name + "-nsm_0"
 
-        ArakoonInstaller.create_cluster(base_dir, alba_manager, ip, client_port, messaging_port, ArakoonInstaller.ABM_PLUGIN)
-        ArakoonInstaller.create_cluster(base_dir, namespace_manager, ip, client_port, messaging_port, ArakoonInstaller.NSM_PLUGIN)
+        ArakoonInstaller.create_cluster(base_dir, abm_name, ip, client_port, messaging_port, ArakoonInstaller.ABM_PLUGIN)
+        ArakoonInstaller.create_cluster(base_dir, nsm_name, ip, client_port, messaging_port, ArakoonInstaller.NSM_PLUGIN)
+
+        albabackend.backend.status = 'RUNNING'
+        albabackend.backend.save()
 
     @staticmethod
     @celery.task(name='alba.extend_cluster')

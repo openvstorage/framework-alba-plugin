@@ -16,7 +16,7 @@ class StorageBackendController(object):
     """
 
     @staticmethod
-    @celery.task(name='storage.backend.discover')
+    @celery.task(name='alba.storagebackend.discover')
     def discover(interval=0, fresh=False):
         """
         Discovers storage backend devices.

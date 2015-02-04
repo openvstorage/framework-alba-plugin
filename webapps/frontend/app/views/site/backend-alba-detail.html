@@ -54,10 +54,14 @@ All rights reserved
                                 <td style="width: 35%;">
                                     <div data-bind="status: {
                                                         colors: {
-                                                            green: false
+                                                            blue: $root.backend().status() == 'new',
+                                                            green: $root.backend().status() == 'running',
+                                                            orange: $root.backend().status() == 'installing',
+                                                            red: $root.backend().status() == 'failure',
+                                                            black: $root.backend().status() == 'stopped'
                                                         },
                                                         defaultColor: 'lightgrey'
-                                                    }"
+                                                    }, tooltip: 'ovs:generic.states.backend.' + $root.backend().status()"
                                          style="width: 14px; height: 14px;"></div>
                                 </td>
                                 <td style="width: 15%;" data-i18n="ovs:generic.nrofvmachines"></td>
