@@ -8,9 +8,15 @@ AlbaController module
 from ovs.celery_run import celery
 from ovs.dal.hybrids.kineticdevice import KineticDevice
 from ovs.dal.hybrids.albabackend import AlbaBackend
+from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
 from ovs.lib.setup import System
 from ovs.log.logHandler import LogHandler
+
+from ovs.dal.hybrids.j_nsmservice import NSMService
+from ovs.dal.hybrids.j_abmservice import ABMService
+from ovs.dal.hybrids.service import Service
+from ovs.dal.lists.servicetypelist import ServiceTypeList
 
 from subprocess import check_output
 import json
@@ -79,7 +85,8 @@ class AlbaController(object):
         """
         Adds an arakoon cluster to service backend
         """
-        # @todo: parameters should be dynamically retrieved from modelled Service(s)
+        nsmservice_type = ServiceTypeList.get_by_name('NamespaceManager')
+        abmservice_type = ServiceTypeList.get_by_name('AlbaManager')
 
         ovs_config = System.read_ovs_config()
         if base_dir is None:
@@ -93,8 +100,31 @@ class AlbaController(object):
         abm_name = albabackend.backend.name + "-abm"
         nsm_name = albabackend.backend.name + "-nsm_0"
 
-        ArakoonInstaller.create_cluster(base_dir, abm_name, ip, client_port, messaging_port, ArakoonInstaller.ABM_PLUGIN)
-        ArakoonInstaller.create_cluster(base_dir, nsm_name, ip, client_port, messaging_port, ArakoonInstaller.NSM_PLUGIN)
+        result = ArakoonInstaller.create_cluster(base_dir, abm_name, ip, client_port, messaging_port, ArakoonInstaller.ABM_PLUGIN)
+        service = Service()
+        service.name = abm_name
+        service.type = abmservice_type
+        service.ports = [result['client_port'], result['messaging_port']]
+        service.storagerouter = StorageRouterList.get_by_ip(ip)
+        service.save()
+        abm_service = ABMService()
+        abm_service.service = service
+        abm_service.alba_backend = albabackend
+        abm_service.number = 0
+        abm_service.save()
+
+        result = ArakoonInstaller.create_cluster(base_dir, nsm_name, ip, client_port, messaging_port, ArakoonInstaller.NSM_PLUGIN)
+        service = Service()
+        service.name = nsm_name
+        service.type = nsmservice_type
+        service.ports = [result['client_port'], result['messaging_port']]
+        service.storagerouter = StorageRouterList.get_by_ip(ip)
+        service.save()
+        nsm_service = NSMService()
+        nsm_service.service = service
+        nsm_service.alba_backend = albabackend
+        nsm_service.number = 0
+        nsm_service.save()
 
         albabackend.backend.status = 'RUNNING'
         albabackend.backend.save()

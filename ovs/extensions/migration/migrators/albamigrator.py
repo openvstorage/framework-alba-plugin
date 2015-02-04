@@ -43,7 +43,7 @@ class ALBAMigrator(object):
                 backend_type.save()
 
             # Add service types
-            for service_type_info in ['NamespaceManager']:
+            for service_type_info in ['NamespaceManager', 'AlbaManager']:
                 service_type = ServiceType()
                 service_type.name = service_type_info
                 service_type.save()

@@ -61,7 +61,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
             alba_backend.backend.save()
             master_ips = [master.ip for master in StorageRouterList.get_masters()]
             master_ips.sort()
-            AlbaController.add_cluster.delay(alba_backend.backend.name, master_ips[0])
+            AlbaController.add_cluster.delay(alba_backend.guid, master_ips[0])
             serializer = FullSerializer(AlbaBackend, instance=alba_backend)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
