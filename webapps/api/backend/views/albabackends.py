@@ -71,16 +71,6 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaBackend)
-    def add_device(self, albabackend, ip, port, serial):
-        """
-        Add a device to the backend, giving its ip, port and the serial
-        """
-        return AlbaController.add_device.delay(albabackend.guid, ip, port, serial)
-
-    @action()
-    @required_roles(['read', 'write', 'manage'])
-    @return_task()
-    @load(AlbaBackend)
     def add_unit(self, albabackend, devices):
         """
         Add a storage unit to the backend and register with alba nsm

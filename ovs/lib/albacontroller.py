@@ -6,7 +6,6 @@ AlbaController module
 """
 
 from ovs.celery_run import celery
-from ovs.dal.hybrids.kineticdevice import KineticDevice
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
@@ -28,30 +27,12 @@ class AlbaController(object):
     """
     Contains all BLL related to ALBA
     """
-
-    @staticmethod
-    @celery.task(name='alba.add_device')
-    def add_device(alba_backend_guid, serial, ip, port):
-        """
-        Adds a storage unit to an Alba backend
-        """
-        # @TODO: Try to validate whether the ip and port are matching the given serial (maybe ask the AM?)
-
-        model_device = KineticDevice()
-        model_device.alba_backend = AlbaBackend(alba_backend_guid)
-        model_device.serial_number = serial
-        model_device.connection_info = (ip, port)
-        model_device.save()
-
-        # @TODO: Actually do something like adding the device to the backend
-
     @staticmethod
     @celery.task(name='alba.add_unit')
     def add_unit(alba_backend_guid, devices):
         """
         Adds a storage unit to an Alba backend
         """
-
         # @todo: backend name can be used to differentiate between different backend - abm combinations
         alba_backend = AlbaBackend(alba_backend_guid)
 
