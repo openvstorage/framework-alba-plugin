@@ -102,7 +102,7 @@ start alba-arakoon
 sleep 1
 
 # nsm host registration
-# /opt/alba/bin/alba add-nsm-host --config /opt/alba/arakoon/cfg/alba.ini /opt/alba/arakoon/cfg/alba.ini
+/opt/alba/bin/alba add-nsm-host --config /opt/alba/arakoon/cfg/alba.ini /opt/alba/arakoon/cfg/alba.ini
 
 start alba-proxy
 

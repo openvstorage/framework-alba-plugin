@@ -7,6 +7,7 @@ AlbaController module
 
 from ovs.celery_run import celery
 from ovs.dal.hybrids.albabackend import AlbaBackend
+from ovs.dal.lists.servicelist import ServiceList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
 from ovs.lib.setup import System
@@ -62,7 +63,7 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.add_cluster')
-    def add_cluster(alba_backend_guid, ip, base_dir=None, client_port=None, messaging_port=None):
+    def add_cluster(alba_backend_guid, ip, base_dir=None, client_start_port=None, messaging_start_port=None):
         """
         Adds an arakoon cluster to service backend
         """
@@ -72,16 +73,18 @@ class AlbaController(object):
         ovs_config = System.read_ovs_config()
         if base_dir is None:
             base_dir = ovs_config.get('arakoon', 'base.dir')
-        if client_port is None:
-            client_port = ovs_config.get('arakoon', 'client.port')
-        if messaging_port is None:
-            messaging_port = ovs_config.get('arakoon', 'messaging.port')
+        if client_start_port is None:
+            client_start_port = ovs_config.get('arakoon', 'client.port')
+        if messaging_start_port is None:
+            messaging_start_port = ovs_config.get('arakoon', 'messaging.port')
 
         albabackend = AlbaBackend(alba_backend_guid)
         abm_name = albabackend.backend.name + "-abm"
         nsm_name = albabackend.backend.name + "-nsm_0"
 
-        result = ArakoonInstaller.create_cluster(base_dir, abm_name, ip, client_port, messaging_port, ArakoonInstaller.ABM_PLUGIN)
+        ports_to_exclude = ServiceList.get_service_ports_in_use()
+        result = ArakoonInstaller.create_cluster(abm_name, ip, base_dir, client_start_port, messaging_start_port,
+                                                 ports_to_exclude, ArakoonInstaller.ABM_PLUGIN)
         service = Service()
         service.name = abm_name
         service.type = abmservice_type
@@ -94,7 +97,9 @@ class AlbaController(object):
         abm_service.number = 0
         abm_service.save()
 
-        result = ArakoonInstaller.create_cluster(base_dir, nsm_name, ip, client_port, messaging_port, ArakoonInstaller.NSM_PLUGIN)
+        ports_to_exclude = ServiceList.get_service_ports_in_use()
+        result = ArakoonInstaller.create_cluster(nsm_name, ip, base_dir, client_start_port, messaging_start_port,
+                                                 ports_to_exclude, ArakoonInstaller.NSM_PLUGIN)
         service = Service()
         service.name = nsm_name
         service.type = nsmservice_type
