@@ -7,6 +7,7 @@ ALBA migration module
 
 from ovs.dal.hybrids.backendtype import BackendType
 from ovs.dal.hybrids.servicetype import ServiceType
+from ovs.dal.lists.backendtypelist import BackendTypeList
 
 
 class ALBAMigrator(object):
@@ -37,9 +38,12 @@ class ALBAMigrator(object):
         if working_version < 1:
             # Add backends
             for backend_type_info in [('ALBA', 'alba')]:
-                backend_type = BackendType()
+                code = backend_type_info[1]
+                backend_type = BackendTypeList.get_backend_type_by_code(code)
+                if backend_type is None:
+                    backend_type = BackendType()
                 backend_type.name = backend_type_info[0]
-                backend_type.code = backend_type_info[1]
+                backend_type.code = code
                 backend_type.save()
 
             # Add service types

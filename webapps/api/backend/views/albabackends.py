@@ -7,7 +7,7 @@ Contains the AlbaBackendViewSet
 
 from backend.serializers.serializers import FullSerializer
 from rest_framework.response import Response
-from backend.decorators import required_roles, return_object, return_list, load, return_task
+from backend.decorators import required_roles, return_object, return_list, load, return_task, log
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from ovs.dal.hybrids.albabackend import AlbaBackend
@@ -28,6 +28,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     prefix = r'alba/backends'
     base_name = 'albabackends'
 
+    @log()
     @required_roles(['read'])
     @return_list(AlbaBackend)
     @load()
@@ -37,6 +38,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         return AlbaBackendList.get_albabackends()
 
+    @log()
     @required_roles(['read'])
     @return_object(AlbaBackend)
     @load(AlbaBackend)
@@ -46,6 +48,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         return albabackend
 
+    @log()
     @required_roles(['read', 'write', 'manage'])
     @load()
     def create(self, request):
@@ -68,6 +71,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action()
+    @log()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaBackend)
@@ -80,6 +84,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         return AlbaController.add_unit.delay(albabackend.guid, devices)
 
     @link()
+    @log()
     @required_roles(['read'])
     @load(AlbaBackend)
     def list_osds(self, albabackend, request):
@@ -157,3 +162,14 @@ class AlbaBackendViewSet(viewsets.ViewSet):
                   '_contents': contents,
                   '_sorting': []}
         return Response(result, status=status.HTTP_200_OK)
+
+    @link()
+    @log()
+    @required_roles(['read', 'manage'])
+    @return_task()
+    @load(AlbaBackend)
+    def get_config_metadata(self, albabackend):
+        """
+        Gets the configuration metadata for an Alba backend
+        """
+        return AlbaController.get_config_metadata.delay(albabackend.guid)

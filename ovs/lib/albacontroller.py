@@ -118,3 +118,17 @@ class AlbaController(object):
         """
         # @todo: to be implemented
         pass
+
+    @staticmethod
+    @celery.task(name='alba.get_config_metadata')
+    def get_config_metadata(alba_backend_guid):
+        """
+        Gets the configuration metadata for an Alba backend
+        """
+        backend = AlbaBackend(alba_backend_guid)
+        config = ArakoonInstaller.get_client_config_from(backend.abm_service.service.storagerouter.ip,
+                                                         backend.abm_service.service.name)
+        config_dict = {}
+        for section in config.sections():
+            config_dict[section] = dict(config.items(section))
+        return config_dict

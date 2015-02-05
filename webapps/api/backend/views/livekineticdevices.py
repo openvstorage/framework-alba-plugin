@@ -7,7 +7,7 @@ Contains the LiveKineticDeviceViewSet
 
 import re
 import math
-from backend.decorators import required_roles, load
+from backend.decorators import required_roles, load, log
 from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -23,6 +23,7 @@ class LiveKineticDeviceViewSet(viewsets.ViewSet):
     prefix = r'alba/livekineticdevices'
     base_name = 'livekineticdevices'
 
+    @log()
     @required_roles(['read'])
     @load()
     def list(self, request, fresh=False):
@@ -86,6 +87,7 @@ class LiveKineticDeviceViewSet(viewsets.ViewSet):
                   '_sorting': []}
         return Response(result, status=status.HTTP_200_OK)
 
+    @log()
     @required_roles(['read'])
     @load()
     def retrieve(self, pk):
