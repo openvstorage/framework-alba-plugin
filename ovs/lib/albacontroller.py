@@ -36,10 +36,11 @@ class AlbaController(object):
         """
         # @todo: backend name can be used to differentiate between different backend - abm combinations
         alba_backend = AlbaBackend(alba_backend_guid)
+        config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
 
         for device in devices:
             cmd = """export LD_LIBRARY_PATH=/opt/alba/lib; """
-            cmd += """/opt/alba/bin/alba add-osd --config /opt/alba/arakoon/cfg/alba.ini """
+            cmd += """/opt/alba/bin/alba add-osd --config {0} """.format(config_file)
             cmd += """--host {0} --asd-port {1} --asd-id {2} --box-id {3}""".format(device['network_interfaces'][0]['ip_address'],
                                                                                     device['network_interfaces'][0]['port'],
                                                                                     device['serialNumber'],
@@ -54,9 +55,10 @@ class AlbaController(object):
         list registered osds on local alba manager
         """
         alba_backend = AlbaBackend(alba_backend_guid)
+        config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
 
         cmd = """export LD_LIBRARY_PATH=/opt/alba/lib; """
-        cmd += """/opt/alba/bin/alba list-osds --config /opt/alba/arakoon/cfg/alba.ini --to-json 2>/dev/null """
+        cmd += """/opt/alba/bin/alba list-osds --config {0} --to-json 2>/dev/null """.format(config_file)
         output = check_output(cmd, shell=True).strip()
 
         return json.loads(output)
@@ -94,8 +96,8 @@ class AlbaController(object):
         abm_service = ABMService()
         abm_service.service = service
         abm_service.alba_backend = albabackend
-        abm_service.number = 0
         abm_service.save()
+        ArakoonInstaller.start(abm_name, ip)
 
         ports_to_exclude = ServiceList.get_service_ports_in_use()
         result = ArakoonInstaller.create_cluster(nsm_name, ip, base_dir, client_start_port, messaging_start_port,
@@ -111,6 +113,8 @@ class AlbaController(object):
         nsm_service.alba_backend = albabackend
         nsm_service.number = 0
         nsm_service.save()
+        ArakoonInstaller.start(nsm_name, ip)
+        ArakoonInstaller.register_nsm(abm_name, nsm_name, ip)
 
         albabackend.backend.status = 'RUNNING'
         albabackend.backend.save()

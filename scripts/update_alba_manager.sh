@@ -35,7 +35,7 @@ PKG=$1
 
 # stop asds
 echo
-stop alba-proxy
+stop alba-proxyupdate_alba_manager.sh
 stop alba-arakoon
 echo
 
