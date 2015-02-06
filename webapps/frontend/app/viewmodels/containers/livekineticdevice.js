@@ -69,6 +69,12 @@ define([
             self.loaded(true);
             self.loading(false);
         };
+        self.toJS = function() {
+            var js = ko.toJS(self);
+            js.network_interfaces = js.networkInterfaces;
+            delete js.networkInterfaces;
+            return js;
+        };
         self.refresh = function() {
             if (!self.loaded()) {
                 return;

@@ -251,55 +251,12 @@ define([
                 }
             }).promise();
         };
-        self.addDevice = function(serial) {
-            var device;
-            $.each(self.availableDevices(), function(i, availableDevice) {
-                if (availableDevice.serialNumber() === serial) {
-                    device = availableDevice;
-                }
-            });
-            if (device !== undefined) {
-                app.showMessage(
-                    $.t('alba:livekinetic.add.warning', { what: serial }),
-                    $.t('ovs:generic.areyousure'),
-                    [$.t('ovs:generic.no'), $.t('ovs:generic.yes')]
-                )
-                    .done(function (answer) {
-                        if (answer === $.t('ovs:generic.yes')) {
-                            api.post('alba/backends/' + self.albaBackend().guid() + '/add_device', {
-                                data: {
-                                    ip: device.nic().ip_address,
-                                    port: device.nic().port,
-                                    serial: device.serialNumber()
-                                }
-                            })
-                                .then(self.shared.tasks.wait)
-                                .done(function() {
-                                        generic.alertSuccess(
-                                            $.t('alba:livekinetic.add.done'),
-                                            $.t('alba:livekinetic.add.donemsg', { what: serial })
-                                        );
-                                    })
-                                    .fail(function(error) {
-                                        generic.alertError(
-                                            $.t('ovs:generic.error'),
-                                            $.t('ovs:generic.messages.errorwhile', {
-                                                context: 'error',
-                                                what: $.t('alba:livekinetic.add.errormsg', { what: serial }),
-                                                error: error
-                                            })
-                                        );
-                                    });
-                        }
-                    });
-            }
-        };
         self.addUnit = function(id) {
             var devices = [];
             $.each(self.discoveredDevices(), function(i, discoveredDevice) {
-               if (discoveredDevice.configuration.chassis === id) {
-                   devices.push(discoveredDevice);
-               }
+                if (discoveredDevice.configuration().chassis === id) {
+                    devices.push(discoveredDevice.toJS());
+                }
             });
 
             if (devices !== undefined) {

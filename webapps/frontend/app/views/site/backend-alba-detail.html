@@ -38,15 +38,9 @@ All rights reserved
                                 <td style="width: 35%;">n/a</td>
                             </tr>
                             <tr>
-                                <td style="width: 15%;" data-i18n="alba:generic.accesskey"></td>
-                                <td style="width: 35%;"><span data-bind="text: accesskey"></span></td>
-                                <td style="width: 15%;" data-i18n="alba:generic.getss"></td>
-                                <td style="width: 35%;">n/a</td>
-                            </tr>
-                            <tr>
                                 <td style="width: 15%;" data-i18n="alba:generic.nrofdevices"></td>
                                 <td style="width: 35%;">n/a</td>
-                                <td style="width: 15%;" data-i18n="ovs:generic.nrofvpools"></td>
+                                <td style="width: 15%;" data-i18n="alba:generic.getss"></td>
                                 <td style="width: 35%;">n/a</td>
                             </tr>
                             <tr>
@@ -64,6 +58,12 @@ All rights reserved
                                                     }, tooltip: 'ovs:generic.states.backend.' + $root.backend().status()"
                                          style="width: 14px; height: 14px;"></div>
                                 </td>
+                                <td style="width: 15%;" data-i18n="ovs:generic.nrofvpools"></td>
+                                <td style="width: 35%;">n/a</td>
+                            </tr>
+                            <tr>
+                                <td></td>
+                                <td></td>
                                 <td style="width: 15%;" data-i18n="ovs:generic.nrofvmachines"></td>
                                 <td style="width: 35%;">n/a</td>
                             </tr>
@@ -147,7 +147,7 @@ All rights reserved
                                 <i data-bind="attr: { id: 'kineticAdd_' + id },
                                               click: function() {
                                                   if ($.inArray('manage', $root.shared.user.roles()) !== -1) {
-                                                      $root.addUnit(id);
+                                                      $root.addUnit(id());
                                                   }
                                               },
                                               tooltip: 'alba:generic.add',
