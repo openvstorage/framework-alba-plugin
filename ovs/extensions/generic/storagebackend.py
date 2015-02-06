@@ -92,7 +92,6 @@ class Storagebackend(object):
                     # Socket closed or whatever "generic" error.
                     return {}
             data = json.loads(data)
-            print data
             network_interfaces = []
 
             result_data = {'utilization': 'NA',
