@@ -8,6 +8,7 @@ Build-Depends: python (>= 2.7.2)
 Package: openvstorage-alba-core
 Architecture: amd64
 Pre-Depends: python (>= 2.7.2), ipython, openvstorage-core (>= 1.5.0)
+Depends: alba (>=0.0.3-1), arakoon (>= 1.8.0)
 Description: openvStorage ALBA plugin core
  Core components for the Open vStorage ALBA plugin
 
