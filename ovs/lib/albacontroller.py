@@ -69,6 +69,20 @@ class AlbaController(object):
         """
         Adds an arakoon cluster to service backend
         """
+        def _register_service(service_ip, service_name, service_type, specific_service, ports):
+            service = Service()
+            service.name = service_name
+            service.type = service_type
+            service.ports = ports
+            service.storagerouter = StorageRouterList.get_by_ip(service_ip)
+            service.save()
+            specific_service = specific_service
+            specific_service.service = service
+            if service_type == nsmservice_type:
+                specific_service.number = 0
+            specific_service.alba_backend = albabackend
+            specific_service.save()
+
         nsmservice_type = ServiceTypeList.get_by_name('NamespaceManager')
         abmservice_type = ServiceTypeList.get_by_name('AlbaManager')
 
@@ -84,36 +98,55 @@ class AlbaController(object):
         abm_name = albabackend.backend.name + "-abm"
         nsm_name = albabackend.backend.name + "-nsm_0"
 
-        ports_to_exclude = ServiceList.get_service_ports_in_use()
-        result = ArakoonInstaller.create_cluster(abm_name, ip, base_dir, client_start_port, messaging_start_port,
-                                                 ports_to_exclude, ArakoonInstaller.ABM_PLUGIN)
-        service = Service()
-        service.name = abm_name
-        service.type = abmservice_type
-        service.ports = [result['client_port'], result['messaging_port']]
-        service.storagerouter = StorageRouterList.get_by_ip(ip)
-        service.save()
-        abm_service = ABMService()
-        abm_service.service = service
-        abm_service.alba_backend = albabackend
-        abm_service.save()
-        ArakoonInstaller.start(abm_name, ip)
+        master_ips = list()
+        masters = StorageRouterList.get_masters()
+        for master in masters:
+            master_ips.append(str(master.ip))
+        master_ips.sort()
 
+        if ip not in master_ips:
+            raise RuntimeError('Arakoon cluster should be added on a master node, got {0}, expected one out of {1}'.format(ip, master_ips))
+
+        slave_ips = list()
+        slaves = StorageRouterList.get_slaves()
+        for slave in slaves:
+            slave_ips.append(str(slave.ip))
+        slave_ips.sort()
+
+        # deploy on first master node
         ports_to_exclude = ServiceList.get_service_ports_in_use()
-        result = ArakoonInstaller.create_cluster(nsm_name, ip, base_dir, client_start_port, messaging_start_port,
-                                                 ports_to_exclude, ArakoonInstaller.NSM_PLUGIN)
-        service = Service()
-        service.name = nsm_name
-        service.type = nsmservice_type
-        service.ports = [result['client_port'], result['messaging_port']]
-        service.storagerouter = StorageRouterList.get_by_ip(ip)
-        service.save()
-        nsm_service = NSMService()
-        nsm_service.service = service
-        nsm_service.alba_backend = albabackend
-        nsm_service.number = 0
-        nsm_service.save()
-        ArakoonInstaller.start(nsm_name, ip)
+        abm_result = ArakoonInstaller.create_cluster(abm_name, ip, base_dir, client_start_port, messaging_start_port,
+                                                     ports_to_exclude, ArakoonInstaller.ABM_PLUGIN)
+        _register_service(ip, abm_name, abmservice_type, ABMService(), [abm_result['client_port'],
+                                                                        abm_result['messaging_port']])
+        ports_to_exclude = ServiceList.get_service_ports_in_use()
+        nsm_result = ArakoonInstaller.create_cluster(nsm_name, ip, base_dir, client_start_port, messaging_start_port,
+                                                     ports_to_exclude, ArakoonInstaller.NSM_PLUGIN)
+        _register_service(ip, nsm_name, nsmservice_type, NSMService(), [nsm_result['client_port'],
+                                                                        nsm_result['messaging_port']])
+
+        # extend to other master nodes
+        master_ips.pop(master_ips.index(ip))
+        for other_master in master_ips:
+            ArakoonInstaller.extend_cluster(ip, other_master, abm_name, abm_result['client_port'], abm_result['messaging_port'])
+            _register_service(other_master, abm_name, abmservice_type, ABMService(),
+                              [abm_result['client_port'], abm_result['messaging_port']])
+            ArakoonInstaller.extend_cluster(ip, other_master, nsm_name, nsm_result['client_port'], nsm_result['messaging_port'])
+            _register_service(other_master, nsm_name, nsmservice_type, NSMService(),
+                              [nsm_result['client_port'], nsm_result['messaging_port']])
+
+        # deploy client_config to slaves
+        for slave in slave_ips:
+            ArakoonInstaller.deploy_client_config(ip, slave, abm_name)
+            ArakoonInstaller.deploy_client_config(ip, slave, nsm_name)
+
+        # startup arakoon clusters
+        master_ips.append(ip)
+        master_ips.sort()
+        for master_ip in master_ips:
+            ArakoonInstaller.start(abm_name, master_ip)
+            ArakoonInstaller.start(nsm_name, master_ip)
+
         ArakoonInstaller.register_nsm(abm_name, nsm_name, ip)
 
         albabackend.backend.status = 'RUNNING'
