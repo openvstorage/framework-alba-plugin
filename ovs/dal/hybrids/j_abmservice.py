@@ -14,10 +14,10 @@ class ABMService(DataObject):
     """
     The ABMService class represents the junction table between the (albamanager)Service and AlbaBackend.
     Examples:
-    * my_alba_backend.abm_service.service
+    * my_alba_backend.abm_services[0].service
     * my_service.abm_service.alba_backend
     """
     __properties = []
-    __relations = [Relation('alba_backend', AlbaBackend, 'abm_service', onetoone=True),
+    __relations = [Relation('alba_backend', AlbaBackend, 'abm_services'),
                    Relation('service', Service, 'abm_service', onetoone=True)]
     __dynamics = []
