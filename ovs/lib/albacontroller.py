@@ -39,12 +39,11 @@ class AlbaController(object):
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
 
         for device in devices:
-            cmd = """export LD_LIBRARY_PATH=/opt/alba/lib; """
-            cmd += """/opt/alba/bin/alba add-osd --config {0} """.format(config_file)
-            cmd += """--host {0} --asd-port {1} --asd-id {2} --box-id {3}""".format(device['network_interfaces'][0]['ip_address'],
-                                                                                    device['network_interfaces'][0]['port'],
-                                                                                    device['serialNumber'],
-                                                                                    device['configuration']['chassis'])
+            cmd = """export LD_LIBRARY_PATH=/usr/lib/alba; """
+            cmd += """/usr/bin/alba add-osd --config {0} """.format(config_file)
+            cmd += """--host {0} --asd-port {1} --box-id {2}""".format(device['network_interfaces'][0]['ip_address'],
+                                                                       device['network_interfaces'][0]['port'],
+                                                                       device['configuration']['chassis'])
             output = check_output(cmd, shell=True).strip()
             logger.info('** abm response:' + str(output))
 
@@ -57,14 +56,14 @@ class AlbaController(object):
         alba_backend = AlbaBackend(alba_backend_guid)
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
 
-        cmd = """export LD_LIBRARY_PATH=/opt/alba/lib; """
-        cmd += """/opt/alba/bin/alba list-osds --config {0} --to-json 2>/dev/null """.format(config_file)
+        cmd = """export LD_LIBRARY_PATH=/usr/lib/alba; """
+        cmd += """/usr/bin/alba list-osds --config {0} --to-json 2>/dev/null """.format(config_file)
         output = check_output(cmd, shell=True).strip()
 
         return json.loads(output)
 
     @staticmethod
-    @celery.task(name='alba.add_cluster')
+    @celery.task(name='alba.add_cluster', queue='ovs-masters')
     def add_cluster(alba_backend_guid, ip, base_dir=None, client_start_port=None, messaging_start_port=None):
         """
         Adds an arakoon cluster to service backend
