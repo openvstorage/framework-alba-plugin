@@ -1,22 +1,23 @@
 #!/bin/bash
 
-if [ -z "$1" -o "$1" = "-h" ]; then
-  echo "command: <PKG> [-clean]"
-  echo "e.g.:"
-  echo "Update alba binaries and keep data + configuration: "
-  echo "./update_alba.sh alba-0.1.0-467-gd939655"
+if [ -z "$1" -o "$1" = "-h" -o "$1" = "-clean" ]; then
+  echo "command: <BOX_ID> [-clean]"
+  echo "script uses 4 mountpoints:"
+  echo "/mnt/data1 through /mnt/data4"
+  echo "these could be directories or actual mountpoints on sata / ssd devices as preferred"
   echo ""
-  echo "Update and clean database/asd id:"
-  echo "./update_alba.sh alba-0.1.0-467-gd939655 -clean"
+  echo "Note when changing the box_id -clean option is mandatory"
+  echo "e.g.:"
+  echo "Update alba binaries, use box_id 1 and preserve data:"
+  echo "./update_alba.sh 1"
+  echo ""
+  echo "Update alba binaries, use box_id 1 and cleanup data:"
+  echo "./update_alba.sh 1 -clean"
   echo ""
   exit 0
 fi
-
-mkdir -p /opt/alba/bin
-mkdir -p /opt/alba/lib
-
-PKG=$1
-BOX_ID=1
+MY_IP=`cat /etc/hosts | grep \`hostname\` | awk '{print $1}'`
+BOX_ID=$1
 
 # status asds
 echo
@@ -34,23 +35,13 @@ stop alba-data3
 stop alba-data4
 echo
 
-# cleanup
-rm /root/${PKG}.tgz
-rm -rf /root/${PKG}
-
 if [ "$2" = "-clean" ]; then
     rm -rf /mnt/data*/*
 fi
 
-wget http://jenkins.cloudfounders.com/view/alba/job/alba_package/lastSuccessfulBuild/artifact/${PKG}.tgz
-gunzip ${PKG}.tgz
-tar xvf ${PKG}.tar
-cd ${PKG}
-cp bin/alba.native /opt/alba/bin/alba
-
-cp shared_libs/* /opt/alba/lib/
-
-chmod 755 /opt/alba/bin/*
+echo "deb http://packages.cloudfounders.com/apt/ unstable/" > /etc/apt/sources.list.d/ovsaptrepo.list
+apt-get update
+apt-get install --force-yes --yes alba
 
 port=8000
 for asd in data1 data2 data3 data4; do
@@ -69,10 +60,9 @@ console log
 setuid alba
 setgid alba
 
-env LD_LIBRARY_PATH=/opt/alba/lib
-chdir /opt/alba
+env LD_LIBRARY_PATH=/usr/lib/alba
 
-exec /opt/alba/bin/alba asd-start --path /mnt/${asd} --host 10.100.186.211 --port ${port} --box-id ${BOX_ID}
+exec /usr/bin/alba asd-start --path /mnt/${asd} --host ${MY_IP} --port ${port} --box-id ${BOX_ID}
 EOF
   fi
 done
@@ -84,7 +74,6 @@ start alba-data3
 start alba-data4
 
 echo
-echo "Alba ASDs updated to version: ${PKG}"
 echo "Status:"
 status alba-data1
 status alba-data2
