@@ -10,6 +10,7 @@ from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.servicelist import ServiceList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
+from ovs.extensions.generic.sshclient import SSHClient
 from ovs.lib.setup import System
 from ovs.log.logHandler import LogHandler
 
@@ -21,7 +22,7 @@ from ovs.dal.lists.servicetypelist import ServiceTypeList
 from subprocess import check_output
 import json
 
-logger = LogHandler('alba.lib', name='alba')
+logger = LogHandler('lib', name='alba')
 
 
 class AlbaController(object):
@@ -148,6 +149,29 @@ class AlbaController(object):
 
         ArakoonInstaller.register_nsm(abm_name, nsm_name, ip)
 
+        # Register new ABM cluster
+        abm_config_key = 'alba.arakoon.abm.clusters'
+        for master_ip in master_ips:
+            client = SSHClient.load(master_ip)
+            System.exec_remote_python(client, """
+from ovs.plugin.provider.configuration import Configuration
+Configuration.set('{0}', ','.join([c for c in Configuration.get('{0}').split(',') if c] + ['{1}']))""".format(abm_config_key, abm_name))
+
+        # Configure maintenance service
+        for master_ip in master_ips:
+            client = SSHClient.load(master_ip)
+            params = {'<ALBA_CONFIG>': '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)}
+            config_file_base = '/opt/OpenvStorage/config/templates/upstart/ovs-alba-maintenance'
+            if client.file_exists('{0}.conf'.format(config_file_base)):
+                client.run('cp -f {0}.conf {0}_{1}.conf'.format(config_file_base, abm_name))
+            service_script = """
+from ovs.plugin.provider.service import Service
+Service.add_service(package=('openvstorage', 'volumedriver'), name='alba-maintenance_{0}', command=None, stop_command=None, params={1})
+Service.start_service('alba-maintenance_{0}')
+""".format(abm_name, params)
+            System.exec_remote_python(client, service_script)
+
+        # Mark the backend as "running"
         albabackend.backend.status = 'RUNNING'
         albabackend.backend.save()
 

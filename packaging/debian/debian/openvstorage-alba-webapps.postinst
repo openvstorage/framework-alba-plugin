@@ -1,8 +1,8 @@
 #!/bin/bash
 ipython -c """
-import ConfigParser
+from ConfigParser import RawConfigParser
 filename = '/opt/OpenvStorage/config/ovs.cfg'
-config = ConfigParser.ConfigParser()
+config = RawConfigParser()
 config.read(filename)
 if not config.has_section('plugins'):
     config.add_section('plugins')
