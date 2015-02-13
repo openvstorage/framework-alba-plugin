@@ -63,7 +63,7 @@ class AlbaController(object):
         return json.loads(output)
 
     @staticmethod
-    @celery.task(name='alba.add_cluster', queue='ovs_masters')
+    @celery.task(name='alba.add_cluster')
     def add_cluster(alba_backend_guid, ip, base_dir=None, client_start_port=None, messaging_start_port=None):
         """
         Adds an arakoon cluster to service backend

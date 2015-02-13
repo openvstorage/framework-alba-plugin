@@ -81,7 +81,8 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :param albabackend:     albabackend to add unit to
         :param devices:         list of tuples for each device containing ip, port and serial
         """
-        return AlbaController.add_unit.delay(albabackend.guid, devices)
+        return AlbaController.add_unit.s(albabackend.guid, devices).apply_async(queue='ovs_masters')
+
 
     @link()
     @log()
