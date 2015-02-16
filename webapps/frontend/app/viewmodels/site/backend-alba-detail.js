@@ -139,7 +139,6 @@ define([
                 if (generic.xhrCompleted(self.discoveredDevicesHandle[page])) {
                     var options = {
                         sort: 'name',
-                        page: page,
                         contents: '_dynamics',
                         fresh: fresh
                     };
@@ -196,7 +195,6 @@ define([
                 if (generic.xhrCompleted(self.registeredDevicesHandle[page])) {
                     var options = {
                         sort: 'id',
-                        page: page,
                         contents: '_dynamics',
                         fresh: fresh
                     };
