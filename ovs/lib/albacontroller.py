@@ -5,11 +5,11 @@
 AlbaController module
 """
 
+import time
 from ovs.celery_run import celery
 from celery.schedules import crontab
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.servicelist import ServiceList
-from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
 from ovs.extensions.alba.albacli import AlbaCLI
 from ovs.extensions.generic.sshclient import SSHClient
@@ -272,6 +272,149 @@ Service.remove_service('', '{0}')
             System.exec_remote_python(client, service_script)
 
     @staticmethod
+    @celery.task(name='alba.nsm_checkup', bind=True, schedule=crontab(minute='30', hour='0'))
+    @ensure_single(['alba.nsm_checkup'])
+    def nsm_checkup():
+        """
+        Validates the current NSM setup/configuration and takes actions where required.
+        Assumptions:
+        * A 2 node NSM is considered safer than a 1 node NSM.
+        * When adding an NSM, the nodes with the least amount of NSM participation are preferred
+        """
+        base_dir = Configuration.get('ovs.arakoon.base.dir')
+        client_start_port = int(Configuration.get('ovs.arakoon.client.port'))
+        messaging_start_port = int(Configuration.get('ovs.arakoon.messaging.port'))
+        nsmservice_type = ServiceTypeList.get_by_name('NamespaceManager')
+        safety = int(Configuration.get('alba.nsm.safety'))
+        maxload = int(Configuration.get('alba.nsm.maxload'))
+        for backend in AlbaBackendList.get_albabackends():
+            service_name = backend.abm_services[0].service.name
+            logger.debug('Ensuring NSM safety for backend {0}'.format(service_name))
+            nsm_groups = {}
+            nsm_storagerouter = {}
+            for abm_service in backend.abm_services:
+                storagerouter = abm_service.service.storagerouter
+                if storagerouter not in nsm_storagerouter:
+                    nsm_storagerouter[storagerouter] = 0
+            for nsm_service in backend.nsm_services:
+                number = nsm_service.number
+                if number not in nsm_groups:
+                    nsm_groups[number] = []
+                nsm_groups[number].append(nsm_service)
+                storagerouter = nsm_service.service.storagerouter
+                if storagerouter not in nsm_storagerouter:
+                    nsm_storagerouter[storagerouter] = 0
+                nsm_storagerouter[storagerouter] += 1
+            maxnumber = max(nsm_groups.keys())
+            for number in nsm_groups:
+                logger.debug('Processing NSM {0}'.format(number))
+                # Check amount of nodes
+                if len(nsm_groups[number]) < safety:
+                    logger.debug('Insufficient nodes, extending if possible')
+                    # Not enough nodes, let's see what can be done
+                    current_srs = [nsm_service.service.storagerouter for nsm_service in nsm_groups[number]]
+                    current_nsm = nsm_groups[number][0]
+                    available_srs = [storagerouter for storagerouter in nsm_storagerouter.keys()
+                                     if storagerouter not in current_srs]
+                    service_name = current_nsm.service.name
+                    # As long as there are available StorageRouters and there are still not enough StorageRouters configured
+                    while len(available_srs) > 0 and len(current_srs) < safety:
+                        logger.debug('Adding node')
+                        candidate_sr = None
+                        candidate_load = None
+                        for storagerouter in available_srs:
+                            if candidate_load is None:
+                                candidate_sr = storagerouter
+                                candidate_load = nsm_storagerouter[storagerouter]
+                            elif nsm_storagerouter[storagerouter] < candidate_load:
+                                candidate_sr = storagerouter
+                                candidate_load = nsm_storagerouter[storagerouter]
+                        current_srs.append(candidate_sr)
+                        available_srs.remove(candidate_sr)
+                        # Extend the cluster (configuration, services, ...)
+                        ArakoonInstaller.extend_cluster(current_nsm.service.storagerouter.ip, candidate_sr.ip,
+                                                        service_name,
+                                                        current_nsm.service.ports[0], current_nsm.service.ports[1])
+                        # Add the service to the model
+                        AlbaController._model_service(service_name, nsmservice_type,
+                                                      [current_nsm.service.ports[0], current_nsm.service.ports[1]],
+                                                      candidate_sr, NSMService, backend, current_nsm.number)
+                        ArakoonInstaller.restart_cluster_add(service_name, [sr.ip for sr in current_srs],
+                                                             candidate_sr.ip)
+                        logger.debug('Node added')
+
+                # Check the cluster load
+                overloaded = False
+                for service in nsm_groups[number]:
+                    load = AlbaController.get_load(service)
+                    if load > maxload:
+                        overloaded = True
+                        break
+                if overloaded is True:
+                    logger.debug('NSM overloaded, adding new NSM')
+                    # On of the this NSM's node is overloaded. This means the complete NSM is considered overloaded
+                    # Figure out which StorageRouters are the least occupied
+                    storagerouters = []
+                    for storagerouter in nsm_storagerouter:
+                        count = nsm_storagerouter[storagerouter]
+                        if len(storagerouters) < safety:
+                            storagerouters.append((storagerouter, count))
+                        else:
+                            maxcount = max(sr[1] for sr in storagerouters)
+                            if count < maxcount:
+                                new_storagerouters = []
+                                for sr in storagerouters:
+                                    if sr[1] == maxload:
+                                        new_storagerouters.append((storagerouter, count))
+                                    else:
+                                        new_storagerouters.append(sr)
+                                storagerouters = new_storagerouters[:]
+                    # Cloning one of the NSMs to the found StorageRouters
+                    storagerouters = [storagerouter[0] for storagerouter in storagerouters]
+                    maxnumber += 1
+                    nsm_name = '{0}-nsm_{1}'.format(backend.backend.name, maxnumber)
+                    first_ip = None
+                    nsm_result = {}
+                    for storagerouter in storagerouters:
+                        ports_to_exclude = ServiceList.get_service_ports_in_use()
+                        if first_ip is None:
+                            nsm_result = ArakoonInstaller.create_cluster(nsm_name, storagerouter.ip, base_dir,
+                                                                         client_start_port, messaging_start_port,
+                                                                         ports_to_exclude, ArakoonInstaller.NSM_PLUGIN)
+                            AlbaController._model_service(nsm_name, nsmservice_type,
+                                                          [nsm_result['client_port'], nsm_result['messaging_port']],
+                                                          storagerouter, NSMService, backend, maxnumber)
+                            first_ip = storagerouter.ip
+                        else:
+                            ArakoonInstaller.extend_cluster(first_ip, storagerouter.ip, nsm_name,
+                                                            nsm_result['client_port'],
+                                                            nsm_result['messaging_port'], ports_to_exclude)
+                            AlbaController._model_service(nsm_name, nsmservice_type,
+                                                          [nsm_result['client_port'], nsm_result['messaging_port']],
+                                                          storagerouter, NSMService, backend, maxnumber)
+                    for storagerouter in storagerouters:
+                        ArakoonInstaller.start(nsm_name, storagerouter.ip)
+                    logger.debug('New NSM ({0}) added'.format(maxnumber))
+                else:
+                    logger.debug('NSM load OK')
+
+    @staticmethod
+    def get_load(nsm_service):
+        """
+        Calculates the load of an NSM node, returning a float percentage
+        """
+        service_capacity = float(nsm_service.capacity)
+        if service_capacity < 0:
+            return 50
+        if service_capacity == 0:
+            return float('inf')
+        filename = '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR,
+                                            nsm_service.alba_backend.abm_services[0].service.name)
+        namespaces = AlbaCLI.run('list-namespaces', config=filename, as_json=True, debug=True)
+        usage = len([ns for ns in namespaces if ns['nsm_host_id'] == nsm_service.service.name])
+        return round(usage / service_capacity * 100.0, 5)
+
+    @staticmethod
     def _model_service(service_name, service_type, ports, storagerouter, junction_type, backend, number=None):
         """
         Adds service to the model
@@ -290,3 +433,49 @@ Service.remove_service('', '{0}')
             junction_service.number = number
         junction_service.alba_backend = backend
         junction_service.save()
+
+
+if __name__ == '__main__':
+    from ovs.dal.lists.storagerouterlist import StorageRouterList
+    try:
+        while True:
+            output = ['',
+                      'Open vStorage - NSM/ABM debug information',
+                      '=========================================',
+                      'timestamp: {0}'.format(time.time()),
+                      '']
+            sr_backends = {}
+            for _alba_backend in AlbaBackendList.get_albabackends():
+                for _abm_service in _alba_backend.abm_services:
+                    _storagerouter = _abm_service.service.storagerouter
+                    if _storagerouter not in sr_backends:
+                        sr_backends[_storagerouter] = []
+                    sr_backends[_storagerouter].append(_alba_backend)
+            for _sr in StorageRouterList.get_storagerouters():
+                output.append('+ {0} ({1})'.format(_sr.name, _sr.ip))
+                if _sr in sr_backends:
+                    for _alba_backend in sr_backends[_sr]:
+                        output.append('  + {0}'.format(_alba_backend.backend.name))
+                        for _abm_service in _alba_backend.abm_services:
+                            if _abm_service.service.storagerouter_guid == _sr.guid:
+                                output.append('    + ABM - port {0}'.format(_abm_service.service.ports[0]))
+                        for _nsm_service in _alba_backend.nsm_services:
+                            if _nsm_service.service.storagerouter_guid == _sr.guid:
+                                _service_capacity = float(_nsm_service.capacity)
+                                if _service_capacity < 0:
+                                    _service_capacity = 'infinite'
+                                _load = AlbaController.get_load(_nsm_service)
+                                if _load == float('inf'):
+                                    _load = 'infinite'
+                                else:
+                                    _load = '{0}%'.format(round(_load, 2))
+                                output.append('    + NSM {0} - port {1} - capacity: {2}, load: {3}'.format(
+                                    _nsm_service.number, _nsm_service.service.ports[0], _service_capacity, _load
+                                ))
+            output += ['',
+                       'Press ^C to exit',
+                       '']
+            print '\x1b[2J\x1b[H' + '\n'.join(output)
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
