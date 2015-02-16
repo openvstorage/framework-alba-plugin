@@ -6,18 +6,23 @@ AlbaController module
 """
 
 from ovs.celery_run import celery
+from celery.schedules import crontab
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.servicelist import ServiceList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
+from ovs.extensions.alba.albacli import AlbaCLI
 from ovs.extensions.generic.sshclient import SSHClient
+from ovs.plugin.provider.configuration import Configuration
 from ovs.lib.setup import System
+from ovs.lib.helpers.decorators import ensure_single, setup_hook
 from ovs.log.logHandler import LogHandler
 
 from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.j_abmservice import ABMService
 from ovs.dal.hybrids.service import Service
 from ovs.dal.lists.servicetypelist import ServiceTypeList
+from ovs.dal.lists.albabackendlist import AlbaBackendList
 
 from subprocess import check_output
 import json
@@ -149,14 +154,6 @@ class AlbaController(object):
 
         ArakoonInstaller.register_nsm(abm_name, nsm_name, ip)
 
-        # Register new ABM cluster
-        abm_config_key = 'alba.arakoon.abm.clusters'
-        for master_ip in master_ips:
-            client = SSHClient.load(master_ip)
-            System.exec_remote_python(client, """
-from ovs.plugin.provider.configuration import Configuration
-Configuration.set('{0}', ','.join([c for c in Configuration.get('{0}').split(',') if c] + ['{1}']))""".format(abm_config_key, abm_name))
-
         # Configure maintenance service
         for master_ip in master_ips:
             client = SSHClient.load(master_ip)
@@ -197,3 +194,99 @@ Service.start_service('alba-maintenance_{0}')
         for section in config.sections():
             config_dict[section] = dict(config.items(section))
         return config_dict
+
+    @staticmethod
+    @setup_hook('promote')
+    def on_promote(cluster_ip, master_ip):
+        """
+        A node is being promoted
+        """
+        alba_backends = AlbaBackendList.get_albabackends()
+        storagerouter = StorageRouterList.get_by_ip(cluster_ip)
+        abmservice_type = ServiceTypeList.get_by_name('AlbaManager')
+        for alba_backend in alba_backends:
+            # Make sure the ABM is extended to the new node
+            print 'Extending ABM for {0}'.format(alba_backend.backend.name)
+            storagerouter_ips = [abm_service.service.storagerouter.ip for abm_service in alba_backend.abm_services]
+            if cluster_ip in storagerouter_ips:
+                raise RuntimeError('Error executing promote in Alba plugin: IP conflict')
+            abm_service = alba_backend.abm_services[0]
+            service = abm_service.service
+            ports_to_exclude = ServiceList.get_service_ports_in_use()
+            print '* Extend ABM cluster'
+            ArakoonInstaller.extend_cluster(master_ip, cluster_ip, service.name,
+                                            service.ports[0], service.ports[1],
+                                            ports_to_exclude)
+            print '* Model new ABM node'
+            AlbaController._model_service(service.name, abmservice_type, service.ports,
+                                          storagerouter, ABMService, alba_backend)
+            print '* Restarting ABM'
+            ArakoonInstaller.restart_cluster_add(service.name, storagerouter_ips, cluster_ip)
+
+            # Add and start an ALBA maintenance service
+            print 'Adding ALBA maintenance service for {0}'.format(alba_backend.backend.name)
+            client = SSHClient.load(cluster_ip)
+            params = {'<ALBA_CONFIG>': '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, service.name)}
+            config_file_base = '/opt/OpenvStorage/config/templates/upstart/ovs-alba-maintenance'
+            if client.file_exists('{0}.conf'.format(config_file_base)):
+                client.run('cp -f {0}.conf {0}_{1}.conf'.format(config_file_base, service.name))
+            service_script = """
+from ovs.plugin.provider.service import Service
+Service.add_service(package=('openvstorage', 'volumedriver'), name='alba-maintenance_{0}', command=None, stop_command=None, params={1})
+Service.start_service('alba-maintenance_{0}')
+""".format(service.name, params)
+            System.exec_remote_python(client, service_script)
+        print 'Completed'
+
+    @staticmethod
+    @setup_hook('demote')
+    def on_demote(cluster_ip, master_ip):
+        """
+        A node is being demoted
+        """
+        alba_backends = AlbaBackendList.get_albabackends()
+        for alba_backend in alba_backends:
+            # Remove the node from the ABM
+            print 'Shrinking ABM for {0}'.format(alba_backend.backend.name)
+            storagerouter_ips = [abm_service.service.storagerouter.ip for abm_service in alba_backend.abm_services]
+            if cluster_ip not in storagerouter_ips:
+                raise RuntimeError('Error executing promote in Alba plugin: IP conflict')
+            storagerouter_ips.remove(cluster_ip)
+            abm_service = [abms for abms in alba_backend.abm_services if abms.service.storagerouter.ip == cluster_ip]
+            service = abm_service.service
+            print '* Shrink ABM cluster'
+            ArakoonInstaller.shrink_cluster(master_ip, cluster_ip, service.name, service.ports[0], service.ports[1])
+            print '* Restarting ABM'
+            ArakoonInstaller.restart_cluster_remove(service.name, storagerouter_ips)
+            print '* Remove old ABM node from model'
+            abm_service.delete()
+            service.delete()
+
+            # Stop and delete the ALBA maintenance service on this node
+            print 'Removing ALBA maintenance service for {0}'.format(alba_backend.backend.name)
+            client = SSHClient.load(cluster_ip)
+            service_script = """
+from ovs.plugin.provider.service import Service
+Service.remove_service('', '{0}')
+""".format(service.name)
+            System.exec_remote_python(client, service_script)
+
+    @staticmethod
+    def _model_service(service_name, service_type, ports, storagerouter, junction_type, backend, number=None):
+        """
+        Adds service to the model
+        """
+        service = Service()
+        service.name = service_name
+        service.type = service_type
+        service.ports = ports
+        service.storagerouter = storagerouter
+        service.save()
+        junction_service = junction_type()
+        junction_service.service = service
+        if hasattr(junction_service, 'number'):
+            if number is None:
+                raise RuntimeError('A number needs to be specified')
+            junction_service.number = number
+        junction_service.alba_backend = backend
+        junction_service.save()
