@@ -1,0 +1,66 @@
+{
+    "license": [
+        "Copyright 2014 CloudFounders NV",
+        "All rights reserved"
+    ],
+    "generic": {
+        "accesskey": "Access key",
+        "details": "Details",
+        "statistics": "Statistics",
+        "getss": "Gets/s",
+        "putss": "Puts/s",
+        "nrofdevices": "# Kinetic devices",
+        "devices": "Kinetic devices",
+        "unclaimeddevices": "Unclaimed Kinetic devices",
+        "serial": "Serial",
+        "id": "Chassis ID",
+        "ips": "IP",
+        "capacity": "Capacity",
+        "freespace": "Free",
+        "add": "Add",
+        "model": "Model",
+        "nrofdisks": "# Disks",
+        "firmware": "Firmware",
+        "totalgets": "Total gets",
+        "totalputs": "Total puts",
+        "chassis": "Chassis",
+        "temperaturecpu": "Temperature (CPU)",
+        "bay": "Bay",
+        "utilizationcpu": "Utilization (CPU)",
+        "failurezone": "Failure zone",
+        "port": "Port",
+        "nics": "NICs",
+        "warnings": "Warnings",
+        "degc": "&deg;C",
+        "interface": "Interface",
+        "macaddress": "MAC",
+        "ipaddress": "IP"
+    },
+    "detail": {
+        "title": "Alternate Backend"
+    },
+    "storageunit": {
+        "add": {
+            "warning": "Are you sure you want to add the storage unit with id __what__ to backend?",
+            "done": "Storage unit added",
+            "donemsg": "The storage unit with id __what__ was added to backend.",
+            "errormsg": "adding storage unit __what__ to backend"
+        },
+        "title": "Storage unit",
+        "unclaimedunits": "Discovered chassis",
+        "registeredunits": "Registered chassis"
+    },
+    "livekinetic": {
+        "title": "Live Kinetic device",
+        "add": {
+            "warning": "Are you sure you want to add the Kinetic device with serial __what__ to this backend?",
+            "done": "Device added",
+            "donemsg": "The device with serial __what__ was added to the backend.",
+            "errormsg": "adding device __what__ to this backend"
+        }
+    },
+    "icons": {
+        "devices": "&#xf0a0;",
+        "nics": "&#xf0ec;"
+    }
+}
