@@ -11,7 +11,7 @@ from celery.schedules import crontab
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.servicelist import ServiceList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
-from ovs.extensions.alba.albacli import AlbaCLI
+from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.extensions.generic.sshclient import SSHClient
 from ovs.plugin.provider.configuration import Configuration
 from ovs.lib.setup import System
