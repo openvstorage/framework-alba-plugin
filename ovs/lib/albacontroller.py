@@ -46,16 +46,29 @@ class AlbaController(object):
 
         for device in devices:
             cmd = """export LD_LIBRARY_PATH=/usr/lib/alba; """
-            cmd += """/usr/bin/alba add-osd --config {0} """.format(config_file)
-            cmd += """--host {0} --asd-port {1} --box-id {2}""".format(device['network_interfaces'][0]['ip_address'],
-                                                                       device['network_interfaces'][0]['port'],
-                                                                       device['configuration']['chassis'])
+            cmd += """/usr/bin/alba claim-osd --config {0} """.format(config_file)
+            cmd += """--long-id {0}""".format(device['id'])
             output = check_output(cmd, shell=True).strip()
             logger.info('** abm response:' + str(output))
 
     @staticmethod
+    @celery.task(name='alba.list_discovered_osds')
+    def list_discovered_osds(alba_backend_guid):
+        """
+        list discovered osds on local alba manager
+        """
+        alba_backend = AlbaBackend(alba_backend_guid)
+        config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
+
+        cmd = """export LD_LIBRARY_PATH=/usr/lib/alba; """
+        cmd += """/usr/bin/alba list-available-osds --config {0} --to-json 2>/dev/null """.format(config_file)
+        output = check_output(cmd, shell=True).strip()
+
+        return json.loads(output)
+
+    @staticmethod
     @celery.task(name='alba.list_osds')
-    def list_osds(alba_backend_guid):
+    def list_registered_osds(alba_backend_guid):
         """
         list registered osds on local alba manager
         """
@@ -171,15 +184,6 @@ Service.start_service('alba-maintenance_{0}')
         # Mark the backend as "running"
         albabackend.backend.status = 'RUNNING'
         albabackend.backend.save()
-
-    @staticmethod
-    @celery.task(name='alba.extend_cluster')
-    def extend_cluster(cluster_name, source_ip):
-        """
-        Extends an arakoon cluster to local host based on existing config on source ip
-        """
-        # @todo: to be implemented
-        pass
 
     @staticmethod
     @celery.task(name='alba.get_config_metadata')
