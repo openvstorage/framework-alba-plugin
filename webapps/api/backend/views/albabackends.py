@@ -128,11 +128,9 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         else:
             devices = discovered_devices
 
-        print "devices: {0}".format(devices)
         # Paging
         items_pp = 10
         total_items = len(devices)
-        print "nr of devices: {0}".format(total_items)
         page_metadata = {'total_items': total_items,
                          'current_page': 1,
                          'max_page': 1,
@@ -157,10 +155,6 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         # Sorting
         # - There is no sorting yet here, the devices are returned in the order they are received from the discover
         #   method, which is sorted by serial number
-
-        print "page_metadate: {0}".format(page_metadata)
-        print
-        print "contents: {0}".format(contents)
 
         result = {'data': devices,
                   '_paging': page_metadata,
