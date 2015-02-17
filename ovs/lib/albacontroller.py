@@ -242,7 +242,6 @@ Service.add_service(package=('openvstorage', 'volumedriver'), name='alba-mainten
 Service.start_service('alba-maintenance_{0}')
 """.format(service.name, params)
             System.exec_remote_python(client, service_script)
-        print 'Completed'
 
     @staticmethod
     @setup_hook('demote')
@@ -258,10 +257,17 @@ Service.start_service('alba-maintenance_{0}')
             if cluster_ip not in storagerouter_ips:
                 raise RuntimeError('Error executing promote in Alba plugin: IP conflict')
             storagerouter_ips.remove(cluster_ip)
-            abm_service = [abms for abms in alba_backend.abm_services if abms.service.storagerouter.ip == cluster_ip]
+            abm_service = [abms for abms in alba_backend.abm_services if abms.service.storagerouter.ip == cluster_ip][0]
             service = abm_service.service
             print '* Shrink ABM cluster'
             ArakoonInstaller.shrink_cluster(master_ip, cluster_ip, service.name)
+            client = SSHClient.load(cluster_ip)
+            service_script = """
+from ovs.plugin.provider.service import Service
+Service.stop_service('arakoon-{0}')
+Service.remove_service('', 'arakoon-{0}')
+""".format(service.name)
+            System.exec_remote_python(client, service_script)
             print '* Restarting ABM'
             ArakoonInstaller.restart_cluster_remove(service.name, storagerouter_ips)
             print '* Remove old ABM node from model'
@@ -273,7 +279,8 @@ Service.start_service('alba-maintenance_{0}')
             client = SSHClient.load(cluster_ip)
             service_script = """
 from ovs.plugin.provider.service import Service
-Service.remove_service('', '{0}')
+Service.stop_service('alba-maintenance_{0}')
+Service.remove_service('', 'alba-maintenance_{0}')
 """.format(service.name)
             System.exec_remote_python(client, service_script)
 
