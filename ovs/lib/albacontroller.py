@@ -182,7 +182,7 @@ Service.start_service('alba-maintenance_{0}')
         Gets the configuration metadata for an Alba backend
         """
         service = AlbaBackend(alba_backend_guid).abm_services[0].service
-        config = ArakoonInstaller().load_config_from(service.name, service.storagerouter.ip)
+        config = ArakoonInstaller.get_config_from(service.name, service.storagerouter.ip)
         config_dict = {}
         for section in config.sections():
             config_dict[section] = dict(config.items(section))
@@ -482,7 +482,7 @@ if __name__ == '__main__':
                         output.append('  + {0}'.format(_alba_backend.backend.name))
                         for _abm_service in _alba_backend.abm_services:
                             if _abm_service.service.storagerouter_guid == _sr.guid:
-                                output.append('    + ABM - port {0}'.format(_abm_service.service.ports[0]))
+                                output.append('    + ABM - port {0}'.format(_abm_service.service.ports))
                         for _nsm_service in _alba_backend.nsm_services:
                             if _nsm_service.service.storagerouter_guid == _sr.guid:
                                 _service_capacity = float(_nsm_service.capacity)
@@ -494,7 +494,7 @@ if __name__ == '__main__':
                                 else:
                                     _load = '{0}%'.format(round(_load, 2))
                                 output.append('    + NSM {0} - port {1} - capacity: {2}, load: {3}'.format(
-                                    _nsm_service.number, _nsm_service.service.ports[0], _service_capacity, _load
+                                    _nsm_service.number, _nsm_service.service.ports, _service_capacity, _load
                                 ))
             output += ['',
                        'Press ^C to exit',
