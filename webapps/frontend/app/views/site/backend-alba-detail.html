@@ -1,0 +1,163 @@
+<!--
+Copyright 2014 CloudFounders NV
+All rights reserved
+-->
+<section>
+	<ol class="breadcrumb">
+	    <li class="active" data-bind="text: backend().name"></li>
+	</ol>
+    <div>
+        <ul class="nav nav-tabs">
+            <li class="active">
+                <a href="#information" data-toggle="tab" >
+                    <span class="fa" data-i18n="[html]ovs:icons.information"></span>
+                    <span style="padding-left: 5px;" data-bind="text: backend().name, visible: backend().name() !== undefined"></span>
+                </a>
+            </li>
+        </ul>
+        <div class="tab-content">
+            <!-- ko if: albaBackend() !== undefined -->
+                <div class="tab-pane active" id="information" style="padding: 15px;" data-bind="with: albaBackend()">
+                    <table style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th data-i18n="alba:generic.details" colspan="2"></th>
+                                <th data-i18n="alba:generic.statistics" colspan="2"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="width: 15%;" data-i18n="ovs:generic.backendtype"></td>
+                                <td style="width: 35%;">
+                                    <span data-bind="lazyloader: { item: $root.backend().backendType, loadedObservable: 'loaded', undefinedLoading: false }">
+                                        <span data-part="lazy-entry"
+                                              data-bind="translate: 'ovs:generic.backendtypes.' + item().code()"></span>
+                                    </span>
+                                </td>
+                                <td style="width: 15%;" data-i18n="alba:generic.putss"></td>
+                                <td style="width: 35%;">n/a</td>
+                            </tr>
+                            <tr>
+                                <td style="width: 15%;" data-i18n="alba:generic.nrofdevices"></td>
+                                <td style="width: 35%;">n/a</td>
+                                <td style="width: 15%;" data-i18n="alba:generic.getss"></td>
+                                <td style="width: 35%;">n/a</td>
+                            </tr>
+                            <tr>
+                                <td style="width: 15%;" data-i18n="ovs:generic.status"></td>
+                                <td style="width: 35%;">
+                                    <div data-bind="status: {
+                                                        colors: {
+                                                            blue: $root.backend().status() == 'new',
+                                                            green: $root.backend().status() == 'running',
+                                                            orange: $root.backend().status() == 'installing',
+                                                            red: $root.backend().status() == 'failure',
+                                                            black: $root.backend().status() == 'stopped'
+                                                        },
+                                                        defaultColor: 'lightgrey'
+                                                    }, tooltip: 'ovs:generic.states.backend.' + $root.backend().status()"
+                                         style="width: 14px; height: 14px;"></div>
+                                </td>
+                                <td style="width: 15%;" data-i18n="ovs:generic.nrofvpools"></td>
+                                <td style="width: 35%;">n/a</td>
+                            </tr>
+                            <tr>
+                                <td></td>
+                                <td></td>
+                                <td style="width: 15%;" data-i18n="ovs:generic.nrofvmachines"></td>
+                                <td style="width: 35%;">n/a</td>
+                            </tr>
+                            <tr>
+                                <td></td>
+                                <td></td>
+                                <td style="width: 15%;" data-i18n="ovs:generic.nrofvdisks"></td>
+                                <td style="width: 35%;">n/a</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            <!-- /ko -->
+            <!-- ko if: albaBackend() === undefined -->
+                <div class="tab-pane active" id="information-undefined" style="padding: 15px;">
+                    <span class="fa fa-spin" data-i18n="[html]ovs:icons.loading"></span>
+                </div>
+            <!-- /ko -->
+        </div>
+    </div>
+    <div>
+        <ul class="nav nav-tabs">
+            <li class="active" data-bind="tooltip: 'alba:generic.devices'">
+                <a href="#devices" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.devices"></a>
+            </li>
+            <li data-bind="tooltip: 'ovs:generic.vpools'">
+                <a href="#vpools" data-toggle="tab" class="fa" data-i18n="[html]ovs:icons.vpools"></a>
+            </li>
+            <li data-bind="tooltip: 'ovs:generic.management', visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
+                <a href="#management" data-toggle="tab" class="fa" data-i18n="[html]ovs:icons.management"></a>
+            </li>
+        </ul>
+        <div class="tab-content">
+            <div class="tab-pane active" id="devices" style="padding: 15px;">
+                <h4 data-i18n="alba:storageunit.registeredunits"></h4>
+                <div data-bind="pager: { loadData: loadRegisteredDevices, items: registeredUnits, headers: registeredDeviceHeaders, refreshInterval: 5000,
+                                         controls: true, key: 'id' }">
+                    <table data-dummy="dummy">
+                        <tr data-part="vitem">
+                            <td data-bind="text: id"></td>
+                            <td data-bind="text: nrOfDisks"></td>
+                            <td data-bind="text: $root.formatBytes(capacity())"></td>
+                            <td>
+                                <div data-bind="status: {
+                                                    colors: {
+                                                        green: false
+                                                    },
+                                                    defaultColor: 'lightgrey'
+                                                }"
+                                     style="width: 14px; height: 14px;"></div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <div class="tab-pane" id="vpools" style="padding: 15px;">
+                <h4 data-i18n="ovs:generic.vpools"></h4>
+                <div data-bind="pager: { loadData: loadVPools, headers: vPoolHeaders, refreshInterval: 5000, controls: true }">
+                    <table data-dummy="dummy">
+                        <tr data-part="vitem">
+                            <td>n/a</td>
+                            <td>n/a</td>
+                            <td>n/a</td>
+                            <td>n/a</td>
+                            <td>n/a</td>
+                            <td>n/a</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <div class="tab-pane" id="management" style="padding: 15px;" data-bind="visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
+                <h4 data-i18n="alba:storageunit.unclaimedunits"></h4>
+                <div data-bind="pager: { loadData: loadDiscoveredDevices, items: discoveredUnits, headers: discoveredUnitHeaders, refreshInterval: 5000,
+                                         controls: true, key: 'id' }">
+                    <table data-dummy="dummy">
+                        <tr data-part="vitem">
+                            <td data-bind="text: id"></td>
+                            <td data-bind="text: nrOfDisks"></td>
+                            <td data-bind="text: $root.formatBytes(capacity())"></td>
+                            <td>
+                                <i data-bind="attr: { id: 'kineticAdd_' + id },
+                                              click: function() {
+                                                  if ($.inArray('manage', $root.shared.user.roles()) !== -1) {
+                                                      $root.addUnit(id());
+                                                  }
+                                              },
+                                              tooltip: 'alba:generic.add',
+                                              style: { color: $.inArray('manage', $root.shared.user.roles()) !== -1 ? 'black' : 'lightgrey' }"
+                                   class="hand fa fa-fw" data-i18n="[html]ovs:icons.add"></i>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
