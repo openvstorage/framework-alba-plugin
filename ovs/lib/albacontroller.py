@@ -49,12 +49,8 @@ class AlbaController(object):
         # @todo: backend name can be used to differentiate between different backend - abm combinations
         alba_backend = AlbaBackend(alba_backend_guid)
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
-
         for device in devices:
-            cmd = """export LD_LIBRARY_PATH=/usr/lib/alba; """
-            cmd += """/usr/bin/alba claim-osd --config {0} """.format(config_file)
-            cmd += """--long-id {0}""".format(device['id'])
-            output = check_output(cmd, shell=True).strip()
+            output = AlbaCLI.run('claim-osd', config=config_file, long_id=device['id'])
             logger.info('** abm response:' + str(output))
 
     @staticmethod
@@ -65,12 +61,7 @@ class AlbaController(object):
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
-
-        cmd = """export LD_LIBRARY_PATH=/usr/lib/alba; """
-        cmd += """/usr/bin/alba list-available-osds --config {0} --to-json 2>/dev/null """.format(config_file)
-        output = check_output(cmd, shell=True).strip()
-
-        return json.loads(output)
+        return AlbaCLI.run('list-available-osds', config=config_file, as_json=True)
 
     @staticmethod
     @celery.task(name='alba.list_osds')
@@ -80,12 +71,7 @@ class AlbaController(object):
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
-
-        cmd = """export LD_LIBRARY_PATH=/usr/lib/alba; """
-        cmd += """/usr/bin/alba list-osds --config {0} --to-json 2>/dev/null """.format(config_file)
-        output = check_output(cmd, shell=True).strip()
-
-        return json.loads(output)
+        return AlbaCLI.run('list-osds', config=config_file, as_json=True)
 
     @staticmethod
     @celery.task(name='alba.add_cluster')
@@ -433,7 +419,7 @@ Service.remove_service('', 'alba-maintenance_{0}')
             return float('inf')
         filename = '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR,
                                             nsm_service.alba_backend.abm_services[0].service.name)
-        namespaces = AlbaCLI.run('list-namespaces', config=filename, as_json=True, debug=True)
+        namespaces = AlbaCLI.run('list-namespaces', config=filename, as_json=True)
         usage = len([ns for ns in namespaces if ns['nsm_host_id'] == nsm_service.service.name])
         return round(usage / service_capacity * 100.0, 5)
 
@@ -470,20 +456,20 @@ Service.remove_service('', 'alba-maintenance_{0}')
 if __name__ == '__main__':
     try:
         while True:
-            output = ['',
-                      'Open vStorage - NSM/ABM debug information',
-                      '=========================================',
-                      'timestamp: {0}'.format(time.time()),
-                      '']
+            _output = ['',
+                       'Open vStorage - NSM/ABM debug information',
+                       '=========================================',
+                       'timestamp: {0}'.format(time.time()),
+                       '']
             sr_backends = {}
-            alba_backends = AlbaBackendList.get_albabackends()
+            _alba_backends = AlbaBackendList.get_albabackends()
             for _sr in StorageRouterList.get_storagerouters():
-                output.append('+ {0} ({1})'.format(_sr.name, _sr.ip))
-                for _alba_backend in alba_backends:
-                    output.append('  + {0}'.format(_alba_backend.backend.name))
+                _output.append('+ {0} ({1})'.format(_sr.name, _sr.ip))
+                for _alba_backend in _alba_backends:
+                    _output.append('  + {0}'.format(_alba_backend.backend.name))
                     for _abm_service in _alba_backend.abm_services:
                         if _abm_service.service.storagerouter_guid == _sr.guid:
-                            output.append('    + ABM - port {0}'.format(_abm_service.service.ports))
+                            _output.append('    + ABM - port {0}'.format(_abm_service.service.ports))
                     for _nsm_service in _alba_backend.nsm_services:
                         if _nsm_service.service.storagerouter_guid == _sr.guid:
                             _service_capacity = float(_nsm_service.capacity)
@@ -494,13 +480,13 @@ if __name__ == '__main__':
                                 _load = 'infinite'
                             else:
                                 _load = '{0}%'.format(round(_load, 2))
-                            output.append('    + NSM {0} - port {1} - capacity: {2}, load: {3}'.format(
+                            _output.append('    + NSM {0} - port {1} - capacity: {2}, load: {3}'.format(
                                 _nsm_service.number, _nsm_service.service.ports, _service_capacity, _load
                             ))
-            output += ['',
-                       'Press ^C to exit',
-                       '']
-            print '\x1b[2J\x1b[H' + '\n'.join(output)
+            _output += ['',
+                        'Press ^C to exit',
+                        '']
+            print '\x1b[2J\x1b[H' + '\n'.join(_output)
             time.sleep(1)
     except KeyboardInterrupt:
         pass

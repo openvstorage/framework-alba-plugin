@@ -22,7 +22,7 @@ from subprocess import check_output
 class AlbaCLI(object):
 
     @staticmethod
-    def run(command, config=None, host=None, asd_port=None, box_id=None, extra_params=None, as_json=True, debug=False, client=None):
+    def run(command, config=None, host=None, long_id=None, asd_port=None, box_id=None, extra_params=None, as_json=True, debug=False, client=None):
         """
         Executes a command on ALBA
         """
@@ -32,6 +32,8 @@ class AlbaCLI(object):
             cmd += ' --config {0}'.format(config)
         if host is not None:
             cmd += ' --host {0}'.format(host)
+        if long_id is not None:
+            cmd += ' --long-id {0}'.format(long_id)
         if asd_port is not None:
             cmd += ' --asd-port {0}'.format(asd_port)
         if box_id is not None:
