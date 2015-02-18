@@ -19,6 +19,12 @@ fi
 MY_IP=`cat /etc/hosts | grep \`hostname\` | awk '{print $1}'`
 BOX_ID=$1
 
+# create user if necessary
+id alba
+if [ $? -eq 1 ]; then
+    useradd -b /home -d /home/alba -m alba
+fi
+
 # status asds
 echo
 echo "Status:"
@@ -43,6 +49,10 @@ echo "deb http://packages.cloudfounders.com/apt/ unstable/" > /etc/apt/sources.l
 apt-get update
 apt-get install --force-yes --yes alba
 
+#mkdir -p /root/alba
+#chmod 755 /root/alba
+#chown alba:alba /root/alba
+
 port=8000
 for asd in data1 data2 data3 data4; do
   (( port = port + 1))
@@ -62,7 +72,16 @@ setgid alba
 
 env LD_LIBRARY_PATH=/usr/lib/alba
 
-exec /usr/bin/alba asd-start --path /mnt/${asd} --host ${MY_IP} --port ${port} --box-id ${BOX_ID}
+pre-start script
+    # create json config file
+    cat << E2OF > /home/alba/${asd}.json
+{"home": "/mnt/${asd}", "box_id": "${BOX_ID}", "log_level": "debug", "port": ${port}, "ips": ["${MY_IP}"] }
+
+E2OF
+
+end script
+
+exec /usr/bin/alba asd-start --config /home/alba/${asd}.json
 EOF
   fi
 done
@@ -87,3 +106,5 @@ tail /var/log/upstart/alba-data3.log
 tail /var/log/upstart/alba-data4.log
 
 ps -ef | grep alba
+echo "Alba version:"
+/usr/bin/alba version
