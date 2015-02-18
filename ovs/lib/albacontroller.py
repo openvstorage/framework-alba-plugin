@@ -476,33 +476,27 @@ if __name__ == '__main__':
                       'timestamp: {0}'.format(time.time()),
                       '']
             sr_backends = {}
-            for _alba_backend in AlbaBackendList.get_albabackends():
-                for _abm_service in _alba_backend.abm_services:
-                    _storagerouter = _abm_service.service.storagerouter
-                    if _storagerouter not in sr_backends:
-                        sr_backends[_storagerouter] = []
-                    sr_backends[_storagerouter].append(_alba_backend)
+            alba_backends = AlbaBackendList.get_albabackends()
             for _sr in StorageRouterList.get_storagerouters():
                 output.append('+ {0} ({1})'.format(_sr.name, _sr.ip))
-                if _sr in sr_backends:
-                    for _alba_backend in sr_backends[_sr]:
-                        output.append('  + {0}'.format(_alba_backend.backend.name))
-                        for _abm_service in _alba_backend.abm_services:
-                            if _abm_service.service.storagerouter_guid == _sr.guid:
-                                output.append('    + ABM - port {0}'.format(_abm_service.service.ports))
-                        for _nsm_service in _alba_backend.nsm_services:
-                            if _nsm_service.service.storagerouter_guid == _sr.guid:
-                                _service_capacity = float(_nsm_service.capacity)
-                                if _service_capacity < 0:
-                                    _service_capacity = 'infinite'
-                                _load = AlbaController.get_load(_nsm_service)
-                                if _load == float('inf'):
-                                    _load = 'infinite'
-                                else:
-                                    _load = '{0}%'.format(round(_load, 2))
-                                output.append('    + NSM {0} - port {1} - capacity: {2}, load: {3}'.format(
-                                    _nsm_service.number, _nsm_service.service.ports, _service_capacity, _load
-                                ))
+                for _alba_backend in alba_backends:
+                    output.append('  + {0}'.format(_alba_backend.backend.name))
+                    for _abm_service in _alba_backend.abm_services:
+                        if _abm_service.service.storagerouter_guid == _sr.guid:
+                            output.append('    + ABM - port {0}'.format(_abm_service.service.ports))
+                    for _nsm_service in _alba_backend.nsm_services:
+                        if _nsm_service.service.storagerouter_guid == _sr.guid:
+                            _service_capacity = float(_nsm_service.capacity)
+                            if _service_capacity < 0:
+                                _service_capacity = 'infinite'
+                            _load = AlbaController.get_load(_nsm_service)
+                            if _load == float('inf'):
+                                _load = 'infinite'
+                            else:
+                                _load = '{0}%'.format(round(_load, 2))
+                            output.append('    + NSM {0} - port {1} - capacity: {2}, load: {3}'.format(
+                                _nsm_service.number, _nsm_service.service.ports, _service_capacity, _load
+                            ))
             output += ['',
                        'Press ^C to exit',
                        '']
