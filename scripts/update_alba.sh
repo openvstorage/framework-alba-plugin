@@ -41,17 +41,13 @@ stop alba-data3
 stop alba-data4
 echo
 
-if [ "$2" = "-clean" ]; then
-    rm -rf /mnt/data*/*
-fi
-
 echo "deb http://packages.cloudfounders.com/apt/ unstable/" > /etc/apt/sources.list.d/ovsaptrepo.list
 apt-get update
 apt-get install --force-yes --yes alba
 
-#mkdir -p /root/alba
-#chmod 755 /root/alba
-#chown alba:alba /root/alba
+if [ "$2" = "-clean" ]; then
+    rm -rf /mnt/data*/*
+fi
 
 port=8000
 for asd in data1 data2 data3 data4; do
