@@ -1,0 +1,25 @@
+Source: openvstorage-alba
+Maintainer: Kenneth Henderick <kenneth.henderick@cloudfounders.com>
+Standards-Version: 3.9.4.0
+Section: python
+Priority: optional
+Build-Depends: python (>= 2.7.2)
+
+Package: openvstorage-alba-core
+Architecture: amd64
+Pre-Depends: python (>= 2.7.2), ipython, openvstorage-core (>= 1.5.0)
+Depends: alba (>=0.0.3-1), arakoon (>= 1.8.0)
+Description: openvStorage ALBA plugin core
+ Core components for the Open vStorage ALBA plugin
+
+Package: openvstorage-alba-webapps
+Architecture: amd64
+Pre-Depends: openvstorage-alba-core (= ${binary:Version}), openvstorage-webapps (>= 1.5.0)
+Description: openvStorage ALBA plugin Web Applications
+ Web components for the Open vStorage ALBA plugin
+
+Package: openvstorage-alba
+Architecture: amd64
+Pre-Depends: openvstorage-alba-core (= ${binary:Version}), openvstorage-alba-webapps (= ${binary:Version})
+Description: openvStorage ALBA plugin
+ Open vStorage ALBA plugin umbrella package
