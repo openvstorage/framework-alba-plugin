@@ -6,6 +6,7 @@ AlbaController module
 """
 
 import time
+import json
 from ovs.celery_run import celery
 from celery.schedules import crontab
 from ovs.dal.hybrids.storagerouter import StorageRouter
@@ -152,7 +153,11 @@ class AlbaController(object):
         # Configure maintenance service
         for master in masters:
             client = SSHClient.load(master.ip)
-            params = {'<ALBA_CONFIG>': '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)}
+            client.file_write('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name), json.dumps({
+                'log_level': 'debug',
+                'albamgr_cfg_file': '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)
+            }))
+            params = {'<ALBA_CONFIG>': '{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)}
             config_file_base = '/opt/OpenvStorage/config/templates/upstart/ovs-alba-maintenance'
             if client.file_exists('{0}.conf'.format(config_file_base)):
                 client.run('cp -f {0}.conf {0}_{1}.conf'.format(config_file_base, abm_name))
