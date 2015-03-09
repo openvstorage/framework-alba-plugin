@@ -152,13 +152,21 @@ class AlbaNodeController(object):
         if disk not in disks or disks[disk]['available'] is True:
             logger.exception('Disk {0} not available for removal on node {1}'.format(disk, node.ip))
             raise RuntimeError('Could not find disk')
-        AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']])
+        try:
+            AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']])
+        except:
+            pass
         result = requests.post('https://{0}:{1}/disks/{2}/delete'.format(node.ip, node.port, disk),
                               headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(node.username, node.password)).strip())},
                               verify=False).json()
-        if result['_success'] is True:
-            return True
-        raise RuntimeError('Error removing disk: {0}'.format(result['_error']))
+        if result['_success'] is False:
+            raise RuntimeError('Error removing disk: {0}'.format(result['_error']))
+        try:
+            # Second run, to prevent raise conditions
+            AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']])
+        except:
+            pass
+        return True
 
     @staticmethod
     @setup_hook(['firstnode', 'extranode'])

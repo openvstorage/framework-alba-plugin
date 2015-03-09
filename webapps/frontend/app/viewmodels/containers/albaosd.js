@@ -13,6 +13,7 @@ define([
         self.node = node;
 
         // Observables
+        self.ignoreNext = ko.observable(false);
         self.loaded     = ko.observable(false);
         self.name       = ko.observable(name);
         self.asdID      = ko.observable();
@@ -25,12 +26,16 @@ define([
 
         // Functions
         self.fillData = function(data) {
-            self.status(data.status);
-            generic.trySet(self.asdID, data, 'asd_id');
-            generic.trySet(self.statistics, data, 'statistics');
-            generic.trySet(self.device, data, 'device');
-            generic.trySet(self.mountpoint, data, 'mountpoint');
-            generic.trySet(self.port, data, 'port');
+            if (self.ignoreNext() === true) {
+                self.ignoreNext(false);
+            } else {
+                self.status(data.status);
+                generic.trySet(self.asdID, data, 'asd_id');
+                generic.trySet(self.statistics, data, 'statistics');
+                generic.trySet(self.device, data, 'device');
+                generic.trySet(self.mountpoint, data, 'mountpoint');
+                generic.trySet(self.port, data, 'port');
+            }
 
             self.loaded(true);
         };
@@ -38,6 +43,8 @@ define([
             self.processing(true);
             self.node.initializeNode(self.name())
                 .always(function() {
+                    self.ignoreNext(true);
+                    self.status('initialized');
                     self.processing(false);
                 });
         };
@@ -45,6 +52,8 @@ define([
             self.processing(true);
             self.node.removeNode(self.name())
                 .always(function() {
+                    self.ignoreNext(true);
+                    self.status('uninitialized');
                     self.processing(false);
                 });
         };
@@ -52,6 +61,8 @@ define([
             self.processing(true);
             self.node.claimOSD(self.asdID(), self.name())
                 .always(function() {
+                    self.ignoreNext(true);
+                    self.status('claimed');
                     self.processing(false);
                 });
         };

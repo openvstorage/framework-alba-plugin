@@ -101,6 +101,9 @@ All rights reserved
                                         </tr>
                                         <tr>
                                             <td colspan="3" style="border-top: 0;">
+                                                <!-- ko if: diskRows().length === 0 -->
+                                                    <i data-i18n="alba:generic.nodisks"></i>
+                                                <!-- /ko -->
                                                 <div data-bind="foreach: diskRows">
                                                     <div class="row" data-bind="foreach: items, style: { 'margin-top': $index() > 0 ? '10px' : '0' }"
                                                          style="margin-left: 0;">
@@ -112,14 +115,17 @@ All rights reserved
                                    'btn-default': status() == 'uninitialized',
                                    'btn-info': status() == 'initialized',
                                    'btn-primary': status() == 'available',
-                                   'disabled': status() == 'unavailable',
                                    'btn-success': status() == 'claimed',
                                    'btn-warning': status() == 'warning',
                                    'btn-danger': status() == 'error'
                                }">
                 <span style="display: inline-block;">
-                    <!--<span data-bind="shortText: name(), maxLength: 30"></span>-->
-                    <i class="hand fa fa-fw" data-i18n="[html]ovs:icons.vdisks" style="padding-right: 25px;"></i>
+                    <!-- ko if: !processing() -->
+                        <i class="hand fa fa-fw" data-i18n="[html]ovs:icons.vdisks" style="padding-right: 25px;"></i>
+                    <!-- /ko -->
+                    <!-- ko if: processing() -->
+                        <span style="padding-right: 7px;"><i class="hand fa fa-fw fa-spin" data-i18n="[html]ovs:icons.loading"></i></span>
+                    <!-- /ko -->
                     <span data-bind="shortText: name(), maxLength: 27"></span>
                 </span>
                 <span style="display: inline-block; position: absolute; right: 12px; top: 6px;">
@@ -176,6 +182,22 @@ All rights reserved
                         <abbr data-bind="attr: { title: name() }"><span data-bind="shortText: name(), maxLength: 25"></span></abbr>
                     </a>
                 </li>
+                <!-- ko if: status() === 'claimed' && asdID() !== undefined -->
+                    <li>
+                        <a>
+                            <span data-i18n="alba:generic.asdid"></span>:
+                            <abbr data-bind="attr: { title: asdID() }"><span data-bind="shortText: asdID(), maxLength: 23"></span></abbr>
+                        </a>
+                    </li>
+                <!-- /ko -->
+                <!-- ko if: (status() === 'claimed' || status() === 'initialized' || status() === 'available') && mountpoint() !== undefined -->
+                    <li>
+                        <a>
+                            <span data-i18n="alba:generic.mountpoint"></span>:
+                            <abbr data-bind="attr: { title: mountpoint() }"><span data-bind="shortText: mountpoint(), maxLength: 28"></span></abbr>
+                        </a>
+                    </li>
+                <!-- /ko -->
                 <!-- ko if: status() !== 'unavailable' && status() !== 'uninitialized' && statistics() !== undefined -->
                     <li>
                         <a>
@@ -191,15 +213,17 @@ All rights reserved
                                                 </div>
                                             </td>
                                         </tr>
-                                        <tr>
-                                            <td colspan="3" style="border-top: 0;">
-                                                <span data-i18n="alba:generic.actions"></span>
-                                                <button type="button" class="btn btn-default btn-xs" data-i18n="alba:generic.initializeall"
-                                                        data-bind="click: initializeAll, enable: canInitializeAll()" style="margin-left: 10px;"></button>
-                                                <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claimall"
-                                                        data-bind="click: claimAll, enable: canClaimAll()" style="margin-left: 10px;"></button>
-                                            </td>
-                                        </tr>
+                                        <!-- ko if: diskRows().length > 0 -->
+                                            <tr>
+                                                <td colspan="3" style="border-top: 0;">
+                                                    <span data-i18n="alba:generic.actions"></span>
+                                                    <button type="button" class="btn btn-default btn-xs" data-i18n="alba:generic.initializeall"
+                                                            data-bind="click: initializeAll, enable: canInitializeAll()" style="margin-left: 10px;"></button>
+                                                    <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claimall"
+                                                            data-bind="click: claimAll, enable: canClaimAll()" style="margin-left: 10px;"></button>
+                                                </td>
+                                            </tr>
+                                        <!-- /ko -->
                                     </table>
                                 </td>
                             </tr>
@@ -230,6 +254,18 @@ All rights reserved
                         <!-- /ko -->
                     </tbody>
                 </table>
+                <div>
+                    <span class="pull-right">
+                        <span data-i18n="alba:generic.legend" style="margin-right: 10px;"></span>
+                        <span class="label" style="background-color: #FFF; border: 1px solid #CCC; color: #333;" data-i18n="alba:generic.states.osd.uninitialized"></span>
+                        <span class="label" style="background-color: #DDD; color: #333;" data-i18n="alba:generic.states.osd.unavailable"></span>
+                        <span class="label label-info" data-i18n="alba:generic.states.osd.initialized"></span>
+                        <span class="label label-primary" data-i18n="alba:generic.states.osd.available"></span>
+                        <span class="label label-success" data-i18n="alba:generic.states.osd.claimed"></span>
+                        <span class="label label-warning" data-i18n="alba:generic.states.osd.warning"></span>
+                        <span class="label label-danger" data-i18n="alba:generic.states.osd.error"></span>
+                    </span>
+                </div>
             </div>
         </div>
     </div>

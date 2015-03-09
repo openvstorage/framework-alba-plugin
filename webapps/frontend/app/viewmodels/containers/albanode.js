@@ -207,6 +207,8 @@ define([
                                 .always(function() {
                                     $.each(self.disks(), function(index, disk) {
                                         if ($.inArray(disk.name(), diskNames) !== -1) {
+                                            disk.ignoreNext(true);
+                                            disk.status('initialized');
                                             disk.processing(false);
                                         }
                                     });
@@ -231,6 +233,8 @@ define([
                     .always(function() {
                         $.each(self.disks(), function(index, disk) {
                             if ($.inArray(disk.name(), disks) !== -1) {
+                                disk.ignoreNext(true);
+                                disk.status('claimed');
                                 disk.processing(false);
                             }
                         });

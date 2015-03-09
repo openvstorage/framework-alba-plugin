@@ -39,7 +39,7 @@ class AlbaController(object):
     ARAKOON_OCCUPIED_PORTS = [8870, 8871, 8872, 8873]
 
     @staticmethod
-    @celery.task(name='alba.add_unit')
+    @celery.task(name='alba.add_units')
     def add_units(alba_backend_guid, asd_ids):
         """
         Adds storage units to an Alba backend
@@ -51,7 +51,7 @@ class AlbaController(object):
             logger.info('** abm response:' + str(output))
 
     @staticmethod
-    @celery.task(name='alba.add_unit')
+    @celery.task(name='alba.remove_units')
     def remove_units(alba_backend_guid, asd_ids):
         """
         Removes storage units to an Alba backend

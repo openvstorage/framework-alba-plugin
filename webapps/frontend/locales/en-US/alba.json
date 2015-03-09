@@ -4,6 +4,7 @@
         "All rights reserved"
     ],
     "generic": {
+        "nodisks": "No disks available",
         "accesskey": "Access key",
         "details": "Details",
         "statistics": "Statistics",
@@ -46,6 +47,9 @@
         "unclaim": "Unclaim",
         "actions": "Available actions:",
         "register": "Add node",
+        "asdid": "ASD ID",
+        "mountpoint": "Mtpt",
+        "legend": "Legend:",
         "states": {
             "osd": {
                 "uninitialized": "Uninitialized",
