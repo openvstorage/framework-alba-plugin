@@ -1,0 +1,96 @@
+# Copyright 2015 CloudFounders NV
+# All rights reserved
+
+"""
+Contains the AlbaNodeViewSet
+"""
+
+from backend.decorators import required_roles, return_object, return_list, load, return_task, log
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
+from ovs.dal.hybrids.albanode import AlbaNode
+from ovs.dal.lists.albanodelist import AlbaNodeList
+from ovs.lib.albanodecontroller import AlbaNodeController
+from ovs.lib.albacontroller import AlbaController
+from ovs.dal.dataobjectlist import DataObjectList
+
+
+class AlbaNodeViewSet(viewsets.ViewSet):
+    """
+    Information about ALBA Nodes
+    """
+    permission_classes = (IsAuthenticated,)
+    prefix = r'alba/nodes'
+    base_name = 'albanodes'
+
+    @log()
+    @required_roles(['read'])
+    @return_list(AlbaNode)
+    @load()
+    def list(self, alba_backend_guid, discover=False):
+        """
+        Lists all available ALBA Nodes
+        """
+        if discover is False:
+            nodes = AlbaNodeList.get_albanodes()
+            all_osds = AlbaController.list_all_osds.delay(alba_backend_guid).get()
+            for node in nodes:
+                node.disks = [disk for disk in AlbaNodeController.fetch_disks.delay(node.guid).get().values()]
+                for disk in node.disks:
+                    if disk['available'] is True:
+                        disk['status'] = 'uninitialized'
+                    else:
+                        disk['status'] = 'initialized'
+                        for osd in all_osds:
+                            if osd['box_id'] == node.box_id and 'asd_id' in disk and osd['long_id'] == disk['asd_id']:
+                                if osd['id'] is None:
+                                    if osd['alba_id'] is None:
+                                        disk['status'] = 'available'
+                                    else:
+                                        disk['status'] = 'unavailable'
+                                else:
+                                    disk['status'] = 'claimed'
+            return nodes
+        else:
+            model_nodes = AlbaNodeList.get_albanodes()
+            model_ips = [node.ip for node in model_nodes]
+            nodes_data = AlbaNodeController.discover.delay().get()
+            nodes = {}
+            for node_data in nodes_data:
+                node = AlbaNode(data=node_data, volatile=True)
+                if node.ip not in model_ips:
+                    nodes[node.guid] = node
+            node_list = DataObjectList(nodes.keys(), AlbaNode)
+            node_list._objects = nodes
+            return node_list
+
+    @log()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load()
+    def create(self, box_id, ip, port, username, password):
+        """
+        Adds a node with a given box_id to the model
+        """
+        return AlbaNodeController.register.delay(box_id, ip, port, username, password)
+
+    @action()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaNode)
+    def initialize_disks(self, albanode, disks):
+        """
+        Initializes disks
+        """
+        return AlbaNodeController.initialize_disks.delay(albanode.guid, disks)
+
+    @action()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaNode)
+    def remove_disk(self, albanode, disk):
+        """
+        Removes a disk
+        """
+        return AlbaNodeController.remove_disk.delay(albanode.guid, disk)

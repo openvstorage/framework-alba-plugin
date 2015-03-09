@@ -58,20 +58,8 @@ All rights reserved
                                                     }, tooltip: 'ovs:generic.states.backend.' + $root.backend().status()"
                                          style="width: 14px; height: 14px;"></div>
                                 </td>
-                                <td style="width: 15%;" data-i18n="ovs:generic.nrofvpools"></td>
-                                <td style="width: 35%;">n/a</td>
-                            </tr>
-                            <tr>
                                 <td></td>
                                 <td></td>
-                                <td style="width: 15%;" data-i18n="ovs:generic.nrofvmachines"></td>
-                                <td style="width: 35%;">n/a</td>
-                            </tr>
-                            <tr>
-                                <td></td>
-                                <td></td>
-                                <td style="width: 15%;" data-i18n="ovs:generic.nrofvdisks"></td>
-                                <td style="width: 35%;">n/a</td>
                             </tr>
                         </tbody>
                     </table>
@@ -86,77 +74,162 @@ All rights reserved
     </div>
     <div>
         <ul class="nav nav-tabs">
-            <li class="active" data-bind="tooltip: 'alba:generic.devices'">
-                <a href="#devices" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.devices"></a>
-            </li>
-            <li data-bind="tooltip: 'ovs:generic.vpools'">
-                <a href="#vpools" data-toggle="tab" class="fa" data-i18n="[html]ovs:icons.vpools"></a>
-            </li>
-            <li data-bind="tooltip: 'ovs:generic.management', visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
-                <a href="#management" data-toggle="tab" class="fa" data-i18n="[html]ovs:icons.management"></a>
+            <li class="active" data-bind="tooltip: 'alba:generic.nodes', visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
+                <a href="#nodes" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>
             </li>
         </ul>
         <div class="tab-content">
-            <div class="tab-pane active" id="devices" style="padding: 15px;">
-                <h4 data-i18n="alba:storageunit.registeredunits"></h4>
-                <div data-bind="pager: { loadData: loadRegisteredDevices, items: registeredUnits, headers: registeredDeviceHeaders, refreshInterval: 5000,
-                                         controls: true, key: 'id' }">
-                    <table data-dummy="dummy">
-                        <tr data-part="vitem">
-                            <td data-bind="text: id"></td>
-                            <td data-bind="text: nrOfDisks"></td>
-                            <td data-bind="text: $root.formatBytes(capacity())"></td>
-                            <td>
-                                <div data-bind="status: {
-                                                    colors: {
-                                                        green: false
-                                                    },
-                                                    defaultColor: 'lightgrey'
-                                                }"
-                                     style="width: 14px; height: 14px;"></div>
-                            </td>
+            <div class="tab-pane active" id="nodes" style="padding: 15px;" data-bind="visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
+                <h4 data-i18n="alba:nodes.nodes"></h4>
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th data-i18n="alba:generic.boxid" style="width: 400px;"></th>
+                            <th data-i18n="alba:generic.connection"></th>
+                            <th data-i18n="ovs:generic.actions" style="width: 80px;"></th>
                         </tr>
-                    </table>
-                </div>
-            </div>
-            <div class="tab-pane" id="vpools" style="padding: 15px;">
-                <h4 data-i18n="ovs:generic.vpools"></h4>
-                <div data-bind="pager: { loadData: loadVPools, headers: vPoolHeaders, refreshInterval: 5000, controls: true }">
-                    <table data-dummy="dummy">
-                        <tr data-part="vitem">
-                            <td>n/a</td>
-                            <td>n/a</td>
-                            <td>n/a</td>
-                            <td>n/a</td>
-                            <td>n/a</td>
-                            <td>n/a</td>
-                        </tr>
-                    </table>
-                </div>
-            </div>
-            <div class="tab-pane" id="management" style="padding: 15px;" data-bind="visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
-                <h4 data-i18n="alba:storageunit.unclaimedunits"></h4>
-                <div data-bind="pager: { loadData: loadDiscoveredDevices, items: discoveredUnits, headers: discoveredUnitHeaders, refreshInterval: 5000,
-                                         controls: true, key: 'id' }">
-                    <table data-dummy="dummy">
-                        <tr data-part="vitem">
-                            <td data-bind="text: id"></td>
-                            <td data-bind="text: nrOfDisks"></td>
-                            <td data-bind="text: $root.formatBytes(capacity())"></td>
-                            <td>
-                                <i data-bind="attr: { id: 'kineticAdd_' + id },
-                                              click: function() {
-                                                  if ($.inArray('manage', $root.shared.user.roles()) !== -1) {
-                                                      $root.addUnit(id());
-                                                  }
-                                              },
-                                              tooltip: 'alba:generic.add',
-                                              style: { color: $.inArray('manage', $root.shared.user.roles()) !== -1 ? 'black' : 'lightgrey' }"
-                                   class="hand fa fa-fw" data-i18n="[html]ovs:icons.add"></i>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
+                    </thead>
+                    <tbody>
+                        <!-- ko foreach: registeredNodes -->
+                            <tr>
+                                <td colspan="3" style="padding: 0">
+                                    <table class="table" style="background-color: inherit; margin-bottom: 0; width: inherit;">
+                                        <tr>
+                                            <td style="width: 400px; border-top: 0;" data-bind="text: boxID"></td>
+                                            <td style="border-top: 0;"><span data-bind="text: ip"></span>:<span data-bind="text: port"></span></td>
+                                            <td style="width: 80px; border-top: 0;"></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="3" style="border-top: 0;">
+                                                <div data-bind="foreach: diskRows">
+                                                    <div class="row" data-bind="foreach: items, style: { 'margin-top': $index() > 0 ? '10px' : '0' }"
+                                                         style="margin-left: 0;">
+    <div class="col-md-4">
+        <div class="input-group">
+            <button type="button" class="btn btn-small dropdown-toggle" data-toggle="dropdown"
+                    style="width: 300px; position: relative; text-align: left;"
+                    data-bind="css: {
+                                   'btn-default': status() == 'uninitialized',
+                                   'btn-info': status() == 'initialized',
+                                   'btn-primary': status() == 'available',
+                                   'disabled': status() == 'unavailable',
+                                   'btn-success': status() == 'claimed',
+                                   'btn-warning': status() == 'warning',
+                                   'btn-danger': status() == 'error'
+                               }">
+                <span style="display: inline-block;">
+                    <!--<span data-bind="shortText: name(), maxLength: 30"></span>-->
+                    <i class="hand fa fa-fw" data-i18n="[html]ovs:icons.vdisks" style="padding-right: 25px;"></i>
+                    <span data-bind="shortText: name(), maxLength: 27"></span>
+                </span>
+                <span style="display: inline-block; position: absolute; right: 12px; top: 6px;">
+                    <span class="caret"></span>
+                </span>
+            </button>
+            <ul class="dropdown-menu" role="menu" style="max-height: 250px; overflow: auto; z-index: 6000;">
+                <li style="width: 300px;">
+                    <a style="position: relative;">
+                        <span data-i18n="ovs:generic.status"></span>: <span data-bind="translate: 'alba:generic.states.osd.' + status()"></span>
+                        <!-- ko if: status() === 'uninitialized' -->
+                            <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                <button type="button" class="btn btn-default btn-xs" data-i18n="alba:generic.initialize"
+                                        data-bind="click: initialize, css: { disabled: processing() || !loaded() }"></button>
+                            </span>
+                        <!-- /ko -->
+                        <!-- ko if: status() === 'initialized' -->
+                            <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
+                                        data-bind="click: remove, css: { disabled: processing() || !loaded() }"></button>
+                            </span>
+                        <!-- /ko -->
+                        <!-- ko if: status() === 'available' -->
+                            <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
+                                        data-bind="click: claim, css: { disabled: processing() || !loaded() }"></button>
+                                <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
+                                        data-bind="click: remove, css: { disabled: processing() || !loaded() }"></button>
+                            </span>
+                        <!-- /ko -->
+                        <!-- ko if: status() === 'claimed' -->
+                            <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
+                                        data-bind="click: remove, css: { disabled: processing() || !loaded() }"></button>
+                            </span>
+                        <!-- /ko -->
+                        <!-- ko if: status() === 'warning' -->
+                            <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
+                                        data-bind="click: remove, css: { disabled: processing() || !loaded() }"></button>
+                            </span>
+                        <!-- /ko -->
+                        <!-- ko if: status() === 'error' -->
+                            <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
+                                        data-bind="click: remove, css: { disabled: processing() || !loaded() }"></button>
+                            </span>
+                        <!-- /ko -->
+                    </a>
+                </li>
+                <li>
+                    <a>
+                        <span data-i18n="ovs:generic.name"></span>:
+                        <abbr data-bind="attr: { title: name() }"><span data-bind="shortText: name(), maxLength: 25"></span></abbr>
+                    </a>
+                </li>
+                <!-- ko if: status() !== 'unavailable' && status() !== 'uninitialized' && statistics() !== undefined -->
+                    <li>
+                        <a>
+                            <span data-i18n="ovs:generic.usage"></span>: <span data-bind="text: $root.formatBytes(statistics().used)"></span> / <span data-bind="text: $root.formatBytes(statistics().size)"></span>
+                            - <span data-bind="text: $root.formatPercentage(statistics().used / statistics().size)"></span>
+                        </a>
+                    </li>
+                <!-- /ko -->
+            </ul>
+        </div>
+    </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="3" style="border-top: 0;">
+                                                <span data-i18n="alba:generic.actions"></span>
+                                                <button type="button" class="btn btn-default btn-xs" data-i18n="alba:generic.initializeall"
+                                                        data-bind="click: initializeAll, enable: canInitializeAll()" style="margin-left: 10px;"></button>
+                                                <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claimall"
+                                                        data-bind="click: claimAll, enable: canClaimAll()" style="margin-left: 10px;"></button>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        <!-- /ko -->
+                        <!-- ko foreach: discoveredNodes -->
+                            <tr>
+                                <td style="width: 400px;" data-bind="text: boxID"></td>
+                                <td><span data-bind="text: ip"></span>:<span data-bind="text: port"></span></td>
+                                <td style="width: 80px;">
+                                    <i data-bind="attr: { id: 'registernode_' + boxID() },
+                                                  click: function() {
+                                                      if ($.inArray('manage', $root.shared.user.roles()) !== -1) {
+                                                          register();
+                                                      }
+                                                  },
+                                                  tooltip: 'alba:generic.register',
+                                                  style: { color: $.inArray('manage', $root.shared.user.roles()) !== -1 ? 'black' : 'lightgrey' }"
+                                   class="hand fa fa-fw" data-i18n="[html]alba:icons.registernode"></i>
+                                </td>
+                            </tr>
+                        <!-- /ko -->
+                        <!-- ko if: rNodesLoading() || dNodesLoading()-->
+                            <tr>
+                                <td colspan="3">
+                                    <i class="fa fa-spin" data-i18n="[html]ovs:icons.loading"></i>
+                                </td>
+                            </tr>
+                        <!-- /ko -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>

@@ -25,9 +25,6 @@ from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 
-from subprocess import check_output
-import json
-
 logger = LogHandler('lib', name='alba')
 
 
@@ -42,15 +39,14 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.add_unit')
-    def add_unit(alba_backend_guid, devices):
+    def add_units(alba_backend_guid, asd_ids):
         """
-        Adds a storage unit to an Alba backend
+        Adds storage units to an Alba backend
         """
-        # @todo: backend name can be used to differentiate between different backend - abm combinations
         alba_backend = AlbaBackend(alba_backend_guid)
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
-        for device in devices:
-            output = AlbaCLI.run('claim-osd', config=config_file, long_id=device['id'])
+        for asd_id in asd_ids:
+            output = AlbaCLI.run('claim-osd', config=config_file, long_id=asd_id)
             logger.info('** abm response:' + str(output))
 
     @staticmethod
@@ -72,6 +68,16 @@ class AlbaController(object):
         alba_backend = AlbaBackend(alba_backend_guid)
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
         return AlbaCLI.run('list-osds', config=config_file, as_json=True)
+
+    @staticmethod
+    @celery.task(name='alba.list_occupied_osds')
+    def list_all_osds(alba_backend_guid):
+        """
+        list all osds
+        """
+        alba_backend = AlbaBackend(alba_backend_guid)
+        config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
+        return AlbaCLI.run('list-all-osds', config=config_file, as_json=True)
 
     @staticmethod
     @celery.task(name='alba.add_cluster')

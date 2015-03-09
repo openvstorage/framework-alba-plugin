@@ -4,9 +4,8 @@
 define([
     'jquery', 'durandal/app', 'knockout',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
-    '../containers/backend', '../containers/backendtype', '../containers/albabackend',
-    '../containers/livekineticdevice', '../containers/osdunit'
-], function($, app, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, LiveKineticDevice, OSDUnit) {
+    '../containers/backend', '../containers/backendtype', '../containers/albabackend', '../containers/albanode'
+], function($, app, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node) {
     "use strict";
     return function() {
         var self = this;
@@ -17,74 +16,15 @@ define([
         self.refresher     = new Refresher();
         self.widgets       = [];
         self.initializing  = false;
-        self.deviceHeaders = [
-            { key: 'serial',    value: $.t('alba:generic.serial'),    width: 400       },
-            { key: 'ips',       value: $.t('alba:generic.ips'),       width: 200       },
-            { key: 'capacity',  value: $.t('alba:generic.capacity'),  width: 110       },
-            { key: 'freespace', value: $.t('alba:generic.freespace'), width: undefined },
-            { key: 'status',    value: $.t('ovs:generic.status'),     width: 50        }
-        ];
-        self.vPoolHeaders  = [
-            { key: 'name',       value: $.t('ovs:generic.name'),       width: undefined },
-            { key: 'storedData', value: $.t('ovs:generic.storeddata'), width: 150       },
-            { key: 'vmachines',  value: $.t('ovs:generic.vmachines'),  width: 100       },
-            { key: 'vdisks',     value: $.t('ovs:generic.vdisks'),     width: 100       },
-            { key: 'getss',      value: $.t('alba:generic.getss'),     width: 150       },
-            { key: 'putss',      value: $.t('alba:generic.putss'),     width: 100       }
-        ];
-        self.discoveredDeviceHeaders = [
-            { key: 'serial',   value: $.t('alba:generic.serial'),    width: 400       },
-            { key: 'ips',      value: $.t('alba:generic.ips'),       width: 200       },
-            { key: 'capacity', value: $.t('alba:generic.capacity'),  width: 110       },
-            { key: 'model',    value: $.t('alba:generic.model'),     width: undefined },
-            { key: 'actions',  value: $.t('alba:generic.add'),       width: 50        }
-        ];
-        self.discoveredUnitHeaders = [
-            { key: 'id',        value: $.t('alba:generic.id'),        width: 400       },
-            { key: 'nrOfDisks', value: $.t('alba:generic.nrofdisks'), width: 200       },
-            { key: 'capacity',  value: $.t('alba:generic.capacity'),  width: undefined },
-            { key: 'actions',   value: $.t('alba:generic.add'),       width: 50        }
-        ];
-        self.registeredDeviceHeaders = [
-            { key: 'id',        value: $.t('alba:generic.id'),        width: 400       },
-            { key: 'nrOfDisks', value: $.t('alba:generic.nrofdisks'), width: 200       },
-            { key: 'capacity',  value: $.t('alba:generic.capacity'),  width: undefined },
-            { key: 'status',    value: $.t('ovs:generic.status'),     width: 50        }
-        ];
-        self.discoveredDevicesHandle = {};
-        self.registeredDevicesHandle = {};
-        self.devicesHandle           = {};
+        self.nodesHandle   = {};
 
         // Observables
-        self.backend                      = ko.observable();
-        self.albaBackend                  = ko.observable();
-        self.discoveredUnits              = ko.observableArray([]);
-        self.registeredUnits              = ko.observableArray([]);
-        self.devices                      = ko.observableArray([]);
-        self.devicesInitialLoad           = ko.observable(true);
-        self.vPools                       = ko.observableArray([]);
-        self.vPoolsInitialLoad            = ko.observable(true);
-        self.discoveredDevices            = ko.observableArray([]);
-        self.registeredDevices            = ko.observableArray([]);
-        self.discoveredDevicesInitialLoad = ko.observable(true);
-        self.registeredDevicesInitialLoad = ko.observable(true);
-
-        // Computed
-        self.availableDevices = ko.computed(function() {
-            var devices = [], found;
-            $.each(self.discoveredDevices(), function(i, discoveredDevice) {
-                found = false;
-                $.each(self.devices(), function(j, presentDevice) {
-                    if (presentDevice.long_id() === discoveredDevice.long_id()) {
-                        found = true;
-                    }
-                });
-                if (!found) {
-                    devices.push(discoveredDevice);
-                }
-            });
-            return devices;
-        });
+        self.backend         = ko.observable();
+        self.albaBackend     = ko.observable();
+        self.rNodesLoading   = ko.observable(true);
+        self.dNodesLoading   = ko.observable(true);
+        self.registeredNodes = ko.observableArray([]);
+        self.discoveredNodes = ko.observableArray([]);
 
         // Functions
         self.load = function() {
@@ -126,125 +66,49 @@ define([
                     .always(deferred.resolve);
             }).promise();
         };
-        self.loadVPools = function(page) {
-            // @TODO: Not yet implemented
-            return $.Deferred(function(deferred) {
-                self.vPoolsInitialLoad(false);
-                deferred.resolve();
-            }).promise();
+        self.formatBytes = function(value) {
+            return generic.formatBytes(value);
         };
-        self.loadDiscoveredDevices = function(page, fresh) {
-            fresh = (fresh === undefined ? true : fresh);
+        self.formatPercentage = function(value) {
+            return generic.formatPercentage(value);
+        };
+        self.fetchNodes = function(discover) {
+            discover = !!discover;
+            if (self.albaBackend() === undefined) {
+                return;
+            }
             return $.Deferred(function(deferred) {
-                if (generic.xhrCompleted(self.discoveredDevicesHandle[page])) {
+                if (generic.xhrCompleted(self.nodesHandle[discover])) {
                     var options = {
-                        sort: 'name',
-                        contents: '_dynamics',
-                        fresh: fresh
+                        sort: 'box_id',
+                        contents: 'box_id',
+                        discover: discover,
+                        alba_backend_guid: self.albaBackend().guid()
                     };
                     if (self.albaBackend() !== undefined) {
-                        self.discoveredDevicesHandle[page] = api.get('alba/backends/' + self.albaBackend().guid() + '/list_discovered_osds', {queryparams: options})
-                        .done(function (data) {
-                            var deviceGuids = [], devices = {}, unitIds = [], units = {}, unitId;
-                            $.each(data.data, function (index, item) {
-                                deviceGuids.push(item.long_id);
-                                devices[item.long_id] = item;
-                                unitId = item.box_id;
-                                if ($.inArray(unitId, unitIds) === -1) {
-                                    unitIds.push(unitId);
-                                    units[unitId] = {
-                                        id: unitId,
-                                        nrOfDisks: 0,
-                                        capacity: 0
-                                    };
-                                }
-                                units[unitId].nrOfDisks += 1;
-                                if (item.capacity !== undefined) {
-                                    units[unitId].capacity += parseInt(item.capacity.nominal, 10);
-                                };
-                            });
-                            generic.crossFiller(
-                                deviceGuids, self.discoveredDevices,
-                                function(id) {
-                                    return new LiveKineticDevice(id);
-                                }, 'id'
-                            );
-                            $.each(self.discoveredDevices(), function (index, device) {
-                                if ($.inArray(device.id(), deviceGuids) !== -1) {
-                                    device.fillData(devices[device.id()]);
-                                }
-                            });
-                            generic.crossFiller(
-                                unitIds, self.discoveredUnits,
-                                function (id) {
-                                    return new OSDUnit(id);
-                                }, 'id'
-                            );
-                            $.each(self.discoveredUnits(), function (index, unit) {
-                                if ($.inArray(unit.id(), unitIds) !== -1) {
-                                    unit.fillData(units[unit.id()]);
-                                }
-                            });
-                        })
-                        .fail(function () {
-                            deferred.reject();
-                        });
-                    }
-                } else {
-                    deferred.resolve();
-                }
-            }).promise();
-        };
-        self.loadRegisteredDevices = function(page, fresh) {
-            fresh = (fresh === undefined ? true : fresh);
-            return $.Deferred(function(deferred) {
-                if (generic.xhrCompleted(self.registeredDevicesHandle[page])) {
-                    var options = {
-                        sort: 'id',
-                        contents: '_dynamics',
-                        fresh: fresh
-                    };
-                    if (self.albaBackend() !== undefined) {
-                        self.registeredDevicesHandle[page] = api.get('alba/backends/' + self.albaBackend().guid() + '/list_registered_osds', {queryparams: options})
+                        self.nodesHandle[discover] = api.get('alba/nodes', {queryparams: options})
                             .done(function (data) {
-                                var deviceGuids = [], devices = {}, unitIds = [], units = {}, unitId;
-                                $.each(data.data, function(index, item) {
-                                    deviceGuids.push(item.asd_id);
-                                    devices[item.asd_id] = item;
-                                    unitId = item.box_id;
-                                    if ($.inArray(unitId, unitIds) === -1) {
-                                        unitIds.push(unitId);
-                                        units[unitId] = {
-                                            id: unitId,
-                                            nrOfDisks: 0,
-                                            capacity: 0
-                                        };
-                                    }
-                                    units[unitId].nrOfDisks += 1;
-                                    units[unitId].capacity += 0; // @TODO: Add capacity, OVS-1596
+                                var nodeIDs = [], nodes = {}, oArray = discover ? self.discoveredNodes : self.registeredNodes;
+                                $.each(data.data, function (index, item) {
+                                    nodeIDs.push(item.box_id);
+                                    nodes[item.box_id] = item;
                                 });
                                 generic.crossFiller(
-                                    deviceGuids, self.registeredDevices,
-                                    function(id) {
-                                        return new LiveKineticDevice(id);
-                                    }, 'id'
+                                    nodeIDs, oArray,
+                                    function(boxID) {
+                                        return new Node(boxID, self);
+                                    }, 'boxID'
                                 );
-                                $.each(self.registeredDevices(), function(index, device) {
-                                    if ($.inArray(device.id(), deviceGuids) !== -1) {
-                                        device.fillData(devices[device.id()]);
+                                $.each(oArray(), function (index, node) {
+                                    if ($.inArray(node.boxID(), nodeIDs) !== -1) {
+                                        node.fillData(nodes[node.boxID()]);
                                     }
                                 });
-                                generic.crossFiller(
-                                    unitIds, self.registeredUnits,
-                                    function(id) {
-                                        return new OSDUnit(id);
-                                    }, 'id'
-                                );
-                                $.each(self.registeredUnits(), function(index, unit) {
-                                    if ($.inArray(unit.id(), unitIds) !== -1) {
-                                        unit.fillData(units[unit.id()]);
-                                    }
-                                });
+                                if (discover) {
+                                    self.dNodesLoading(false);
+                                } else {
+                                    self.rNodesLoading(false);
+                                }
                             })
                             .fail(function () {
                                 deferred.reject();
@@ -255,62 +119,91 @@ define([
                 }
             }).promise();
         };
-        self.addUnit = function(id) {
-            var devices = [];
-            $.each(self.discoveredDevices(), function(i, discoveredDevice) {
-                if (discoveredDevice.unit_id() === id) {
-                    devices.push(discoveredDevice.toJS());
-                }
-            });
-
-            if (devices !== undefined) {
+        self.claimOSD = function(asdID, disk) {
+            return $.Deferred(function(deferred) {
                 app.showMessage(
-                    $.t('alba:storageunit.add.warning', { what: id }),
+                    $.t('alba:disks.claim.warning', { what: disk }),
                     $.t('ovs:generic.areyousure'),
-                    [$.t('ovs:generic.no'), $.t('ovs:generic.yes')]
+                    [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
                 )
-                    .done(function (answer) {
+                    .done(function(answer) {
                         if (answer === $.t('ovs:generic.yes')) {
-                            api.post('/alba/backends/' + self.albaBackend().guid() + '/add_unit', {
-                                data: {
-                                    devices: devices
-                                }
+                            generic.alertSuccess(
+                                $.t('alba:disks.claim.started'),
+                                $.t('alba:disks.claim.msgstarted')
+                            );
+                            api.post('alba/backends/' + self.albaBackend().guid() + '/add_units', {
+                                data: { asd_ids: [asdID] }
                             })
                                 .then(self.shared.tasks.wait)
                                 .done(function() {
-                                        generic.alertSuccess(
-                                            $.t('alba:livekinetic.add.done'),
-                                            $.t('alba:livekinetic.add.donemsg', { what: id })
-                                        );
+                                    generic.alertSuccess(
+                                        $.t('alba:disks.claim.complete'),
+                                        $.t('alba:disks.claim.success')
+                                    );
+                                    deferred.resolve();
                                 })
                                 .fail(function(error) {
                                     generic.alertError(
                                         $.t('ovs:generic.error'),
-                                        $.t('ovs:generic.messages.errorwhile', {
-                                            context: 'error',
-                                            what: $.t('alba:livekinetic.add.errormsg', { what: id }),
-                                            error: error
-                                        })
+                                        $.t('alba:disks.claim.failed', { why: error })
                                     );
+                                    deferred.reject();
                                 });
+                        } else {
+                            deferred.reject();
                         }
                     });
-            }
+            }).promise();
         };
-        self.formatBytes = function(value) {
-            return generic.formatBytes(value);
-        };
-        self.formatPercentage = function(value) {
-            return generic.formatPercentage(value);
+        self.claimAll = function(asdIDs, disks) {
+            return $.Deferred(function(deferred) {
+                app.showMessage(
+                    $.t('alba:disks.claimall.warning', { which: disks.join(', ') }),
+                    $.t('ovs:generic.areyousure'),
+                    [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
+                )
+                    .done(function(answer) {
+                        if (answer === $.t('ovs:generic.yes')) {
+                            generic.alertSuccess(
+                                $.t('alba:disks.claimall.started'),
+                                $.t('alba:disks.claimall.msgstarted')
+                            );
+                            api.post('alba/backends/' + self.albaBackend().guid() + '/add_units', {
+                                data: { asd_ids: asdIDs }
+                            })
+                                .then(self.shared.tasks.wait)
+                                .done(function() {
+                                    generic.alertSuccess(
+                                        $.t('alba:disks.claimall.complete'),
+                                        $.t('alba:disks.claimall.success')
+                                    );
+                                    deferred.resolve();
+                                })
+                                .fail(function(error) {
+                                    generic.alertError(
+                                        $.t('ovs:generic.error'),
+                                        $.t('alba:disks.claimall.failed', { why: error })
+                                    );
+                                    deferred.reject();
+                                });
+                        } else {
+                            deferred.reject();
+                        }
+                    });
+            }).promise();
         };
 
         // Durandal
         self.activate = function(mode, guid) {
             self.backend(new Backend(guid));
-            self.loadVPools();
-            self.loadDiscoveredDevices(1, false);
-
-            self.refresher.init(self.load, 5000);
+            self.refresher.init(function() {
+                self.load()
+                    .then(function() {
+                        self.fetchNodes(true);
+                        self.fetchNodes(false);
+                    });
+            }, 5000);
             self.refresher.run();
             self.refresher.start();
         };

@@ -9,8 +9,8 @@
         "statistics": "Statistics",
         "getss": "Gets/s",
         "putss": "Puts/s",
-        "nrofdevices": "# Kinetic devices",
-        "devices": "Kinetic devices",
+        "nrofdevices": "# Devices",
+        "devices": "Devices",
         "unclaimeddevices": "Unclaimed Kinetic devices",
         "serial": "Serial",
         "id": "Chassis ID",
@@ -34,7 +34,29 @@
         "degc": "&deg;C",
         "interface": "Interface",
         "macaddress": "MAC",
-        "ipaddress": "IP"
+        "ipaddress": "IP",
+        "connection": "Connection",
+        "boxid": "Node ID",
+        "nodes": "ASD Nodes",
+        "initialize": "Initialize",
+        "initializeall": "Initialize all uninitialized disks",
+        "remove": "Remove",
+        "claim": "Claim",
+        "claimall": "Claim all available disks",
+        "unclaim": "Unclaim",
+        "actions": "Available actions:",
+        "register": "Add node",
+        "states": {
+            "osd": {
+                "uninitialized": "Uninitialized",
+                "initialized": "Initialized",
+                "available": "Available",
+                "unavailable": "Unavailable",
+                "error": "Faulted",
+                "warning": "Warning",
+                "claimed": "In use"
+            }
+        }
     },
     "detail": {
         "title": "Alternate Backend"
@@ -50,6 +72,52 @@
         "unclaimedunits": "Discovered chassis",
         "registeredunits": "Registered chassis"
     },
+    "nodes": {
+        "nodes": "ASD nodes",
+        "register": "Claim node"
+    },
+    "disks" : {
+        "initialize": {
+            "started": "Started",
+            "msgstarted": "The disk will be initialized",
+            "complete": "Initialized",
+            "success": "The disk is initialized",
+            "failed": "Failed initializing disk: __why__"
+        },
+        "initializeall": {
+            "warning": "Are you sure you want to initialize all uninitialized disks?",
+            "started": "Started",
+            "msgstarted": "The disks will be initialized",
+            "complete": "Initialized",
+            "somefailed": "Some disks could not be initialized: __which__",
+            "success": "The disks are initialized",
+            "failed": "Failed initializing disks: __why__"
+        },
+        "remove": {
+            "warning": "Are you sure you want to remove __what__? All data will be removed from this disk.",
+            "started": "Started",
+            "msgstarted": "The disk will be removed",
+            "complete": "Removed",
+            "success": "The disk is removed",
+            "failed": "Failed removing disk: __why__"
+        },
+        "claim": {
+            "warning": "Are you sure you want to claim __what__?",
+            "started": "Started",
+            "msgstarted": "The disk will be claimed",
+            "complete": "Claimed",
+            "success": "The disk is claimed",
+            "failed": "Failed claiming disk: __why__"
+        },
+        "claimall": {
+            "warning": "Are you sure you want to claim following disks? __which__",
+            "started": "Started",
+            "msgstarted": "The disks will be claimed",
+            "complete": "Claimed",
+            "success": "The disks are claimed",
+            "failed": "Failed claiming disks: __why__"
+        }
+    },
     "livekinetic": {
         "title": "Live Kinetic device",
         "add": {
@@ -61,6 +129,23 @@
     },
     "icons": {
         "devices": "&#xf0a0;",
-        "nics": "&#xf0ec;"
+        "nics": "&#xf0ec;",
+        "registernode": "&#xf067;",
+        "nodes": "&#xf233;"
+    },
+    "wizards": {
+        "addalbanode": {
+            "title": "Add node",
+            "gather": {
+                "basicinfo": "Enter the required information to add the ASD node",
+                "username": "Username",
+                "password": "Password",
+                "started": "Started",
+                "inprogress": "Adding node in progress",
+                "complete": "Completed",
+                "success": "Node added",
+                "failed": "Adding node failed: __why__"
+            }
+        }
     }
 }
