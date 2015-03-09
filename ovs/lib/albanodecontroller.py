@@ -12,9 +12,11 @@ import requests
 from subprocess import check_output
 from ovs.celery_run import celery
 from ovs.dal.hybrids.albanode import AlbaNode
+from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.log.logHandler import LogHandler
+from ovs.lib.albacontroller import AlbaController
 from ovs.lib.helpers.decorators import setup_hook
 from ovs.extensions.generic.sshclient import SSHClient
 
@@ -138,7 +140,7 @@ class AlbaNodeController(object):
 
     @staticmethod
     @celery.task(name='albanode.remove_disk')
-    def remove_disk(node_guid, disk):
+    def remove_disk(alba_backend_guid, node_guid, disk):
         """
         Removes a disk
         """
@@ -150,6 +152,7 @@ class AlbaNodeController(object):
         if disk not in disks or disks[disk]['available'] is True:
             logger.exception('Disk {0} not available for removal on node {1}'.format(disk, node.ip))
             raise RuntimeError('Could not find disk')
+        AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']])
         result = requests.post('https://{0}:{1}/disks/{2}/delete'.format(node.ip, node.port, disk),
                               headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(node.username, node.password)).strip())},
                               verify=False).json()

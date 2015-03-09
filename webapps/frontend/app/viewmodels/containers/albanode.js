@@ -7,12 +7,12 @@ define([
     '../containers/albaosd', '../wizards/addalbanode/index'
 ], function($, ko, app, dialog, generic, api, shared, OSD, AddAlbaNodeWizard) {
     "use strict";
-    return function(boxID, backend) {
+    return function(boxID, parent) {
         var self = this;
 
         // Variables
         self.shared  = shared;
-        self.backend = backend;
+        self.parent = parent;
 
         // Observables
         self.loaded   = ko.observable(false);
@@ -131,7 +131,10 @@ define([
                                 $.t('alba:disks.remove.msgstarted')
                             );
                             api.post('alba/nodes/' + self.guid() + '/remove_disk', {
-                                data: { disk: disk }
+                                data: {
+                                    disk: disk,
+                                    alba_backend_guid: self.parent.albaBackend().guid()
+                                }
                             })
                                 .then(self.shared.tasks.wait)
                                 .done(function() {
@@ -154,7 +157,7 @@ define([
                     });
             }).promise();
         };
-        self.claimOSD = self.backend.claimOSD;
+        self.claimOSD = self.parent.claimOSD;
         self.initializeAll = function() {
             return $.Deferred(function(deferred) {
                 app.showMessage(
@@ -224,7 +227,7 @@ define([
                         asdIDs.push(disk.asdID());
                     }
                 });
-                self.backend.claimAll(asdIDs, disks)
+                self.parent.claimAll(asdIDs, disks)
                     .always(function() {
                         $.each(self.disks(), function(index, disk) {
                             if ($.inArray(disk.name(), disks) !== -1) {

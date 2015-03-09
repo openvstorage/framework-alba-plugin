@@ -51,6 +51,18 @@ class AlbaController(object):
             logger.info('** abm response:' + str(output))
 
     @staticmethod
+    @celery.task(name='alba.add_unit')
+    def remove_units(alba_backend_guid, asd_ids):
+        """
+        Removes storage units to an Alba backend
+        """
+        alba_backend = AlbaBackend(alba_backend_guid)
+        config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
+        for asd_id in asd_ids:
+            output = AlbaCLI.run('decommission-osd', config=config_file, long_id=asd_id)
+            logger.info('** abm response:' + str(output))
+
+    @staticmethod
     @celery.task(name='alba.list_discovered_osds')
     def list_discovered_osds(alba_backend_guid):
         """

@@ -89,8 +89,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaNode)
-    def remove_disk(self, albanode, disk):
+    def remove_disk(self, albanode, disk, alba_backend_guid):
         """
         Removes a disk
         """
-        return AlbaNodeController.remove_disk.delay(albanode.guid, disk)
+        return AlbaNodeController.remove_disk.delay(alba_backend_guid, albanode.guid, disk)
