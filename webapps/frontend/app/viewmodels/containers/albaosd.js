@@ -42,27 +42,33 @@ define([
         self.initialize = function() {
             self.processing(true);
             self.node.initializeNode(self.name())
-                .always(function() {
+                .done(function() {
                     self.ignoreNext(true);
                     self.status('initialized');
+                })
+                .always(function() {
                     self.processing(false);
                 });
         };
         self.remove = function() {
             self.processing(true);
             self.node.removeNode(self.name())
-                .always(function() {
+                .done(function() {
                     self.ignoreNext(true);
                     self.status('uninitialized');
+                })
+                .always(function() {
                     self.processing(false);
                 });
         };
         self.claim = function() {
             self.processing(true);
             self.node.claimOSD(self.asdID(), self.name())
-                .always(function() {
+                .done(function() {
                     self.ignoreNext(true);
                     self.status('claimed');
+                })
+                .always(function() {
                     self.processing(false);
                 });
         };

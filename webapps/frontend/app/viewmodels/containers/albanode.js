@@ -190,6 +190,12 @@ define([
                                         );
                                         deferred.resolve();
                                     } else {
+                                        $.each(self.disks(), function(index, disk) {
+                                            if ($.inArray(disk.name(), diskNames) !== -1) {
+                                                disk.ignoreNext(true);
+                                                disk.status('initialized');
+                                            }
+                                        });
                                         generic.alertSuccess(
                                             $.t('alba:disks.initializeall.complete'),
                                             $.t('alba:disks.initializeall.success')
@@ -207,8 +213,6 @@ define([
                                 .always(function() {
                                     $.each(self.disks(), function(index, disk) {
                                         if ($.inArray(disk.name(), diskNames) !== -1) {
-                                            disk.ignoreNext(true);
-                                            disk.status('initialized');
                                             disk.processing(false);
                                         }
                                     });
@@ -230,11 +234,17 @@ define([
                     }
                 });
                 self.parent.claimAll(asdIDs, disks)
-                    .always(function() {
+                    .done(function() {
                         $.each(self.disks(), function(index, disk) {
                             if ($.inArray(disk.name(), disks) !== -1) {
                                 disk.ignoreNext(true);
                                 disk.status('claimed');
+                            }
+                        });
+                    })
+                    .always(function() {
+                        $.each(self.disks(), function(index, disk) {
+                            if ($.inArray(disk.name(), disks) !== -1) {
                                 disk.processing(false);
                             }
                         });
