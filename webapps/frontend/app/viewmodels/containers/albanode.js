@@ -14,14 +14,18 @@ define([
         self.shared  = shared;
         self.parent = parent;
 
+        // External dependencies
+        self.storageRouter = ko.observable();
+
         // Observables
-        self.loaded   = ko.observable(false);
-        self.guid     = ko.observable();
-        self.ip       = ko.observable();
-        self.port     = ko.observable();
-        self.username = ko.observable();
-        self.boxID    = ko.observable(boxID);
-        self.disks    = ko.observableArray([]);
+        self.loaded            = ko.observable(false);
+        self.guid              = ko.observable();
+        self.ip                = ko.observable();
+        self.port              = ko.observable();
+        self.username          = ko.observable();
+        self.boxID             = ko.observable(boxID);
+        self.storageRouterGuid = ko.observable();
+        self.disks             = ko.observableArray([]);
 
         // Computed
         self.diskRows         = ko.splitRows(3, self.disks);
@@ -52,6 +56,7 @@ define([
             self.ip(data.ip);
             self.port(data.port);
             self.username(data.username);
+            generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
 
             if (data.disks !== undefined && data.disks !== null) {
                 var diskNames = [], disks = {};

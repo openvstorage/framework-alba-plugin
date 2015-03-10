@@ -50,6 +50,7 @@
         "asdid": "ASD ID",
         "mountpoint": "Mtpt",
         "legend": "Legend:",
+        "node": "Node / Storage Router",
         "states": {
             "osd": {
                 "uninitialized": "Uninitialized",

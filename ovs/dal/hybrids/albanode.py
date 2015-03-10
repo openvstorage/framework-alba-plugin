@@ -5,7 +5,8 @@
 AlbaNode module
 """
 from ovs.dal.dataobject import DataObject
-from ovs.dal.structures import Property
+from ovs.dal.structures import Property, Relation
+from ovs.dal.hybrids.storagerouter import StorageRouter
 
 
 class AlbaNode(DataObject):
@@ -16,8 +17,8 @@ class AlbaNode(DataObject):
                     Property('port', int, doc='Port'),
                     Property('box_id', str, doc='Alba box_id identifier'),
                     Property('username', str, doc='Username of the AlbaNode, if applicable'),
-                    Property('password', str, doc='Passowrd of the AlbaNode, if applicable'),
+                    Property('password', str, doc='Password of the AlbaNode, if applicable'),
                     Property('disks', list, mandatory=False, doc='Placeholder for disks (semi-dynamic/persistent)'),
                     Property('type', ['ASD', 'SUPERMICRO'], default='ASD', doc='The type of the AlbaNode')]
-    __relations = []
+    __relations = [Relation('storagerouter', StorageRouter, 'alba_nodes', mandatory=False, doc='StorageRouter hosting the AlbaNode')]
     __dynamics = []

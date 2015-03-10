@@ -85,7 +85,7 @@ All rights reserved
                     <thead>
                         <tr>
                             <th data-i18n="alba:generic.boxid" style="width: 400px;"></th>
-                            <th data-i18n="alba:generic.connection"></th>
+                            <th data-i18n="alba:generic.node"></th>
                             <th data-i18n="ovs:generic.actions" style="width: 80px;"></th>
                         </tr>
                     </thead>
@@ -96,7 +96,18 @@ All rights reserved
                                     <table class="table" style="background-color: inherit; margin-bottom: 0; width: inherit;">
                                         <tr>
                                             <td style="width: 400px; border-top: 0;" data-bind="text: boxID"></td>
-                                            <td style="border-top: 0;"><span data-bind="text: ip"></span>:<span data-bind="text: port"></span></td>
+                                            <td style="border-top: 0;">
+                                                <!-- ko if: storageRouterGuid() === undefined || storageRouter() === undefined -->
+                                                    <span data-bind="text: ip"></span>:<span data-bind="text: port"></span>
+                                                <!-- /ko -->
+                                                <!-- ko if: storageRouterGuid() !== undefined && storageRouter() !== undefined -->
+                                                    <span data-bind="lazyloader: { item: storageRouter, loadedObservable: 'loaded', undefinedLoading: true }">
+                                                        <a data-part="lazy-entry"
+                                                           data-bind="text: item().name,
+                                                                      attr: { href: $root.shared.routing.loadHash('storagerouter-detail', { guid: item().guid }) }"></a>
+                                                    </span>
+                                                <!-- /ko -->
+                                            </td>
                                             <td style="width: 80px; border-top: 0;"></td>
                                         </tr>
                                         <tr>

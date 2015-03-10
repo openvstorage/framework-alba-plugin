@@ -173,12 +173,14 @@ class AlbaNodeController(object):
     def model_local_albanode(**kwargs):
         config_path = '/opt/alba-asdmanager/config/config.json'
         node_ip = kwargs['cluster_ip']
+        storagerouter = StorageRouterList.get_by_ip(node_ip)
         client = SSHClient.load(node_ip)
         if client.file_exists(config_path):
             config = json.loads(client.file_read(config_path))
             node = AlbaNodeList.get_albanode_by_ip(node_ip)
             if node is None:
                 node = AlbaNode()
+            node.storagerouter = storagerouter
             node.ip = node_ip
             node.port = 8500
             node.username = config['main']['username']

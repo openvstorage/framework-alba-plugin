@@ -4,19 +4,20 @@
 define([
     'jquery', 'durandal/app', 'knockout',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
-    '../containers/backend', '../containers/backendtype', '../containers/albabackend', '../containers/albanode'
-], function($, app, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node) {
+    '../containers/backend', '../containers/backendtype', '../containers/albabackend', '../containers/albanode', '../containers/storagerouter'
+], function($, app, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node, StorageRouter) {
     "use strict";
     return function() {
         var self = this;
 
         // Variables
-        self.shared        = shared;
-        self.guard         = { authenticated: true };
-        self.refresher     = new Refresher();
-        self.widgets       = [];
-        self.initializing  = false;
-        self.nodesHandle   = {};
+        self.shared             = shared;
+        self.guard              = { authenticated: true };
+        self.refresher          = new Refresher();
+        self.widgets            = [];
+        self.initializing       = false;
+        self.nodesHandle        = {};
+        self.storageRouterCache = {};
 
         // Observables
         self.backend         = ko.observable();
@@ -81,7 +82,7 @@ define([
                 if (generic.xhrCompleted(self.nodesHandle[discover])) {
                     var options = {
                         sort: 'box_id',
-                        contents: 'box_id',
+                        contents: 'box_id,_relations',
                         discover: discover,
                         alba_backend_guid: self.albaBackend().guid()
                     };
@@ -102,6 +103,15 @@ define([
                                 $.each(oArray(), function (index, node) {
                                     if ($.inArray(node.boxID(), nodeIDs) !== -1) {
                                         node.fillData(nodes[node.boxID()]);
+                                        var sr, storageRouterGuid = node.storageRouterGuid();
+                                        if (storageRouterGuid && (node.storageRouter() === undefined || node.storageRouter().guid() !== storageRouterGuid)) {
+                                            if (!self.storageRouterCache.hasOwnProperty(storageRouterGuid)) {
+                                                sr = new StorageRouter(storageRouterGuid);
+                                                sr.load();
+                                                self.storageRouterCache[storageRouterGuid] = sr;
+                                            }
+                                            node.storageRouter(self.storageRouterCache[storageRouterGuid]);
+                                        }
                                     }
                                 });
                                 if (discover) {
