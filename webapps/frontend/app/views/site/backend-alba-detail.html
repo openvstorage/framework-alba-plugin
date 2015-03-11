@@ -191,17 +191,25 @@ All rights reserved
                         <!-- /ko -->
                     </a>
                 </li>
+                <!-- ko if: (status() === 'error' || status() === 'warning') && statusDetail() !== undefined -->
+                    <li>
+                        <a>
+                            <span data-i18n="alba:generic.statusdetail"></span>:
+                            <span data-bind="shortText: $.t('alba:generic.statusdetails.' + statusDetail()), maxLength: 23"></span>
+                        </a>
+                    </li>
+                <!-- /ko -->
                 <li>
                     <a>
                         <span data-i18n="ovs:generic.name"></span>:
-                        <abbr data-bind="attr: { title: name() }"><span data-bind="shortText: name(), maxLength: 25"></span></abbr>
+                        <span data-bind="shortText: name(), maxLength: 25"></span>
                     </a>
                 </li>
                 <!-- ko if: status() === 'claimed' && asdID() !== undefined -->
                     <li>
                         <a>
                             <span data-i18n="alba:generic.asdid"></span>:
-                            <abbr data-bind="attr: { title: asdID() }"><span data-bind="shortText: asdID(), maxLength: 23"></span></abbr>
+                            <span data-bind="shortText: asdID(), maxLength: 23"></span>
                         </a>
                     </li>
                 <!-- /ko -->
@@ -209,7 +217,7 @@ All rights reserved
                     <li>
                         <a>
                             <span data-i18n="alba:generic.mountpoint"></span>:
-                            <abbr data-bind="attr: { title: mountpoint() }"><span data-bind="shortText: mountpoint(), maxLength: 28"></span></abbr>
+                            <span data-bind="shortText: mountpoint(), maxLength: 28"></span>
                         </a>
                     </li>
                 <!-- /ko -->

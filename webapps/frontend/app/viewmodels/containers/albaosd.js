@@ -13,16 +13,17 @@ define([
         self.node = node;
 
         // Observables
-        self.ignoreNext = ko.observable(false);
-        self.loaded     = ko.observable(false);
-        self.name       = ko.observable(name);
-        self.asdID      = ko.observable();
-        self.statistics = ko.observable();
-        self.status     = ko.observable();
-        self.device     = ko.observable();
-        self.mountpoint = ko.observable();
-        self.port       = ko.observable();
-        self.processing = ko.observable(false);
+        self.ignoreNext   = ko.observable(false);
+        self.loaded       = ko.observable(false);
+        self.name         = ko.observable(name);
+        self.asdID        = ko.observable();
+        self.statistics   = ko.observable();
+        self.status       = ko.observable();
+        self.statusDetail = ko.observable();
+        self.device       = ko.observable();
+        self.mountpoint   = ko.observable();
+        self.port         = ko.observable();
+        self.processing   = ko.observable(false);
 
         // Functions
         self.fillData = function(data) {
@@ -30,6 +31,7 @@ define([
                 self.ignoreNext(false);
             } else {
                 self.status(data.status);
+                generic.trySet(self.statusDetail, data, 'status_detail');
                 generic.trySet(self.asdID, data, 'asd_id');
                 generic.trySet(self.statistics, data, 'statistics');
                 generic.trySet(self.device, data, 'device');

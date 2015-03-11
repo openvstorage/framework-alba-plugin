@@ -41,16 +41,20 @@ class AlbaNodeViewSet(viewsets.ViewSet):
                     if disk['available'] is True:
                         disk['status'] = 'uninitialized'
                     else:
-                        disk['status'] = 'initialized'
-                        for osd in all_osds:
-                            if osd['box_id'] == node.box_id and 'asd_id' in disk and osd['long_id'] == disk['asd_id']:
-                                if osd['id'] is None:
-                                    if osd['alba_id'] is None:
-                                        disk['status'] = 'available'
+                        if disk['state']['state'] == 'ok':
+                            disk['status'] = 'initialized'
+                            for osd in all_osds:
+                                if osd['box_id'] == node.box_id and 'asd_id' in disk and osd['long_id'] == disk['asd_id']:
+                                    if osd['id'] is None:
+                                        if osd['alba_id'] is None:
+                                            disk['status'] = 'available'
+                                        else:
+                                            disk['status'] = 'unavailable'
                                     else:
-                                        disk['status'] = 'unavailable'
-                                else:
-                                    disk['status'] = 'claimed'
+                                        disk['status'] = 'claimed'
+                        else:
+                            disk['status'] = 'error'
+                            disk['status_detail'] = disk['state']['detail']
             return nodes
         else:
             model_nodes = AlbaNodeList.get_albanodes()

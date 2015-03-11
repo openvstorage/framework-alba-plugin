@@ -51,6 +51,11 @@
         "mountpoint": "Mtpt",
         "legend": "Legend:",
         "node": "Node / Storage Router",
+        "statusdetail": "Status detail",
+        "statusdetails": {
+            "missing": "Disk is missing",
+            "ioerror": "I/O errors"
+        },
         "states": {
             "osd": {
                 "uninitialized": "Uninitialized",
