@@ -98,3 +98,13 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         Removes a disk
         """
         return AlbaNodeController.remove_disk.delay(alba_backend_guid, albanode.guid, disk)
+
+    @action()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaNode)
+    def restart_disk(self, albanode, disk):
+        """
+        Restartes a disk
+        """
+        return AlbaNodeController.restart_disk.delay(albanode.guid, disk)

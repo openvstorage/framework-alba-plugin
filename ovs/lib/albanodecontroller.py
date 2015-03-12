@@ -169,6 +169,27 @@ class AlbaNodeController(object):
         return True
 
     @staticmethod
+    @celery.task(name='albabide.restart_disk')
+    def restart_disk(node_guid, disk):
+        """
+        Restarts a disk
+        """
+        node = AlbaNode(node_guid)
+        logger.debug('Restarting disk {0} at node {1}'.format(disk, node.ip))
+        disks = requests.get('https://{0}:{1}/disks'.format(node.ip, node.port),
+                             headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(node.username, node.password)).strip())},
+                             verify=False).json()
+        if disk not in disks or disks[disk]['available'] is True or disks[disk]['state']['state'] != 'error':
+            logger.exception('Disk {0} not available for restart on node {1}'.format(disk, node.ip))
+            raise RuntimeError('Could not find disk')
+        result = requests.post('https://{0}:{1}/disks/{2}/restart'.format(node.ip, node.port, disk),
+                               headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(node.username, node.password)).strip())},
+                               verify=False).json()
+        if result['_success'] is False:
+            raise RuntimeError('Error restarting disk: {0}'.format(result['_error']))
+        return True
+
+    @staticmethod
     @setup_hook(['firstnode', 'extranode'])
     def model_local_albanode(**kwargs):
         config_path = '/opt/alba-asdmanager/config/config.json'

@@ -50,11 +50,13 @@
         "asdid": "ASD ID",
         "mountpoint": "Mtpt",
         "legend": "Legend:",
+        "restart": "Restart",
         "node": "Node / Storage Router",
         "statusdetail": "Status detail",
         "statusdetails": {
             "missing": "Disk is missing",
-            "ioerror": "I/O errors"
+            "ioerror": "I/O errors",
+            "servicefailure": "Service failure"
         },
         "states": {
             "osd": {
@@ -93,6 +95,13 @@
             "complete": "Initialized",
             "success": "The disk is initialized",
             "failed": "Failed initializing disk: __why__"
+        },
+        "restart": {
+            "started": "Started",
+            "msgstarted": "The disk will be restarted",
+            "complete": "Restarted",
+            "success": "The disk is restarted",
+            "failed": "Failed restarting disk: __why__"
         },
         "initializeall": {
             "warning": "Are you sure you want to initialize all uninitialized disks?",

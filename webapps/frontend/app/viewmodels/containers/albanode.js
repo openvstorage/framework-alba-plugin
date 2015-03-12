@@ -122,6 +122,32 @@ define([
                     });
             }).promise();
         };
+        self.restartOSD = function(disk) {
+            return $.Deferred(function(deferred) {
+                generic.alertSuccess(
+                    $.t('alba:disks.restart.started'),
+                    $.t('alba:disks.restart.msgstarted')
+                );
+                api.post('alba/nodes/' + self.guid() + '/restart_disk', {
+                    data: { disk: disk }
+                })
+                    .then(self.shared.tasks.wait)
+                    .done(function() {
+                        generic.alertSuccess(
+                            $.t('alba:disks.restart.complete'),
+                            $.t('alba:disks.restart.success')
+                        );
+                        deferred.resolve();
+                    })
+                    .fail(function(error) {
+                        generic.alertError(
+                            $.t('ovs:generic.error'),
+                            $.t('alba:disks.restart.failed', { why: error })
+                        );
+                        deferred.reject();
+                    });
+            }).promise();
+        };
         self.removeNode = function(disk) {
             return $.Deferred(function(deferred) {
                 app.showMessage(

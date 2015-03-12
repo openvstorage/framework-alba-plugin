@@ -47,7 +47,7 @@ class AlbaController(object):
         alba_backend = AlbaBackend(alba_backend_guid)
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
         for asd_id in asd_ids:
-            output = AlbaCLI.run('claim-osd', config=config_file, long_id=asd_id)
+            output = AlbaCLI.run('claim-osd', config=config_file, long_id=asd_id, debug=True)
             logger.info('** abm response:' + str(output))
 
     @staticmethod

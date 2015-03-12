@@ -179,12 +179,16 @@ All rights reserved
                         <!-- /ko -->
                         <!-- ko if: status() === 'warning' -->
                             <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                <button type="button" class="btn btn-warning btn-xs" data-i18n="alba:generic.restart"
+                                        data-bind="click: restart, css: { disabled: processing() || !loaded() }"></button>
                                 <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
                                         data-bind="click: remove, css: { disabled: processing() || !loaded() }"></button>
                             </span>
                         <!-- /ko -->
                         <!-- ko if: status() === 'error' -->
                             <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                <button type="button" class="btn btn-warning btn-xs" data-i18n="alba:generic.restart"
+                                        data-bind="click: restart, css: { disabled: processing() || !loaded() }"></button>
                                 <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
                                         data-bind="click: remove, css: { disabled: processing() || !loaded() }"></button>
                             </span>

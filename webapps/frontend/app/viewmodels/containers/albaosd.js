@@ -74,5 +74,12 @@ define([
                     self.processing(false);
                 });
         };
+        self.restart = function() {
+            self.processing(true);
+            self.node.restartOSD(self.name())
+                .always(function() {
+                    self.processing(false);
+                });
+        };
     };
 });
