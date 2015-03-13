@@ -118,10 +118,11 @@ All rights reserved
                                                 <div data-bind="foreach: diskRows">
                                                     <div class="row" data-bind="foreach: items, style: { 'margin-top': $index() > 0 ? '10px' : '0' }"
                                                          style="margin-left: 0;">
+
     <div data-bind="css: {
-                        'col-md-4': $parent.items.length === 3,
-                        'col-md-6': $parent.items.length === 2,
-                        'col-md-12': $parent.items.length === 1
+                        'col-md-4': $parents[1].diskRows()[0].items.length === 3,
+                        'col-md-6': $parents[1].diskRows()[0].items.length === 2,
+                        'col-md-12': $parents[1].diskRows()[0].items.length === 1
                     }">
         <div class="input-group">
             <button type="button" class="btn btn-small dropdown-toggle" data-toggle="dropdown"

@@ -169,7 +169,7 @@ define([
         self.claimAll = function(asdIDs, disks) {
             return $.Deferred(function(deferred) {
                 app.showMessage(
-                    $.t('alba:disks.claimall.warning', { which: disks.join(', ') }),
+                    $.t('alba:disks.claimall.warning', { which: '<ul><li>' + disks.join('</li><li>') + '</li></ul>' }),
                     $.t('ovs:generic.areyousure'),
                     [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
                 )

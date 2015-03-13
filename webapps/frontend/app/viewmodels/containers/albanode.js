@@ -224,7 +224,7 @@ define([
                                     if (failures.length > 0) {
                                         generic.alertInfo(
                                             $.t('alba:disks.initializeall.complete'),
-                                            $.t('alba:disks.initializeall.somefailed', { which: failures.join(', ') })
+                                            $.t('alba:disks.initializeall.somefailed', { which: '<ul><li>' + failures.join('</li><li>') + '</li></ul>' })
                                         );
                                         deferred.resolve();
                                     } else {

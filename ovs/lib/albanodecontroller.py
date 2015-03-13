@@ -77,17 +77,20 @@ class AlbaNodeController(object):
         Return a node's disk information
         """
         node = AlbaNode(node_guid)
-        disks = requests.get('https://{0}:{1}/disks'.format(node.ip, node.port),
-                             headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(node.username, node.password)).strip())},
-                             verify=False).json()
-        for disk in disks.keys():
-            if disk.startswith('_'):
-                del disks[disk]
-                continue
-            for key in disks[disk].keys():
-                if key.startswith('_'):
-                    del disks[disk][key]
-        return disks
+        try:
+            disks = requests.get('https://{0}:{1}/disks'.format(node.ip, node.port),
+                                 headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(node.username, node.password)).strip())},
+                                 verify=False).json()
+            for disk in disks.keys():
+                if disk.startswith('_'):
+                    del disks[disk]
+                    continue
+                for key in disks[disk].keys():
+                    if key.startswith('_'):
+                        del disks[disk][key]
+            return disks
+        except:
+            return {}
 
     @staticmethod
     @celery.task(name='albanode.fetch_ips')
