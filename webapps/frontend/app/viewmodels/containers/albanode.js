@@ -231,7 +231,9 @@ define([
                                         $.each(self.disks(), function(index, disk) {
                                             if ($.inArray(disk.name(), diskNames) !== -1) {
                                                 disk.ignoreNext(true);
-                                                disk.status('initialized');
+                                                if (disk.status() === 'uninitialized') {
+                                                    disk.status('initialized');
+                                                }
                                             }
                                         });
                                         generic.alertSuccess(
@@ -276,7 +278,9 @@ define([
                         $.each(self.disks(), function(index, disk) {
                             if ($.inArray(disk.name(), disks) !== -1) {
                                 disk.ignoreNext(true);
-                                disk.status('claimed');
+                                if (disk.status() === 'available') {
+                                    disk.status('claimed');
+                                }
                             }
                         });
                     })
