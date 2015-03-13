@@ -18,7 +18,8 @@ define(['knockout'], function(ko){
         return {
             node:     ko.observable(),
             username: ko.observable(),
-            password: ko.observable()
+            password: ko.observable(),
+            ips:      ko.observableArray([])
         };
     };
     return singleton();

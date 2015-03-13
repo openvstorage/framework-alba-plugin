@@ -12,7 +12,6 @@ import requests
 from subprocess import check_output
 from ovs.celery_run import celery
 from ovs.dal.hybrids.albanode import AlbaNode
-from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.log.logHandler import LogHandler
@@ -91,8 +90,25 @@ class AlbaNodeController(object):
         return disks
 
     @staticmethod
+    @celery.task(name='albanode.fetch_ips')
+    def fetch_ips(node_guid=None, ip=None, port=None):
+        """
+        Returns a list of all available ips on the node
+        """
+        if node_guid is not None:
+            node = AlbaNode(node_guid)
+            ip = node.ip
+            port = node.port
+        try:
+            data = requests.get('https://{0}:{1}/net'.format(ip, port),
+                                verify=False).json()
+            return data['ips']
+        except:
+            return []
+
+    @staticmethod
     @celery.task(name='albanode.register')
-    def register(box_id, ip, port, username, password):
+    def register(box_id, ip, port, username, password, asd_ips):
         """
         Adds a Node with a given box_id to the model
         """
@@ -106,6 +122,10 @@ class AlbaNodeController(object):
             raise RuntimeError('Invalid credentials')
         if data['box_id'] != box_id:
             raise RuntimeError('Unexpected box_id: {0} vs {1}'.format(data['box_id'], box_id))
+        requests.post('https://{0}:{1}/net'.format(ip, port),
+                      data={'ips': json.dumps(asd_ips)},
+                      headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(username, password)).strip())},
+                      verify=False)
         node.ip = ip
         node.port = port
         node.username = username

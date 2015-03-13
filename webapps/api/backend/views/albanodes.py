@@ -36,6 +36,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
             nodes = AlbaNodeList.get_albanodes()
             all_osds = AlbaController.list_all_osds.delay(alba_backend_guid).get()
             for node in nodes:
+                node.ips = AlbaNodeController.fetch_ips.delay(node_guid=node.guid).get()
                 node.disks = [disk for disk in AlbaNodeController.fetch_disks.delay(node.guid).get().values()]
                 for disk in node.disks:
                     if disk['available'] is True:
@@ -64,6 +65,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
             for node_data in nodes_data:
                 node = AlbaNode(data=node_data, volatile=True)
                 if node.ip not in model_ips:
+                    node.ips = AlbaNodeController.fetch_ips.delay(ip=node.ip, port=node.port).get()
                     nodes[node.guid] = node
             node_list = DataObjectList(nodes.keys(), AlbaNode)
             node_list._objects = nodes
@@ -73,11 +75,11 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load()
-    def create(self, box_id, ip, port, username, password):
+    def create(self, box_id, ip, port, username, password, asd_ips):
         """
         Adds a node with a given box_id to the model
         """
-        return AlbaNodeController.register.delay(box_id, ip, port, username, password)
+        return AlbaNodeController.register.delay(box_id, ip, port, username, password, asd_ips)
 
     @action()
     @required_roles(['read', 'write', 'manage'])

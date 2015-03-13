@@ -26,6 +26,7 @@ define([
         self.boxID             = ko.observable(boxID);
         self.storageRouterGuid = ko.observable();
         self.disks             = ko.observableArray([]);
+        self.ips               = ko.observableArray([]);
 
         // Computed
         self.diskRows         = ko.splitRows(3, self.disks);
@@ -56,10 +57,11 @@ define([
             self.ip(data.ip);
             self.port(data.port);
             self.username(data.username);
+            self.ips(data.ips);
             generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
 
             if (data.disks !== undefined && data.disks !== null) {
-                var diskNames = [], disks = {};
+                var diskNames = [], disks = {}, changes = data.disks.length !== self.disks().length;
                 $.each(data.disks, function (index, disk) {
                     diskNames.push(disk.name);
                     disks[disk.name] = disk;
@@ -75,6 +77,11 @@ define([
                         disk.fillData(disks[disk.name()]);
                     }
                 });
+                if (changes) {
+                    self.disks.sort(function (a, b) {
+                        return a.name() < b.name() ? -1 : 1;
+                    });
+                }
             } else {
                 self.disks([]);
             }

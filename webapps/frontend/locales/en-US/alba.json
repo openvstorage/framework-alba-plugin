@@ -56,7 +56,8 @@
         "statusdetails": {
             "missing": "Disk is missing",
             "ioerror": "I/O errors",
-            "servicefailure": "Service failure"
+            "servicefailure": "Service failure",
+            "corruption": "Data corruption"
         },
         "states": {
             "osd": {
@@ -156,6 +157,8 @@
         "addalbanode": {
             "title": "Add node",
             "gather": {
+                "asdips": "ASD ips",
+                "asdipshelp": "Select the ips on which the ASDs should listen. Select nothing for to listen on all ips.",
                 "basicinfo": "Enter the required information to add the ASD node",
                 "username": "Username",
                 "password": "Password",

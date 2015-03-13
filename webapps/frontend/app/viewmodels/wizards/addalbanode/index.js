@@ -34,5 +34,6 @@ define([
         // Cleaning data
         data.username('');
         data.password('');
+        data.ips([]);
     };
 });

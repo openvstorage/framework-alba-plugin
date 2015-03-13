@@ -55,7 +55,8 @@ define([
                         ip: self.data.node().ip(),
                         port: self.data.node().port(),
                         username: self.data.username(),
-                        password: self.data.password()
+                        password: self.data.password(),
+                        asd_ips: self.data.ips()
                     }
                 })
                     .then(self.shared.tasks.wait)
