@@ -11,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodelist import AlbaNodeList
+from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.lib.albanodecontroller import AlbaNodeController
 from ovs.lib.albacontroller import AlbaController
 from ovs.dal.dataobjectlist import DataObjectList
@@ -51,6 +52,9 @@ class AlbaNodeViewSet(viewsets.ViewSet):
                                             disk['status'] = 'available'
                                         else:
                                             disk['status'] = 'unavailable'
+                                            other_abackend = AlbaBackendList.get_by_alba_id(osd['alba_id'])
+                                            if other_abackend is not None:
+                                                disk['status_detail'] = other_abackend.guid
                                     else:
                                         disk['status'] = 'claimed'
                         else:

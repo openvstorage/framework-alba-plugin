@@ -20,12 +20,24 @@ define([
         self.storageRouterCache = {};
 
         // Observables
-        self.backend         = ko.observable();
-        self.albaBackend     = ko.observable();
-        self.rNodesLoading   = ko.observable(true);
-        self.dNodesLoading   = ko.observable(true);
-        self.registeredNodes = ko.observableArray([]);
-        self.discoveredNodes = ko.observableArray([]);
+        self.backend                = ko.observable();
+        self.albaBackend            = ko.observable();
+        self.rNodesLoading          = ko.observable(true);
+        self.dNodesLoading          = ko.observable(true);
+        self.registeredNodes        = ko.observableArray([]);
+        self.discoveredNodes        = ko.observableArray([]);
+        self.otherAlbaBackendsCache = ko.observable({});
+
+        // Computed
+        self.otherAlbaBackends = ko.computed(function() {
+            var albaBackends = [], cache = self.otherAlbaBackendsCache(), counter = 0;
+            $.each(cache, function(index, albaBackend) {
+                albaBackend.color(generic.getColor(counter));
+                albaBackends.push(albaBackend);
+                counter += 1;
+            });
+            return albaBackends;
+        });
 
         // Functions
         self.load = function() {

@@ -93,7 +93,7 @@ All rights reserved
                         <!-- ko foreach: registeredNodes -->
                             <tr>
                                 <td colspan="3" style="padding: 0">
-                                    <table class="table" style="background-color: inherit; margin-bottom: 0; width: inherit;">
+                                    <table class="table" style="background-color: inherit; margin-bottom: 0">
                                         <tr>
                                             <td style="width: 400px; border-top: 0;" data-bind="text: boxID"></td>
                                             <td style="border-top: 0;">
@@ -108,7 +108,26 @@ All rights reserved
                                                     </span>
                                                 <!-- /ko -->
                                             </td>
-                                            <td style="width: 80px; border-top: 0;"></td>
+                                            <td style="width: 80px; border-top: 0;">
+                                                <i data-bind="attr: { id: 'initialize_all_' + boxID() },
+                                                              click: function() {
+                                                                  if (canInitializeAll() && $.inArray('manage', $root.shared.user.roles()) !== -1) {
+                                                                      initializeAll();
+                                                                  }
+                                                              },
+                                                              tooltip: 'alba:generic.initializeall',
+                                                              style: { color: $.inArray('manage', $root.shared.user.roles()) !== -1 && canInitializeAll() ? 'black' : 'lightgrey' }"
+                                                   class="hand fa fa-fw" data-i18n="[html]alba:icons.initialize"></i>
+                                                <i data-bind="attr: { id: 'claim_all_' + boxID() },
+                                                              click: function() {
+                                                                  if (canClaimAll() && $.inArray('manage', $root.shared.user.roles()) !== -1) {
+                                                                      claimAll();
+                                                                  }
+                                                              },
+                                                              tooltip: 'alba:generic.claimall',
+                                                              style: { color: $.inArray('manage', $root.shared.user.roles()) !== -1 && canClaimAll() ? 'black' : 'lightgrey' }"
+                                                   class="hand fa fa-fw" data-i18n="[html]alba:icons.claim"></i>
+                                            </td>
                                         </tr>
                                         <tr>
                                             <td colspan="3" style="border-top: 0;">
@@ -119,22 +138,20 @@ All rights reserved
                                                     <div class="row" data-bind="foreach: items, style: { 'margin-top': $index() > 0 ? '10px' : '0' }"
                                                          style="margin-left: 0;">
 
-    <div data-bind="css: {
-                        'col-md-4': $parents[1].diskRows()[0].items.length === 3,
-                        'col-md-6': $parents[1].diskRows()[0].items.length === 2,
-                        'col-md-12': $parents[1].diskRows()[0].items.length === 1
-                    }">
+    <div class="col-md-4">
         <div class="input-group">
             <button type="button" class="btn btn-small dropdown-toggle" data-toggle="dropdown"
                     style="width: 300px; position: relative; text-align: left;"
                     data-bind="css: {
-                                   'btn-default': status() == 'uninitialized',
-                                   'btn-info': status() == 'initialized',
-                                   'btn-primary': status() == 'available',
-                                   'btn-success': status() == 'claimed',
-                                   'btn-warning': status() == 'warning',
-                                   'btn-danger': status() == 'error'
-                               }">
+                                   'btn-default': status() === 'uninitialized',
+                                   'btn-info': status() === 'initialized',
+                                   'disabled': status() === 'unavailable',
+                                   'btn-primary': status() === 'available',
+                                   'btn-success': status() === 'claimed',
+                                   'btn-warning': status() === 'warning',
+                                   'btn-danger': status() === 'error'
+                               },
+                               style: { border: status() === 'unavailable' && albaBackend() !== undefined ? '1px solid ' + albaBackend().color() : 'inherit' }">
                 <span style="display: inline-block;">
                     <!-- ko if: !processing() -->
                         <i class="hand fa fa-fw" data-i18n="[html]ovs:icons.vdisks" style="padding-right: 25px;"></i>
@@ -241,17 +258,6 @@ All rights reserved
                                                 </div>
                                             </td>
                                         </tr>
-                                        <!-- ko if: diskRows().length > 0 -->
-                                            <tr>
-                                                <td colspan="3" style="border-top: 0;">
-                                                    <span data-i18n="alba:generic.actions"></span>
-                                                    <button type="button" class="btn btn-default btn-xs" data-i18n="alba:generic.initializeall"
-                                                            data-bind="click: initializeAll, enable: canInitializeAll()" style="margin-left: 10px;"></button>
-                                                    <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claimall"
-                                                            data-bind="click: claimAll, enable: canClaimAll()" style="margin-left: 10px;"></button>
-                                                </td>
-                                            </tr>
-                                        <!-- /ko -->
                                     </table>
                                 </td>
                             </tr>
@@ -269,7 +275,7 @@ All rights reserved
                                                   },
                                                   tooltip: 'alba:generic.register',
                                                   style: { color: $.inArray('manage', $root.shared.user.roles()) !== -1 ? 'black' : 'lightgrey' }"
-                                   class="hand fa fa-fw" data-i18n="[html]alba:icons.registernode"></i>
+                                       class="hand fa fa-fw" data-i18n="[html]alba:icons.registernode"></i>
                                 </td>
                             </tr>
                         <!-- /ko -->
@@ -285,13 +291,38 @@ All rights reserved
                 <div>
                     <span class="pull-right">
                         <span data-i18n="alba:generic.legend" style="margin-right: 10px;"></span>
-                        <span class="label" style="background-color: #FFF; border: 1px solid #CCC; color: #333;" data-i18n="alba:generic.states.osd.uninitialized"></span>
-                        <span class="label" style="background-color: #DDD; color: #333;" data-i18n="alba:generic.states.osd.unavailable"></span>
-                        <span class="label label-info" data-i18n="alba:generic.states.osd.initialized"></span>
-                        <span class="label label-primary" data-i18n="alba:generic.states.osd.available"></span>
-                        <span class="label label-success" data-i18n="alba:generic.states.osd.claimed"></span>
-                        <span class="label label-warning" data-i18n="alba:generic.states.osd.warning"></span>
-                        <span class="label label-danger" data-i18n="alba:generic.states.osd.error"></span>
+                        <span class="label pointer" data-i18n="alba:generic.states.osd.unavailable"
+                              data-bind="tooltip: 'alba:generic.states.osdinfo.unavailable'"
+                              style="background-color: #DDD; color: #333; opacity: .65;"></span>
+                        <span class="label pointer" data-i18n="alba:generic.states.osd.uninitialized"
+                              data-bind="tooltip: 'alba:generic.states.osdinfo.uninitialized'"
+                              style="background-color: #FFF; border: 1px solid #CCC; color: #333;"></span>
+                        <span class="label label-info pointer" data-i18n="alba:generic.states.osd.initialized"
+                              data-bind="tooltip: 'alba:generic.states.osdinfo.initialized'"></span>
+                        <span class="label label-primary pointer" data-i18n="alba:generic.states.osd.available"
+                              data-bind="tooltip: 'alba:generic.states.osdinfo.available'"></span>
+                        <span class="label label-success pointer" data-i18n="alba:generic.states.osd.claimed"
+                              data-bind="tooltip: 'alba:generic.states.osdinfo.claimed'"></span>
+                        <span class="label label-warning pointer" data-i18n="alba:generic.states.osd.warning"
+                              data-bind="tooltip: 'alba:generic.states.osdinfo.warning'"></span>
+                        <span class="label label-danger pointer" data-i18n="alba:generic.states.osd.error"
+                              data-bind="tooltip: 'alba:generic.states.osdinfo.error'"></span>
+                    </span>
+                </div>
+                <div style="clear: both;"></div>
+                <div data-bind="visible: otherAlbaBackends().length > 0" style="margin-top: 5px;">
+                    <span class="pull-right">
+                        <span data-i18n="alba:generic.inuselegend" style="margin-right: 10px;"></span>
+                        <!-- ko foreach: otherAlbaBackends() -->
+                            <span class="label pointer" style="background-color: #DDD; color: #333; opacity: .65;"
+                                  data-bind="style: { border: '1px solid ' + color() }">
+                                <span data-bind="lazyloader: { item: backend, loadedObservable: 'loaded', undefinedLoading: true }">
+                                    <span data-part="lazy-entry" data-bind="text: item().name"></span>
+                                </span>
+                            </span>&nbsp;
+                        <!-- /ko -->
+                        <span class="label pointer" style="background-color: #DDD; color: #333; opacity: .65;"
+                              data-i18n="alba:generic.unknown"></span>
                     </span>
                 </div>
             </div>

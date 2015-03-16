@@ -180,6 +180,10 @@ Service.start_service('alba-maintenance_{0}')
 """.format(abm_name, params)
             System.exec_remote_python(client, service_script)
 
+        config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(albabackend.backend.name + '-abm')
+        albabackend.alba_id = AlbaCLI.run('get-alba-id', config=config_file, as_json=True)['id']
+        albabackend.save()
+
         # Mark the backend as "running"
         albabackend.backend.status = 'RUNNING'
         albabackend.backend.save()

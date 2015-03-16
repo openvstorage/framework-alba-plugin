@@ -50,9 +50,11 @@
         "asdid": "ASD ID",
         "mountpoint": "Mtpt",
         "legend": "Legend:",
+        "inuselegend": "In use by other backends:",
         "restart": "Restart",
         "node": "Node / Storage Router",
         "statusdetail": "Status detail",
+        "unknown": "Unknown/external",
         "statusdetails": {
             "missing": "Disk is missing",
             "ioerror": "I/O errors",
@@ -67,7 +69,16 @@
                 "unavailable": "Unavailable",
                 "error": "Faulted",
                 "warning": "Warning",
-                "claimed": "In use"
+                "claimed": "Good"
+            },
+            "osdinfo": {
+                "uninitialized": "This is a raw block device that's not yet in use",
+                "initialized": "This ASD is running but not yet discovered",
+                "available": "This ASD is ready to be claimed/in use by the backend",
+                "unavailable": "This ASD is claimed/in use by another backend",
+                "error": "This ASD is in error state. Action is required",
+                "warning": "This ASD is in warning state. Action may be needed",
+                "claimed": "This ASD is in use by this backend"
             }
         }
     },
@@ -151,7 +162,9 @@
         "devices": "&#xf0a0;",
         "nics": "&#xf0ec;",
         "registernode": "&#xf067;",
-        "nodes": "&#xf233;"
+        "nodes": "&#xf233;",
+        "initialize": "&#xf21e;",
+        "claim": "&#xf140;"
     },
     "wizards": {
         "addalbanode": {

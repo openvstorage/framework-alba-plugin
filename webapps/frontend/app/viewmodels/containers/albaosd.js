@@ -3,8 +3,9 @@
 /*global define */
 define([
     'knockout',
-    'ovs/generic'
-], function(ko, generic) {
+    'ovs/generic',
+    '../containers/albabackend'
+], function(ko, generic, AlbaBackend) {
     "use strict";
     return function(name, node) {
         var self = this;
@@ -13,17 +14,19 @@ define([
         self.node = node;
 
         // Observables
-        self.ignoreNext   = ko.observable(false);
-        self.loaded       = ko.observable(false);
-        self.name         = ko.observable(name);
-        self.asdID        = ko.observable();
-        self.statistics   = ko.observable();
-        self.status       = ko.observable();
-        self.statusDetail = ko.observable();
-        self.device       = ko.observable();
-        self.mountpoint   = ko.observable();
-        self.port         = ko.observable();
-        self.processing   = ko.observable(false);
+        self.ignoreNext      = ko.observable(false);
+        self.loaded          = ko.observable(false);
+        self.name            = ko.observable(name);
+        self.asdID           = ko.observable();
+        self.statistics      = ko.observable();
+        self.status          = ko.observable();
+        self.statusDetail    = ko.observable();
+        self.device          = ko.observable();
+        self.mountpoint      = ko.observable();
+        self.port            = ko.observable();
+        self.processing      = ko.observable(false);
+        self.albaBackend     = ko.observable();
+        self.albaBackendGuid = ko.observable();
 
         // Functions
         self.fillData = function(data) {
@@ -37,6 +40,9 @@ define([
                 generic.trySet(self.device, data, 'device');
                 generic.trySet(self.mountpoint, data, 'mountpoint');
                 generic.trySet(self.port, data, 'port');
+                if (self.status() === 'unavailable') {
+                    self.loadAlbaBackend();
+                }
             }
 
             self.loaded(true);
@@ -80,6 +86,22 @@ define([
                 .always(function() {
                     self.processing(false);
                 });
+        };
+        self.loadAlbaBackend = function() {
+            var cache = self.node.parent.otherAlbaBackendsCache(), ab, albaBackendGuid = self.statusDetail();
+            if (albaBackendGuid && self.albaBackendGuid() !== albaBackendGuid) {
+                self.albaBackendGuid(albaBackendGuid);
+                if (!cache.hasOwnProperty(albaBackendGuid)) {
+                    ab = new AlbaBackend(albaBackendGuid);
+                    ab.load()
+                        .then(function() {
+                            ab.backend().load();
+                        });
+                    cache[albaBackendGuid] = ab;
+                    self.node.parent.otherAlbaBackendsCache(cache);
+                }
+                self.albaBackend(cache[albaBackendGuid]);
+            }
         };
     };
 });
