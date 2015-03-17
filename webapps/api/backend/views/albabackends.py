@@ -58,7 +58,6 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         serializer = FullSerializer(AlbaBackend, instance=AlbaBackend(), data=request.DATA, allow_passwords=True)
         if serializer.is_valid():
             alba_backend = serializer.object
-            alba_backend.accesskey = OAuth2Toolbox.create_hash(32)
             alba_backend.save()
             alba_backend.backend.status = 'INSTALLING'
             alba_backend.backend.save()

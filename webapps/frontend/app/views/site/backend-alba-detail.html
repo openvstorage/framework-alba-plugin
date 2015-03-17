@@ -34,14 +34,14 @@ All rights reserved
                                               data-bind="translate: 'ovs:generic.backendtypes.' + item().code()"></span>
                                     </span>
                                 </td>
-                                <td style="width: 15%;" data-i18n="alba:generic.putss"></td>
-                                <td style="width: 35%;">n/a</td>
+                                <td></td>
+                                <td></td>
                             </tr>
                             <tr>
                                 <td style="width: 15%;" data-i18n="alba:generic.nrofdevices"></td>
                                 <td style="width: 35%;">n/a</td>
-                                <td style="width: 15%;" data-i18n="alba:generic.getss"></td>
-                                <td style="width: 35%;">n/a</td>
+                                <td></td>
+                                <td></td>
                             </tr>
                             <tr>
                                 <td style="width: 15%;" data-i18n="ovs:generic.status"></td>
@@ -58,6 +58,18 @@ All rights reserved
                                                     }, tooltip: 'ovs:generic.states.backend.' + $root.backend().status()"
                                          style="width: 14px; height: 14px;"></div>
                                 </td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td style="width: 15%;" data-i18n="alba:generic.putss"></td>
+                                <td style="width: 35%;">n/a</td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td style="width: 15%;" data-i18n="alba:generic.getss"></td>
+                                <td style="width: 35%;">n/a</td>
                                 <td></td>
                                 <td></td>
                             </tr>
@@ -145,13 +157,15 @@ All rights reserved
                     data-bind="css: {
                                    'btn-default': status() === 'uninitialized',
                                    'btn-info': status() === 'initialized',
-                                   'disabled': status() === 'unavailable',
+                                   'disabled': status() === 'unavailable' || (!isLocal() && (status() === 'warning' || status() === 'error')),
                                    'btn-primary': status() === 'available',
                                    'btn-success': status() === 'claimed',
-                                   'btn-warning': status() === 'warning',
-                                   'btn-danger': status() === 'error'
+                                   'btn-warning': status() === 'warning' && isLocal(),
+                                   'btn-danger': status() === 'error' && isLocal()
                                },
-                               style: { border: status() === 'unavailable' && albaBackend() !== undefined ? '1px solid ' + albaBackend().color() : 'inherit' }">
+                               style: {
+                                   border: (status() === 'unavailable' || (!isLocal() && (status() === 'warning' || status() === 'error'))) && albaBackend() !== undefined ? '1px solid ' + albaBackend().color() : 'inherit'
+                               }">
                 <span style="display: inline-block;">
                     <!-- ko if: !processing() -->
                         <i class="hand fa fa-fw" data-i18n="[html]ovs:icons.vdisks" style="padding-right: 25px;"></i>
@@ -195,7 +209,7 @@ All rights reserved
                                         data-bind="click: remove, css: { disabled: processing() || !loaded() }"></button>
                             </span>
                         <!-- /ko -->
-                        <!-- ko if: status() === 'warning' -->
+                        <!-- ko if: status() === 'warning' && isLocal() -->
                             <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                 <button type="button" class="btn btn-warning btn-xs" data-i18n="alba:generic.restart"
                                         data-bind="click: restart, css: { disabled: processing() || !loaded() }"></button>
@@ -203,7 +217,7 @@ All rights reserved
                                         data-bind="click: remove, css: { disabled: processing() || !loaded() }"></button>
                             </span>
                         <!-- /ko -->
-                        <!-- ko if: status() === 'error' -->
+                        <!-- ko if: status() === 'error' && isLocal() -->
                             <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                 <button type="button" class="btn btn-warning btn-xs" data-i18n="alba:generic.restart"
                                         data-bind="click: restart, css: { disabled: processing() || !loaded() }"></button>
@@ -213,7 +227,7 @@ All rights reserved
                         <!-- /ko -->
                     </a>
                 </li>
-                <!-- ko if: (status() === 'error' || status() === 'warning') && statusDetail() !== undefined -->
+                <!-- ko if: (status() === 'error' || status() === 'warning') && statusDetail() !== undefined && isLocal() -->
                     <li>
                         <a>
                             <span data-i18n="alba:generic.statusdetail"></span>:

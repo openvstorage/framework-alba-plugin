@@ -13,7 +13,6 @@ class AlbaBackend(DataObject):
     """
     The AlbaBackend provides ALBA specific information
     """
-    __properties = [Property('accesskey', str, doc='ALBA backend access key'),
-                    Property('alba_id', str, mandatory=False, doc='ALBA internal identifier')]
+    __properties = [Property('alba_id', str, mandatory=False, doc='ALBA internal identifier')]
     __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic backend')]
     __dynamics = []

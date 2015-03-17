@@ -6,6 +6,9 @@ define(['jquery'], function($) {
     return {
         routes: [
             { route: 'backend-alba/:guid', moduleId: 'backend-alba-detail', title: $.t('alba:detail.title'), titlecode: 'alba:detail.title', nav: false, main: false }
+        ],
+        dashboards: [
+            'dashboard-alba'
         ]
     };
 });

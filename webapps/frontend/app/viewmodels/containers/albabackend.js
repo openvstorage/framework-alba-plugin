@@ -13,12 +13,13 @@ define([
         // Handles
         self.loadHandle = undefined;
 
+        // External dependencies
+
         // Observables
         self.loading     = ko.observable(false);
         self.loaded      = ko.observable(false);
         self.guid        = ko.observable(guid);
         self.name        = ko.observable();
-        self.accesskey   = ko.observable();
         self.backend     = ko.observable();
         self.backendGuid = ko.observable();
         self.color       = ko.observable();
@@ -26,7 +27,6 @@ define([
         // Functions
         self.fillData = function(data) {
             self.name(data.name);
-            self.accesskey(data.accesskey);
             if (self.backendGuid() !== data.backend_guid) {
                 self.backendGuid(data.backend_guid);
                 self.backend(new Backend(data.backend_guid));

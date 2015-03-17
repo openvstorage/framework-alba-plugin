@@ -7,7 +7,7 @@ define([
     '../containers/albaosd', '../wizards/addalbanode/index'
 ], function($, ko, app, dialog, generic, api, shared, OSD, AddAlbaNodeWizard) {
     "use strict";
-    return function(boxID, parent) {
+    return function(boxID, albaBackendGuid, parent) {
         var self = this;
 
         // Variables
@@ -69,7 +69,7 @@ define([
                 generic.crossFiller(
                     diskNames, self.disks,
                     function (name) {
-                        return new OSD(name, self);
+                        return new OSD(name, albaBackendGuid, self);
                     }, 'name'
                 );
                 $.each(self.disks(), function (index, disk) {

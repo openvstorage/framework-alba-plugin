@@ -5,7 +5,6 @@
     ],
     "generic": {
         "nodisks": "No disks available",
-        "accesskey": "Access key",
         "details": "Details",
         "statistics": "Statistics",
         "getss": "Gets/s",
@@ -55,6 +54,7 @@
         "node": "Node / Storage Router",
         "statusdetail": "Status detail",
         "unknown": "Unknown/external",
+        "osds": "ASDs",
         "statusdetails": {
             "missing": "Disk is missing",
             "ioerror": "I/O errors",
@@ -84,6 +84,11 @@
     },
     "detail": {
         "title": "Alternate Backend"
+    },
+    "dashboard": {
+        "title": "ALBA Backends",
+        "helptitle": "Help - ALBA Backends",
+        "helpcontent": "This panel displays the state of all ALBA Backends managed by this cluster. It shows how many ASDs are in use by the backend, grouped by their state."
     },
     "storageunit": {
         "add": {

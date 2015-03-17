@@ -7,7 +7,7 @@ define([
     '../containers/albabackend'
 ], function(ko, generic, AlbaBackend) {
     "use strict";
-    return function(name, node) {
+    return function(name, albaBackendGuid, node) {
         var self = this;
 
         // Variables
@@ -27,6 +27,12 @@ define([
         self.processing      = ko.observable(false);
         self.albaBackend     = ko.observable();
         self.albaBackendGuid = ko.observable();
+        self.parentABGuid    = ko.observable(albaBackendGuid);
+
+        // Computed
+        self.isLocal = ko.computed(function() {
+            return self.parentABGuid() !== undefined && self.parentABGuid() === self.albaBackendGuid();
+        });
 
         // Functions
         self.fillData = function(data) {
@@ -35,12 +41,13 @@ define([
             } else {
                 self.status(data.status);
                 generic.trySet(self.statusDetail, data, 'status_detail');
+                generic.trySet(self.albaBackendGuid, data, 'alba_backend_guid');
                 generic.trySet(self.asdID, data, 'asd_id');
                 generic.trySet(self.statistics, data, 'statistics');
                 generic.trySet(self.device, data, 'device');
                 generic.trySet(self.mountpoint, data, 'mountpoint');
                 generic.trySet(self.port, data, 'port');
-                if (self.status() === 'unavailable') {
+                if (self.status() === 'unavailable' || self.status() === 'error' || self.status() === 'warning') {
                     self.loadAlbaBackend();
                 }
             }
@@ -88,19 +95,20 @@ define([
                 });
         };
         self.loadAlbaBackend = function() {
-            var cache = self.node.parent.otherAlbaBackendsCache(), ab, albaBackendGuid = self.statusDetail();
-            if (albaBackendGuid && self.albaBackendGuid() !== albaBackendGuid) {
-                self.albaBackendGuid(albaBackendGuid);
-                if (!cache.hasOwnProperty(albaBackendGuid)) {
-                    ab = new AlbaBackend(albaBackendGuid);
-                    ab.load()
-                        .then(function() {
-                            ab.backend().load();
-                        });
-                    cache[albaBackendGuid] = ab;
-                    self.node.parent.otherAlbaBackendsCache(cache);
+            if (self.node.parent.hasOwnProperty('otherAlbaBackendsCache')) {
+                var cache = self.node.parent.otherAlbaBackendsCache(), ab;
+                if (self.albaBackendGuid() !== undefined) {
+                    if (!cache.hasOwnProperty(self.albaBackendGuid())) {
+                        ab = new AlbaBackend(self.albaBackendGuid());
+                        ab.load()
+                            .then(function () {
+                                ab.backend().load();
+                            });
+                        cache[self.albaBackendGuid()] = ab;
+                        self.node.parent.otherAlbaBackendsCache(cache);
+                    }
+                    self.albaBackend(cache[self.albaBackendGuid()]);
                 }
-                self.albaBackend(cache[albaBackendGuid]);
             }
         };
     };

@@ -61,8 +61,7 @@ define([
                                     self.initializing = true;
                                     api.post('alba/backends', {
                                         data: {
-                                            backend_guid: self.backend().guid(),
-                                            accesskey: generic.getTimestamp().toString()
+                                            backend_guid: self.backend().guid()
                                         }
                                     })
                                         .fail(function() {
@@ -109,7 +108,7 @@ define([
                                 generic.crossFiller(
                                     nodeIDs, oArray,
                                     function(boxID) {
-                                        return new Node(boxID, self);
+                                        return new Node(boxID, self.albaBackend().guid(), self);
                                     }, 'boxID'
                                 );
                                 $.each(oArray(), function (index, node) {

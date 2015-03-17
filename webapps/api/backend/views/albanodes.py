@@ -54,12 +54,19 @@ class AlbaNodeViewSet(viewsets.ViewSet):
                                             disk['status'] = 'unavailable'
                                             other_abackend = AlbaBackendList.get_by_alba_id(osd['alba_id'])
                                             if other_abackend is not None:
-                                                disk['status_detail'] = other_abackend.guid
+                                                disk['alba_backend_guid'] = other_abackend.guid
                                     else:
                                         disk['status'] = 'claimed'
+                                        disk['alba_backend_guid'] = alba_backend_guid
                         else:
                             disk['status'] = 'error'
                             disk['status_detail'] = disk['state']['detail']
+                            for osd in all_osds:
+                                if osd['box_id'] == node.box_id and 'asd_id' in disk and osd['long_id'] == disk['asd_id']:
+                                    other_abackend = AlbaBackendList.get_by_alba_id(osd['alba_id'])
+                                    if other_abackend is not None:
+                                        disk['alba_backend_guid'] = other_abackend.guid
+
             return nodes
         else:
             model_nodes = AlbaNodeList.get_albanodes()
