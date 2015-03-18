@@ -11,9 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodelist import AlbaNodeList
-from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.lib.albanodecontroller import AlbaNodeController
-from ovs.lib.albacontroller import AlbaController
 from ovs.dal.dataobjectlist import DataObjectList
 
 
@@ -29,54 +27,18 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read'])
     @return_list(AlbaNode)
     @load()
-    def list(self, alba_backend_guid, discover=False):
+    def list(self, discover=False):
         """
         Lists all available ALBA Nodes
         """
         if discover is False:
-            nodes = AlbaNodeList.get_albanodes()
-            all_osds = AlbaController.list_all_osds.delay(alba_backend_guid).get()
-            for node in nodes:
-                node.ips = AlbaNodeController.fetch_ips.delay(node_guid=node.guid).get()
-                node.disks = [disk for disk in AlbaNodeController.fetch_disks.delay(node.guid).get().values()]
-                for disk in node.disks:
-                    if disk['available'] is True:
-                        disk['status'] = 'uninitialized'
-                    else:
-                        if disk['state']['state'] == 'ok':
-                            disk['status'] = 'initialized'
-                            for osd in all_osds:
-                                if osd['box_id'] == node.box_id and 'asd_id' in disk and osd['long_id'] == disk['asd_id']:
-                                    if osd['id'] is None:
-                                        if osd['alba_id'] is None:
-                                            disk['status'] = 'available'
-                                        else:
-                                            disk['status'] = 'unavailable'
-                                            other_abackend = AlbaBackendList.get_by_alba_id(osd['alba_id'])
-                                            if other_abackend is not None:
-                                                disk['alba_backend_guid'] = other_abackend.guid
-                                    else:
-                                        disk['status'] = 'claimed'
-                                        disk['alba_backend_guid'] = alba_backend_guid
-                        else:
-                            disk['status'] = 'error'
-                            disk['status_detail'] = disk['state']['detail']
-                            for osd in all_osds:
-                                if osd['box_id'] == node.box_id and 'asd_id' in disk and osd['long_id'] == disk['asd_id']:
-                                    other_abackend = AlbaBackendList.get_by_alba_id(osd['alba_id'])
-                                    if other_abackend is not None:
-                                        disk['alba_backend_guid'] = other_abackend.guid
-
-            return nodes
+            return AlbaNodeList.get_albanodes()
         else:
-            model_nodes = AlbaNodeList.get_albanodes()
-            model_ips = [node.ip for node in model_nodes]
-            nodes_data = AlbaNodeController.discover.delay().get()
             nodes = {}
-            for node_data in nodes_data:
+            model_ips = [node.ip for node in AlbaNodeList.get_albanodes()]
+            for node_data in AlbaNodeController.discover.delay().get():
                 node = AlbaNode(data=node_data, volatile=True)
                 if node.ip not in model_ips:
-                    node.ips = AlbaNodeController.fetch_ips.delay(ip=node.ip, port=node.port).get()
                     nodes[node.guid] = node
             node_list = DataObjectList(nodes.keys(), AlbaNode)
             node_list._objects = nodes

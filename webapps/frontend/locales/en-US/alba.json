@@ -55,6 +55,7 @@
         "statusdetail": "Status detail",
         "unknown": "Unknown/external",
         "osds": "ASDs",
+        "discover": "Discover",
         "statusdetails": {
             "missing": "Disk is missing",
             "ioerror": "I/O errors",
@@ -169,7 +170,8 @@
         "registernode": "&#xf067;",
         "nodes": "&#xf233;",
         "initialize": "&#xf21e;",
-        "claim": "&#xf140;"
+        "claim": "&#xf140;",
+        "discover": "&#xf002;"
     },
     "wizards": {
         "addalbanode": {

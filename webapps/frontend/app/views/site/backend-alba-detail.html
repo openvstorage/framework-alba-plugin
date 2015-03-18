@@ -34,14 +34,8 @@ All rights reserved
                                               data-bind="translate: 'ovs:generic.backendtypes.' + item().code()"></span>
                                     </span>
                                 </td>
-                                <td></td>
-                                <td></td>
-                            </tr>
-                            <tr>
-                                <td style="width: 15%;" data-i18n="alba:generic.nrofdevices"></td>
+                                <td style="width: 15%;" data-i18n="alba:generic.putss"></td>
                                 <td style="width: 35%;">n/a</td>
-                                <td></td>
-                                <td></td>
                             </tr>
                             <tr>
                                 <td style="width: 15%;" data-i18n="ovs:generic.status"></td>
@@ -58,18 +52,22 @@ All rights reserved
                                                     }, tooltip: 'ovs:generic.states.backend.' + $root.backend().status()"
                                          style="width: 14px; height: 14px;"></div>
                                 </td>
-                                <td></td>
-                                <td></td>
-                            </tr>
-                            <tr>
-                                <td style="width: 15%;" data-i18n="alba:generic.putss"></td>
-                                <td style="width: 35%;">n/a</td>
-                                <td></td>
-                                <td></td>
-                            </tr>
-                            <tr>
                                 <td style="width: 15%;" data-i18n="alba:generic.getss"></td>
                                 <td style="width: 35%;">n/a</td>
+                            </tr>
+                            <tr>
+                                <td style="width: 15%;" data-i18n="alba:generic.nrofdevices"></td>
+                                <td style="width: 35%; padding-bottom: 2px;">
+                                    <span class="label label-success pointer"
+                                          data-bind="tooltip: 'alba:generic.states.osdinfo.claimed',
+                                                     text: $root.ASDStates().claimed"></span>&nbsp;
+                                    <span class="label label-warning pointer"
+                                          data-bind="tooltip: 'alba:generic.states.osdinfo.warning',
+                                                     text: $root.ASDStates().warning"></span>&nbsp;
+                                    <span class="label label-danger pointer"
+                                          data-bind="tooltip: 'alba:generic.states.osdinfo.error',
+                                                     text: $root.ASDStates().failure"></span>
+                                </td>
                                 <td></td>
                                 <td></td>
                             </tr>
@@ -92,8 +90,14 @@ All rights reserved
         </ul>
         <div class="tab-content">
             <div class="tab-pane active" id="nodes" style="padding: 15px;" data-bind="visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
-                <h4 data-i18n="alba:nodes.nodes"></h4>
-                <table class="table table-striped table-hover">
+                <h4 class="pull-left" data-i18n="alba:nodes.nodes"></h4>
+                <button class="btn btn-default pull-right" id="buttonAddVpool"
+                        data-bind="click: discover"
+                        style="margin-top: 5px; margin-bottom: 10px;">
+                    <span class="fa" data-i18n="[html]alba:icons.discover"></span>&nbsp;
+                    <span data-i18n="alba:generic.discover"></span>
+                </button>
+                <table class="table table-striped table-hover" style="clear: both;">
                     <thead>
                         <tr>
                             <th data-i18n="alba:generic.boxid" style="width: 400px;"></th>
@@ -164,7 +168,7 @@ All rights reserved
                                    'btn-danger': status() === 'error' && isLocal()
                                },
                                style: {
-                                   border: (status() === 'unavailable' || (!isLocal() && (status() === 'warning' || status() === 'error'))) && albaBackend() !== undefined ? '1px solid ' + albaBackend().color() : 'inherit'
+                                   border: (status() === 'unavailable' || (!isLocal() && (status() === 'warning' || status() === 'error'))) && albaBackend() !== undefined ? '1px solid ' + albaBackend().color() : ''
                                }">
                 <span style="display: inline-block;">
                     <!-- ko if: !processing() -->

@@ -6,12 +6,11 @@ AlbaNodeController module
 """
 
 import json
-import base64
 import socket
-import requests
 from subprocess import check_output
 from ovs.celery_run import celery
 from ovs.dal.hybrids.albanode import AlbaNode
+from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.log.logHandler import LogHandler
@@ -35,7 +34,7 @@ class AlbaNodeController(object):
         """
         try:
             nodes = {}
-            discover_result = check_output('avahi-browse -rtp _asd_node._tcp 2> /dev/null | grep asd_node || true', shell=True)
+            discover_result = check_output('timeout -k 10 5 avahi-browse -rtp _asd_node._tcp 2> /dev/null || true', shell=True)
             # logger.debug('Avahi discovery result:\n{0}'.format(discover_result))
             for entry in discover_result.split('\n'):
                 # =;eth1;IPv4;asd_node_ZrdSgl4cYulH7SjvpRuICM3CBcRmfKfp;_asd_node._tcp;local;ovs154233.local;10.100.154.233;8500;
@@ -45,7 +44,7 @@ class AlbaNodeController(object):
                 # split('_') -> [-1] = ZrdSgl4cYulH7SjvpRuICM3CBcRmfKfp (box_id)
                 entry_parts = entry.split(';')
                 if entry_parts[0] == '=' and entry_parts[2] == 'IPv4':
-                    node = AlbaNode()
+                    node = AlbaNode(volatile=True)
                     node.ip = entry_parts[7]
                     node.port = int(entry_parts[8])
                     node.type = 'ASD'
@@ -78,17 +77,7 @@ class AlbaNodeController(object):
         """
         node = AlbaNode(node_guid)
         try:
-            disks = requests.get('https://{0}:{1}/disks'.format(node.ip, node.port),
-                                 headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(node.username, node.password)).strip())},
-                                 verify=False).json()
-            for disk in disks.keys():
-                if disk.startswith('_'):
-                    del disks[disk]
-                    continue
-                for key in disks[disk].keys():
-                    if key.startswith('_'):
-                        del disks[disk][key]
-            return disks
+            return dict((disk['name'], disk) for disk in node.all_disks)
         except:
             return {}
 
@@ -100,14 +89,11 @@ class AlbaNodeController(object):
         """
         if node_guid is not None:
             node = AlbaNode(node_guid)
-            ip = node.ip
-            port = node.port
-        try:
-            data = requests.get('https://{0}:{1}/net'.format(ip, port),
-                                verify=False).json()
-            return data['ips']
-        except:
-            return []
+        else:
+            node = AlbaNode()
+            node.ip = ip
+            node.port = port
+        return node.ips
 
     @staticmethod
     @celery.task(name='albanode.register')
@@ -118,21 +104,16 @@ class AlbaNodeController(object):
         node = AlbaNodeList.get_albanode_by_box_id(box_id)
         if node is None:
             node = AlbaNode()
-        data = requests.get('https://{0}:{1}/'.format(ip, port),
-                            headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(username, password)).strip())},
-                            verify=False).json()
+            node.ip = ip
+            node.port = port
+            node.username = username
+            node.password = password
+        data = node.client.get_metadata()
         if data['_success'] is False and data['_error'] == 'Invalid credentials':
             raise RuntimeError('Invalid credentials')
         if data['box_id'] != box_id:
             raise RuntimeError('Unexpected box_id: {0} vs {1}'.format(data['box_id'], box_id))
-        requests.post('https://{0}:{1}/net'.format(ip, port),
-                      data={'ips': json.dumps(asd_ips)},
-                      headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(username, password)).strip())},
-                      verify=False)
-        node.ip = ip
-        node.port = port
-        node.username = username
-        node.password = password
+        node.client.set_ips(asd_ips)
         node.box_id = box_id
         node.type = 'ASD'
         node.save()
@@ -144,9 +125,7 @@ class AlbaNodeController(object):
         Initializes a disk
         """
         node = AlbaNode(node_guid)
-        available_disks = requests.get('https://{0}:{1}/disks'.format(node.ip, node.port),
-                                       headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(node.username, node.password)).strip())},
-                                       verify=False).json()
+        available_disks = dict((disk['name'], disk) for disk in node.all_disks)
         failures = []
         for disk in disks:
             logger.debug('Initializing disk {0} at node {1}'.format(disk, node.ip))
@@ -154,9 +133,7 @@ class AlbaNodeController(object):
                 logger.exception('Disk {0} not available on node {1}'.format(disk, node.ip))
                 failures.append(disk)
             else:
-                result = requests.post('https://{0}:{1}/disks/{2}/add'.format(node.ip, node.port, disk),
-                                       headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(node.username, node.password)).strip())},
-                                       verify=False).json()
+                result = node.client.add_disk(disk)
                 if result['_success'] is False:
                     failures.append(disk)
         return failures
@@ -168,27 +145,21 @@ class AlbaNodeController(object):
         Removes a disk
         """
         node = AlbaNode(node_guid)
+        alba_backend = AlbaBackend(alba_backend_guid)
         logger.debug('Removing disk {0} at node {1}'.format(disk, node.ip))
-        disks = requests.get('https://{0}:{1}/disks'.format(node.ip, node.port),
-                             headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(node.username, node.password)).strip())},
-                             verify=False).json()
+        disks = node.client.get_disks(as_list=False)
         if disk not in disks or disks[disk]['available'] is True:
             logger.exception('Disk {0} not available for removal on node {1}'.format(disk, node.ip))
             raise RuntimeError('Could not find disk')
-        try:
-            AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']])
-        except:
-            pass
-        result = requests.post('https://{0}:{1}/disks/{2}/delete'.format(node.ip, node.port, disk),
-                              headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(node.username, node.password)).strip())},
-                              verify=False).json()
+        asds = [asd for asd in alba_backend.asds if asd.asd_id == disks[disk]['asd_id']]
+        asd = asds[0] if len(asds) == 1 else None
+        AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']], absorb_exception=True)
+        result = node.client.remove_disk(disk)
         if result['_success'] is False:
             raise RuntimeError('Error removing disk: {0}'.format(result['_error']))
-        try:
-            # Second run, to prevent raise conditions
-            AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']])
-        except:
-            pass
+        AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']], absorb_exception=True)
+        if asd is not None:
+            asd.delete()
         return True
 
     @staticmethod
@@ -199,15 +170,11 @@ class AlbaNodeController(object):
         """
         node = AlbaNode(node_guid)
         logger.debug('Restarting disk {0} at node {1}'.format(disk, node.ip))
-        disks = requests.get('https://{0}:{1}/disks'.format(node.ip, node.port),
-                             headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(node.username, node.password)).strip())},
-                             verify=False).json()
+        disks = node.client.get_disks(as_list=False)
         if disk not in disks or disks[disk]['available'] is True or disks[disk]['state']['state'] != 'error':
             logger.exception('Disk {0} not available for restart on node {1}'.format(disk, node.ip))
             raise RuntimeError('Could not find disk')
-        result = requests.post('https://{0}:{1}/disks/{2}/restart'.format(node.ip, node.port, disk),
-                               headers={'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(node.username, node.password)).strip())},
-                               verify=False).json()
+        result = node.client.restart_disk(disk)
         if result['_success'] is False:
             raise RuntimeError('Error restarting disk: {0}'.format(result['_error']))
         return True

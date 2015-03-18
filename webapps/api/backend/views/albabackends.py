@@ -73,13 +73,13 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaBackend)
-    def add_units(self, albabackend, asd_ids):
+    def add_units(self, albabackend, asds):
         """
         Add storage units to the backend and register with alba nsm
         :param albabackend:     albabackend to add unit to
         :param asd_ids:         list of ASD ids
         """
-        return AlbaController.add_units.s(albabackend.guid, asd_ids).apply_async(queue='ovs_masters')
+        return AlbaController.add_units.s(albabackend.guid, asds).apply_async(queue='ovs_masters')
 
     @link()
     @log()

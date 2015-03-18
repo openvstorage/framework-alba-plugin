@@ -7,7 +7,7 @@ define([
     '../containers/albaosd', '../wizards/addalbanode/index'
 ], function($, ko, app, dialog, generic, api, shared, OSD, AddAlbaNodeWizard) {
     "use strict";
-    return function(boxID, albaBackendGuid, parent) {
+    return function(boxID, parent) {
         var self = this;
 
         // Variables
@@ -59,32 +59,6 @@ define([
             self.username(data.username);
             self.ips(data.ips);
             generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
-
-            if (data.disks !== undefined && data.disks !== null) {
-                var diskNames = [], disks = {}, changes = data.disks.length !== self.disks().length;
-                $.each(data.disks, function (index, disk) {
-                    diskNames.push(disk.name);
-                    disks[disk.name] = disk;
-                });
-                generic.crossFiller(
-                    diskNames, self.disks,
-                    function (name) {
-                        return new OSD(name, albaBackendGuid, self);
-                    }, 'name'
-                );
-                $.each(self.disks(), function (index, disk) {
-                    if ($.inArray(disk.name(), diskNames) !== -1) {
-                        disk.fillData(disks[disk.name()]);
-                    }
-                });
-                if (changes) {
-                    self.disks.sort(function (a, b) {
-                        return a.name() < b.name() ? -1 : 1;
-                    });
-                }
-            } else {
-                self.disks([]);
-            }
 
             self.loaded(true);
         };
@@ -265,15 +239,15 @@ define([
         };
         self.claimAll = function() {
             return $.Deferred(function(deferred) {
-                var asdIDs = [], disks = [];
+                var osds = {}, disks = [];
                 $.each(self.disks(), function(index, disk) {
                     if (disk.status() === 'available' && disk.processing() === false) {
                         disk.processing(true);
                         disks.push(disk.name());
-                        asdIDs.push(disk.asdID());
+                        osds[disk.asdID()] = disk.node.guid();
                     }
                 });
-                self.parent.claimAll(asdIDs, disks)
+                self.parent.claimAll(osds, disks)
                     .done(function() {
                         $.each(self.disks(), function(index, disk) {
                             if ($.inArray(disk.name(), disks) !== -1) {

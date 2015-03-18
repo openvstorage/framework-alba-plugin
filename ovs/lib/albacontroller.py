@@ -18,10 +18,11 @@ from ovs.plugin.provider.configuration import Configuration
 from ovs.lib.setup import System
 from ovs.lib.helpers.decorators import ensure_single, setup_hook
 from ovs.log.logHandler import LogHandler
-
 from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.j_abmservice import ABMService
 from ovs.dal.hybrids.service import Service
+from ovs.dal.hybrids.albaasd import AlbaASD
+from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
@@ -40,27 +41,34 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.add_units')
-    def add_units(alba_backend_guid, asd_ids):
+    def add_units(alba_backend_guid, asds):
         """
         Adds storage units to an Alba backend
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
-        for asd_id in asd_ids:
-            output = AlbaCLI.run('claim-osd', config=config_file, long_id=asd_id, debug=True)
-            logger.info('** abm response:' + str(output))
+        for asd_id, node_guid in asds.iteritems():
+            AlbaCLI.run('claim-osd', config=config_file, long_id=asd_id, debug=True)
+            asd = AlbaASD()
+            asd.asd_id = asd_id
+            asd.alba_node = AlbaNode(node_guid)
+            asd.alba_backend = alba_backend
+            asd.save()
 
     @staticmethod
     @celery.task(name='alba.remove_units')
-    def remove_units(alba_backend_guid, asd_ids):
+    def remove_units(alba_backend_guid, asd_ids, absorb_exception=False):
         """
         Removes storage units to an Alba backend
         """
-        alba_backend = AlbaBackend(alba_backend_guid)
-        config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
-        for asd_id in asd_ids:
-            output = AlbaCLI.run('decommission-osd', config=config_file, long_id=asd_id)
-            logger.info('** abm response:' + str(output))
+        try:
+            alba_backend = AlbaBackend(alba_backend_guid)
+            config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
+            for asd_id in asd_ids:
+                AlbaCLI.run('decommission-osd', config=config_file, long_id=asd_id)
+        except:
+            if absorb_exception is False:
+                raise
 
     @staticmethod
     @celery.task(name='alba.list_discovered_osds')

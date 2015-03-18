@@ -7,16 +7,17 @@ define([
     '../containers/albabackend'
 ], function(ko, generic, AlbaBackend) {
     "use strict";
-    return function(name, albaBackendGuid, node) {
+    return function(name, albaBackendGuid) {
         var self = this;
 
-        // Variables
-        self.node = node;
+        // External injected
+        self.node = undefined;
 
         // Observables
         self.ignoreNext      = ko.observable(false);
         self.loaded          = ko.observable(false);
         self.name            = ko.observable(name);
+        self.boxID           = ko.observable();
         self.asdID           = ko.observable();
         self.statistics      = ko.observable();
         self.status          = ko.observable();
@@ -40,6 +41,7 @@ define([
                 self.ignoreNext(false);
             } else {
                 self.status(data.status);
+                self.boxID(data.box_id);
                 generic.trySet(self.statusDetail, data, 'status_detail');
                 generic.trySet(self.albaBackendGuid, data, 'alba_backend_guid');
                 generic.trySet(self.asdID, data, 'asd_id');
@@ -77,8 +79,10 @@ define([
                 });
         };
         self.claim = function() {
+            var osds = {};
+            osds[self.asdID()] = self.node.guid();
             self.processing(true);
-            self.node.claimOSD(self.asdID(), self.name())
+            self.node.claimOSD(osds, self.name())
                 .done(function() {
                     self.ignoreNext(true);
                     self.status('claimed');
@@ -95,7 +99,7 @@ define([
                 });
         };
         self.loadAlbaBackend = function() {
-            if (self.node.parent.hasOwnProperty('otherAlbaBackendsCache')) {
+            if (self.node !== undefined && self.node.parent.hasOwnProperty('otherAlbaBackendsCache')) {
                 var cache = self.node.parent.otherAlbaBackendsCache(), ab;
                 if (self.albaBackendGuid() !== undefined) {
                     if (!cache.hasOwnProperty(self.albaBackendGuid())) {

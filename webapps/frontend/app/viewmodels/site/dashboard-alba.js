@@ -4,8 +4,8 @@
 define([
     'jquery', 'knockout',
     'ovs/api', 'ovs/shared', 'ovs/generic', 'ovs/refresher',
-    '../containers/albabackend', '../containers/albanode'
-], function($, ko, api, shared, generic, Refresher, AlbaBackend, Node) {
+    '../containers/albabackend', '../containers/albanode', '../containers/albaosd'
+], function($, ko, api, shared, generic, Refresher, AlbaBackend, Node, OSD) {
     "use strict";
     return function() {
         var self = this;
@@ -23,6 +23,7 @@ define([
         self.nodeLoaded   = ko.observable(false);
         self.albaBackends = ko.observableArray([]);
         self.nodes        = ko.observableArray([]);
+        self.disks        = ko.observableArray([]);
 
         // Computed
         self.ASDStates = ko.computed(function() {
@@ -119,7 +120,7 @@ define([
                             generic.crossFiller(
                                 nodeIDs, self.nodes,
                                 function(boxID) {
-                                    return new Node(boxID, undefined, self);
+                                    return new Node(boxID, self);
                                 }, 'boxID'
                             );
                             $.each(self.nodes(), function (index, node) {
@@ -127,24 +128,82 @@ define([
                                     node.fillData(nodes[node.boxID()]);
                                 }
                             });
-                            self.nodeLoaded(true);
+                            deferred.resolve();
                         })
                         .fail(function () {
                             self.nodeLoaded(true);
                             deferred.reject();
                         });
                 } else {
-                    self.nodeLoaded(true);
                     deferred.resolve();
                 }
             }).promise();
+        };
+        self.loadOSDs = function() {
+            if (self.albaBackends().length === 0) {
+                return;
+            }
+            return self.albaBackends()[0].load()
+                .then(function(data) {
+                    var diskNames = [], disks = {}, changes = data.all_disks.length !== self.disks().length;
+                    $.each(data.all_disks, function (index, disk) {
+                        diskNames.push(disk.name);
+                        disks[disk.name] = disk;
+                    });
+                    generic.crossFiller(
+                        diskNames, self.disks,
+                        function (name) {
+                            return new OSD(name, self.albaBackends()[0].guid());
+                        }, 'name'
+                    );
+                    $.each(self.disks(), function (index, disk) {
+                        if ($.inArray(disk.name(), diskNames) !== -1) {
+                            disk.fillData(disks[disk.name()]);
+                        }
+                    });
+                    if (changes) {
+                        self.disks.sort(function (a, b) {
+                            return a.name() < b.name() ? -1 : 1;
+                        });
+                    }
+                });
+        };
+        self.link = function() {
+            var diskNames = [];
+            $.each(self.disks(), function (index, disk) {
+                diskNames.push(disk.name());
+                if (disk.node === undefined) {
+                    $.each(self.nodes(), function(jndex, node) {
+                        if (disk.boxID() === node.boxID()) {
+                            disk.node = node;
+                            node.disks.push(disk);
+                            node.disks.sort(function (a, b) {
+                                return a.name() < b.name() ? -1 : 1;
+                            });
+                        }
+                    });
+                }
+            });
+            $.each(self.nodes(), function(jndex, node) {
+                $.each(node.disks(), function(index, disk) {
+                    if ($.inArray(disk.name(), diskNames) === -1) {
+                        node.disks.remove(disk);
+                        node.disks.sort(function (a, b) {
+                            return a.name() < b.name() ? -1 : 1;
+                        });
+                    }
+                });
+            });
+            self.nodeLoaded(true);
         };
 
         // Durandal
         self.activate = function(mode) {
             self.refresher.init(function() {
                 self.load()
-                    .then(self.loadNodes);
+                    .then(self.loadNodes)
+                    .then(self.loadOSDs)
+                    .then(self.link);
             }, 5000);
             self.refresher.run();
             self.refresher.start();
