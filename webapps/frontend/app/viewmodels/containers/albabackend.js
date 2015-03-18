@@ -23,6 +23,8 @@ define([
         self.backend     = ko.observable();
         self.backendGuid = ko.observable();
         self.color       = ko.observable();
+        self.readIOps    = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.writeIOps   = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
 
         // Functions
         self.fillData = function(data) {
@@ -30,6 +32,10 @@ define([
             if (self.backendGuid() !== data.backend_guid) {
                 self.backendGuid(data.backend_guid);
                 self.backend(new Backend(data.backend_guid));
+            }
+            if (data.hasOwnProperty('statistics')) {
+                self.readIOps(data.statistics.multi_get.n_ps);
+                self.writeIOps(data.statistics.apply.n_ps);
             }
 
             self.loaded(true);

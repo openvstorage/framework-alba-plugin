@@ -8,6 +8,7 @@ from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.structures import Property, Relation, Dynamic
+from ovs.extensions.plugins.albacli import AlbaCLI
 
 
 class AlbaASD(DataObject):
@@ -18,7 +19,8 @@ class AlbaASD(DataObject):
     __relations = [Relation('alba_backend', AlbaBackend, 'asds', doc='The AlbaBackend that claimed the ASD'),
                    Relation('alba_node', AlbaNode, 'asds', doc='The AlbaNode to which the ASD belongs')]
     __dynamics = [Dynamic('name', str, 3600),
-                  Dynamic('info', dict, 5)]
+                  Dynamic('info', dict, 5),
+                  Dynamic('statistics', dict, 5, locked=True)]
 
     def _name(self):
         """
@@ -33,3 +35,18 @@ class AlbaASD(DataObject):
         for disk in self.alba_node.all_disks:
             if disk['name'] == self.name:
                 return disk
+
+    def _statistics(self):
+        """
+        Loads statistics from the ASD
+        """
+        data_keys = ['apply', 'multi_get', 'range', 'range_entries']
+        config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(self.alba_backend.backend.name)
+        statistics = AlbaCLI.run('asd-statistics', long_id=self.asd_id, config=config_file, extra_params='--clear', as_json=True)
+        for key in data_keys:
+            if statistics['period'] > 0:
+                statistics[key]['n_ps'] = statistics[key]['n'] / statistics['period']
+            else:
+                statistics[key]['n_ps'] = 0
+            del statistics[key]['m2']
+        return statistics
