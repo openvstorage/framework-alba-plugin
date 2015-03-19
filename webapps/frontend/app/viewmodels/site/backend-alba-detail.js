@@ -111,7 +111,8 @@ define([
                     .then(function(albaBackend) {
                         return albaBackend.load();
                     })
-                    .always(deferred.resolve);
+                    .done(deferred.resolve)
+                    .fail(deferred.reject);
             }).promise();
         };
         self.formatBytes = function(value) {

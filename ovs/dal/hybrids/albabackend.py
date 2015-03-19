@@ -109,7 +109,7 @@ class AlbaBackend(DataObject):
                 continue
             namespace = namespace_data['name']
             try:
-                alba_dataset[namespace] = AlbaCLI.run('show-namespace', config=config_file, as_json=True, extra_params=namespace, debug=True)
+                alba_dataset[namespace] = AlbaCLI.run('show-namespace', config=config_file, as_json=True, extra_params=namespace)
             except:
                 # This might fail every now and then, e.g. on disk removal. Let's ignore for now.
                 pass
