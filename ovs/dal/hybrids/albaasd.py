@@ -42,11 +42,15 @@ class AlbaASD(DataObject):
         """
         data_keys = ['apply', 'multi_get', 'range', 'range_entries']
         config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(self.alba_backend.backend.name)
-        statistics = AlbaCLI.run('asd-statistics', long_id=self.asd_id, config=config_file, extra_params='--clear', as_json=True)
-        for key in data_keys:
-            if statistics['period'] > 0:
-                statistics[key]['n_ps'] = statistics[key]['n'] / statistics['period']
-            else:
-                statistics[key]['n_ps'] = 0
-            del statistics[key]['m2']
-        return statistics
+        try:
+            statistics = AlbaCLI.run('asd-statistics', long_id=self.asd_id, config=config_file, extra_params='--clear', as_json=True)
+            for key in data_keys:
+                if statistics['period'] > 0:
+                    statistics[key]['n_ps'] = statistics[key]['n'] / statistics['period']
+                else:
+                    statistics[key]['n_ps'] = 0
+                del statistics[key]['m2']
+            return statistics
+        except:
+            # This might fail every now and then, e.g. on disk removal. Let's ignore for now.
+            return None

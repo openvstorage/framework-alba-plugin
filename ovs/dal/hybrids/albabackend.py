@@ -79,6 +79,8 @@ class AlbaBackend(DataObject):
                                'min': None}
         for asd in self.asds:
             asd_stats = asd.statistics
+            if asd_stats is None:
+                continue
             for key in data_keys:
                 statistics[key]['n'] += asd_stats[key]['n']
                 statistics[key]['n_ps'] += asd_stats[key]['n_ps']
@@ -106,7 +108,11 @@ class AlbaBackend(DataObject):
             if namespace_data['state'] != 'active':
                 continue
             namespace = namespace_data['name']
-            alba_dataset[namespace] = AlbaCLI.run('show-namespace', config=config_file, as_json=True, extra_params=namespace)
+            try:
+                alba_dataset[namespace] = AlbaCLI.run('show-namespace', config=config_file, as_json=True, extra_params=namespace, debug=True)
+            except:
+                # This might fail every now and then, e.g. on disk removal. Let's ignore for now.
+                pass
         # Collect vPool/vDisk data
         vdisk_dataset = {}
         for vpool in VPoolList.get_vpools():
