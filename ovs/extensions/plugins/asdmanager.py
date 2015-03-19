@@ -24,13 +24,12 @@ class ASDManagerClient(object):
 
     def __init__(self, node):
         self.node = node
-        self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
-        self._base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}
 
     def get_metadata(self):
         """
         Gets metadata from the node
         """
+        self._refresh()
         return requests.get('{0}/'.format(self._base_url),
                             headers=self._base_headers,
                             verify=False).json()
@@ -39,6 +38,7 @@ class ASDManagerClient(object):
         """
         Gets the ips from a node
         """
+        self._refresh()
         return requests.get('{0}/net'.format(self._base_url),
                             verify=False).json()['ips']
 
@@ -46,6 +46,7 @@ class ASDManagerClient(object):
         """
         Set primary storage ips
         """
+        self._refresh()
         requests.post('{0}/net'.format(self._base_url),
                       data={'ips': json.dumps(ips)},
                       headers=self._base_headers,
@@ -55,6 +56,7 @@ class ASDManagerClient(object):
         """
         Gets the node's disk states
         """
+        self._refresh()
         disks = [] if as_list is True else {}
         data = requests.get('{0}/disks'.format(self._base_url),
                             headers=self._base_headers,
@@ -74,6 +76,7 @@ class ASDManagerClient(object):
         """
         Gets one of the node's disk's state
         """
+        self._refresh()
         data = requests.get('{0}/disks/{1}'.format(self._base_url, disk),
                             headers=self._base_headers,
                             verify=False).json()
@@ -86,6 +89,7 @@ class ASDManagerClient(object):
         """
         Adds a disk
         """
+        self._refresh()
         return requests.post('{0}/disks/{1}/add'.format(self._base_url, disk),
                              headers=self._base_headers,
                              verify=False).json()
@@ -94,6 +98,7 @@ class ASDManagerClient(object):
         """
         Removes a disk
         """
+        self._refresh()
         return requests.post('{0}/disks/{1}/delete'.format(self._base_url, disk),
                              headers=self._base_headers,
                              verify=False).json()
@@ -102,6 +107,11 @@ class ASDManagerClient(object):
         """
         Restarts a disk
         """
+        self._refresh()
         return requests.post('{0}/disks/{1}/restart'.format(self._base_url, disk),
                              headers=self._base_headers,
                              verify=False).json()
+
+    def _refresh(self):
+        self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
+        self._base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}

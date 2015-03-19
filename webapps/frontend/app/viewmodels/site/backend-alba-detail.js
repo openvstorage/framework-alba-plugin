@@ -129,7 +129,7 @@ define([
                 if (generic.xhrCompleted(self.nodesHandle[discover])) {
                     var options = {
                         sort: 'box_id',
-                        contents: 'box_id,_relations',
+                        contents: 'box_id,_relations' + (discover ? ',_dynamics' : ''),
                         discover: discover,
                         alba_backend_guid: self.albaBackend().guid()
                     };
