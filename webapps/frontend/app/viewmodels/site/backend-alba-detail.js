@@ -5,8 +5,8 @@ define([
     'jquery', 'durandal/app', 'knockout',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/backend', '../containers/backendtype', '../containers/albabackend',
-    '../containers/albanode', '../containers/albaosd', '../containers/storagerouter'
-], function($, app, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node, OSD, StorageRouter) {
+    '../containers/albanode', '../containers/albaosd', '../containers/storagerouter', '../containers/vpool'
+], function($, app, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node, OSD, StorageRouter, VPool) {
     "use strict";
     return function() {
         var self = this;
@@ -28,6 +28,7 @@ define([
         self.registeredNodes        = ko.observableArray([]);
         self.discoveredNodes        = ko.observableArray([]);
         self.disks                  = ko.observableArray([]);
+        self.vPools                 = ko.observableArray([]);
         self.otherAlbaBackendsCache = ko.observable({});
 
         // Computed
@@ -86,7 +87,9 @@ define([
                             }
                             if (backendData.hasOwnProperty('alba_backend_guid') && backendData.alba_backend_guid !== null) {
                                 if (self.albaBackend() === undefined) {
-                                    self.albaBackend(new AlbaBackend(backendData.alba_backend_guid));
+                                    var albaBackend = new AlbaBackend(backendData.alba_backend_guid)
+                                    albaBackend.vPools = self.vPools;
+                                    self.albaBackend(albaBackend);
                                 }
                                 subDeferred.resolve(self.albaBackend());
                             } else {
@@ -116,6 +119,38 @@ define([
         };
         self.formatPercentage = function(value) {
             return generic.formatPercentage(value);
+        };
+        self.loadVPools = function() {
+            return $.Deferred(function(deferred) {
+                if (generic.xhrCompleted(self.vPoolsHandle)) {
+                    var options = {
+                        sort: 'name',
+                        contents: ''
+                    };
+                    self.vPoolsHandle = api.get('vpools', { queryparams: options })
+                        .then(function(data) {
+                            var guids = [], vpdata = {};
+                            $.each(data.data, function (index, vpool) {
+                                guids.push(vpool.guid);
+                                vpdata[vpool.guid] = vpool;
+                            });
+                            generic.crossFiller(
+                                guids, self.vPools,
+                                function (guid) {
+                                    return new VPool(guid);
+                                }, 'guid'
+                            );
+                            $.each(self.vPools(), function (index, vpool) {
+                                if ($.inArray(vpool.guid(), guids) !== -1) {
+                                    vpool.fillData(vpdata[vpool.guid()]);
+                                }
+                            });
+                        })
+                        .always(deferred.resolve);
+                } else {
+                    deferred.resolve();
+                }
+            }).promise();
         };
         self.fetchNodes = function(discover) {
             if (discover === undefined) {
@@ -306,6 +341,7 @@ define([
         self.activate = function(mode, guid) {
             self.backend(new Backend(guid));
             self.refresher.init(function() {
+                self.loadVPools();
                 self.load()
                     .then(self.loadOSDs)
                     .then(self.fetchNodes)

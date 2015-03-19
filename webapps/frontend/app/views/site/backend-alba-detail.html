@@ -4,6 +4,9 @@ All rights reserved
 -->
 <section>
 	<ol class="breadcrumb">
+        <li>
+            <a data-bind="attr: { href: $root.shared.routing.loadHash('backends') }" data-i18n="ovs:backends.title"></a>
+        </li>
 	    <li class="active" data-bind="text: backend().name"></li>
 	</ol>
     <div>
@@ -23,23 +26,27 @@ All rights reserved
                             <tr>
                                 <th data-i18n="alba:generic.details" colspan="2"></th>
                                 <th data-i18n="alba:generic.statistics" colspan="2"></th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td style="width: 15%;" data-i18n="ovs:generic.backendtype"></td>
-                                <td style="width: 35%;">
+                                <td style="width: 20%;">
                                     <span data-bind="lazyloader: { item: $root.backend().backendType, loadedObservable: 'loaded', undefinedLoading: false }">
                                         <span data-part="lazy-entry"
                                               data-bind="translate: 'ovs:generic.backendtypes.' + item().code()"></span>
                                     </span>
                                 </td>
                                 <td style="width: 15%;" data-i18n="alba:generic.putss"></td>
-                                <td style="width: 35%;"><span data-bind="text: writeIOps"></span></td>
+                                <td style="width: 15%;"><span data-bind="text: writeIOps"></span></td>
+                                <td rowspan="4">
+                                    <div data-bind="pie: usage()"></div>
+                                </td>
                             </tr>
                             <tr>
                                 <td style="width: 15%;" data-i18n="ovs:generic.status"></td>
-                                <td style="width: 35%;">
+                                <td style="width: 20%;">
                                     <div data-bind="status: {
                                                         colors: {
                                                             blue: $root.backend().status() == 'new',
@@ -53,11 +60,11 @@ All rights reserved
                                          style="width: 14px; height: 14px;"></div>
                                 </td>
                                 <td style="width: 15%;" data-i18n="alba:generic.getss"></td>
-                                <td style="width: 35%;"><span data-bind="text: readIOps"></span></td>
+                                <td style="width: 15%;"><span data-bind="text: readIOps"></span></td>
                             </tr>
                             <tr>
                                 <td style="width: 15%;" data-i18n="alba:generic.nrofdevices"></td>
-                                <td style="width: 35%; padding-bottom: 2px;">
+                                <td style="width: 20%; padding-bottom: 2px;">
                                     <span class="label label-success pointer"
                                           data-bind="tooltip: 'alba:generic.states.osdinfo.claimed',
                                                      text: $root.ASDStates().claimed"></span>&nbsp;
@@ -71,6 +78,7 @@ All rights reserved
                                 <td></td>
                                 <td></td>
                             </tr>
+                            <tr style="height: 100%;"><td colspan="3"></td></tr>
                         </tbody>
                     </table>
                 </div>
