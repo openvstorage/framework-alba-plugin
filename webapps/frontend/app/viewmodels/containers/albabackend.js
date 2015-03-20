@@ -49,14 +49,26 @@ define([
                     vpools.push({
                         name: $.t('ovs:generic.vpool') + ': ' + vpool.name(),
                         value: stats.vpools[vpool.guid()].storage,
-                        percentage: stats.vpools[vpool.guid()].storage / stats.global.size
+                        percentage: stats.global.size > 0 ? stats.vpools[vpool.guid()].storage / stats.global.size : 0
                     });
                 });
                 overhead = stats.global.used - total;
                 usage = [
-                    { name: $.t('alba:generic.stats.freespace'), value: freespace, percentage: freespace / stats.global.size },
-                    { name: $.t('alba:generic.stats.unknown'), value: unknown, percentage: unknown / stats.global.size },
-                    { name: $.t('alba:generic.stats.overhead'), value: overhead, percentage: overhead / stats.global.size }
+                    {
+                        name: $.t('alba:generic.stats.freespace'),
+                        value: stats.global.size > 0 ? freespace : 0.000001,
+                        percentage: stats.global.size > 0 ? freespace / stats.global.size : 1
+                    },
+                    {
+                        name: $.t('alba:generic.stats.unknown'),
+                        value: unknown,
+                        percentage: stats.global.size > 0 ? unknown / stats.global.size : 0
+                    },
+                    {
+                        name: $.t('alba:generic.stats.overhead'),
+                        value: overhead,
+                        percentage: stats.global.size > 0 ? overhead / stats.global.size : 0
+                    }
                 ].concat(vpools);
                 self.usage(usage);
             } else {
