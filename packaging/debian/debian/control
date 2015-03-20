@@ -20,6 +20,6 @@ Description: openvStorage ALBA plugin Web Applications
 
 Package: openvstorage-alba
 Architecture: amd64
-Pre-Depends: openvstorage-alba-core (= ${binary:Version}), openvstorage-alba-webapps (= ${binary:Version})
+Pre-Depends: openvstorage-alba-core (= ${binary:Version}), openvstorage-alba-webapps (= ${binary:Version}), openvstorage (>= 1.5.0)
 Description: openvStorage ALBA plugin
  Open vStorage ALBA plugin umbrella package
