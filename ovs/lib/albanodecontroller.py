@@ -160,6 +160,7 @@ class AlbaNodeController(object):
         AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']], absorb_exception=True)
         if asd is not None:
             asd.delete()
+        alba_backend.invalidate_dynamics()
         return True
 
     @staticmethod
