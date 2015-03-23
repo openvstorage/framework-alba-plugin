@@ -141,15 +141,19 @@ class AlbaBackend(DataObject):
                    'unknown': {'storage': 0,
                                'logical': 0}}
         for vpool in vdisk_dataset:
-            dataset['vpools'][vpool.guid] = {'storage': 0,
-                                             'logical': 0}
             for namespace in vdisk_dataset[vpool]:
                 if namespace in alba_dataset:
+                    if vpool.guid not in dataset['vpools']:
+                        dataset['vpools'][vpool.guid] = {'storage': 0,
+                                                         'logical': 0}
                     dataset['vpools'][vpool.guid]['storage'] += alba_dataset[namespace]['storage']
                     dataset['vpools'][vpool.guid]['logical'] += alba_dataset[namespace]['logical']
                     del alba_dataset[namespace]
             fd_namespace = 'fd-{0}-{1}'.format(vpool.name, vpool.guid)
             if fd_namespace in alba_dataset:
+                if vpool.guid not in dataset['vpools']:
+                    dataset['vpools'][vpool.guid] = {'storage': 0,
+                                                     'logical': 0}
                 dataset['vpools'][vpool.guid]['storage'] += alba_dataset[fd_namespace]['storage']
                 dataset['vpools'][vpool.guid]['logical'] += alba_dataset[fd_namespace]['logical']
                 del alba_dataset[fd_namespace]

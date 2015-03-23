@@ -45,12 +45,14 @@ define([
                 freespace = stats.global.size - stats.global.used;
                 unknown = stats.unknown.storage;
                 $.each(self.vPools(), function(index, vpool) {
-                    total += stats.vpools[vpool.guid()].storage;
-                    vpools.push({
-                        name: $.t('ovs:generic.vpool') + ': ' + vpool.name(),
-                        value: stats.vpools[vpool.guid()].storage,
-                        percentage: stats.global.size > 0 ? stats.vpools[vpool.guid()].storage / stats.global.size : 0
-                    });
+                    if (stats.vpools.hasOwnProperty(vpool.guid())) {
+                        total += stats.vpools[vpool.guid()].storage;
+                        vpools.push({
+                            name: $.t('ovs:generic.vpool') + ': ' + vpool.name(),
+                            value: stats.vpools[vpool.guid()].storage,
+                            percentage: stats.global.size > 0 ? stats.vpools[vpool.guid()].storage / stats.global.size : 0
+                        });
+                    }
                 });
                 overhead = stats.global.used - total;
                 usage = [
