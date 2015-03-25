@@ -253,7 +253,7 @@ All rights reserved
                         <span data-bind="shortText: name(), maxLength: 25"></span>
                     </a>
                 </li>
-                <!-- ko if: status() === 'claimed' && asdID() !== undefined -->
+                <!-- ko if: asdID() !== undefined -->
                     <li>
                         <a>
                             <span data-i18n="alba:generic.asdid"></span>:
@@ -261,7 +261,7 @@ All rights reserved
                         </a>
                     </li>
                 <!-- /ko -->
-                <!-- ko if: (status() === 'claimed' || status() === 'initialized' || status() === 'available') && mountpoint() !== undefined -->
+                <!-- ko if: mountpoint() !== undefined -->
                     <li>
                         <a>
                             <span data-i18n="alba:generic.mountpoint"></span>:

@@ -132,7 +132,7 @@ define([
         self.removeNode = function(disk) {
             return $.Deferred(function(deferred) {
                 app.showMessage(
-                    $.t('alba:disks.remove.warning', { what: disk }),
+                    $.t('alba:disks.remove.warning', { what: '<ul><li>' + disk + '</li></ul>' }),
                     $.t('ovs:generic.areyousure'),
                     [$.t('ovs:generic.no'), $.t('ovs:generic.yes')]
                 )

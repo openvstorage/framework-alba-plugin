@@ -136,7 +136,7 @@
             "failed": "Failed initializing disks: __why__"
         },
         "remove": {
-            "warning": "Are you sure you want to remove __what__? All data will be removed from this disk.",
+            "warning": "Are you sure you want to remove following disk? All data will be removed! __what__",
             "started": "Started",
             "msgstarted": "The disk will be removed",
             "complete": "Removed",
@@ -144,7 +144,7 @@
             "failed": "Failed removing disk: __why__"
         },
         "claim": {
-            "warning": "Are you sure you want to claim __what__?",
+            "warning": "Are you sure you want to claim following disk? __what__",
             "started": "Started",
             "msgstarted": "The disk will be claimed",
             "complete": "Claimed",

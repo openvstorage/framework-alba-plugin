@@ -32,7 +32,7 @@ define([
 
         // Computed
         self.isLocal = ko.computed(function() {
-            return self.parentABGuid() !== undefined && self.parentABGuid() === self.albaBackendGuid();
+            return self.albaBackendGuid() === undefined || (self.parentABGuid() !== undefined && self.parentABGuid() === self.albaBackendGuid());
         });
 
         // Functions

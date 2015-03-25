@@ -266,7 +266,7 @@ define([
         self.claimOSD = function(osds, disk) {
             return $.Deferred(function(deferred) {
                 app.showMessage(
-                    $.t('alba:disks.claim.warning', { what: disk }),
+                    $.t('alba:disks.claim.warning', { what: '<ul><li>' + disk + '</li></ul>' }),
                     $.t('ovs:generic.areyousure'),
                     [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
                 )
