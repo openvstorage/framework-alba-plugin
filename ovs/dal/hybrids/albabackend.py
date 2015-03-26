@@ -20,7 +20,8 @@ class AlbaBackend(DataObject):
     __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic backend')]
     __dynamics = [Dynamic('all_disks', list, 5),
                   Dynamic('statistics', dict, 5),
-                  Dynamic('ns_statistics', dict, 60)]
+                  Dynamic('ns_statistics', dict, 60),
+                  Dynamic('policies', list, 60)]
 
     def _all_disks(self):
         """
@@ -32,6 +33,7 @@ class AlbaBackend(DataObject):
         all_osds = AlbaCLI.run('list-all-osds', config=config_file, as_json=True)
         disks = []
         for node in AlbaNodeList.get_albanodes():
+            asds = node.asds
             for disk in node.all_disks:
                 if disk['available'] is True:
                     disk['status'] = 'uninitialized'
@@ -51,6 +53,19 @@ class AlbaBackend(DataObject):
                                 else:
                                     disk['status'] = 'claimed'
                                     disk['alba_backend_guid'] = self.guid
+                                    for asd in asds:
+                                        if asd.asd_id == disk['asd_id']:
+                                            stats = asd.statistics
+                                            if stats['apply']['max'] > 1 or stats['multi_get']['max'] > 1:
+                                                disk['status'] = 'error'
+                                                disk['status_detail'] = 'tooslow'
+                                            elif stats['apply']['max'] > 0.5 or stats['multi_get']['max'] > 0.5:
+                                                disk['status'] = 'warning'
+                                                disk['status_detail'] = 'slow'
+                                    if disk['status'] == 'claimed':
+                                        if len(osd['errors']) > 0 and (len(osd['read'] + osd['write']) == 0 or min(osd['read'] + osd['write']) < max(error[0] for error in osd['errors']) + 3600):
+                                            disk['status'] = 'warning'
+                                            disk['status_detail'] = 'recenterrors'
                     else:
                         disk['status'] = 'error'
                         disk['status_detail'] = disk['state']['detail']
@@ -161,3 +176,9 @@ class AlbaBackend(DataObject):
             dataset['unknown']['storage'] += alba_dataset[namespace]['storage']
             dataset['unknown']['logical'] += alba_dataset[namespace]['logical']
         return dataset
+
+    def _policies(self):
+        """
+        Returns the policies active on the node
+        """
+        return []

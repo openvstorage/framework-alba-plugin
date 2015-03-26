@@ -269,11 +269,11 @@ All rights reserved
                         </a>
                     </li>
                 <!-- /ko -->
-                <!-- ko if: status() !== 'unavailable' && status() !== 'uninitialized' && statistics() !== undefined -->
+                <!-- ko if: status() !== 'unavailable' && status() !== 'uninitialized' && usage() !== undefined -->
                     <li>
                         <a>
-                            <span data-i18n="ovs:generic.usage"></span>: <span data-bind="text: $root.formatBytes(statistics().used)"></span> / <span data-bind="text: $root.formatBytes(statistics().size)"></span>
-                            - <span data-bind="text: $root.formatPercentage(statistics().used / statistics().size)"></span>
+                            <span data-i18n="ovs:generic.usage"></span>: <span data-bind="text: $root.formatBytes(usage().used)"></span> / <span data-bind="text: $root.formatBytes(usage().size)"></span>
+                            - <span data-bind="text: $root.formatPercentage(usage().used / usage().size)"></span>
                         </a>
                     </li>
                 <!-- /ko -->

@@ -60,7 +60,9 @@
             "missing": "Disk is missing",
             "ioerror": "I/O errors",
             "servicefailure": "Service failure",
-            "corruption": "Data corruption"
+            "corruption": "Data corruption",
+            "slow": "Latency (> 0.5s)",
+            "tooslow": "Latency (> 1s)"
         },
         "stats": {
             "freespace": "Free space",

@@ -19,7 +19,7 @@ define([
         self.name            = ko.observable(name);
         self.boxID           = ko.observable();
         self.asdID           = ko.observable();
-        self.statistics      = ko.observable();
+        self.usage           = ko.observable();
         self.status          = ko.observable();
         self.statusDetail    = ko.observable();
         self.device          = ko.observable();
@@ -45,7 +45,7 @@ define([
                 generic.trySet(self.statusDetail, data, 'status_detail');
                 generic.trySet(self.albaBackendGuid, data, 'alba_backend_guid');
                 generic.trySet(self.asdID, data, 'asd_id');
-                generic.trySet(self.statistics, data, 'statistics');
+                generic.trySet(self.usage, data, 'usage');
                 generic.trySet(self.device, data, 'device');
                 generic.trySet(self.mountpoint, data, 'mountpoint');
                 generic.trySet(self.port, data, 'port');

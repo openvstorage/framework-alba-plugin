@@ -26,14 +26,14 @@ class AlbaASD(DataObject):
         """
         Returns the name based on the asd_id
         """
-        return self.asd_id[-6]
+        return self.info['name'] if self.info is not None else None
 
     def _info(self):
         """
         Returns the ASD information from its node
         """
         for disk in self.alba_node.all_disks:
-            if disk['name'] == self.name:
+            if disk['asd_id'] == self.asd_id:
                 return disk
 
     def _statistics(self):
