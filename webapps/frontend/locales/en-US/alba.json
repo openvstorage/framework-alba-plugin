@@ -92,9 +92,9 @@
         "title": "Alternate Backend"
     },
     "dashboard": {
-        "title": "ALBA Backends",
-        "helptitle": "Help - ALBA Backends",
-        "helpcontent": "This panel displays the state of all ALBA Backends managed by this cluster. It shows how many ASDs are in use by the backend, grouped by their state."
+        "title": "Open vStorage Backends",
+        "helptitle": "Help - OVS Backends",
+        "helpcontent": "This panel displays the state of all Open vStorage Backends managed by this cluster. It shows how many ASDs are in use by the backend, grouped by their state."
     },
     "storageunit": {
         "add": {
