@@ -18,11 +18,11 @@ class AlbaASD(DataObject):
     __properties = [Property('asd_id', str, doc='ASD identifier')]
     __relations = [Relation('alba_backend', AlbaBackend, 'asds', doc='The AlbaBackend that claimed the ASD'),
                    Relation('alba_node', AlbaNode, 'asds', doc='The AlbaNode to which the ASD belongs')]
-    __dynamics = [Dynamic('name', str, 3600),
+    __dynamics = [Dynamic('disk_name', str, 3600),
                   Dynamic('info', dict, 5),
                   Dynamic('statistics', dict, 5, locked=True)]
 
-    def _name(self):
+    def _disk_name(self):
         """
         Returns the name based on the asd_id
         """
