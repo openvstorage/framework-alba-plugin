@@ -129,10 +129,26 @@ define([
                     });
             }).promise();
         };
-        self.removeNode = function(disk) {
+        self.removeOSD = function(disk) {
             return $.Deferred(function(deferred) {
+                var policies = [], info = '', impact = self.parent.albaBackend().safety().removal_impact;
+                if (impact.hasOwnProperty(self.boxID())) {
+                    info = $.t('alba:disks.remove.impact.warning') + '<ul>';
+                    if (impact[self.boxID()].new_policy) {
+                        info += '<li>' + $.t('alba:disks.remove.impact.newpolicy', { what: JSON.stringify(impact[self.boxID()].new_policy) }) + '</li>';
+                    } else {
+                        info += '<li>' + $.t('alba:disks.remove.impact.nopolicy') + '</li>';
+                    }
+                    if (impact[self.boxID()].lost_policies.length > 0) {
+                        $.each(impact[self.boxID()].lost_policies, function(index, policy) {
+                            policies.push(JSON.stringify(policy));
+                        });
+                        info += '<li>' + $.t('alba:disks.remove.impact.lostpolicies', { what: policies.join(', ') }) + '</li>';
+                    }
+                    info += '</ul>';
+                }
                 app.showMessage(
-                    $.t('alba:disks.remove.warning', { what: '<ul><li>' + disk + '</li></ul>' }),
+                    $.t('alba:disks.remove.warning', { what: '<ul><li>' + disk + '</li></ul>', info: info }).trim(),
                     $.t('ovs:generic.areyousure'),
                     [$.t('ovs:generic.no'), $.t('ovs:generic.yes')]
                 )

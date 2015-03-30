@@ -27,10 +27,48 @@ define([
         self.readIOps    = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
         self.writeIOps   = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
         self.usage       = ko.observable([]);
+        self.policies    = ko.observableArray([]);
+        self.safety      = ko.observable();
+
+        // Computed
+        self.enhancedPolicies = ko.computed(function() {
+            var policies = [], newPolicy, isRW, isRO, isActive, isUsed;
+            if (self.safety() !== undefined) {
+                $.each(self.policies(), function (index, policy) {
+                    isRW = policy.nestedIn(self.safety().rw_policies);
+                    isRO = policy.nestedIn(self.safety().ro_policies);
+                    isActive = policy.equals(self.safety().active_policy);
+                    isUsed = policy.nestedIn(self.safety().used_policies);
+                    newPolicy = {
+                        text: JSON.stringify(policy),
+                        color: 'grey',
+                        inUse: false
+                    };
+                    if (isRW) {
+                        newPolicy.color = 'black';
+                    }
+                    if (isActive) {
+                        newPolicy.color = 'green';
+                    }
+                    if (isUsed) {
+                        newPolicy.inUse = true;
+                        if (isRO) {
+                            newPolicy.color = 'orange';
+                        } else if (!isRW) {
+                            newPolicy.color = 'red';
+                        }
+                    }
+                    policies.push(newPolicy);
+                });
+            }
+            return policies;
+        });
 
         // Functions
         self.fillData = function(data) {
             self.name(data.name);
+            generic.trySet(self.policies, data, 'policies');
+            generic.trySet(self.safety, data, 'safety');
             if (self.backendGuid() !== data.backend_guid) {
                 self.backendGuid(data.backend_guid);
                 self.backend(new Backend(data.backend_guid));

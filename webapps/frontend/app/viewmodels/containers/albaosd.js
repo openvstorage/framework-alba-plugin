@@ -69,7 +69,7 @@ define([
         };
         self.remove = function() {
             self.processing(true);
-            self.node.removeNode(self.name())
+            self.node.removeOSD(self.name())
                 .done(function() {
                     self.ignoreNext(true);
                     self.status('uninitialized');

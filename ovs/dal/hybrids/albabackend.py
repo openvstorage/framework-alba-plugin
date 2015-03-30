@@ -5,8 +5,10 @@
 AlbaBackend module
 """
 import time
+import copy
 from ovs.dal.dataobject import DataObject
 from ovs.dal.lists.vpoollist import VPoolList
+from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.hybrids.backend import Backend
 from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.extensions.plugins.albacli import AlbaCLI
@@ -21,7 +23,8 @@ class AlbaBackend(DataObject):
     __dynamics = [Dynamic('all_disks', list, 5),
                   Dynamic('statistics', dict, 5),
                   Dynamic('ns_statistics', dict, 60),
-                  Dynamic('policies', list, 60)]
+                  Dynamic('policies', list, 60),
+                  Dynamic('safety', dict, 60)]
 
     def _all_disks(self):
         """
@@ -146,9 +149,9 @@ class AlbaBackend(DataObject):
                 nodes.add(asd.alba_node)
         for node in nodes:
             for asd in node.all_disks:
-                if 'asd_id' in asd and asd['asd_id'] in asds and 'statistics' in asd:
-                    global_usage['size'] += asd['statistics']['size']
-                    global_usage['used'] += asd['statistics']['used']
+                if 'asd_id' in asd and asd['asd_id'] in asds and 'usage' in asd:
+                    global_usage['size'] += asd['usage']['size']
+                    global_usage['used'] += asd['usage']['used']
         # Cross merge
         dataset = {'global': {'size': global_usage['size'],
                               'used': global_usage['used']},
@@ -181,4 +184,66 @@ class AlbaBackend(DataObject):
         """
         Returns the policies active on the node
         """
-        return []
+        config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(self.backend.name)
+        presets = AlbaCLI.run('list-presets', config=config_file, as_json=True)
+        for preset in presets:
+            # Currently, we assume there's only one preset active for all OSDs and namespaces
+            if 'is_default' in preset and preset['is_default'] is True:
+                return preset['policies']
+        raise RuntimeError('Unexpected number of (default) policies found')
+
+    def _safety(self):
+        """
+        Calculates the safety of the backend
+        """
+        safety = {'active_policy': None,
+                  'rw_policies': [],
+                  'ro_policies': [],
+                  'used_policies': [],
+                  'state': 'ro',
+                  'removal_impact': {}}
+        all_disks = self.all_disks
+        policies = self.policies
+        config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(self.backend.name)
+        namespaces = AlbaCLI.run('list-namespaces', config=config_file, as_json=True)
+        for namespace_data in namespaces:
+            if namespace_data['state'] == 'active':
+                namespace = namespace_data['name']
+                try:
+                    policy_usage = AlbaCLI.run('show-namespace', config=config_file, as_json=True, extra_params=namespace)['bucket_count']
+                except:
+                    # This might fail every now and then, e.g. on disk removal. Let's ignore for now.
+                    continue
+                for usage in policy_usage:
+                    if usage[0] not in safety['used_policies']:
+                        safety['used_policies'].append(usage[0])
+        disks = {}
+        for node in AlbaNodeList.get_albanodes():
+            disks[node.box_id] = 0
+            for disk in all_disks:
+                if disk['box_id'] == node.box_id and disk['status'] in ['claimed', 'warning']:
+                    disks[node.box_id] += 1
+        for policy in policies:
+            min_disks = policy[0] + policy[1]
+            available_disks = sum(min(disks[node], policy[2]) for node in disks)
+            if available_disks >= min_disks:
+                if safety['active_policy'] is None:
+                    safety['active_policy'] = policy
+                    safety['state'] = 'rw'
+                safety['rw_policies'].append(policy)
+            elif available_disks == policy[0]:
+                safety['ro_policies'].append(policy)
+        for node in disks:
+            if node not in safety['removal_impact']:
+                safety['removal_impact'][node] = {'new_policy': None,
+                                                  'lost_policies': []}
+            temp_disks = copy.deepcopy(disks)
+            temp_disks[node] = max(0, temp_disks[node] - 1)
+            for policy in policies:
+                available_disks = sum(min(temp_disks[_node], policy[2]) for _node in temp_disks)
+                if available_disks >= policy[0] + policy[1]:
+                    if safety['removal_impact'][node]['new_policy'] is None:
+                        safety['removal_impact'][node]['new_policy'] = policy
+                elif policy in safety['used_policies'] and available_disks < policy[0]:
+                    safety['removal_impact'][node]['lost_policies'].append(policy)
+        return safety

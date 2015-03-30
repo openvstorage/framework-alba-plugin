@@ -40,7 +40,7 @@ All rights reserved
                                 </td>
                                 <td style="width: 15%;" data-i18n="alba:generic.putss"></td>
                                 <td style="width: 15%;"><span data-bind="text: writeIOps"></span></td>
-                                <td rowspan="4">
+                                <td rowspan="5">
                                     <div data-bind="pie: usage()"></div>
                                 </td>
                             </tr>
@@ -74,6 +74,27 @@ All rights reserved
                                     <span class="label label-danger pointer"
                                           data-bind="tooltip: 'alba:generic.states.osdinfo.error',
                                                      text: $root.ASDStates().failure"></span>
+                                </td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td style="width: 15%; vertical-align: top;">
+                                    <span data-i18n="alba:generic.policies"></span>
+                                    <span data-bind="popover: {
+                                                         title: 'alba:policies.helptitle',
+                                                         content: 'alba:policies.helpcontent'
+                                                     }" class="hand fa" data-i18n="[html]ovs:icons.help" style="">
+                                    </span>
+                                </td>
+                                <td>
+                                    <ol data-bind="foreach: enhancedPolicies()" style="padding-left: 22px;">
+                                        <li>
+                                            <span data-bind="text: $data.text, style: { color: $data.color }" style="padding-right: 5px;"></span>
+                                            <span data-bind="if: $data.inUse"><i class="fa" data-i18n="[html]alba:icons.inuse"></i></span>
+                                            <span data-bind="if: !$data.inUse"><i class="fa" data-i18n="[html]alba:icons.notinuse"></i></span>
+                                        </li>
+                                    </ol>
                                 </td>
                                 <td></td>
                                 <td></td>

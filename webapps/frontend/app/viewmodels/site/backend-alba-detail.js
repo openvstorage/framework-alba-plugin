@@ -266,7 +266,7 @@ define([
         self.claimOSD = function(osds, disk) {
             return $.Deferred(function(deferred) {
                 app.showMessage(
-                    $.t('alba:disks.claim.warning', { what: '<ul><li>' + disk + '</li></ul>' }),
+                    $.t('alba:disks.claim.warning', { what: '<ul><li>' + disk + '</li></ul>', info: '' }).trim(),
                     $.t('ovs:generic.areyousure'),
                     [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
                 )
@@ -303,7 +303,7 @@ define([
         self.claimAll = function(osds, disks) {
             return $.Deferred(function(deferred) {
                 app.showMessage(
-                    $.t('alba:disks.claimall.warning', { which: '<ul><li>' + disks.join('</li><li>') + '</li></ul>' }),
+                    $.t('alba:disks.claimall.warning', { which: '<ul><li>' + disks.join('</li><li>') + '</li></ul>', info: '' }).trim(),
                     $.t('ovs:generic.areyousure'),
                     [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
                 )

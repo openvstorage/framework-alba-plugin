@@ -56,6 +56,9 @@
         "unknown": "Unknown/external",
         "osds": "ASDs",
         "discover": "Discover",
+        "policies": "Policies",
+        "safety": "Safety",
+        "inuse": "*",
         "statusdetails": {
             "missing": "Disk is missing",
             "ioerror": "I/O errors",
@@ -98,20 +101,15 @@
         "helptitle": "Help - OVS Backends",
         "helpcontent": "This panel displays the state of all Open vStorage Backends managed by this cluster. It shows how many ASDs are in use by the backend, grouped by their state."
     },
-    "storageunit": {
-        "add": {
-            "warning": "Are you sure you want to add the storage unit with id __what__ to backend?",
-            "done": "Storage unit added",
-            "donemsg": "The storage unit with id __what__ was added to backend.",
-            "errormsg": "adding storage unit __what__ to backend"
-        },
-        "title": "Storage unit",
-        "unclaimedunits": "Discovered chassis",
-        "registeredunits": "Registered chassis"
-    },
     "nodes": {
         "nodes": "ASD nodes",
         "register": "Claim node"
+    },
+    "policies": {
+        "helptitle": "Policies - Help",
+        "helpcontent": "Each available policy (e.g. [5,2,3]) consists out of 3 numbers:<ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 2)</li><li><b>x</b>: The maximum number of fragments per storage node (e.g. 3)</li></ul>For example, [5,2,3] means each object will be split in 7 fragments (5 data and 2 parity) which will be stored across all available disks. However, no more than 3 fragments will end up within a single storage node. In case this policy can not be met, the policy will be unavailable. If no policies are available, the backend can not be used.<br /><br />Colors:<ul><li>Grey: This policy is unavailable with the current disk configuration.</li><li>Green: New objects will be stored using this policy.</li><li>Black: This policy is available, but not used as a better policy is available.</li><li>Orange: This policy is degraded, loosing one more disk will cause dataloss.</li><li>Red: This policy has insufficient disks, data written using this policy is lost.</li></ul>Icons:<ul><li><span class='fa'>&#xf016;</span>: This policy is not in use.</li><li><span class='fa'>&#xf15b;</span>: This policy is in use: objects have been written using this policy.</li></ul>",
+        "inuse": "This policy is in use: objects have been written using this policy",
+        "notinuse": "This policy is not in use"
     },
     "disks" : {
         "initialize": {
@@ -138,7 +136,13 @@
             "failed": "Failed initializing disks: __why__"
         },
         "remove": {
-            "warning": "Are you sure you want to remove following disk? All data will be removed! __what__",
+            "impact" : {
+                "warning": "Warning:",
+                "newpolicy": "__what__ will become the active safety policy.",
+                "nopolicy": "There is no policy matching the new disk configuration. This backend will become unavailable.",
+                "lostpolicies": "Objects written with the following policies will be lost: __what__"
+            },
+            "warning": "Are you sure you want to remove the following disk? __what__ __info__",
             "started": "Started",
             "msgstarted": "The disk will be removed",
             "complete": "Removed",
@@ -146,7 +150,7 @@
             "failed": "Failed removing disk: __why__"
         },
         "claim": {
-            "warning": "Are you sure you want to claim following disk? __what__",
+            "warning": "Are you sure you want to claim the following disk? __what__ __info__",
             "started": "Started",
             "msgstarted": "The disk will be claimed",
             "complete": "Claimed",
@@ -154,21 +158,12 @@
             "failed": "Failed claiming disk: __why__"
         },
         "claimall": {
-            "warning": "Are you sure you want to claim following disks? __which__",
+            "warning": "Are you sure you want to claim the following disks? __which__ __info__",
             "started": "Started",
             "msgstarted": "The disks will be claimed",
             "complete": "Claimed",
             "success": "The disks are claimed",
             "failed": "Failed claiming disks: __why__"
-        }
-    },
-    "livekinetic": {
-        "title": "Live Kinetic device",
-        "add": {
-            "warning": "Are you sure you want to add the Kinetic device with serial __what__ to this backend?",
-            "done": "Device added",
-            "donemsg": "The device with serial __what__ was added to the backend.",
-            "errormsg": "adding device __what__ to this backend"
         }
     },
     "icons": {
@@ -178,7 +173,9 @@
         "nodes": "&#xf233;",
         "initialize": "&#xf21e;",
         "claim": "&#xf140;",
-        "discover": "&#xf002;"
+        "discover": "&#xf002;",
+        "inuse": "&#xf15b;",
+        "notinuse": "&#xf016;"
     },
     "wizards": {
         "addalbanode": {

@@ -178,6 +178,7 @@ class AlbaNodeController(object):
         result = node.client.restart_disk(disk)
         if result['_success'] is False:
             raise RuntimeError('Error restarting disk: {0}'.format(result['_error']))
+        node.alba_backend.invalidate_dynamics()
         return True
 
     @staticmethod
