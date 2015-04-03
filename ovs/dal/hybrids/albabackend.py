@@ -25,7 +25,8 @@ class AlbaBackend(DataObject):
                   Dynamic('license_info', dict, 5),
                   Dynamic('ns_statistics', dict, 60),
                   Dynamic('policies', list, 60),
-                  Dynamic('safety', dict, 60)]
+                  Dynamic('safety', dict, 60),
+                  Dynamic('available', bool, 60)]
 
     def _all_disks(self):
         """
@@ -262,3 +263,9 @@ class AlbaBackend(DataObject):
                 elif policy in safety['used_policies'] and available_disks < policy[0]:
                     safety['removal_impact'][node]['lost_policies'].append(policy)
         return safety
+
+    def _available(self):
+        """
+        Returns True if the backend can be used
+        """
+        return self.backend.status == 'RUNNING' and self.safety['state'] == 'rw'
