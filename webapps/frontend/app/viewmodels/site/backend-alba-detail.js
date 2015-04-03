@@ -5,14 +5,15 @@ define([
     'jquery', 'durandal/app', 'knockout',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/backend', '../containers/backendtype', '../containers/albabackend',
-    '../containers/albanode', '../containers/albaosd', '../containers/storagerouter', '../containers/vpool'
-], function($, app, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node, OSD, StorageRouter, VPool) {
+    '../containers/albanode', '../containers/albaosd', '../containers/storagerouter', '../containers/vpool', '../containers/license'
+], function($, app, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node, OSD, StorageRouter, VPool, License) {
     "use strict";
     return function() {
         var self = this;
 
         // Variables
         self.shared             = shared;
+        self.generic            = generic;
         self.guard              = { authenticated: true };
         self.refresher          = new Refresher();
         self.widgets            = [];
@@ -21,6 +22,7 @@ define([
         self.storageRouterCache = {};
 
         // Observables
+        self.license                = ko.observable();
         self.backend                = ko.observable();
         self.albaBackend            = ko.observable();
         self.rNodesLoading          = ko.observable(true);
@@ -68,6 +70,9 @@ define([
             }
             return states;
         });
+        self.configurable = ko.computed(function() {
+            return self.albaBackend() !== undefined && self.albaBackend().configurable();
+        });
 
         // Functions
         self.discover = function() {
@@ -87,7 +92,7 @@ define([
                             }
                             if (backendData.hasOwnProperty('alba_backend_guid') && backendData.alba_backend_guid !== null) {
                                 if (self.albaBackend() === undefined) {
-                                    var albaBackend = new AlbaBackend(backendData.alba_backend_guid)
+                                    var albaBackend = new AlbaBackend(backendData.alba_backend_guid);
                                     albaBackend.vPools = self.vPools;
                                     self.albaBackend(albaBackend);
                                 }
@@ -120,6 +125,32 @@ define([
         };
         self.formatPercentage = function(value) {
             return generic.formatPercentage(value);
+        };
+        self.loadLicense = function() {
+            return $.Deferred(function(deferred) {
+                if (generic.xhrCompleted(self.vPoolsHandle)) {
+                    var options = {
+                        contents: '',
+                        component: 'alba'
+                    };
+                    self.vPoolsHandle = api.get('licenses', { queryparams: options })
+                        .then(function(data) {
+                            if (data.data.length === 0) {
+                                self.license(undefined);
+                            } else {
+                                var license = new License(data.data[0].guid);
+                                license.fillData(data.data[0]);
+                                self.license(license);
+                                if (self.albaBackend() !== undefined) {
+                                    self.albaBackend().license(license);
+                                }
+                            }
+                        })
+                        .always(deferred.resolve);
+                } else {
+                    deferred.resolve();
+                }
+            }).promise();
         };
         self.loadVPools = function() {
             return $.Deferred(function(deferred) {
@@ -265,6 +296,10 @@ define([
         };
         self.claimOSD = function(osds, disk) {
             return $.Deferred(function(deferred) {
+                if (!self.configurable()) {
+                    deferred.reject();
+                    return;
+                }
                 app.showMessage(
                     $.t('alba:disks.claim.warning', { what: '<ul><li>' + disk + '</li></ul>', info: '' }).trim(),
                     $.t('ovs:generic.areyousure'),
@@ -346,7 +381,8 @@ define([
                 self.load()
                     .then(self.loadOSDs)
                     .then(self.fetchNodes)
-                    .then(self.link);
+                    .then(self.link)
+                    .then(self.loadLicense);
             }, 5000);
             self.refresher.run();
             self.refresher.start();

@@ -5,7 +5,7 @@
 NSMService module
 """
 from ovs.dal.dataobject import DataObject
-from ovs.dal.structures import Property, Relation
+from ovs.dal.structures import Relation
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.service import Service
 

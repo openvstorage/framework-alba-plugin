@@ -59,13 +59,15 @@
         "policies": "Policies",
         "safety": "Safety",
         "inuse": "*",
+        "nolicense": "Open vStorage Backend is unlicensed. It will be impossible to claim disks which will cause the backend to be unavailable. Please request a Community License to start using this backend.",
         "statusdetails": {
             "missing": "Disk is missing",
             "ioerror": "I/O errors",
             "servicefailure": "Service failure",
             "corruption": "Data corruption",
             "slow": "Latency (> 0.5s)",
-            "tooslow": "Latency (> 1s)"
+            "tooslow": "Latency (> 1s)",
+            "recenterrors": "Recent errors"
         },
         "stats": {
             "freespace": "Free space",
@@ -91,6 +93,14 @@
                 "warning": "This ASD is in warning state. Action may be needed",
                 "claimed": "This ASD is in use by this backend"
             }
+        }
+    },
+    "licensing": {
+        "component": "Open vStorage Backend",
+        "metadata": {
+            "namespaces": "Namespaces",
+            "nodes": "Nodes",
+            "osds": "ASDs"
         }
     },
     "detail": {

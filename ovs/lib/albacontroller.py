@@ -16,7 +16,7 @@ from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.extensions.generic.sshclient import SSHClient
 from ovs.plugin.provider.configuration import Configuration
 from ovs.lib.setup import System
-from ovs.lib.helpers.decorators import ensure_single, setup_hook
+from ovs.lib.helpers.decorators import ensure_single, add_hooks
 from ovs.log.logHandler import LogHandler
 from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.j_abmservice import ABMService
@@ -54,6 +54,7 @@ class AlbaController(object):
             asd.alba_node = AlbaNode(node_guid)
             asd.alba_backend = alba_backend
             asd.save()
+            asd.alba_node.invalidate_dynamics()
         alba_backend.invalidate_dynamics()
 
     @staticmethod
@@ -218,7 +219,7 @@ Service.start_service('alba-maintenance_{0}')
             System.run(cmd, client)
 
     @staticmethod
-    @setup_hook('promote')
+    @add_hooks('setup', 'promote')
     def on_promote(cluster_ip, master_ip):
         """
         A node is being promoted
@@ -266,7 +267,7 @@ Service.start_service('alba-maintenance_{0}')
             System.exec_remote_python(client, service_script)
 
     @staticmethod
-    @setup_hook('demote')
+    @add_hooks('setup', 'demote')
     def on_demote(cluster_ip, master_ip):
         """
         A node is being demoted
@@ -487,6 +488,28 @@ Service.remove_service('', 'alba-maintenance_{0}')
         junction_service.alba_backend = backend
         junction_service.save()
         return junction_service
+
+    @staticmethod
+    @add_hooks('license', 'alba.validate')
+    def validate(component, data, valid_until, signature):
+        """
+        Validates an Alba license
+        """
+        # @TODO: Assume the license is valid, for now
+        _ = component, valid_until, signature
+        return data['namespaces'] != 0, data
+
+    @staticmethod
+    @add_hooks('license', 'alba.apply')
+    def apply(component, data, valid_until, signature):
+        """
+        Applies a license to Alba
+        """
+        _ = component, data, valid_until, signature
+        for alba_backend in AlbaBackendList.get_albabackends():
+            _ = alba_backend
+            # @TODO: Register the license with this particular Alba backend
+        return True
 
 
 if __name__ == '__main__':

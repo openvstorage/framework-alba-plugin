@@ -131,21 +131,25 @@ define([
         };
         self.removeOSD = function(disk) {
             return $.Deferred(function(deferred) {
-                var policies = [], info = '', impact = self.parent.albaBackend().safety().removal_impact;
+                var policies = [], info = '', entries = [], impact = self.parent.albaBackend().safety().removal_impact,
+                    active_policy = self.parent.albaBackend().safety().active_policy;
                 if (impact.hasOwnProperty(self.boxID())) {
-                    info = $.t('alba:disks.remove.impact.warning') + '<ul>';
-                    if (impact[self.boxID()].new_policy) {
-                        info += '<li>' + $.t('alba:disks.remove.impact.newpolicy', { what: JSON.stringify(impact[self.boxID()].new_policy) }) + '</li>';
-                    } else {
-                        info += '<li>' + $.t('alba:disks.remove.impact.nopolicy') + '</li>';
+                    if (impact[self.boxID()].new_policy !== null && !impact[self.boxID()].new_policy.equals(active_policy)) {
+                        entries.push('<li>' + $.t('alba:disks.remove.impact.newpolicy', {what: JSON.stringify(impact[self.boxID()].new_policy)}) + '</li>');
+                    } else if (impact[self.boxID()].new_policy === null) {
+                        entries.push('<li>' + $.t('alba:disks.remove.impact.nopolicy') + '</li>');
                     }
                     if (impact[self.boxID()].lost_policies.length > 0) {
-                        $.each(impact[self.boxID()].lost_policies, function(index, policy) {
+                        $.each(impact[self.boxID()].lost_policies, function (index, policy) {
                             policies.push(JSON.stringify(policy));
                         });
-                        info += '<li>' + $.t('alba:disks.remove.impact.lostpolicies', { what: policies.join(', ') }) + '</li>';
+                        entries.push('<li>' + $.t('alba:disks.remove.impact.lostpolicies', {what: policies.join(', ')}) + '</li>');
                     }
-                    info += '</ul>';
+                    if (entries.length > 0) {
+                        info  = '<br /><div class="alert alert-danger">' + $.t('alba:disks.remove.impact.warning') + '<ul>';
+                        info += entries.join('');
+                        info += '</ul></div>';
+                    }
                 }
                 app.showMessage(
                     $.t('alba:disks.remove.warning', { what: '<ul><li>' + disk + '</li></ul>', info: info }).trim(),

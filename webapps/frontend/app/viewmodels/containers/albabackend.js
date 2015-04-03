@@ -15,6 +15,7 @@ define([
 
         // External dependencies
         self.vPools = undefined;
+        self.license = ko.observable();
 
         // Observables
         self.loading     = ko.observable(false);
@@ -26,6 +27,7 @@ define([
         self.color       = ko.observable();
         self.readIOps    = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
         self.writeIOps   = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.licenseInfo = ko.observable();
         self.usage       = ko.observable([]);
         self.policies    = ko.observableArray([]);
         self.safety      = ko.observable();
@@ -63,10 +65,24 @@ define([
             }
             return policies;
         });
+        self.configurable = ko.computed(function() {
+            var license = self.license(), licenseData, licenseInfo = self.licenseInfo();
+            if (license === undefined || licenseInfo === undefined) {
+                return false;
+            }
+            if (license.validUntil() !== null && license.validUntil() * 1000 < generic.getTimestamp()) {
+                return false;
+            }
+            licenseData = license.data();
+            return !((licenseData.namespaces !== null && licenseInfo.namespaces >= licenseData.namespaces) ||
+                     (licenseData.nodes !== null && licenseInfo.nodes >= licenseData.nodes) ||
+                     (licenseData.osds !== null && licenseInfo.asds >= licenseData.osds));
+        });
 
         // Functions
         self.fillData = function(data) {
             self.name(data.name);
+            generic.trySet(self.licenseInfo, data, 'license_info');
             generic.trySet(self.policies, data, 'policies');
             generic.trySet(self.safety, data, 'safety');
             if (self.backendGuid() !== data.backend_guid) {
@@ -92,7 +108,7 @@ define([
                         });
                     }
                 });
-                overhead = stats.global.used - total;
+                overhead = Math.max(stats.global.used - total, 0);
                 usage = [
                     {
                         name: $.t('alba:generic.stats.freespace'),

@@ -15,7 +15,7 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.log.logHandler import LogHandler
 from ovs.lib.albacontroller import AlbaController
-from ovs.lib.helpers.decorators import setup_hook
+from ovs.lib.helpers.decorators import add_hooks
 from ovs.extensions.generic.sshclient import SSHClient
 
 logger = LogHandler('lib', name='albanode')
@@ -160,6 +160,7 @@ class AlbaNodeController(object):
         AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']], absorb_exception=True)
         if asd is not None:
             asd.delete()
+        node.invalidate_dynamics()
         alba_backend.invalidate_dynamics()
         return True
 
@@ -182,7 +183,7 @@ class AlbaNodeController(object):
         return True
 
     @staticmethod
-    @setup_hook(['firstnode', 'extranode'])
+    @add_hooks('setup', ['firstnode', 'extranode'])
     def model_local_albanode(**kwargs):
         config_path = '/opt/alba-asdmanager/config/config.json'
         node_ip = kwargs['cluster_ip']
