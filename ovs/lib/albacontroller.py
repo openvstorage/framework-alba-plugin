@@ -56,6 +56,7 @@ class AlbaController(object):
             asd.save()
             asd.alba_node.invalidate_dynamics()
         alba_backend.invalidate_dynamics()
+        alba_backend.backend.invalidate_dynamics()
 
     @staticmethod
     @celery.task(name='alba.remove_units')

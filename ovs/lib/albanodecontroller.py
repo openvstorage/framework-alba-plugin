@@ -162,6 +162,7 @@ class AlbaNodeController(object):
             asd.delete()
         node.invalidate_dynamics()
         alba_backend.invalidate_dynamics()
+        alba_backend.backend.invalidate_dynamics()
         return True
 
     @staticmethod
