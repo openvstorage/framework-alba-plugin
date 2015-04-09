@@ -16,13 +16,13 @@
 Generic ALBA CLI module
 """
 import json
-from subprocess import check_output
+from subprocess import check_output, CalledProcessError
 
 
 class AlbaCLI(object):
 
     @staticmethod
-    def run(command, config=None, host=None, long_id=None, asd_port=None, box_id=None, extra_params=None, as_json=False, debug=False, client=None):
+    def run(command, config=None, host=None, long_id=None, asd_port=None, box_id=None, extra_params=None, as_json=False, debug=False, client=None, raise_on_failure=True):
         """
         Executes a command on ALBA
         """
@@ -51,12 +51,25 @@ class AlbaCLI(object):
         else:
             print '-- running command: {0}'.format(cmd)
         if client is None:
-            output = check_output(cmd, shell=True).strip()
+            try:
+                output = check_output(cmd, shell=True).strip()
+            except CalledProcessError as ex:
+                output = ex.output
         else:
             output = client.run(cmd).strip()
-        if as_json is True:
-            output = json.loads(output)
         if debug is True:
             print '-- output: {0}'.format(output)
             print '--'
+        if as_json is True:
+            output = json.loads(output)
+            if output['success'] is True:
+                if raise_on_failure is True:
+                    return output['result']
+                else:
+                    return True, output['result']
+            else:
+                if raise_on_failure is True:
+                    raise RuntimeError(output['error']['message'])
+                else:
+                    return False, output['error']
         return output

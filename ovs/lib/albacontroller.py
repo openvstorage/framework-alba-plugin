@@ -7,6 +7,7 @@ AlbaController module
 
 import time
 import json
+from tempfile import NamedTemporaryFile
 from ovs.celery_run import celery
 from celery.schedules import crontab
 from ovs.dal.hybrids.storagerouter import StorageRouter
@@ -23,6 +24,7 @@ from ovs.dal.hybrids.j_abmservice import ABMService
 from ovs.dal.hybrids.service import Service
 from ovs.dal.hybrids.albaasd import AlbaASD
 from ovs.dal.hybrids.albanode import AlbaNode
+from ovs.dal.lists.licenselist import LicenseList
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
@@ -48,7 +50,7 @@ class AlbaController(object):
         alba_backend = AlbaBackend(alba_backend_guid)
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
         for asd_id, node_guid in asds.iteritems():
-            AlbaCLI.run('claim-osd', config=config_file, long_id=asd_id)
+            AlbaCLI.run('claim-osd', config=config_file, long_id=asd_id, as_json=True, debug=True)
             asd = AlbaASD()
             asd.asd_id = asd_id
             asd.alba_node = AlbaNode(node_guid)
@@ -194,6 +196,10 @@ Service.start_service('alba-maintenance_{0}')
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(albabackend.backend.name + '-abm')
         albabackend.alba_id = AlbaCLI.run('get-alba-id', config=config_file, as_json=True)['id']
         albabackend.save()
+
+        lic = LicenseList.get_by_component('alba')
+        if lic is not None:
+            AlbaController.apply(lic.component, lic.data, lic.signature, alba_backend=albabackend)
 
         # Mark the backend as "running"
         albabackend.backend.status = 'RUNNING'
@@ -492,25 +498,36 @@ Service.remove_service('', 'alba-maintenance_{0}')
 
     @staticmethod
     @add_hooks('license', 'alba.validate')
-    def validate(component, data, valid_until, signature):
+    def validate(component, data, signature):
         """
         Validates an Alba license
         """
-        # @TODO: Assume the license is valid, for now
-        _ = component, valid_until, signature
-        return data['namespaces'] != 0, data
+        if component != 'alba':
+            raise RuntimeError('Invalid component {0} in license.alba.validate'.format(component))
+        with NamedTemporaryFile() as data_file:
+            data_file.write(json.dumps(data, sort_keys=True))
+            data_file.flush()
+            success, _ = AlbaCLI.run('verify-license', extra_params=[data_file.name, signature], as_json=True, raise_on_failure=False)
+            return success, data
 
     @staticmethod
     @add_hooks('license', 'alba.apply')
-    def apply(component, data, valid_until, signature):
+    def apply(component, data, signature, alba_backend=None):
         """
         Applies a license to Alba
         """
-        _ = component, data, valid_until, signature
-        for alba_backend in AlbaBackendList.get_albabackends():
-            _ = alba_backend
-            # @TODO: Register the license with this particular Alba backend
-        return True
+        if component != 'alba':
+            raise RuntimeError('Invalid component {0} in license.alba.apply'.format(component))
+        alba_backends = [alba_backend] if alba_backend is not None else AlbaBackendList.get_albabackends()
+        with NamedTemporaryFile() as data_file:
+            data_file.write(json.dumps(data, sort_keys=True))
+            data_file.flush()
+            success = True
+            for alba_backend in alba_backends:
+                config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
+                run_success, _ = AlbaCLI.run('apply-license', config=config_file, extra_params=[data_file.name, signature], as_json=True, raise_on_failure=False)
+                success &= run_success
+            return success
 
 
 if __name__ == '__main__':
