@@ -35,9 +35,9 @@ class SourceCollector(object):
     It will also update the repo with all required versioning tags, if appropriate
     """
 
-    repo = 'openvstorage/openvstorage-backend'
-    repo_path_metadata = '/tmp/repo_openvstorage-backend_metadata'
-    repo_path_code = '/tmp/repo_openvstorage-backend_code'
+    repo = 'openvstorage/openvstorage-alba'
+    repo_path_metadata = '/tmp/repo_openvstorage-alba_metadata'
+    repo_path_code = '/tmp/repo_openvstorage-alba_code'
     package_path = '/tmp/packages/openvstorage-backend'
 
     def __init__(self):

@@ -28,7 +28,7 @@ class DebianPackager(object):
     Responsible for creating debian packages from the source archive
     """
 
-    repo_path_code = '/tmp/repo_openvstorage-backend_code'
+    repo_path_code = '/tmp/repo_openvstorage-alba_code'
     package_path = '/tmp/packages/openvstorage-backend'
 
     def __init__(self):
