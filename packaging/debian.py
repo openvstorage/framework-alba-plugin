@@ -28,8 +28,8 @@ class DebianPackager(object):
     Responsible for creating debian packages from the source archive
     """
 
-    repo_path_code = '/tmp/repo_openvstorage-alba_code'
-    package_path = '/tmp/packages/openvstorage-alba'
+    repo_path_code = '/tmp/repo_openvstorage-backend_code'
+    package_path = '/tmp/packages/openvstorage-backend'
 
     def __init__(self):
         """
@@ -54,21 +54,21 @@ class DebianPackager(object):
 
         # Rename tgz
         # /<pp>/openvstorage_1.2.3.tar.gz -> /<pp>/debian/openvstorage_1.2.3.orig.tar.gz
-        shutil.copyfile('{0}/openvstorage-alba_{1}.tar.gz'.format(DebianPackager.package_path, version_string),
-                        '{0}/debian/openvstorage-alba_{1}.orig.tar.gz'.format(DebianPackager.package_path, version_string))
+        shutil.copyfile('{0}/openvstorage-backend_{1}.tar.gz'.format(DebianPackager.package_path, version_string),
+                        '{0}/debian/openvstorage-backend_{1}.orig.tar.gz'.format(DebianPackager.package_path, version_string))
         # /<pp>/debian/openvstorage-1.2.3/...
-        DebianPackager._run('tar -xzf openvstorage-alba_{0}.orig.tar.gz'.format(version_string),
+        DebianPackager._run('tar -xzf openvstorage-backend_{0}.orig.tar.gz'.format(version_string),
                             '{0}/debian/'.format(DebianPackager.package_path))
 
         # Move the debian package metadata into the extracted source
         # /<pp>/debian/debian -> /<pp>/debian/openvstorage-1.2.3/
-        DebianPackager._run('mv {0}/debian/debian {0}/debian/openvstorage-alba-{1}/'.format(DebianPackager.package_path, version_string),
+        DebianPackager._run('mv {0}/debian/debian {0}/debian/openvstorage-backend-{1}/'.format(DebianPackager.package_path, version_string),
                             DebianPackager.package_path)
 
         # Build changelog entry
-        with open('{0}/debian/openvstorage-alba-{1}/debian/changelog'.format(DebianPackager.package_path, version_string), 'w') as changelog_file:
+        with open('{0}/debian/openvstorage-backend-{1}/debian/changelog'.format(DebianPackager.package_path, version_string), 'w') as changelog_file:
             changelog_file.write('' +
-"""openvstorage-alba ({0}-1) {1}; urgency=low
+"""openvstorage-backend ({0}-1) {1}; urgency=low
 
   * For changes, see individual changelogs
 
@@ -76,13 +76,13 @@ class DebianPackager(object):
 """.format(version_string, distribution, revision_date.strftime('%a, %d %b %Y %H:%M:%S +0000')))
 
         # Some more tweaks
-        DebianPackager._run('chmod 770 {0}/debian/openvstorage-alba-{1}/debian/rules'.format(DebianPackager.package_path, version_string),
+        DebianPackager._run('chmod 770 {0}/debian/openvstorage-backend-{1}/debian/rules'.format(DebianPackager.package_path, version_string),
                             DebianPackager.package_path)
         DebianPackager._run("sed -i -e 's/__NEW_VERSION__/{0}/' *.*".format(version_string),
-                            '{0}/debian/openvstorage-alba-{1}/debian'.format(DebianPackager.package_path, version_string))
+                            '{0}/debian/openvstorage-backend-{1}/debian'.format(DebianPackager.package_path, version_string))
 
         # Build the package
-        DebianPackager._run('dpkg-buildpackage', '{0}/debian/openvstorage-alba-{1}'.format(DebianPackager.package_path, version_string))
+        DebianPackager._run('dpkg-buildpackage', '{0}/debian/openvstorage-backend-{1}'.format(DebianPackager.package_path, version_string))
 
     @staticmethod
     def upload(source_metadata):
@@ -90,7 +90,7 @@ class DebianPackager(object):
         Uploads a given set of packages
         """
         distribution, version, suffix, build, version_string, revision_date = source_metadata
-        DebianPackager._run('dput -c {0}/debian/dput.cfg ovs-apt {0}/debian/openvstorage-alba_{1}-1_amd64.changes'.format(DebianPackager.package_path, version_string),
+        DebianPackager._run('dput -c {0}/debian/dput.cfg ovs-apt {0}/debian/openvstorage-backend_{1}-1_amd64.changes'.format(DebianPackager.package_path, version_string),
                             DebianPackager.package_path)
 
     @staticmethod

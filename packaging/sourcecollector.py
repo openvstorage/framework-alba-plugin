@@ -35,10 +35,10 @@ class SourceCollector(object):
     It will also update the repo with all required versioning tags, if appropriate
     """
 
-    repo = 'openvstorage/openvstorage-alba'
-    repo_path_metadata = '/tmp/repo_openvstorage-alba_metadata'
-    repo_path_code = '/tmp/repo_openvstorage-alba_code'
-    package_path = '/tmp/packages/openvstorage-alba'
+    repo = 'openvstorage/openvstorage-backend'
+    repo_path_metadata = '/tmp/repo_openvstorage-backend_metadata'
+    repo_path_code = '/tmp/repo_openvstorage-backend_code'
+    package_path = '/tmp/packages/openvstorage-backend'
 
     def __init__(self):
         """
@@ -270,12 +270,12 @@ class SourceCollector(object):
         # Building archive
         print '  Building archive'
         SourceCollector._run(
-            "tar -czf {0}/openvstorage-alba_{1}.tar.gz --transform 's,^,openvstorage-alba-{1}/,' --exclude='*__init__.py' ovs webapps config *.txt".format(
+            "tar -czf {0}/openvstorage-backend_{1}.tar.gz --transform 's,^,openvstorage-backend-{1}/,' --exclude='*__init__.py' ovs webapps config *.txt".format(
                 SourceCollector.package_path, version_string
             ), SourceCollector.repo_path_code
         )
         SourceCollector._run('rm -f CHANGELOG.txt', SourceCollector.repo_path_code)
-        print '    Archive: {0}/openvstorage-alba_{1}.tar.gz'.format(SourceCollector.package_path, version_string)
+        print '    Archive: {0}/openvstorage-backend_{1}.tar.gz'.format(SourceCollector.package_path, version_string)
 
         print 'Done'
 

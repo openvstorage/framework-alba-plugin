@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-openvstorage-alba-core:
+openvstorage-backend-core:
 	dh_testdir
 	dh_testroot
 	dh_installdirs  -p$@
@@ -17,7 +17,7 @@ openvstorage-alba-core:
 	dh_md5sums  -p$@
 	dh_builddeb  -p$@
 
-openvstorage-alba-webapps:
+openvstorage-backend-webapps:
 	dh_testdir
 	dh_testroot
 	dh_installdirs  -p$@
@@ -34,7 +34,7 @@ openvstorage-alba-webapps:
 	dh_md5sums  -p$@
 	dh_builddeb  -p$@
 
-openvstorage-alba:
+openvstorage-backend:
 	dh_testdir
 	dh_testroot
 	dh_installdirs  -p$@
@@ -52,10 +52,10 @@ openvstorage-alba:
 	dh_builddeb  -p$@
 
 clean:
-	if [ -f debian/openvstorage-alba ]; then rm debian/openvstorage-alba; fi
-	if [ -f debian/openvstorage-alba-core ]; then rm debian/openvstorage-alba-core; fi
-	if [ -f debian/openvstorage-alba-webapps ]; then rm debian/openvstorage-alba-webapps; fi
+	if [ -f debian/openvstorage-backend ]; then rm debian/openvstorage-backend; fi
+	if [ -f debian/openvstorage-backend-core ]; then rm debian/openvstorage-backend-core; fi
+	if [ -f debian/openvstorage-backend-webapps ]; then rm debian/openvstorage-backend-webapps; fi
 
-binary: openvstorage-alba-core openvstorage-alba-webapps openvstorage-alba
+binary: openvstorage-backend-core openvstorage-backend-webapps openvstorage-backend
 
 .PHONY: clean build
