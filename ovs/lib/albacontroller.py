@@ -511,6 +511,19 @@ Service.remove_service('', 'alba-maintenance_{0}')
             return success, data
 
     @staticmethod
+    @add_hooks('license', 'alba.sign')
+    def sign(component, data):
+        """
+        Signs data, returns the signature
+        """
+        if component != 'alba':
+            raise RuntimeError('Invalid component {0} in license.alba.sign'.format(component))
+        with NamedTemporaryFile() as data_file:
+            data_file.write(json.dumps(data, sort_keys=True))
+            data_file.flush()
+            return AlbaCLI.run('sign-license', extra_params=['/opt/OpenvStorage/config/alba_private.key', data_file.name], as_json=True)
+
+    @staticmethod
     @add_hooks('license', 'alba.apply')
     def apply(component, data, signature, alba_backend=None):
         """
