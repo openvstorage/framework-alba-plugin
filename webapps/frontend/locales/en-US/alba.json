@@ -1,0 +1,207 @@
+{
+    "license": [
+        "Copyright 2014 CloudFounders NV",
+        "All rights reserved"
+    ],
+    "generic": {
+        "nodisks": "No disks available",
+        "details": "Details",
+        "statistics": "Statistics",
+        "getss": "Gets/s",
+        "putss": "Puts/s",
+        "nrofdevices": "# Devices",
+        "devices": "Devices",
+        "unclaimeddevices": "Unclaimed Kinetic devices",
+        "serial": "Serial",
+        "id": "Chassis ID",
+        "ips": "IP",
+        "capacity": "Capacity",
+        "freespace": "Free",
+        "add": "Add",
+        "model": "Model",
+        "nrofdisks": "# Disks",
+        "firmware": "Firmware",
+        "totalgets": "Total gets",
+        "totalputs": "Total puts",
+        "chassis": "Chassis",
+        "temperaturecpu": "Temperature (CPU)",
+        "bay": "Bay",
+        "utilizationcpu": "Utilization (CPU)",
+        "failurezone": "Failure zone",
+        "port": "Port",
+        "nics": "NICs",
+        "warnings": "Warnings",
+        "degc": "&deg;C",
+        "interface": "Interface",
+        "macaddress": "MAC",
+        "ipaddress": "IP",
+        "connection": "Connection",
+        "boxid": "Node ID",
+        "nodes": "ASD Nodes",
+        "initialize": "Initialize",
+        "initializeall": "Initialize all uninitialized disks",
+        "remove": "Remove",
+        "claim": "Claim",
+        "claimall": "Claim all available disks",
+        "unclaim": "Unclaim",
+        "actions": "Available actions:",
+        "register": "Add node",
+        "asdid": "ASD ID",
+        "mountpoint": "Mtpt",
+        "legend": "Legend:",
+        "inuselegend": "In use by other backends:",
+        "restart": "Restart",
+        "node": "Node / Storage Router",
+        "statusdetail": "Status detail",
+        "unknown": "Unknown/external",
+        "osds": "ASDs",
+        "discover": "Discover",
+        "policies": "Policies",
+        "safety": "Safety",
+        "inuse": "*",
+        "nolicense": "Open vStorage Backend is unlicensed. It will be impossible to claim disks which will cause the backend to be unavailable. Please request a Community License to start using this backend.",
+        "statusdetails": {
+            "missing": "Disk is missing",
+            "ioerror": "I/O errors",
+            "servicefailure": "Service failure",
+            "corruption": "Data corruption",
+            "slow": "Latency (> 0.5s)",
+            "tooslow": "Latency (> 1s)",
+            "recenterrors": "Recent errors"
+        },
+        "stats": {
+            "freespace": "Free space",
+            "overhead": "Internal metadata",
+            "unknown": "Unknown sources"
+        },
+        "states": {
+            "osd": {
+                "uninitialized": "Uninitialized",
+                "initialized": "Initialized",
+                "available": "Available",
+                "unavailable": "Unavailable",
+                "error": "Faulted",
+                "warning": "Warning",
+                "claimed": "Good"
+            },
+            "osdinfo": {
+                "uninitialized": "This is a raw block device that's not yet in use",
+                "initialized": "This ASD is running but not yet discovered",
+                "available": "This ASD is ready to be claimed/in use by the backend",
+                "unavailable": "This ASD is claimed/in use by another backend",
+                "error": "This ASD is in error state. Action is required",
+                "warning": "This ASD is in warning state. Action may be needed",
+                "claimed": "This ASD is in use by this backend"
+            }
+        }
+    },
+    "licensing": {
+        "component": "Open vStorage Backend",
+        "metadata": {
+            "namespaces": "Namespaces",
+            "nodes": "Nodes",
+            "osds": "ASDs"
+        }
+    },
+    "detail": {
+        "title": "Alternate Backend"
+    },
+    "dashboard": {
+        "title": "Open vStorage Backends",
+        "helptitle": "Help - OVS Backends",
+        "helpcontent": "This panel displays the state of all Open vStorage Backends managed by this cluster. It shows how many ASDs are in use by the backend, grouped by their state."
+    },
+    "nodes": {
+        "nodes": "ASD nodes",
+        "register": "Claim node"
+    },
+    "policies": {
+        "helptitle": "Policies - Help",
+        "helpcontent": "Each available policy (e.g. [5,2,3]) consists out of 3 numbers:<ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 2)</li><li><b>x</b>: The maximum number of fragments per storage node (e.g. 3)</li></ul>For example, [5,2,3] means each object will be split in 7 fragments (5 data and 2 parity) which will be stored across all available disks. However, no more than 3 fragments will end up within a single storage node. In case this policy can not be met, the policy will be unavailable. If no policies are available, the backend can not be used.<br /><br />Colors:<ul><li>Grey: This policy is unavailable with the current disk configuration.</li><li>Green: New objects will be stored using this policy.</li><li>Black: This policy is available, but not used as a better policy is available.</li><li>Orange: This policy is degraded, loosing one more disk will cause dataloss.</li><li>Red: This policy has insufficient disks, data written using this policy is lost.</li></ul>Icons:<ul><li><span class='fa'>&#xf016;</span>: This policy is not in use.</li><li><span class='fa'>&#xf15b;</span>: This policy is in use: objects have been written using this policy.</li></ul>",
+        "inuse": "This policy is in use: objects have been written using this policy",
+        "notinuse": "This policy is not in use"
+    },
+    "disks" : {
+        "initialize": {
+            "started": "Started",
+            "msgstarted": "The disk will be initialized",
+            "complete": "Initialized",
+            "success": "The disk is initialized",
+            "failed": "Failed initializing disk: __why__"
+        },
+        "restart": {
+            "started": "Started",
+            "msgstarted": "The disk will be restarted",
+            "complete": "Restarted",
+            "success": "The disk is restarted",
+            "failed": "Failed restarting disk: __why__"
+        },
+        "initializeall": {
+            "warning": "Are you sure you want to initialize all uninitialized disks?",
+            "started": "Started",
+            "msgstarted": "The disks will be initialized",
+            "complete": "Initialized",
+            "somefailed": "Some disks could not be initialized: __which__",
+            "success": "The disks are initialized",
+            "failed": "Failed initializing disks: __why__"
+        },
+        "remove": {
+            "impact" : {
+                "warning": "Warning:",
+                "newpolicy": "__what__ will become the active safety policy.",
+                "nopolicy": "There is no policy matching the new disk configuration. This backend will become unavailable.",
+                "lostpolicies": "Objects written with the following policies will be lost: __what__"
+            },
+            "warning": "Are you sure you want to remove the following disk? __what__ __info__",
+            "started": "Started",
+            "msgstarted": "The disk will be removed",
+            "complete": "Removed",
+            "success": "The disk is removed",
+            "failed": "Failed removing disk: __why__"
+        },
+        "claim": {
+            "warning": "Are you sure you want to claim the following disk? __what__ __info__",
+            "started": "Started",
+            "msgstarted": "The disk will be claimed",
+            "complete": "Claimed",
+            "success": "The disk is claimed",
+            "failed": "Failed claiming disk: __why__"
+        },
+        "claimall": {
+            "warning": "Are you sure you want to claim the following disks? __which__ __info__",
+            "started": "Started",
+            "msgstarted": "The disks will be claimed",
+            "complete": "Claimed",
+            "success": "The disks are claimed",
+            "failed": "Failed claiming disks: __why__"
+        }
+    },
+    "icons": {
+        "devices": "&#xf0a0;",
+        "nics": "&#xf0ec;",
+        "registernode": "&#xf067;",
+        "nodes": "&#xf233;",
+        "initialize": "&#xf21e;",
+        "claim": "&#xf140;",
+        "discover": "&#xf002;",
+        "inuse": "&#xf15b;",
+        "notinuse": "&#xf016;"
+    },
+    "wizards": {
+        "addalbanode": {
+            "title": "Add node",
+            "gather": {
+                "asdips": "ASD ips",
+                "asdipshelp": "Select the ips on which the ASDs should listen. Select nothing for to listen on all ips.",
+                "basicinfo": "Enter the required information to add the ASD node",
+                "username": "Username",
+                "password": "Password",
+                "started": "Started",
+                "inprogress": "Adding node in progress",
+                "complete": "Completed",
+                "success": "Node added",
+                "failed": "Adding node failed: __why__"
+            }
+        }
+    }
+}
