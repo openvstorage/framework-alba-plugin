@@ -1,5 +1,7 @@
 #!/bin/bash
-ipython -c """
+
+# Register the Alba plugin in the Open vStorage configuration file
+python -c """
 from ConfigParser import RawConfigParser
 filename = '/opt/OpenvStorage/config/ovs.cfg'
 config = RawConfigParser()

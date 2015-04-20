@@ -3,3 +3,11 @@
 # Update ownership
 TARGET=/opt/OpenvStorage/ovs/
 chown -R ovs:ovs ${TARGET}
+
+# (Re)load plugins to make the Alba plugin available
+python -c """
+import sys
+sys.path.append('/opt/OpenvStorage')
+from ovs.extensions.generic.plugins import PluginManager
+PluginManager.load_plugins()
+"""
