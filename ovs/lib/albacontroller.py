@@ -192,6 +192,49 @@ class AlbaController(object):
         albabackend.backend.save()
 
     @staticmethod
+    @celery.task(name='alba.remove_cluster')
+    def remove_cluster(alba_backend_guid):
+        """
+        Removes an Alba backend/cluster
+        """
+        albabackend = AlbaBackend(alba_backend_guid)
+        if len(albabackend.asds) > 0:
+            raise RuntimeError('A backend with claimed OSDs cannot be removed')
+
+        slaves = StorageRouterList.get_slaves()
+        masters = StorageRouterList.get_masters()
+
+        abm_name = albabackend.backend.name + '-abm'
+        for master in masters:
+            AlbaController._remove_maintenance_service(master.ip, abm_name)
+
+        cluster_removed = False
+        for abm_service in albabackend.abm_services:
+            ip = abm_service.service.storagerouter.ip
+            service_name = abm_service.service.name
+            if cluster_removed is False:
+                for slave in slaves:
+                    ArakoonInstaller.remove_slave(ip, slave.ip, service_name)
+                ArakoonInstaller.delete_cluster(service_name, ip)
+                cluster_removed = True
+            service = abm_service.service
+            abm_service.delete()
+            service.delete()
+
+        cluster_removed = []
+        for nsm_service in albabackend.nsm_services:
+            if nsm_service.service.name not in cluster_removed:
+                ArakoonInstaller.delete_cluster(nsm_service.service.name, nsm_service.service.storagerouter.ip)
+                cluster_removed.append(nsm_service.service.name)
+            service = nsm_service.service
+            nsm_service.delete()
+            service.delete()
+
+        backend = albabackend.backend
+        albabackend.delete()
+        backend.delete()
+
+    @staticmethod
     @celery.task(name='alba.get_config_metadata')
     def get_config_metadata(alba_backend_guid):
         """
@@ -539,6 +582,19 @@ Service.start_service('alba-maintenance_{0}')
 """.format(abm_name, params)
         System.exec_remote_python(client, service_script)
 
+    @staticmethod
+    def _remove_maintenance_service(ip, abm_name):
+        """
+        Stops and removes the maintenance service/process
+        """
+        client = SSHClient.load(ip)
+        service_script = """
+from ovs.plugin.provider.service import Service
+Service.stop_service('alba-maintenance_{0}')
+Service.remove_service('', 'alba-maintenance_{0}')
+""".format(abm_name)
+        System.exec_remote_python(client, service_script)
+        client.run('rm -rf {0}'.format('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)))
 
 if __name__ == '__main__':
     try:

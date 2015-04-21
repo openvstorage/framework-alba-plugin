@@ -11,26 +11,28 @@ define([
         var self = this;
 
         // Handles
-        self.loadHandle = undefined;
+        self.loadHandle    = undefined;
+        self.actionsHandle = undefined;
 
         // External dependencies
         self.vPools = undefined;
         self.license = ko.observable();
 
         // Observables
-        self.loading     = ko.observable(false);
-        self.loaded      = ko.observable(false);
-        self.guid        = ko.observable(guid);
-        self.name        = ko.observable();
-        self.backend     = ko.observable();
-        self.backendGuid = ko.observable();
-        self.color       = ko.observable();
-        self.readIOps    = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
-        self.writeIOps   = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
-        self.licenseInfo = ko.observable();
-        self.usage       = ko.observable([]);
-        self.policies    = ko.observableArray([]);
-        self.safety      = ko.observable();
+        self.loading          = ko.observable(false);
+        self.loaded           = ko.observable(false);
+        self.guid             = ko.observable(guid);
+        self.name             = ko.observable();
+        self.backend          = ko.observable();
+        self.backendGuid      = ko.observable();
+        self.color            = ko.observable();
+        self.readIOps         = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.writeIOps        = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.licenseInfo      = ko.observable();
+        self.usage            = ko.observable([]);
+        self.policies         = ko.observableArray([]);
+        self.safety           = ko.observable();
+        self.availableActions = ko.observableArray([]);
 
         // Computed
         self.enhancedPolicies = ko.computed(function() {
@@ -80,6 +82,20 @@ define([
         });
 
         // Functions
+        self.getAvailableActions = function() {
+            return $.Deferred(function(deferred) {
+                if (generic.xhrCompleted(self.actionsHandle)) {
+                    self.actionsHandle = api.get('alba/backends/' + self.guid() + '/get_available_actions')
+                        .done(function(data) {
+                            self.availableActions(data);
+                            deferred.resolve();
+                        })
+                        .fail(deferred.reject);
+                } else {
+                    deferred.reject();
+                }
+            }).promise();
+        };
         self.fillData = function(data) {
             self.name(data.name);
             generic.trySet(self.licenseInfo, data, 'license_info');

@@ -59,6 +59,8 @@
         "policies": "Policies",
         "safety": "Safety",
         "inuse": "*",
+        "asdsremaining": "There are still ASDs in use",
+        "deletebackend": "Delete this backend",
         "nolicense": "Open vStorage Backend is unlicensed. It will be impossible to claim disks which will cause the backend to be unavailable. Please request a Community License to start using this backend.",
         "statusdetails": {
             "missing": "Disk is missing",
@@ -104,7 +106,15 @@
         }
     },
     "detail": {
-        "title": "Alternate Backend"
+        "title": "Alternate Backend",
+        "delete": {
+            "warning": "You are about to delete this Backend, are you sure?",
+            "started": "Deleting",
+            "msgstarted": "The backend is being deleted",
+            "complete": "Deleted",
+            "success": "The backend is deleted",
+            "failed": "The backend could not be deleted: __why__"
+        }
     },
     "dashboard": {
         "title": "Open vStorage Backends",
