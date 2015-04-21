@@ -12,3 +12,11 @@ config.set('plugins', 'backend.alba', 1)
 with open(filename, 'wb') as configfile:
     config.write(configfile)
 """
+
+# (Re)load plugins to make the Alba plugin available
+python -c """
+import sys
+sys.path.append('/opt/OpenvStorage')
+from ovs.extensions.generic.plugins import PluginManager
+PluginManager.load_plugins()
+"""
