@@ -177,26 +177,7 @@ class AlbaController(object):
 
         # Configure maintenance service
         for master in masters:
-            client = SSHClient.load(master.ip)
-            client.file_write('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name), json.dumps({
-                'log_level': 'debug',
-                'albamgr_cfg_file': '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)
-            }))
-            params = {'<ALBA_CONFIG>': '{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)}
-            config_file_base = '/opt/OpenvStorage/config/templates/upstart/ovs-alba-maintenance'
-            template_file_name = '{0}.conf'.format(config_file_base)
-            backend_file_name = '{0}_{1}.conf'.format(config_file_base, abm_name)
-            if client.file_exists(template_file_name):
-                client.run('cp -f {0} {1}'.format(template_file_name, backend_file_name))
-            service_script = """
-from ovs.plugin.provider.service import Service
-Service.add_service(package=('openvstorage', 'volumedriver'), name='alba-maintenance_{0}', command=None, stop_command=None, params={1})
-Service.start_service('alba-maintenance_{0}')
-""".format(abm_name, params)
-            System.exec_remote_python(client, service_script)
-
-            if client.file_exists(backend_file_name):
-                client.run('rm -f {0}'.format(backend_file_name))
+            AlbaController._setup_maintenance_service(master.ip, abm_name)
 
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(albabackend.backend.name + '-abm')
         albabackend.alba_id = AlbaCLI.run('get-alba-id', config=config_file, as_json=True)['id']
@@ -209,6 +190,49 @@ Service.start_service('alba-maintenance_{0}')
         # Mark the backend as "running"
         albabackend.backend.status = 'RUNNING'
         albabackend.backend.save()
+
+    @staticmethod
+    @celery.task(name='alba.remove_cluster')
+    def remove_cluster(alba_backend_guid):
+        """
+        Removes an Alba backend/cluster
+        """
+        albabackend = AlbaBackend(alba_backend_guid)
+        if len(albabackend.asds) > 0:
+            raise RuntimeError('A backend with claimed OSDs cannot be removed')
+
+        slaves = StorageRouterList.get_slaves()
+        masters = StorageRouterList.get_masters()
+
+        abm_name = albabackend.backend.name + '-abm'
+        for master in masters:
+            AlbaController._remove_maintenance_service(master.ip, abm_name)
+
+        cluster_removed = False
+        for abm_service in albabackend.abm_services:
+            ip = abm_service.service.storagerouter.ip
+            service_name = abm_service.service.name
+            if cluster_removed is False:
+                for slave in slaves:
+                    ArakoonInstaller.remove_slave(ip, slave.ip, service_name)
+                ArakoonInstaller.delete_cluster(service_name, ip)
+                cluster_removed = True
+            service = abm_service.service
+            abm_service.delete()
+            service.delete()
+
+        cluster_removed = []
+        for nsm_service in albabackend.nsm_services:
+            if nsm_service.service.name not in cluster_removed:
+                ArakoonInstaller.delete_cluster(nsm_service.service.name, nsm_service.service.storagerouter.ip)
+                cluster_removed.append(nsm_service.service.name)
+            service = nsm_service.service
+            nsm_service.delete()
+            service.delete()
+
+        backend = albabackend.backend
+        albabackend.delete()
+        backend.delete()
 
     @staticmethod
     @celery.task(name='alba.get_config_metadata')
@@ -266,17 +290,7 @@ Service.start_service('alba-maintenance_{0}')
 
             # Add and start an ALBA maintenance service
             print 'Adding ALBA maintenance service for {0}'.format(alba_backend.backend.name)
-            client = SSHClient.load(cluster_ip)
-            params = {'<ALBA_CONFIG>': '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, service.name)}
-            config_file_base = '/opt/OpenvStorage/config/templates/upstart/ovs-alba-maintenance'
-            if client.file_exists('{0}.conf'.format(config_file_base)):
-                client.run('cp -f {0}.conf {0}_{1}.conf'.format(config_file_base, service.name))
-            service_script = """
-from ovs.plugin.provider.service import Service
-Service.add_service(package=('openvstorage', 'volumedriver'), name='alba-maintenance_{0}', command=None, stop_command=None, params={1})
-Service.start_service('alba-maintenance_{0}')
-""".format(service.name, params)
-            System.exec_remote_python(client, service_script)
+            AlbaController._setup_maintenance_service(cluster_ip, service.name)
 
     @staticmethod
     @add_hooks('setup', 'demote')
@@ -547,6 +561,44 @@ Service.remove_service('', 'alba-maintenance_{0}')
                 success &= run_success
             return success
 
+    @staticmethod
+    def _setup_maintenance_service(ip, abm_name):
+        """
+        Creates and starts a maintenance service/process
+        """
+        client = SSHClient.load(ip)
+        client.file_write('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name), json.dumps({
+            'log_level': 'debug',
+            'albamgr_cfg_file': '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)
+        }))
+        params = {'<ALBA_CONFIG>': '{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)}
+        config_file_base = '/opt/OpenvStorage/config/templates/upstart/ovs-alba-maintenance'
+        template_file_name = '{0}.conf'.format(config_file_base)
+        backend_file_name = '{0}_{1}.conf'.format(config_file_base, abm_name)
+        if client.file_exists(template_file_name):
+            client.run('cp -f {0} {1}'.format(template_file_name, backend_file_name))
+        service_script = """
+from ovs.plugin.provider.service import Service
+Service.add_service(package=('openvstorage', 'volumedriver'), name='alba-maintenance_{0}', command=None, stop_command=None, params={1})
+Service.start_service('alba-maintenance_{0}')
+""".format(abm_name, params)
+        System.exec_remote_python(client, service_script)
+        if client.file_exists(backend_file_name):
+            client.run('rm -f {0}'.format(backend_file_name))
+
+    @staticmethod
+    def _remove_maintenance_service(ip, abm_name):
+        """
+        Stops and removes the maintenance service/process
+        """
+        client = SSHClient.load(ip)
+        service_script = """
+from ovs.plugin.provider.service import Service
+Service.stop_service('alba-maintenance_{0}')
+Service.remove_service('', 'alba-maintenance_{0}')
+""".format(abm_name)
+        System.exec_remote_python(client, service_script)
+        client.run('rm -rf {0}'.format('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)))
 
 if __name__ == '__main__':
     try:

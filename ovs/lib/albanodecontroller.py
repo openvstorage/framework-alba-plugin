@@ -185,9 +185,15 @@ class AlbaNodeController(object):
 
     @staticmethod
     @add_hooks('setup', ['firstnode', 'extranode'])
+    @add_hooks('plugin', ['postinstall'])
     def model_local_albanode(**kwargs):
         config_path = '/opt/alba-asdmanager/config/config.json'
-        node_ip = kwargs['cluster_ip']
+        if 'cluster_ip' in kwargs:
+            node_ip = kwargs['cluster_ip']
+        elif 'ip' in kwargs:
+            node_ip = kwargs['ip']
+        else:
+            raise RuntimeError('The model_local_albanode needs a cluster_ip or ip keyword argument')
         storagerouter = StorageRouterList.get_by_ip(node_ip)
         client = SSHClient.load(node_ip)
         if client.file_exists(config_path):

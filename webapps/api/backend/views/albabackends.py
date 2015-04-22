@@ -68,6 +68,16 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @log()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaBackend)
+    def destroy(self, albabackend):
+        """
+        Deletes an AlbaBackend
+        """
+        return AlbaController.remove_cluster.delay(albabackend.guid)
+
     @action()
     @log()
     @required_roles(['read', 'write', 'manage'])
@@ -250,3 +260,16 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         Gets the configuration metadata for an Alba backend
         """
         return AlbaController.get_config_metadata.delay(albabackend.guid)
+
+    @link()
+    @log()
+    @required_roles(['read'])
+    @load(AlbaBackend)
+    def get_available_actions(self, albabackend):
+        """
+        Gets a list of all available actions
+        """
+        actions = []
+        if len(albabackend.asds) == 0:
+            actions.append('REMOVE')
+        return Response(actions, status=status.HTTP_200_OK)
