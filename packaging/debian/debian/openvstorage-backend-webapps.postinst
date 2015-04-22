@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# Register the Alba plugin in the Open vStorage configuration file
+python -c """
+from ConfigParser import RawConfigParser
+filename = '/opt/OpenvStorage/config/ovs.cfg'
+config = RawConfigParser()
+config.read(filename)
+if not config.has_section('plugins'):
+    config.add_section('plugins')
+config.set('plugins', 'backend.alba', 1)
+with open(filename, 'wb') as configfile:
+    config.write(configfile)
+"""
+
+# (Re)load plugins to make the Alba plugin available
+python -c """
+import sys
+sys.path.append('/opt/OpenvStorage')
+from ovs.extensions.generic.plugins import PluginManager
+PluginManager.load_plugins()
+"""
