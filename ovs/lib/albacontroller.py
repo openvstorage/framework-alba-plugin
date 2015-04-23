@@ -305,7 +305,7 @@ class AlbaController(object):
             service = abm_service.service
             print '* Shrink ABM cluster'
             ArakoonInstaller.shrink_cluster(master_ip, cluster_ip, service.name)
-            if PluginService.has_service('arakoon-{0}'format(service.name), ip=cluster_ip) is True:
+            if PluginService.has_service('arakoon-{0}'.format(service.name), ip=cluster_ip) is True:
                 PluginService.stop_service('arakoon-{0}'.format(service.name), ip=cluster_ip)
                 PluginService.remove_service(None, 'arakoon-{0}'.format(service.name), ip=cluster_ip)
 
@@ -317,7 +317,7 @@ class AlbaController(object):
 
             # Stop and delete the ALBA maintenance service on this node
             print 'Removing ALBA maintenance service for {0}'.format(alba_backend.backend.name)
-            if PluginService.has_service('alba-maintenance_{0}'format(service.name), ip=cluster_ip) is True:
+            if PluginService.has_service('alba-maintenance_{0}'.format(service.name), ip=cluster_ip) is True:
                 PluginService.stop_service('alba-maintenance_{0}'.format(service.name), ip=cluster_ip)
                 PluginService.remove_service(None, 'alba-maintenance_{0}'.format(service.name), ip=cluster_ip)
 
@@ -332,7 +332,6 @@ class AlbaController(object):
         * When adding an NSM, the nodes with the least amount of NSM participation are preferred
         """
         nsmservice_type = ServiceTypeList.get_by_name('NamespaceManager')
-        abmservice_type = ServiceTypeList.get_by_name('AlbaManager')
         safety = int(Configuration.get('alba.nsm.safety'))
         maxload = int(Configuration.get('alba.nsm.maxload'))
         used_ports = {}
@@ -572,7 +571,7 @@ class AlbaController(object):
         Stops and removes the maintenance service/process
         """
         client = SSHClient(ip)
-        if PluginService.has_service('alba-maintenance_{0}'format(abm_name), ip=ip) is True:
+        if PluginService.has_service('alba-maintenance_{0}'.format(abm_name), ip=ip) is True:
             PluginService.stop_service('alba-maintenance_{0}'.format(abm_name), ip=ip)
             PluginService.remove_service(None, 'alba-maintenance_{0}'.format(abm_name), ip=ip)
         client.run('rm -rf {0}'.format('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)))
