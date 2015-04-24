@@ -121,7 +121,7 @@ All rights reserved
             <!-- /ko -->
         </div>
     </div>
-    <div>
+    <div data-bind="visible: albaBackend() !== undefined">
         <ul class="nav nav-tabs">
             <li class="active" data-bind="tooltip: 'alba:generic.nodes', visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
                 <a href="#nodes" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>

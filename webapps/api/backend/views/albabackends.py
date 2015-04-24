@@ -63,7 +63,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
             alba_backend.backend.save()
             storagerouter = StorageRouterList.get_masters()[0]
             AlbaController.add_cluster.delay(alba_backend.guid, storagerouter.guid)
-            serializer = FullSerializer(AlbaBackend, instance=alba_backend)
+            serializer = FullSerializer(AlbaBackend, contents='', instance=alba_backend)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
