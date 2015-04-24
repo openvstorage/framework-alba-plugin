@@ -185,6 +185,10 @@ All rights reserved
                                                                       initializeAll();
                                                                   }
                                                               },
+                                                              event: {
+                                                                  mouseover: function() { highlight('uninitialized', true); },
+                                                                  mouseout: function() { highlight('uninitialized', false); }
+                                                              },
                                                               tooltip: 'alba:generic.initializeall',
                                                               style: { color: $.inArray('manage', $root.shared.user.roles()) !== -1 && canInitializeAll() ? 'black' : 'lightgrey' }"
                                                    class="hand fa fa-fw" data-i18n="[html]alba:icons.initialize"></i>
@@ -193,6 +197,10 @@ All rights reserved
                                                                   if (canClaimAll() && $.inArray('manage', $root.shared.user.roles()) !== -1) {
                                                                       claimAll();
                                                                   }
+                                                              },
+                                                              event: {
+                                                                  mouseover: function() { highlight('available', true); },
+                                                                  mouseout: function() { highlight('available', false); }
                                                               },
                                                               tooltip: 'alba:generic.claimall',
                                                               style: { color: $.inArray('manage', $root.shared.user.roles()) !== -1 && canClaimAll() ? 'black' : 'lightgrey' }"
@@ -222,6 +230,7 @@ All rights reserved
                                    'btn-danger': status() === 'error' && isLocal()
                                },
                                style: {
+                                   'font-weight': highlighted() ? 'bold' : '',
                                    border: (status() === 'unavailable' || (!isLocal() && (status() === 'warning' || status() === 'error'))) && albaBackend() !== undefined ? '1px solid ' + albaBackend().color() : ''
                                }">
                 <span style="display: inline-block;">

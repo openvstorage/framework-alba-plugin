@@ -63,6 +63,13 @@ define([
 
             self.loaded(true);
         };
+        self.highlight = function(status, highlight) {
+            $.each(self.disks(), function(index, disk) {
+                if (disk.status() === status && (!highlight || disk.processing() === false)) {
+                    disk.highlighted(highlight);
+                }
+            });
+        };
         self.register = function() {
             dialog.show(new AddAlbaNodeWizard({
                 modal: true,
