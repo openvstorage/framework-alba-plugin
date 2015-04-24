@@ -34,6 +34,20 @@ define([
         self.otherAlbaBackendsCache = ko.observable({});
 
         // Computed
+        self.expanded = ko.computed({
+            write: function(value) {
+                $.each(self.registeredNodes(), function(index, node) {
+                    node.expanded(value)
+                });
+            },
+            read: function() {
+                var expanded = false;
+                $.each(self.registeredNodes(), function(index, node) {
+                    expanded |= node.expanded();  // Bitwise or, |= is correct.
+                });
+                return expanded;
+            }
+        });
         self.otherAlbaBackends = ko.computed(function() {
             var albaBackends = [], cache = self.otherAlbaBackendsCache(), counter = 0;
             $.each(cache, function(index, albaBackend) {

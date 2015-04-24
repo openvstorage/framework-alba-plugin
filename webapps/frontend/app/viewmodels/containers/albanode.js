@@ -27,6 +27,7 @@ define([
         self.storageRouterGuid = ko.observable();
         self.disks             = ko.observableArray([]);
         self.ips               = ko.observableArray([]);
+        self.expanded          = ko.observable(true);
 
         // Computed
         self.diskRows         = ko.splitRows(3, self.disks);

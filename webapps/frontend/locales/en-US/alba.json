@@ -195,7 +195,9 @@
         "claim": "&#xf140;",
         "discover": "&#xf002;",
         "inuse": "&#xf15b;",
-        "notinuse": "&#xf016;"
+        "notinuse": "&#xf016;",
+        "expand": "&#xf196;",
+        "collapse": "&#xf147"
     },
     "wizards": {
         "addalbanode": {
