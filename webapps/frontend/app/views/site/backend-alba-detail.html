@@ -417,9 +417,6 @@ All rights reserved
                     <span data-i18n="alba:generic.nolicense" data-bind="if: license() === undefined"></span>
                     <!-- ko if: license() !== undefined -->
                         <span data-i18n="ovs:generic.name"></span>: <span data-bind="text: license().name"></span><br />
-                        <!-- ko if: license().validUntil() !== null -->
-                            <span data-i18n="ovs:generic.validuntil"></span>: <span data-bind="text: generic.getLocalTime(license().validUntil())"></span><br />
-                        <!-- /ko -->
                         <span data-i18n="ovs:generic.metadata"></span>:
                         <ul data-bind="foreach: $root.generic.keys(license().data(), function(i) { return i !== 'token'; })">
                             <li>
