@@ -126,16 +126,16 @@ class AlbaNodeController(object):
         """
         node = AlbaNode(node_guid)
         available_disks = dict((disk['name'], disk) for disk in node.all_disks)
-        failures = []
+        failures = {}
         for disk in disks:
             logger.debug('Initializing disk {0} at node {1}'.format(disk, node.ip))
             if disk not in available_disks or available_disks[disk]['available'] is False:
                 logger.exception('Disk {0} not available on node {1}'.format(disk, node.ip))
-                failures.append(disk)
+                failures[disk] = 'Disk unavailable'
             else:
                 result = node.client.add_disk(disk)
                 if result['_success'] is False:
-                    failures.append(disk)
+                    failures[disk] = result['_error']
         return failures
 
     @staticmethod

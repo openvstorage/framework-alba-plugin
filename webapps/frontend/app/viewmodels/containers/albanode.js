@@ -87,8 +87,11 @@ define([
                 })
                     .then(self.shared.tasks.wait)
                     .done(function(failures) {
-                        if (failures.length > 0) {
-                            var error = 'Could not initialize disk';
+                        if (generic.keys(failures).length > 0) {
+                            var error = '';
+                            $.each(failures, function(disk, message) {
+                                error = message;
+                            });
                             generic.alertError(
                                 $.t('ovs:generic.error'),
                                 $.t('alba:disks.initialize.failed', { why: error })
@@ -223,10 +226,14 @@ define([
                             })
                                 .then(self.shared.tasks.wait)
                                 .done(function(failures) {
-                                    if (failures.length > 0) {
+                                    if (generic.keys(failures).length > 0) {
+                                        var errors = [];
+                                        $.each(failures, function(disk, message) {
+                                            errors.push(disk + ': ' + message);
+                                        });
                                         generic.alertInfo(
                                             $.t('alba:disks.initializeall.complete'),
-                                            $.t('alba:disks.initializeall.somefailed', { which: '<ul><li>' + failures.join('</li><li>') + '</li></ul>' })
+                                            $.t('alba:disks.initializeall.somefailed', { which: '<ul><li>' + errors.join('</li><li>') + '</li></ul>' })
                                         );
                                         deferred.resolve();
                                     } else {
