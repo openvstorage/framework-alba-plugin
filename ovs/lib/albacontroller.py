@@ -564,7 +564,7 @@ class AlbaController(object):
         PluginService.start_service('alba-maintenance_{0}'.format(abm_name), client)
 
         if client.file_exists(backend_file_name):
-            client.run('rm -f {0}'.format(backend_file_name))
+            client.file_delete(backend_file_name)
 
     @staticmethod
     def _remove_maintenance_service(ip, abm_name):
@@ -575,7 +575,7 @@ class AlbaController(object):
         if PluginService.has_service('alba-maintenance_{0}'.format(abm_name), client=client) is True:
             PluginService.stop_service('alba-maintenance_{0}'.format(abm_name), client=client)
             PluginService.remove_service('alba-maintenance_{0}'.format(abm_name), client=client)
-        client.run('rm -rf {0}'.format('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)))
+        client.file_delete('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name))
 
 if __name__ == '__main__':
     try:
