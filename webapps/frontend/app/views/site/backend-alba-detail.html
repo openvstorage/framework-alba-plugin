@@ -17,6 +17,16 @@ All rights reserved
                     <span style="padding-left: 5px;" data-bind="text: backend().name, visible: backend().name() !== undefined"></span>
                 </a>
             </li>
+            <li class="actions">
+                <span data-i18n="ovs:generic.actions"></span>:
+                <button type="button" class="btn btn-mini btn-default" id="removeBackend"
+                        data-bind="click: $root.removeBackend,
+                                   style: { color: albaBackend() === undefined || !albaBackend().availableActions().contains('REMOVE') ? 'lightgrey' : '#428bca' },
+                                   tooltip: albaBackend() === undefined || !albaBackend().availableActions().contains('REMOVE') ? 'alba:generic.asdsremaining' : 'alba:generic.deletebackend',
+                                   enable: $root.shared.user.roles().contains('manage')">
+                    <span class="fa" data-i18n="[html]ovs:icons.delete"></span>
+                </button>
+            </li>
         </ul>
         <div class="tab-content">
             <!-- ko if: albaBackend() !== undefined -->
@@ -81,11 +91,11 @@ All rights reserved
                             <tr>
                                 <td style="width: 15%; vertical-align: top;">
                                     <span data-i18n="alba:generic.policies"></span>
-                                    <span data-bind="popover: {
-                                                         title: 'alba:policies.helptitle',
-                                                         content: 'alba:policies.helpcontent'
-                                                     }" class="hand fa" data-i18n="[html]ovs:icons.help" style="">
-                                    </span>
+                                    <a data-bind="popover: {
+                                                      title: 'alba:policies.helptitle',
+                                                      content: 'alba:policies.helpcontent'
+                                                  }" class="hand fa noline" data-i18n="[html]ovs:icons.help" role="button" tabindex="-1">
+                                    </a>
                                 </td>
                                 <td>
                                     <ol data-bind="foreach: enhancedPolicies()" style="padding-left: 22px;">
@@ -111,7 +121,7 @@ All rights reserved
             <!-- /ko -->
         </div>
     </div>
-    <div>
+    <div data-bind="visible: albaBackend() !== undefined">
         <ul class="nav nav-tabs">
             <li class="active" data-bind="tooltip: 'alba:generic.nodes', visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
                 <a href="#nodes" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>
@@ -132,6 +142,12 @@ All rights reserved
                 <table class="table table-striped table-hover" style="clear: both;">
                     <thead>
                         <tr>
+                            <th style="width: 40px;">
+                                <span class="hand fa" data-i18n="[html]alba:icons.collapse"
+                                      data-bind="visible: $root.expanded(), click: function() { $root.expanded(!$root.expanded()); }"></span>
+                                <span class="hand fa" data-i18n="[html]alba:icons.expand"
+                                      data-bind="visible: !$root.expanded(), click: function() { $root.expanded(!$root.expanded()); }"></span>
+                            </th>
                             <th data-i18n="alba:generic.boxid" style="width: 400px;"></th>
                             <th data-i18n="alba:generic.node"></th>
                             <th data-i18n="ovs:generic.actions" style="width: 80px;"></th>
@@ -140,9 +156,15 @@ All rights reserved
                     <tbody>
                         <!-- ko foreach: registeredNodes -->
                             <tr>
-                                <td colspan="3" style="padding: 0">
+                                <td colspan="4" style="padding: 0">
                                     <table class="table" style="background-color: inherit; margin-bottom: 0">
                                         <tr>
+                                            <td style="width: 40px; border-top: 0;">
+                                                <span class="hand fa" data-i18n="[html]alba:icons.collapse"
+                                                      data-bind="visible: expanded(), click: function() { expanded(!expanded()); }"></span>
+                                                <span class="hand fa" data-i18n="[html]alba:icons.expand"
+                                                      data-bind="visible: !expanded(), click: function() { expanded(!expanded()); }"></span>
+                                            </td>
                                             <td style="width: 400px; border-top: 0;" data-bind="text: boxID"></td>
                                             <td style="border-top: 0;">
                                                 <!-- ko if: storageRouterGuid() === undefined || storageRouter() === undefined -->
@@ -163,6 +185,10 @@ All rights reserved
                                                                       initializeAll();
                                                                   }
                                                               },
+                                                              event: {
+                                                                  mouseover: function() { highlight('uninitialized', true); },
+                                                                  mouseout: function() { highlight('uninitialized', false); }
+                                                              },
                                                               tooltip: 'alba:generic.initializeall',
                                                               style: { color: $.inArray('manage', $root.shared.user.roles()) !== -1 && canInitializeAll() ? 'black' : 'lightgrey' }"
                                                    class="hand fa fa-fw" data-i18n="[html]alba:icons.initialize"></i>
@@ -172,13 +198,17 @@ All rights reserved
                                                                       claimAll();
                                                                   }
                                                               },
+                                                              event: {
+                                                                  mouseover: function() { highlight('available', true); },
+                                                                  mouseout: function() { highlight('available', false); }
+                                                              },
                                                               tooltip: 'alba:generic.claimall',
                                                               style: { color: $.inArray('manage', $root.shared.user.roles()) !== -1 && canClaimAll() ? 'black' : 'lightgrey' }"
                                                    class="hand fa fa-fw" data-i18n="[html]alba:icons.claim"></i>
                                             </td>
                                         </tr>
-                                        <tr>
-                                            <td colspan="3" style="border-top: 0;">
+                                        <tr data-bind="visible: expanded()">
+                                            <td colspan="3" style="border-top: 0; padding-left: 35px;">
                                                 <!-- ko if: diskRows().length === 0 -->
                                                     <i data-i18n="alba:generic.nodisks"></i>
                                                 <!-- /ko -->
@@ -200,6 +230,7 @@ All rights reserved
                                    'btn-danger': status() === 'error' && isLocal()
                                },
                                style: {
+                                   'font-weight': highlighted() ? 'bold' : '',
                                    border: (status() === 'unavailable' || (!isLocal() && (status() === 'warning' || status() === 'error'))) && albaBackend() !== undefined ? '1px solid ' + albaBackend().color() : ''
                                }">
                 <span style="display: inline-block;">
@@ -317,6 +348,7 @@ All rights reserved
                         <!-- /ko -->
                         <!-- ko foreach: discoveredNodes -->
                             <tr>
+                                <td style="width: 40px;">&nbsp;</td>
                                 <td style="width: 400px;" data-bind="text: boxID"></td>
                                 <td><span data-bind="text: ip"></span>:<span data-bind="text: port"></span></td>
                                 <td style="width: 80px;">
@@ -385,9 +417,6 @@ All rights reserved
                     <span data-i18n="alba:generic.nolicense" data-bind="if: license() === undefined"></span>
                     <!-- ko if: license() !== undefined -->
                         <span data-i18n="ovs:generic.name"></span>: <span data-bind="text: license().name"></span><br />
-                        <!-- ko if: license().validUntil() !== null -->
-                            <span data-i18n="ovs:generic.validuntil"></span>: <span data-bind="text: generic.getLocalTime(license().validUntil())"></span><br />
-                        <!-- /ko -->
                         <span data-i18n="ovs:generic.metadata"></span>:
                         <ul data-bind="foreach: $root.generic.keys(license().data(), function(i) { return i !== 'token'; })">
                             <li>

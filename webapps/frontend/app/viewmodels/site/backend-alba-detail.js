@@ -2,11 +2,11 @@
 // All rights reserved
 /*global define */
 define([
-    'jquery', 'durandal/app', 'knockout',
+    'jquery', 'durandal/app', 'knockout', 'plugins/router',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/backend', '../containers/backendtype', '../containers/albabackend',
     '../containers/albanode', '../containers/albaosd', '../containers/storagerouter', '../containers/vpool', '../containers/license'
-], function($, app, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node, OSD, StorageRouter, VPool, License) {
+], function($, app, ko, router, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node, OSD, StorageRouter, VPool, License) {
     "use strict";
     return function() {
         var self = this;
@@ -34,6 +34,20 @@ define([
         self.otherAlbaBackendsCache = ko.observable({});
 
         // Computed
+        self.expanded = ko.computed({
+            write: function(value) {
+                $.each(self.registeredNodes(), function(index, node) {
+                    node.expanded(value)
+                });
+            },
+            read: function() {
+                var expanded = false;
+                $.each(self.registeredNodes(), function(index, node) {
+                    expanded |= node.expanded();  // Bitwise or, |= is correct.
+                });
+                return expanded;
+            }
+        });
         self.otherAlbaBackends = ko.computed(function() {
             var albaBackends = [], cache = self.otherAlbaBackendsCache(), counter = 0;
             $.each(cache, function(index, albaBackend) {
@@ -114,7 +128,11 @@ define([
                         }).promise();
                     })
                     .then(function(albaBackend) {
-                        return albaBackend.load();
+                        return albaBackend.load()
+                            .then(function(data) {
+                                albaBackend.getAvailableActions();
+                                return data;
+                            });
                     })
                     .done(deferred.resolve)
                     .fail(deferred.reject);
@@ -363,6 +381,46 @@ define([
                                     generic.alertError(
                                         $.t('ovs:generic.error'),
                                         $.t('alba:disks.claimall.failed', { why: error })
+                                    );
+                                    deferred.reject();
+                                });
+                        } else {
+                            deferred.reject();
+                        }
+                    });
+            }).promise();
+        };
+        self.removeBackend = function() {
+            return $.Deferred(function(deferred) {
+                if (self.albaBackend() === undefined || !self.albaBackend().availableActions().contains('REMOVE')) {
+                    deferred.reject();
+                    return;
+                }
+                app.showMessage(
+                    $.t('alba:detail.delete.warning'),
+                    $.t('ovs:generic.areyousure'),
+                    [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
+                )
+                    .done(function(answer) {
+                        if (answer === $.t('ovs:generic.yes')) {
+                            generic.alertSuccess(
+                                $.t('alba:detail.delete.started'),
+                                $.t('alba:detail.delete.msgstarted')
+                            );
+                            router.navigate(self.shared.routing.loadHash('backends'));
+                            api.del('alba/backends/' + self.albaBackend().guid())
+                                .then(self.shared.tasks.wait)
+                                .done(function() {
+                                    generic.alertSuccess(
+                                        $.t('alba:detail.delete.complete'),
+                                        $.t('alba:detail.delete.success')
+                                    );
+                                    deferred.resolve();
+                                })
+                                .fail(function(error) {
+                                    generic.alertError(
+                                        $.t('ovs:generic.error'),
+                                        $.t('alba:detail.delete.failed', { why: error })
                                     );
                                     deferred.reject();
                                 });

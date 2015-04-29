@@ -126,16 +126,16 @@ class AlbaNodeController(object):
         """
         node = AlbaNode(node_guid)
         available_disks = dict((disk['name'], disk) for disk in node.all_disks)
-        failures = []
+        failures = {}
         for disk in disks:
             logger.debug('Initializing disk {0} at node {1}'.format(disk, node.ip))
             if disk not in available_disks or available_disks[disk]['available'] is False:
                 logger.exception('Disk {0} not available on node {1}'.format(disk, node.ip))
-                failures.append(disk)
+                failures[disk] = 'Disk unavailable'
             else:
                 result = node.client.add_disk(disk)
                 if result['_success'] is False:
-                    failures.append(disk)
+                    failures[disk] = result['_error']
         return failures
 
     @staticmethod
@@ -185,9 +185,15 @@ class AlbaNodeController(object):
 
     @staticmethod
     @add_hooks('setup', ['firstnode', 'extranode'])
+    @add_hooks('plugin', ['postinstall'])
     def model_local_albanode(**kwargs):
         config_path = '/opt/alba-asdmanager/config/config.json'
-        node_ip = kwargs['cluster_ip']
+        if 'cluster_ip' in kwargs:
+            node_ip = kwargs['cluster_ip']
+        elif 'ip' in kwargs:
+            node_ip = kwargs['ip']
+        else:
+            raise RuntimeError('The model_local_albanode needs a cluster_ip or ip keyword argument')
         storagerouter = StorageRouterList.get_by_ip(node_ip)
         client = SSHClient.load(node_ip)
         if client.file_exists(config_path):

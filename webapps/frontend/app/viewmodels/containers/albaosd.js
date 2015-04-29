@@ -29,6 +29,7 @@ define([
         self.albaBackend     = ko.observable();
         self.albaBackendGuid = ko.observable();
         self.parentABGuid    = ko.observable(albaBackendGuid);
+        self.highlighted     = ko.observable(false);
 
         // Computed
         self.isLocal = ko.computed(function() {
