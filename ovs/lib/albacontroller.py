@@ -8,6 +8,7 @@ AlbaController module
 import time
 import json
 from tempfile import NamedTemporaryFile
+
 from ovs.celery_run import celery
 from celery.schedules import crontab
 from ovs.dal.hybrids.storagerouter import StorageRouter
@@ -15,13 +16,14 @@ from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller, ArakoonClusterConfig
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.extensions.generic.sshclient import SSHClient
-from ovs.plugin.provider.configuration import Configuration
 from ovs.lib.setup import System
 from ovs.lib.helpers.decorators import ensure_single, add_hooks
 from ovs.log.logHandler import LogHandler
 from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.j_abmservice import ABMService
-from ovs.dal.hybrids.service import Service
+from ovs.dal.hybrids.service import Service as DalService
+from ovs.dal.hybrids.storagerouter import StorageRouter
+from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albaasd import AlbaASD
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.licenselist import LicenseList
@@ -29,6 +31,9 @@ from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.servicelist import ServiceList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
+from ovs.plugin.provider.configuration import Configuration
+from ovs.plugin.provider.service import Service as PluginService
+
 
 logger = LogHandler('lib', name='alba')
 
@@ -136,12 +141,12 @@ class AlbaController(object):
         # deploy on first master node
         ports_to_exclude = used_ports[storagerouter]
         abm_result = ArakoonInstaller.create_cluster(abm_name, storagerouter.ip, ports_to_exclude, AlbaController.ABM_PLUGIN)
-        AlbaController.link_plugins(SSHClient.load(storagerouter.ip), [AlbaController.ABM_PLUGIN], abm_name)
+        AlbaController.link_plugins(SSHClient(storagerouter.ip), [AlbaController.ABM_PLUGIN], abm_name)
         ports = [abm_result['client_port'], abm_result['messaging_port']]
         AlbaController._model_service(abm_name, abmservice_type, ports, storagerouter, ABMService, albabackend)
         ports_to_exclude += ports
         nsm_result = ArakoonInstaller.create_cluster(nsm_name, storagerouter.ip, ports_to_exclude, AlbaController.NSM_PLUGIN)
-        AlbaController.link_plugins(SSHClient.load(storagerouter.ip), [AlbaController.NSM_PLUGIN], nsm_name)
+        AlbaController.link_plugins(SSHClient(storagerouter.ip), [AlbaController.NSM_PLUGIN], nsm_name)
         ports = [nsm_result['client_port'], nsm_result['messaging_port']]
         AlbaController._model_service(nsm_name, nsmservice_type, ports, storagerouter, NSMService, albabackend, 0)
 
@@ -151,12 +156,12 @@ class AlbaController(object):
                 continue
             ports_to_exclude = used_ports[master]
             abm_result = ArakoonInstaller.extend_cluster(storagerouter.ip, master.ip, abm_name, ports_to_exclude)
-            AlbaController.link_plugins(SSHClient.load(master.ip), [AlbaController.ABM_PLUGIN], abm_name)
+            AlbaController.link_plugins(SSHClient(master.ip), [AlbaController.ABM_PLUGIN], abm_name)
             ports = [abm_result['client_port'], abm_result['messaging_port']]
             AlbaController._model_service(abm_name, abmservice_type, ports, master, ABMService, albabackend)
             ports_to_exclude += ports
             nsm_result = ArakoonInstaller.extend_cluster(storagerouter.ip, master.ip, nsm_name, ports_to_exclude)
-            AlbaController.link_plugins(SSHClient.load(master.ip), [AlbaController.NSM_PLUGIN], nsm_name)
+            AlbaController.link_plugins(SSHClient(master.ip), [AlbaController.NSM_PLUGIN], nsm_name)
             ports = [nsm_result['client_port'], nsm_result['messaging_port']]
             AlbaController._model_service(nsm_name, nsmservice_type, ports, master, NSMService, albabackend, 0)
 
@@ -167,8 +172,9 @@ class AlbaController(object):
 
         # startup arakoon clusters
         for master in masters:
-            ArakoonInstaller.start(abm_name, master.ip)
-            ArakoonInstaller.start(nsm_name, master.ip)
+            client = SSHClient(master.ip, username='root')
+            ArakoonInstaller.start(abm_name, client)
+            ArakoonInstaller.start(nsm_name, client)
 
         AlbaController.register_nsm(abm_name, nsm_name, storagerouter.ip)
 
@@ -239,15 +245,15 @@ class AlbaController(object):
         """
         service = AlbaBackend(alba_backend_guid).abm_services[0].service
         config = ArakoonClusterConfig(service.name)
-        config.load_config(SSHClient.load(service.storagerouter.ip))
+        config.load_config(SSHClient(service.storagerouter.ip))
         return config.export()
 
     @staticmethod
     def link_plugins(client, plugins, cluster_name):
-        data_dir = System.read_remote_config(client, 'ovs.core.db.arakoon.location')
+        data_dir = client.config_read('ovs.core.db.arakoon.location')
         for plugin in plugins:
             cmd = 'ln -s {0}/{3}.cmxs {1}/arakoon/{2}/'.format(AlbaController.ARAKOON_PLUGIN_DIR, data_dir, cluster_name, plugin)
-            System.run(cmd, client)
+            client.run(cmd)
 
     @staticmethod
     @add_hooks('setup', 'promote')
@@ -269,7 +275,7 @@ class AlbaController(object):
             service = abm_service.service
             print '* Extend ABM cluster'
             abm_result = ArakoonInstaller.extend_cluster(master_ip, cluster_ip, service.name, ports_to_exclude)
-            AlbaController.link_plugins(SSHClient.load(cluster_ip), [AlbaController.ABM_PLUGIN], service.name)
+            AlbaController.link_plugins(SSHClient(cluster_ip), [AlbaController.ABM_PLUGIN], service.name)
             ports = [abm_result['client_port'], abm_result['messaging_port']]
             ports_to_exclude += ports
             print '* Model new ABM node'
@@ -289,6 +295,7 @@ class AlbaController(object):
         A node is being demoted
         """
         alba_backends = AlbaBackendList.get_albabackends()
+        client = SSHClient(cluster_ip)
         for alba_backend in alba_backends:
             # Remove the node from the ABM
             print 'Shrinking ABM for {0}'.format(alba_backend.backend.name)
@@ -300,14 +307,10 @@ class AlbaController(object):
             service = abm_service.service
             print '* Shrink ABM cluster'
             ArakoonInstaller.shrink_cluster(master_ip, cluster_ip, service.name)
-            client = SSHClient.load(cluster_ip)
-            service_script = """
-from ovs.plugin.provider.service import Service
-if Service.has_service('arakoon-{0}') is True:
-    Service.stop_service('arakoon-{0}')
-    Service.remove_service('', 'arakoon-{0}')
-""".format(service.name)
-            System.exec_remote_python(client, service_script)
+            if PluginService.has_service('arakoon-{0}'.format(service.name), client=client) is True:
+                PluginService.stop_service('arakoon-{0}'.format(service.name), client=client)
+                PluginService.remove_service('arakoon-{0}'.format(service.name), client=client)
+
             print '* Restarting ABM'
             ArakoonInstaller.restart_cluster_remove(service.name, storagerouter_ips)
             print '* Remove old ABM node from model'
@@ -316,14 +319,9 @@ if Service.has_service('arakoon-{0}') is True:
 
             # Stop and delete the ALBA maintenance service on this node
             print 'Removing ALBA maintenance service for {0}'.format(alba_backend.backend.name)
-            client = SSHClient.load(cluster_ip)
-            service_script = """
-from ovs.plugin.provider.service import Service
-if Service.has_service('alba-maintenance_{0}') is True:
-    Service.stop_service('alba-maintenance_{0}')
-    Service.remove_service('', 'alba-maintenance_{0}')
-""".format(service.name)
-            System.exec_remote_python(client, service_script)
+            if PluginService.has_service('alba-maintenance_{0}'.format(service.name), client=client) is True:
+                PluginService.stop_service('alba-maintenance_{0}'.format(service.name), client=client)
+                PluginService.remove_service('alba-maintenance_{0}'.format(service.name), client=client)
 
     @staticmethod
     @celery.task(name='alba.nsm_checkup', bind=True, schedule=crontab(minute='30', hour='0'))
@@ -336,7 +334,6 @@ if Service.has_service('alba-maintenance_{0}') is True:
         * When adding an NSM, the nodes with the least amount of NSM participation are preferred
         """
         nsmservice_type = ServiceTypeList.get_by_name('NamespaceManager')
-        abmservice_type = ServiceTypeList.get_by_name('AlbaManager')
         safety = int(Configuration.get('alba.nsm.safety'))
         maxload = int(Configuration.get('alba.nsm.maxload'))
         used_ports = {}
@@ -394,7 +391,7 @@ if Service.has_service('alba-maintenance_{0}') is True:
                             used_ports[candidate_sr] = []
                         nsm_result = ArakoonInstaller.extend_cluster(current_nsm.service.storagerouter.ip, candidate_sr.ip,
                                                                      service_name, used_ports[candidate_sr])
-                        AlbaController.link_plugins(SSHClient.load(candidate_sr.ip), [AlbaController.NSM_PLUGIN], service_name)
+                        AlbaController.link_plugins(SSHClient(candidate_sr.ip), [AlbaController.NSM_PLUGIN], service_name)
                         ports = [nsm_result['client_port'], nsm_result['messaging_port']]
                         used_ports[candidate_sr] += ports
                         AlbaController._model_service(service_name, nsmservice_type, ports,
@@ -438,7 +435,7 @@ if Service.has_service('alba-maintenance_{0}') is True:
                             used_ports[storagerouter] = []
                         if first_ip is None:
                             nsm_result = ArakoonInstaller.create_cluster(nsm_name, storagerouter.ip, used_ports[storagerouter], AlbaController.NSM_PLUGIN)
-                            AlbaController.link_plugins(SSHClient.load(storagerouter.ip), [AlbaController.NSM_PLUGIN], nsm_name)
+                            AlbaController.link_plugins(SSHClient(storagerouter.ip), [AlbaController.NSM_PLUGIN], nsm_name)
                             ports = [nsm_result['client_port'], nsm_result['messaging_port']]
                             used_ports[storagerouter] += ports
                             AlbaController._model_service(nsm_name, nsmservice_type, ports,
@@ -446,13 +443,14 @@ if Service.has_service('alba-maintenance_{0}') is True:
                             first_ip = storagerouter.ip
                         else:
                             nsm_result = ArakoonInstaller.extend_cluster(first_ip, storagerouter.ip, nsm_name, used_ports[storagerouter])
-                            AlbaController.link_plugins(SSHClient.load(storagerouter.ip), [AlbaController.NSM_PLUGIN], nsm_name)
+                            AlbaController.link_plugins(SSHClient(storagerouter.ip), [AlbaController.NSM_PLUGIN], nsm_name)
                             ports = [nsm_result['client_port'], nsm_result['messaging_port']]
                             used_ports[storagerouter] += ports
                             AlbaController._model_service(nsm_name, nsmservice_type, ports,
                                                           storagerouter, NSMService, backend, maxnumber)
                     for storagerouter in storagerouters:
-                        ArakoonInstaller.start(nsm_name, storagerouter.ip)
+                        client = SSHClient(storagerouter.ip, username='root')
+                        ArakoonInstaller.start(nsm_name, client)
                     AlbaController.register_nsm(abm_service.service.name, nsm_name, storagerouters[0].ip)
                     logger.debug('New NSM ({0}) added'.format(maxnumber))
                 else:
@@ -478,7 +476,7 @@ if Service.has_service('alba-maintenance_{0}') is True:
         nsm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(nsm_name)
         abm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(abm_name)
         if ArakoonInstaller.wait_for_cluster(nsm_name) and ArakoonInstaller.wait_for_cluster(abm_name):
-            client = SSHClient.load(ip)
+            client = SSHClient(ip)
             AlbaCLI.run('add-nsm-host', config=abm_config_file, extra_params=nsm_config_file, client=client)
 
     @staticmethod
@@ -486,7 +484,7 @@ if Service.has_service('alba-maintenance_{0}') is True:
         """
         Adds service to the model
         """
-        service = Service()
+        service = DalService()
         service.name = service_name
         service.type = service_type
         service.ports = ports
@@ -553,8 +551,9 @@ if Service.has_service('alba-maintenance_{0}') is True:
         """
         Creates and starts a maintenance service/process
         """
-        client = SSHClient.load(ip)
-        client.file_write('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name), json.dumps({
+        ovs_client = SSHClient(ip, username='ovs')
+        root_client = SSHClient(ip, username='root')
+        ovs_client.file_write('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name), json.dumps({
             'log_level': 'debug',
             'albamgr_cfg_file': '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)
         }))
@@ -562,31 +561,24 @@ if Service.has_service('alba-maintenance_{0}') is True:
         config_file_base = '/opt/OpenvStorage/config/templates/upstart/ovs-alba-maintenance'
         template_file_name = '{0}.conf'.format(config_file_base)
         backend_file_name = '{0}_{1}.conf'.format(config_file_base, abm_name)
-        if client.file_exists(template_file_name):
-            client.run('cp -f {0} {1}'.format(template_file_name, backend_file_name))
-        service_script = """
-from ovs.plugin.provider.service import Service
-Service.add_service(package=('openvstorage', 'volumedriver'), name='alba-maintenance_{0}', command=None, stop_command=None, params={1})
-Service.start_service('alba-maintenance_{0}')
-""".format(abm_name, params)
-        System.exec_remote_python(client, service_script)
-        if client.file_exists(backend_file_name):
-            client.run('rm -f {0}'.format(backend_file_name))
+        if ovs_client.file_exists(template_file_name):
+            ovs_client.run('cp -f {0} {1}'.format(template_file_name, backend_file_name))
+        PluginService.add_service(name='alba-maintenance_{0}'.format(abm_name), params=params, client=root_client)
+        PluginService.start_service('alba-maintenance_{0}'.format(abm_name), root_client)
+
+        if ovs_client.file_exists(backend_file_name):
+            ovs_client.file_delete(backend_file_name)
 
     @staticmethod
     def _remove_maintenance_service(ip, abm_name):
         """
         Stops and removes the maintenance service/process
         """
-        client = SSHClient.load(ip)
-        service_script = """
-from ovs.plugin.provider.service import Service
-if Service.has_service('alba-maintenance_{0}') is True:
-    Service.stop_service('alba-maintenance_{0}')
-    Service.remove_service('', 'alba-maintenance_{0}')
-""".format(abm_name)
-        System.exec_remote_python(client, service_script)
-        client.run('rm -rf {0}'.format('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)))
+        client = SSHClient(ip)
+        if PluginService.has_service('alba-maintenance_{0}'.format(abm_name), client=client) is True:
+            PluginService.stop_service('alba-maintenance_{0}'.format(abm_name), client=client)
+            PluginService.remove_service('alba-maintenance_{0}'.format(abm_name), client=client)
+        client.file_delete('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name))
 
 if __name__ == '__main__':
     try:
