@@ -172,8 +172,9 @@ class AlbaController(object):
 
         # startup arakoon clusters
         for master in masters:
-            ArakoonInstaller.start(abm_name, master.ip)
-            ArakoonInstaller.start(nsm_name, master.ip)
+            client = SSHClient(master.ip, username='root')
+            ArakoonInstaller.start(abm_name, client)
+            ArakoonInstaller.start(nsm_name, client)
 
         AlbaController.register_nsm(abm_name, nsm_name, storagerouter.ip)
 
@@ -249,10 +250,10 @@ class AlbaController(object):
 
     @staticmethod
     def link_plugins(client, plugins, cluster_name):
-        data_dir = System.read_remote_config(client, 'ovs.core.db.arakoon.location')
+        data_dir = client.config_read('ovs.core.db.arakoon.location')
         for plugin in plugins:
             cmd = 'ln -s {0}/{3}.cmxs {1}/arakoon/{2}/'.format(AlbaController.ARAKOON_PLUGIN_DIR, data_dir, cluster_name, plugin)
-            System.run(cmd, client)
+            client.run(cmd)
 
     @staticmethod
     @add_hooks('setup', 'promote')
@@ -448,7 +449,8 @@ class AlbaController(object):
                             AlbaController._model_service(nsm_name, nsmservice_type, ports,
                                                           storagerouter, NSMService, backend, maxnumber)
                     for storagerouter in storagerouters:
-                        ArakoonInstaller.start(nsm_name, storagerouter.ip)
+                        client = SSHClient(storagerouter.ip, username='root')
+                        ArakoonInstaller.start(nsm_name, client)
                     AlbaController.register_nsm(abm_service.service.name, nsm_name, storagerouters[0].ip)
                     logger.debug('New NSM ({0}) added'.format(maxnumber))
                 else:
@@ -549,8 +551,9 @@ class AlbaController(object):
         """
         Creates and starts a maintenance service/process
         """
-        client = SSHClient(ip)
-        client.file_write('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name), json.dumps({
+        ovs_client = SSHClient(ip, username='ovs')
+        root_client = SSHClient(ip, username='root')
+        ovs_client.file_write('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name), json.dumps({
             'log_level': 'debug',
             'albamgr_cfg_file': '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)
         }))
@@ -558,13 +561,13 @@ class AlbaController(object):
         config_file_base = '/opt/OpenvStorage/config/templates/upstart/ovs-alba-maintenance'
         template_file_name = '{0}.conf'.format(config_file_base)
         backend_file_name = '{0}_{1}.conf'.format(config_file_base, abm_name)
-        if client.file_exists(template_file_name):
-            client.run('cp -f {0} {1}'.format(template_file_name, backend_file_name))
-        PluginService.add_service(name='alba-maintenance_{0}'.format(abm_name), params=params, client=client)
-        PluginService.start_service('alba-maintenance_{0}'.format(abm_name), client)
+        if ovs_client.file_exists(template_file_name):
+            ovs_client.run('cp -f {0} {1}'.format(template_file_name, backend_file_name))
+        PluginService.add_service(name='alba-maintenance_{0}'.format(abm_name), params=params, client=root_client)
+        PluginService.start_service('alba-maintenance_{0}'.format(abm_name), root_client)
 
-        if client.file_exists(backend_file_name):
-            client.file_delete(backend_file_name)
+        if ovs_client.file_exists(backend_file_name):
+            ovs_client.file_delete(backend_file_name)
 
     @staticmethod
     def _remove_maintenance_service(ip, abm_name):
