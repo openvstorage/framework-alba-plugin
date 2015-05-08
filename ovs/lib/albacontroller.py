@@ -551,7 +551,7 @@ class AlbaController(object):
         """
         Creates and starts a maintenance service/process
         """
-        ovs_client = SSHClient(ip, username='ovs')
+        ovs_client = SSHClient(ip)
         root_client = SSHClient(ip, username='root')
         ovs_client.file_write('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name), json.dumps({
             'log_level': 'debug',
