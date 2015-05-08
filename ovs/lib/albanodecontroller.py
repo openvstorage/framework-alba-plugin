@@ -195,7 +195,7 @@ class AlbaNodeController(object):
         else:
             raise RuntimeError('The model_local_albanode needs a cluster_ip or ip keyword argument')
         storagerouter = StorageRouterList.get_by_ip(node_ip)
-        client = SSHClient.load(node_ip)
+        client = SSHClient(node_ip)
         if client.file_exists(config_path):
             config = json.loads(client.file_read(config_path))
             node = AlbaNodeList.get_albanode_by_ip(node_ip)
