@@ -574,7 +574,7 @@ class AlbaController(object):
         """
         Stops and removes the maintenance service/process
         """
-        client = SSHClient(ip)
+        client = SSHClient(ip, username='root')
         if PluginService.has_service('alba-maintenance_{0}'.format(abm_name), client=client) is True:
             PluginService.stop_service('alba-maintenance_{0}'.format(abm_name), client=client)
             PluginService.remove_service('alba-maintenance_{0}'.format(abm_name), client=client)
