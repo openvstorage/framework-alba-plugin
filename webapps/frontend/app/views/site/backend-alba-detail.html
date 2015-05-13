@@ -73,8 +73,8 @@ All rights reserved
                                 <td style="width: 15%;"><span data-bind="text: readIOps"></span></td>
                             </tr>
                             <tr style="height: 1px;">
-                                <td style="width: 15%;" data-i18n="alba:generic.nrofdevices"></td>
-                                <td style="width: 20%; padding-bottom: 2px;">
+                                <td style="width: 15%; vertical-align: top;" data-i18n="alba:generic.nrofdevices"></td>
+                                <td style="width: 20%; padding-bottom: 2px; vertical-align: top;">
                                     <span class="label label-success pointer"
                                           data-bind="tooltip: 'alba:generic.states.osdinfo.claimed',
                                                      text: $root.ASDStates().claimed"></span>&nbsp;
@@ -84,27 +84,6 @@ All rights reserved
                                     <span class="label label-danger pointer"
                                           data-bind="tooltip: 'alba:generic.states.osdinfo.error',
                                                      text: $root.ASDStates().failure"></span>
-                                </td>
-                                <td></td>
-                                <td></td>
-                            </tr>
-                            <tr style="height: 1px;">
-                                <td style="width: 15%; vertical-align: top;">
-                                    <span data-i18n="alba:generic.policies"></span>
-                                    <a data-bind="popover: {
-                                                      title: 'alba:policies.helptitle',
-                                                      content: 'alba:policies.helpcontent'
-                                                  }" class="hand fa noline" data-i18n="[html]ovs:icons.help" role="button" tabindex="-1">
-                                    </a>
-                                </td>
-                                <td>
-                                    <ol data-bind="foreach: enhancedPolicies()" style="padding-left: 22px;">
-                                        <li>
-                                            <span data-bind="text: $data.text, style: { color: $data.color }" style="padding-right: 5px;"></span>
-                                            <span data-bind="if: $data.inUse"><i class="fa" data-i18n="[html]alba:icons.inuse"></i></span>
-                                            <span data-bind="if: !$data.inUse"><i class="fa" data-i18n="[html]alba:icons.notinuse"></i></span>
-                                        </li>
-                                    </ol>
                                 </td>
                                 <td></td>
                                 <td></td>
@@ -121,10 +100,15 @@ All rights reserved
             <!-- /ko -->
         </div>
     </div>
-    <div data-bind="visible: albaBackend() !== undefined">
+    <div data-bind="if: albaBackend() !== undefined">
         <ul class="nav nav-tabs">
             <li class="active" data-bind="tooltip: 'alba:generic.nodes', visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
                 <a href="#nodes" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>
+            </li>
+            <li data-bind="tooltip: 'alba:generic.presets'">
+                <a href="#presets" data-toggle="tab">
+                    <span class="fa fa-flip-vertical hand" data-i18n="[html]alba:icons.presets"></span>
+                </a>
             </li>
             <li data-bind="tooltip: 'ovs:generic.licensing'">
                 <a href="#licensing" data-toggle="tab" class="fa" data-i18n="[html]ovs:icons.licensing"></a>
@@ -366,7 +350,7 @@ All rights reserved
                         <!-- /ko -->
                         <!-- ko if: rNodesLoading() || dNodesLoading()-->
                             <tr>
-                                <td colspan="3">
+                                <td colspan="4">
                                     <i class="fa fa-spin" data-i18n="[html]ovs:icons.loading"></i>
                                 </td>
                             </tr>
@@ -425,6 +409,88 @@ All rights reserved
                         </ul>
                     <!-- /ko -->
                 </div>
+            </div>
+            <div class="tab-pane" id="presets" style="padding: 15px;">
+                <h4 class="pull-left" data-i18n="alba:generic.presets"></h4>
+                <button class="btn btn-default pull-right" id="buttonAddPreset"
+                        data-bind="click: addPreset"
+                        style="margin-top: 5px; margin-bottom: 10px;">
+                    <span class="fa" data-i18n="[html]ovs:icons.add"></span>&nbsp;
+                    <span data-i18n="alba:generic.addpreset"></span>
+                </button>
+                <table class="table table-striped table-hover" style="clear: both;">
+                    <thead>
+                        <tr>
+                            <th style="width: 30px;">&nbsp;</th>
+                            <th style="width: 150px;" data-i18n="alba:presets.name"></th>
+                            <th style="width: 150px;" data-i18n="alba:presets.compression"></th>
+                            <th>
+                                <span data-i18n="alba:presets.policies.title"></span>
+                                <a data-bind="popover: {
+                                                  title: 'alba:presets.policies.helptitle',
+                                                  content: 'alba:presets.policies.helpcontent'
+                                              }" class="hand fa noline" data-i18n="[html]ovs:icons.help" role="button" tabindex="-1">
+                                </a>
+                            </th>
+                            <th style="width: 30px;">&nbsp;</th>
+                        </tr>
+                    </thead>
+                    <tbody data-bind="with: albaBackend()">
+                        <!-- ko if: loaded() != true -->
+                            <tr>
+                                <td colspan="5">
+                                    <i class="fa fa-spin" data-i18n="[html]ovs:icons.loading"></i>
+                                </td>
+                            </tr>
+                        <!-- /ko -->
+                        <!-- ko if: loaded() == true && enhancedPresets().length === 0 -->
+                            <tr>
+                                <td colspan="5">
+                                    <i data-i18n="ovs:generic.noentries"></i>
+                                </td>
+                            </tr>
+                        <!-- /ko -->
+                        <!-- ko foreach: enhancedPresets() -->
+                            <tr>
+                                <td>
+                                    <div data-bind="status: { colors: { }, defaultColor: color }" style="width: 14px; height: 14px;"></div>
+                                </td>
+                                <td data-bind="text: name"></td>
+                                <td data-bind="translate: 'alba:generic.compressions.' + compression"></td>
+                                <td>
+                                    <!-- ko foreach: policies -->
+                                        <span data-bind="text: text, style: {
+                                                             color: color,
+                                                             'font-weight': isActive ? 'bold' : ''
+                                                         }"></span><span data-bind="if: $index() < ($parent.policies.length - 1)">,</span>
+                                    <!-- /ko -->
+                                </td>
+                                <td>
+                                    <i data-bind="click: function() { $root.removePreset(name); },
+                                                  style: { color: !inUse ? 'black' : 'lightgrey' },
+                                                  tooltip: inUse ? 'alba:presets.cantdelete' : ''"
+                                       class="hand fa fa-fw" style="padding-top: 7px;" data-i18n="[html]ovs:icons.delete"></i>
+                                </td>
+                            </tr>
+                        <!-- /ko -->
+                    </tbody>
+                </table>
+                <div>
+                    <span class="pull-right">
+                        <span data-i18n="alba:presets.legend" style="margin-right: 10px;"></span>
+                        <span data-bind="status: { colors: { }, defaultColor: 'grey' }" style="width: 14px; height: 14px; display: inline-block;"></span>
+                        <span data-i18n="alba:presets.unavailable" style="margin-right: 10px;"></span>
+                        <span data-bind="status: { colors: { }, defaultColor: 'black' }" style="width: 14px; height: 14px; display: inline-block;"></span>
+                        <span data-i18n="alba:presets.available" style="margin-right: 10px;"></span>
+                        <span data-bind="status: { colors: { }, defaultColor: 'green' }" style="width: 14px; height: 14px; display: inline-block;"></span>
+                        <span data-i18n="alba:presets.inuse"></span>
+                    </span>
+                </div>
+                <div style="clear: both;"></div>
+                <div>
+                    <span class="pull-right"><span data-i18n="alba:presets.policyinfo"></span></span>
+                </div>
+
             </div>
         </div>
     </div>

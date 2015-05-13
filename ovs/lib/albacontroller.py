@@ -11,12 +11,9 @@ from tempfile import NamedTemporaryFile
 
 from ovs.celery_run import celery
 from celery.schedules import crontab
-from ovs.dal.hybrids.storagerouter import StorageRouter
-from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller, ArakoonClusterConfig
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.extensions.generic.sshclient import SSHClient
-from ovs.lib.setup import System
 from ovs.lib.helpers.decorators import ensure_single, add_hooks
 from ovs.log.logHandler import LogHandler
 from ovs.dal.hybrids.j_nsmservice import NSMService
@@ -109,6 +106,44 @@ class AlbaController(object):
         alba_backend = AlbaBackend(alba_backend_guid)
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
         return AlbaCLI.run('list-all-osds', config=config_file, as_json=True)
+
+    @staticmethod
+    @celery.task(name='alba.add_preset')
+    def add_preset(alba_backend_guid, name, compression, policies):
+        """
+        Adds a preset to Alba
+        """
+        alba_backend = AlbaBackend(alba_backend_guid)
+        if name in [preset['name'] for preset in alba_backend.presets]:
+            raise RuntimeError('Preset name {0} already exists'.format(name))
+        logger.debug('Adding preset {0} with compression {1} and policies {2}'.format(name, compression, policies))
+        preset = {'compression': compression,
+                  'object_checksum': {'default': ['crc-32c'], 'verify_upload': True, 'allowed': [['none'], ['sha-1'], ['crc-32c']]},
+                  'osds': ['all'],
+                  'fragment_encryption': ['none'],
+                  'fragment_size': 1048576,
+                  'policies': policies,
+                  'fragment_checksum': ['crc-32c'],
+                  'in_use': False,
+                  'name': name}
+        config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
+        with NamedTemporaryFile() as data_file:
+            data_file.write(json.dumps(preset))
+            data_file.flush()
+            AlbaCLI.run('create-preset', config=config_file, extra_params=[name, '<', data_file.name], as_json=True)
+            alba_backend.invalidate_dynamics()
+
+    @staticmethod
+    @celery.task(name='alba.delete_preset')
+    def delete_preset(alba_backend_guid, name):
+        """
+        Deletes a preset from the Alba backend
+        """
+        alba_backend = AlbaBackend(alba_backend_guid)
+        logger.debug('Deleting preset {0}'.format(name))
+        config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
+        AlbaCLI.run('delete-preset', config=config_file, extra_params=name, as_json=True)
+        alba_backend.invalidate_dynamics()
 
     @staticmethod
     @celery.task(name='alba.add_cluster')

@@ -273,3 +273,25 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         if len(albabackend.asds) == 0:
             actions.append('REMOVE')
         return Response(actions, status=status.HTTP_200_OK)
+
+    @action()
+    @log()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaBackend)
+    def add_preset(self, albabackend, name, compression, policies):
+        """
+        Adds a preset to a backend
+        """
+        return AlbaController.add_preset.delay(albabackend.guid, name, compression, policies)
+
+    @action()
+    @log()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaBackend)
+    def delete_preset(self, albabackend, name):
+        """
+        Deletes a preset
+        """
+        return AlbaController.delete_preset.delay(albabackend.guid, name)

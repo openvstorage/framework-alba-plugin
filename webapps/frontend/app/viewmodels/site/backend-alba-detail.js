@@ -2,11 +2,12 @@
 // All rights reserved
 /*global define */
 define([
-    'jquery', 'durandal/app', 'knockout', 'plugins/router',
+    'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/backend', '../containers/backendtype', '../containers/albabackend',
-    '../containers/albanode', '../containers/albaosd', '../containers/storagerouter', '../containers/vpool', '../containers/license'
-], function($, app, ko, router, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node, OSD, StorageRouter, VPool, License) {
+    '../containers/albanode', '../containers/albaosd', '../containers/storagerouter', '../containers/vpool',
+    '../containers/license', '../wizards/addpreset/index'
+], function($, app, ko, router, dialog, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node, OSD, StorageRouter, VPool, License, AddPresetWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -429,6 +430,48 @@ define([
                         }
                     });
             }).promise();
+        };
+        self.removePreset = function(name) {
+            return $.Deferred(function(deferred) {
+                app.showMessage(
+                    $.t('alba:presets.delete.warning', { what: name }),
+                    $.t('ovs:generic.areyousure'),
+                    [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
+                )
+                    .done(function(answer) {
+                        if (answer === $.t('ovs:generic.yes')) {
+                            generic.alertSuccess(
+                                $.t('alba:presets.delete.started'),
+                                $.t('alba:presets.delete.msgstarted')
+                            );
+                            api.post('alba/backends/' + self.albaBackend().guid() + '/delete_preset', { data: { name: name } })
+                                .then(self.shared.tasks.wait)
+                                .done(function() {
+                                    generic.alertSuccess(
+                                        $.t('alba:presets.delete.complete'),
+                                        $.t('alba:presets.delete.success')
+                                    );
+                                    deferred.resolve();
+                                })
+                                .fail(function(error) {
+                                    generic.alertError(
+                                        $.t('ovs:generic.error'),
+                                        $.t('alba:presets.delete.failed', { why: error })
+                                    );
+                                    deferred.reject();
+                                });
+                        } else {
+                            deferred.reject();
+                        }
+                    });
+            }).promise();
+        };
+        self.addPreset = function() {
+            dialog.show(new AddPresetWizard({
+                modal: true,
+                backend: self.albaBackend(),
+                currentPresets: self.albaBackend().enhancedPresets()
+            }));
         };
 
         // Durandal
