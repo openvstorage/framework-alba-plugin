@@ -35,11 +35,13 @@ class AlbaNodeViewSet(viewsets.ViewSet):
             return AlbaNodeList.get_albanodes()
         else:
             nodes = {}
-            model_ips = [node.ip for node in AlbaNodeList.get_albanodes()]
+            model_box_ids = [node.box_id for node in AlbaNodeList.get_albanodes()]
+            found_box_ids = []
             for node_data in AlbaNodeController.discover.delay().get():
                 node = AlbaNode(data=node_data, volatile=True)
-                if node.ip not in model_ips:
+                if node.box_id not in model_box_ids and node.box_id not in found_box_ids:
                     nodes[node.guid] = node
+                    found_box_ids.append(node.box_id)
             node_list = DataObjectList(nodes.keys(), AlbaNode)
             node_list._objects = nodes
             return node_list
