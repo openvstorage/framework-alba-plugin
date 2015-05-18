@@ -70,32 +70,6 @@ class AlbaNodeController(object):
             return []
 
     @staticmethod
-    @celery.task(name='albanode.fetch_disks')
-    def fetch_disks(node_guid):
-        """
-        Return a node's disk information
-        """
-        node = AlbaNode(node_guid)
-        try:
-            return dict((disk['name'], disk) for disk in node.all_disks)
-        except:
-            return {}
-
-    @staticmethod
-    @celery.task(name='albanode.fetch_ips')
-    def fetch_ips(node_guid=None, ip=None, port=None):
-        """
-        Returns a list of all available ips on the node
-        """
-        if node_guid is not None:
-            node = AlbaNode(node_guid)
-        else:
-            node = AlbaNode()
-            node.ip = ip
-            node.port = port
-        return node.ips
-
-    @staticmethod
     @celery.task(name='albanode.register')
     def register(box_id, ip, port, username, password, asd_ips):
         """

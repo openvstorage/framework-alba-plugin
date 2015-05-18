@@ -78,36 +78,6 @@ class AlbaController(object):
                 raise
 
     @staticmethod
-    @celery.task(name='alba.list_discovered_osds')
-    def list_discovered_osds(alba_backend_guid):
-        """
-        list discovered osds on local alba manager
-        """
-        alba_backend = AlbaBackend(alba_backend_guid)
-        config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
-        return AlbaCLI.run('list-available-osds', config=config_file, as_json=True)
-
-    @staticmethod
-    @celery.task(name='alba.list_osds')
-    def list_registered_osds(alba_backend_guid):
-        """
-        list registered osds on local alba manager
-        """
-        alba_backend = AlbaBackend(alba_backend_guid)
-        config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
-        return AlbaCLI.run('list-osds', config=config_file, as_json=True)
-
-    @staticmethod
-    @celery.task(name='alba.list_occupied_osds')
-    def list_all_osds(alba_backend_guid):
-        """
-        list all osds
-        """
-        alba_backend = AlbaBackend(alba_backend_guid)
-        config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
-        return AlbaCLI.run('list-all-osds', config=config_file, as_json=True)
-
-    @staticmethod
     @celery.task(name='alba.add_preset')
     def add_preset(alba_backend_guid, name, compression, policies):
         """
