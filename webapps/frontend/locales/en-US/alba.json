@@ -135,7 +135,7 @@
     },
     "presets": {
         "name": "Name",
-        "cantdelete": "The preset is in use",
+        "cantdelete": "The preset is in use or is default",
         "compression": "Compression",
         "legend": "Preset/policy legend:",
         "inuse": "In use",

@@ -466,9 +466,9 @@ All rights reserved
                                     <!-- /ko -->
                                 </td>
                                 <td>
-                                    <i data-bind="click: function() { $root.removePreset(name); },
-                                                  style: { color: !inUse ? 'black' : 'lightgrey' },
-                                                  tooltip: inUse ? 'alba:presets.cantdelete' : ''"
+                                    <i data-bind="click: function() { if (!inUse && !isDefault) { $root.removePreset(name); } },
+                                                  style: { color: (!inUse && !isDefault) ? 'black' : 'lightgrey' },
+                                                  tooltip: (inUse || isDefault) ? 'alba:presets.cantdelete' : ''"
                                        class="hand fa fa-fw" style="padding-top: 7px;" data-i18n="[html]ovs:icons.delete"></i>
                                 </td>
                             </tr>

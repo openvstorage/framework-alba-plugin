@@ -63,10 +63,11 @@ define([
                 });
                 presets.push({
                     policies: policies,
-                    name: preset.name === 'default' ? 'Default' : preset.name,
+                    name: preset.name,
                     compression: preset.compression,
                     color: policyMapping[worstPolicy],
-                    inUse: preset.in_use
+                    inUse: preset.in_use,
+                    isDefault: preset.is_default
                 });
             });
             return presets;

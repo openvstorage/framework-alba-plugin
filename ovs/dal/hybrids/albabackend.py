@@ -214,6 +214,8 @@ class AlbaBackend(DataObject):
             preset_dict[preset['name']] = preset
             if 'in_use' not in preset:
                 preset['in_use'] = True
+            if 'is_default' not in preset:
+                preset['is_default'] = False
             preset['is_available'] = False
             preset['policies'] = [tuple(policy) for policy in preset['policies']]
             preset['policy_metadata'] = {}
