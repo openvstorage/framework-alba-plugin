@@ -300,7 +300,7 @@ class AlbaController(object):
         A node is being demoted
         """
         alba_backends = AlbaBackendList.get_albabackends()
-        client = SSHClient(cluster_ip)
+        client = SSHClient(cluster_ip, username='root')
         for alba_backend in alba_backends:
             # Remove the node from the ABM
             print 'Shrinking ABM for {0}'.format(alba_backend.backend.name)
