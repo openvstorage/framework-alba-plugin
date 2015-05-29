@@ -15,6 +15,7 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.log.logHandler import LogHandler
 from ovs.lib.albacontroller import AlbaController
+from ovs.lib.disk import DiskController
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.extensions.generic.sshclient import SSHClient
 
@@ -101,6 +102,7 @@ class AlbaNodeController(object):
         node = AlbaNode(node_guid)
         available_disks = dict((disk['name'], disk) for disk in node.all_disks)
         failures = {}
+        added_disks = []
         for disk in disks:
             logger.debug('Initializing disk {0} at node {1}'.format(disk, node.ip))
             if disk not in available_disks or available_disks[disk]['available'] is False:
@@ -110,6 +112,17 @@ class AlbaNodeController(object):
                 result = node.client.add_disk(disk)
                 if result['_success'] is False:
                     failures[disk] = result['_error']
+                else:
+                    added_disks.append(result)
+        if node.storagerouter is not None:
+            DiskController.sync_with_reality(node.storagerouter_guid)
+            for disk in node.storagerouter.disks:
+                if disk.path in [result['device'] for result in added_disks]:
+                    partition = disk.partitions[0]
+                    partition.usage = [{'type': 'backend',
+                                        'metadata': {'type': 'alba'},
+                                        'size': None}]
+                    partition.save()
         return failures
 
     @staticmethod
@@ -137,6 +150,8 @@ class AlbaNodeController(object):
         node.invalidate_dynamics()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
+        if node.storagerouter is not None:
+            DiskController.sync_with_reality(node.storagerouter_guid)
         return True
 
     @staticmethod
