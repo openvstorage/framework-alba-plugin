@@ -28,8 +28,8 @@ from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.servicelist import ServiceList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
-from ovs.plugin.provider.configuration import Configuration
-from ovs.plugin.provider.service import Service as PluginService
+from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.services.service import ServiceManager
 
 
 logger = LogHandler('lib', name='alba')
@@ -312,9 +312,9 @@ class AlbaController(object):
             service = abm_service.service
             print '* Shrink ABM cluster'
             ArakoonInstaller.shrink_cluster(master_ip, cluster_ip, service.name)
-            if PluginService.has_service('arakoon-{0}'.format(service.name), client=client) is True:
-                PluginService.stop_service('arakoon-{0}'.format(service.name), client=client)
-                PluginService.remove_service('arakoon-{0}'.format(service.name), client=client)
+            if ServiceManager.has_service('arakoon-{0}'.format(service.name), client=client) is True:
+                ServiceManager.stop_service('arakoon-{0}'.format(service.name), client=client)
+                ServiceManager.remove_service('arakoon-{0}'.format(service.name), client=client)
 
             print '* Restarting ABM'
             ArakoonInstaller.restart_cluster_remove(service.name, storagerouter_ips)
@@ -324,9 +324,9 @@ class AlbaController(object):
 
             # Stop and delete the ALBA maintenance service on this node
             print 'Removing ALBA maintenance service for {0}'.format(alba_backend.backend.name)
-            if PluginService.has_service('alba-maintenance_{0}'.format(service.name), client=client) is True:
-                PluginService.stop_service('alba-maintenance_{0}'.format(service.name), client=client)
-                PluginService.remove_service('alba-maintenance_{0}'.format(service.name), client=client)
+            if ServiceManager.has_service('alba-maintenance_{0}'.format(service.name), client=client) is True:
+                ServiceManager.stop_service('alba-maintenance_{0}'.format(service.name), client=client)
+                ServiceManager.remove_service('alba-maintenance_{0}'.format(service.name), client=client)
 
     @staticmethod
     @celery.task(name='alba.nsm_checkup', bind=True, schedule=crontab(minute='30', hour='0'))
@@ -562,14 +562,14 @@ class AlbaController(object):
             'log_level': 'debug',
             'albamgr_cfg_file': '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)
         }))
-        params = {'<ALBA_CONFIG>': '{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)}
+        params = {'ALBA_CONFIG': '{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)}
         config_file_base = '/opt/OpenvStorage/config/templates/upstart/ovs-alba-maintenance'
         template_file_name = '{0}.conf'.format(config_file_base)
         backend_file_name = '{0}_{1}.conf'.format(config_file_base, abm_name)
         if ovs_client.file_exists(template_file_name):
             ovs_client.run('cp -f {0} {1}'.format(template_file_name, backend_file_name))
-        PluginService.add_service(name='alba-maintenance_{0}'.format(abm_name), params=params, client=root_client)
-        PluginService.start_service('alba-maintenance_{0}'.format(abm_name), root_client)
+        ServiceManager.add_service(name='alba-maintenance_{0}'.format(abm_name), params=params, client=root_client)
+        ServiceManager.start_service('alba-maintenance_{0}'.format(abm_name), root_client)
 
         if ovs_client.file_exists(backend_file_name):
             ovs_client.file_delete(backend_file_name)
@@ -580,9 +580,9 @@ class AlbaController(object):
         Stops and removes the maintenance service/process
         """
         client = SSHClient(ip, username='root')
-        if PluginService.has_service('alba-maintenance_{0}'.format(abm_name), client=client) is True:
-            PluginService.stop_service('alba-maintenance_{0}'.format(abm_name), client=client)
-            PluginService.remove_service('alba-maintenance_{0}'.format(abm_name), client=client)
+        if ServiceManager.has_service('alba-maintenance_{0}'.format(abm_name), client=client) is True:
+            ServiceManager.stop_service('alba-maintenance_{0}'.format(abm_name), client=client)
+            ServiceManager.remove_service('alba-maintenance_{0}'.format(abm_name), client=client)
         client.file_delete('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name))
 
 if __name__ == '__main__':
