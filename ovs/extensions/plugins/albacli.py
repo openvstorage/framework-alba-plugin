@@ -22,7 +22,7 @@ from subprocess import check_output, CalledProcessError
 class AlbaCLI(object):
 
     @staticmethod
-    def run(command, config=None, host=None, long_id=None, asd_port=None, box_id=None, extra_params=None, as_json=False, debug=False, client=None, raise_on_failure=True):
+    def run(command, config=None, host=None, long_id=None, asd_port=None, box_id=None, extra_params=None, as_json=False, debug=True, client=None, raise_on_failure=True):
         """
         Executes a command on ALBA
         """

@@ -52,7 +52,7 @@ class AlbaController(object):
         alba_backend = AlbaBackend(alba_backend_guid)
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
         for asd_id, node_guid in asds.iteritems():
-            AlbaCLI.run('claim-osd', config=config_file, long_id=asd_id, as_json=True, debug=True)
+            AlbaCLI.run('claim-osd', config=config_file, long_id=asd_id, as_json=True)
             asd = AlbaASD()
             asd.asd_id = asd_id
             asd.alba_node = AlbaNode(node_guid)
