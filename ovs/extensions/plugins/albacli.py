@@ -17,6 +17,9 @@ Generic ALBA CLI module
 """
 import json
 from subprocess import check_output, CalledProcessError
+from ovs.log.logHandler import LogHandler
+
+logger = LogHandler('extensions', name='albacli')
 
 
 class AlbaCLI(object):
@@ -49,7 +52,7 @@ class AlbaCLI(object):
         if debug is False:
             cmd += ' 2> /dev/null'
         else:
-            print '-- running command: {0}'.format(cmd)
+            logger.debug('Running command: {0}'.format(cmd))
         if client is None:
             try:
                 output = check_output(cmd, shell=True).strip()
@@ -58,8 +61,7 @@ class AlbaCLI(object):
         else:
             output = client.run(cmd).strip()
         if debug is True:
-            print '-- output: {0}'.format(output)
-            print '--'
+            logger.debug('Output: {0}'.format(output))
         if as_json is True:
             output = json.loads(output)
             if output['success'] is True:
