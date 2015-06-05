@@ -472,8 +472,9 @@ class AlbaController(object):
         if service_capacity == 0:
             return float('inf')
         filename = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(nsm_service.alba_backend.abm_services[0].service.name)
-        namespaces = AlbaCLI.run('list-namespaces', config=filename, as_json=True)
-        usage = len([ns for ns in namespaces if ns['nsm_host_id'] == nsm_service.service.name])
+        hosts_data = AlbaCLI.run('list-nsm-hosts', config=filename, as_json=True)
+        host = [host for host in hosts_data if host['id'] == nsm_service.service.name][0]
+        usage = host['namespaces_count']
         return round(usage / service_capacity * 100.0, 5)
 
     @staticmethod
