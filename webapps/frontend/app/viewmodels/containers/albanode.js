@@ -4,8 +4,8 @@
 define([
     'jquery', 'knockout', 'durandal/app', 'plugins/dialog',
     'ovs/generic', 'ovs/api', 'ovs/shared',
-    '../containers/albaosd', '../wizards/addalbanode/index'
-], function($, ko, app, dialog, generic, api, shared, OSD, AddAlbaNodeWizard) {
+    '../containers/albaosd', '../wizards/addalbanode/index', '../wizards/removeosd/index'
+], function($, ko, app, dialog, generic, api, shared, OSD, AddAlbaNodeWizard, RemoveOSDWizard) {
     "use strict";
     return function(boxID, parent) {
         var self = this;
@@ -140,45 +140,13 @@ define([
                     });
             }).promise();
         };
-        self.removeOSD = function(disk) {
-            return $.Deferred(function(deferred) {
-                app.showMessage(
-                    $.t('alba:disks.remove.warning', { what: '<ul><li>' + disk + '</li></ul>', info: '' }).trim(),
-                    $.t('ovs:generic.areyousure'),
-                    [$.t('ovs:generic.no'), $.t('ovs:generic.yes')]
-                )
-                    .done(function(answer) {
-                        if (answer === $.t('ovs:generic.yes')) {
-                            generic.alertSuccess(
-                                $.t('alba:disks.remove.started'),
-                                $.t('alba:disks.remove.msgstarted')
-                            );
-                            api.post('alba/nodes/' + self.guid() + '/remove_disk', {
-                                data: {
-                                    disk: disk,
-                                    alba_backend_guid: self.parent.albaBackend().guid()
-                                }
-                            })
-                                .then(self.shared.tasks.wait)
-                                .done(function() {
-                                    generic.alertSuccess(
-                                        $.t('alba:disks.remove.complete'),
-                                        $.t('alba:disks.remove.success')
-                                    );
-                                    deferred.resolve();
-                                })
-                                .fail(function(error) {
-                                    generic.alertError(
-                                        $.t('ovs:generic.error'),
-                                        $.t('alba:disks.remove.failed', { why: error })
-                                    );
-                                    deferred.reject();
-                                });
-                        } else {
-                            deferred.reject();
-                        }
-                    });
-            }).promise();
+        self.removeOSD = function(osd) {
+            dialog.show(new RemoveOSDWizard({
+                modal: true,
+                albaOSD: osd,
+                albaNode: self,
+                albaBackend: self.parent.albaBackend()
+            }));
         };
         self.claimOSD = self.parent.claimOSD;
         self.initializeAll = function() {

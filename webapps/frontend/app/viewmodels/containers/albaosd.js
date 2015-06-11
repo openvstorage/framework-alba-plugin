@@ -70,14 +70,7 @@ define([
         };
         self.remove = function() {
             self.processing(true);
-            self.node.removeOSD(self.name())
-                .done(function() {
-                    self.ignoreNext(true);
-                    self.status('uninitialized');
-                })
-                .always(function() {
-                    self.processing(false);
-                });
+            self.node.removeOSD(self);
         };
         self.claim = function() {
             var osds = {};

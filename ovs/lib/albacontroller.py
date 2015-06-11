@@ -462,6 +462,33 @@ class AlbaController(object):
                     logger.debug('NSM load OK')
 
     @staticmethod
+    @celery.task(name='alba.calculate_safety')
+    def calculate_safety(alba_backend_guid, removal_asd_ids):
+        """
+        Calculates/loads the safety when a certain set of disks are removed
+        """
+        alba_backend = AlbaBackend(alba_backend_guid)
+        error_disks = [disk['asd_id'] for disk in alba_backend.all_disks if 'asd_id' in disk and 'status' in disk and disk['status'] == 'error']
+        extra_parameters = ['--include-decommissioning-as-dead']
+        for asd in alba_backend.asds:
+            if asd.asd_id in removal_asd_ids or asd.asd_id in error_disks:
+                extra_parameters.append('--long-id {0}'.format(asd.asd_id))
+        config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
+        safety_data = AlbaCLI.run('get-disk-safety', config=config_file, extra_params=extra_parameters, as_json=True)
+        result = {'good': 0,
+                  'critical': 0,
+                  'lost': 0}
+        for namespace in safety_data:
+            safety = namespace['safety']
+            if safety is None or safety > 0:
+                result['good'] += 1
+            elif safety == 0:
+                result['critical'] += 1
+            else:
+                result['lost'] += 1
+        return result
+
+    @staticmethod
     def get_load(nsm_service):
         """
         Calculates the load of an NSM node, returning a float percentage

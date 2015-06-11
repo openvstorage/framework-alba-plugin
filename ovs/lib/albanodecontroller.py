@@ -127,7 +127,7 @@ class AlbaNodeController(object):
 
     @staticmethod
     @celery.task(name='albanode.remove_disk')
-    def remove_disk(alba_backend_guid, node_guid, disk):
+    def remove_disk(alba_backend_guid, node_guid, disk, expected_safety):
         """
         Removes a disk
         """
@@ -140,6 +140,11 @@ class AlbaNodeController(object):
             raise RuntimeError('Could not find disk')
         asds = [asd for asd in alba_backend.asds if asd.asd_id == disks[disk]['asd_id']]
         asd = asds[0] if len(asds) == 1 else None
+        final_safety = AlbaController.calculate_safety(alba_backend_guid, [disks[disk]['asd_id']])
+        if (final_safety['critical'] != 0 or final_safety['lost'] != 0) and (final_safety['critical'] != expected_safety['critical'] or final_safety['lost'] != expected_safety['lost']):
+            raise RuntimeError('Cannot remove disk {0} as the current safety is not as expected ({1} vs {2})'.format(
+                disk, final_safety, expected_safety
+            ))
         AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']], absorb_exception=True)
         result = node.client.remove_disk(disk)
         if result['_success'] is False:

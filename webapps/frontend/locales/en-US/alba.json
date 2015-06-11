@@ -114,7 +114,7 @@
         }
     },
     "detail": {
-        "title": "Alternate Backend",
+        "title": "Open vStorage Backend",
         "delete": {
             "warning": "You are about to delete this Backend, are you sure?",
             "started": "Deleting",
@@ -266,6 +266,17 @@
                 "complete": "Preset created",
                 "success": "The preset was create successful",
                 "failed": "Error during preset creation: __why__"
+            }
+        },
+        "removeosd": {
+            "title": "Remove ASD",
+            "gather": {
+                "warning": "Are you sure you want to remove the following disk?",
+                "alert": "Attention:",
+                "critical": "The removal of this disk brings data on this backend at risk. Loosing one more disk will cause data loss.",
+                "lost": "The removal of this disk will cause data loss.",
+                "accepttext": "I understand the risks, this disk can be removed.",
+                "loading": "Disk safety is being loaded."
             }
         }
     }
