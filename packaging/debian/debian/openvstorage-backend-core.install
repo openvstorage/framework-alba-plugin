@@ -1,3 +1,2 @@
 ovs                                                 opt/OpenvStorage
-config/alba.cfg                                     opt/OpenvStorage/config
 config/templates/upstart/ovs-alba-maintenance.conf  opt/OpenvStorage/config/templates/upstart
