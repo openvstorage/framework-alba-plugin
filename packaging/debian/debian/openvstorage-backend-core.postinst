@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Update ownership
+TARGET=/opt/OpenvStorage/ovs/
+chown -R ovs:ovs ${TARGET}
+
+python -c """
+import json
+config_filename = '/opt/OpenvStorage/config/ovs.json'
+with open(config_filename, 'r') as config_file:
+    contents = json.loads(config_file.read())
+contents['alba'] = {'nsm': {'safety': 3,
+                            'maxload': 75}}
+with open(config_filename, 'w') as config_file:
+    config_file.write(json.dumps(contents, indent=4))
+"""
