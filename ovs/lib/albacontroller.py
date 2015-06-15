@@ -255,8 +255,7 @@ class AlbaController(object):
 
     @staticmethod
     def link_plugins(client, plugins, cluster_name):
-        configuration = Configuration(client)
-        data_dir = configuration.arakoon.location
+        data_dir = client.config_read('ovs.arakoon.location')
         for plugin in plugins:
             cmd = 'ln -s {0}/{3}.cmxs {1}/arakoon/{2}/'.format(AlbaController.ARAKOON_PLUGIN_DIR, data_dir, cluster_name, plugin)
             client.run(cmd)
@@ -340,8 +339,8 @@ class AlbaController(object):
         * When adding an NSM, the nodes with the least amount of NSM participation are preferred
         """
         nsmservice_type = ServiceTypeList.get_by_name('NamespaceManager')
-        safety = Configuration.alba.nsm.safety
-        maxload = Configuration.alba.nsm.maxload
+        safety = Configuration.get('alba.nsm.safety')
+        maxload = Configuration.get('alba.nsm.maxload')
         used_ports = {}
         for service in ServiceList.get_services():
             if service.storagerouter not in used_ports:
