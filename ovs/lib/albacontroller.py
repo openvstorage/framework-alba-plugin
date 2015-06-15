@@ -402,6 +402,7 @@ class AlbaController(object):
                         AlbaController._model_service(service_name, nsmservice_type, ports,
                                                       candidate_sr, NSMService, backend, current_nsm.number)
                         ArakoonInstaller.restart_cluster_add(service_name, [sr.ip for sr in current_srs], candidate_sr.ip)
+                        AlbaController.update_nsm(abm_service.service.name, service_name, candidate_sr.ip)
                         logger.debug('Node added')
 
                 # Check the cluster load
@@ -511,6 +512,14 @@ class AlbaController(object):
         if ArakoonInstaller.wait_for_cluster(nsm_name) and ArakoonInstaller.wait_for_cluster(abm_name):
             client = SSHClient(ip)
             AlbaCLI.run('add-nsm-host', config=abm_config_file, extra_params=nsm_config_file, client=client)
+
+    @staticmethod
+    def update_nsm(abm_name, nsm_name, ip):
+        nsm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(nsm_name)
+        abm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(abm_name)
+        if ArakoonInstaller.wait_for_cluster(nsm_name) and ArakoonInstaller.wait_for_cluster(abm_name):
+            client = SSHClient(ip)
+            AlbaCLI.run('update-nsm-host', config=abm_config_file, extra_params=nsm_config_file, client=client)
 
     @staticmethod
     def _model_service(service_name, service_type, ports, storagerouter, junction_type, backend, number=None):
