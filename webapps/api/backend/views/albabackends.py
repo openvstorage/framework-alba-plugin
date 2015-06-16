@@ -136,3 +136,14 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         Deletes a preset
         """
         return AlbaController.delete_preset.delay(albabackend.guid, name)
+
+    @link()
+    @log()
+    @required_roles(['read'])
+    @return_task()
+    @load(AlbaBackend)
+    def calculate_safety(self, albabackend, asd_id):
+        """
+        Returns the safety resulting the removal of a given disk
+        """
+        return AlbaController.calculate_safety.delay(albabackend.guid, [asd_id])

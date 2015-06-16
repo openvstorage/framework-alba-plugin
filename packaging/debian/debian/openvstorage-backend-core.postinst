@@ -3,3 +3,8 @@
 # Update ownership
 TARGET=/opt/OpenvStorage/ovs/
 chown -R ovs:ovs ${TARGET}
+
+# Creating configuration file
+if [ ! -f /opt/OpenvStorage/config/alba.json ]; then
+  cp /opt/OpenvStorage/config/templates/alba.json /opt/OpenvStorage/config/alba.json
+fi
