@@ -42,7 +42,7 @@ class AlbaController(object):
     ABM_PLUGIN = 'albamgr_plugin'
     NSM_PLUGIN = 'nsm_host_plugin'
     ARAKOON_PLUGIN_DIR = '/usr/lib/alba'
-    ALBA_SERVICE_PREFIX = 'alba-maintenance_'
+    ALBA_MAINTENANCE_SERVICE_PREFIX = 'alba-maintenance_'
 
     @staticmethod
     @celery.task(name='alba.add_units')
@@ -325,7 +325,7 @@ class AlbaController(object):
 
             # Stop and delete the ALBA maintenance service on this node
             print 'Removing ALBA maintenance service for {0}'.format(alba_backend.backend.name)
-            service_name = '{0}{1}'.format(AlbaController.ALBA_SERVICE_PREFIX, service.name)
+            service_name = '{0}{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, service.name)
             if ServiceManager.has_service(service_name, client=client) is True:
                 ServiceManager.stop_service(service_name, client=client)
                 ServiceManager.remove_service(service_name, client=client)
@@ -596,22 +596,30 @@ class AlbaController(object):
         """
         Retrieve ALBA packages and services which ALBA depends upon
         """
-        services = ['{0}{1}-abm'.format(AlbaController.ALBA_SERVICE_PREFIX, albabackend.backend.name) for albabackend in AlbaBackendList.get_albabackends()]
-        alba_packages = ['openvstorage-backend-core', 'openvstorage-backend-webapps']
-        return_value = {'services': services,  # Order of services is order in which they are stopped and reverse order in which they're started again
-                        'packages': alba_packages}
+        alba_services = ['{0}{1}-abm'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, albabackend.backend.name) for albabackend in AlbaBackendList.get_albabackends()]
+        package_info = {'alba': {'packages': ['openvstorage-backend-core', 'openvstorage-backend-webapps'],
+                                 'services': alba_services}}
+        return_value = []
+        for package_group, packages in package_info.iteritems():
+            for package_name in packages['packages']:
+                installed = None
+                for line in check_output('apt-cache policy {0}'.format(package_name), shell=True).splitlines():
+                    line = line.strip()
+                    if line.startswith('Installed:'):
+                        installed = line.lstrip('Installed:').strip()
+                        break
 
-        for package_name in alba_packages:
-            installed = None
-            for line in check_output('apt-cache policy {0}'.format(package_name), shell=True).splitlines():
-                line = line.strip()
-                if line.startswith('Installed:'):
-                    installed = line.lstrip('Installed:').strip()
-                    break
+                if installed == '(none)':  # Package is not installed, but candidate is available
+                    services_to_stop = []
+                    packages_to_update = []
+                else:
+                    services_to_stop = packages['services']
+                    packages_to_update = packages['packages']
 
-            if installed == '(none)':  # Package is not installed, but candidate is available
-                return_value['packages'] = []
-                return_value['services'] = []
+                return_value.append({'name': package_group,
+                                     'services': services_to_stop,  # Order of services is order in which they are stopped and reverse order in which they're started again
+                                     'packages': packages_to_update})
+
         return return_value
 
     @staticmethod
@@ -631,7 +639,7 @@ class AlbaController(object):
         backend_file_name = '{0}_{1}.conf'.format(config_file_base, abm_name)
         if ovs_client.file_exists(template_file_name):
             ovs_client.run('cp -f {0} {1}'.format(template_file_name, backend_file_name))
-        service_name = '{0}{1}'.format(AlbaController.ALBA_SERVICE_PREFIX, abm_name)
+        service_name = '{0}{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, abm_name)
         ServiceManager.add_service(name=service_name, params=params, client=root_client)
         ServiceManager.start_service(service_name, root_client)
 
@@ -644,7 +652,7 @@ class AlbaController(object):
         Stops and removes the maintenance service/process
         """
         client = SSHClient(ip, username='root')
-        service_name = '{0}{1}'.format(AlbaController.ALBA_SERVICE_PREFIX, abm_name)
+        service_name = '{0}{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, abm_name)
         if ServiceManager.has_service(service_name, client=client) is True:
             ServiceManager.stop_service(service_name, client=client)
             ServiceManager.remove_service(service_name, client=client)
