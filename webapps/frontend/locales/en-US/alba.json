@@ -157,6 +157,10 @@
             "failed": "Could not delete this preset: __why__"
         }
     },
+    "packages": {
+        "alba": "OpenvStorage Backend",
+        "sdm": "Storage Device Manager"
+    },
     "disks" : {
         "initialize": {
             "started": "Started",

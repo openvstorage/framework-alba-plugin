@@ -601,24 +601,32 @@ class AlbaController(object):
                                  'services': alba_services}}
         return_value = []
         for package_group, packages in package_info.iteritems():
+            services_to_stop = []
+            packages_to_update = []
             for package_name in packages['packages']:
                 installed = None
+                candidate = None
                 for line in check_output('apt-cache policy {0}'.format(package_name), shell=True).splitlines():
                     line = line.strip()
                     if line.startswith('Installed:'):
                         installed = line.lstrip('Installed:').strip()
+                    elif line.startswith('Candidate:'):
+                        candidate = line.lstrip('Candidate:').strip()
                         break
 
                 if installed == '(none)':  # Package is not installed, but candidate is available
                     services_to_stop = []
                     packages_to_update = []
-                else:
+                    break
+
+                if installed != candidate:
                     services_to_stop = packages['services']
                     packages_to_update = packages['packages']
 
-                return_value.append({'name': package_group,
-                                     'services': services_to_stop,  # Order of services is order in which they are stopped and reverse order in which they're started again
-                                     'packages': packages_to_update})
+            return_value.append({'name': package_group,
+                                 'services': services_to_stop,  # Order of services is order in which they are stopped and reverse order in which they're started again
+                                 'packages': packages_to_update,
+                                 'namespace': package_group})
 
         return return_value
 
