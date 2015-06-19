@@ -1,2 +1,2 @@
-ovs                                                 opt/OpenvStorage
-config/templates                                    opt/OpenvStorage/config
+ovs               opt/OpenvStorage
+config/templates  opt/OpenvStorage/config
