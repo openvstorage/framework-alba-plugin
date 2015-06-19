@@ -260,8 +260,8 @@ class SourceCollector(object):
 
         # Building archive
         print '  Building archive'
-        SourceCollector.run(command="tar -czf {0}/openvstorage-backend_{1}.tar.gz --transform 's,^,openvstorage-backend-{1}/,' --exclude='*__init__.py' ovs webapps config *.txt".format(SourceCollector.package_path,
-                                                                                                                                                                                         version_string),
+        SourceCollector.run(command="tar -czf {0}/openvstorage-backend_{1}.tar.gz --transform 's,^,openvstorage-backend-{1}/,' --exclude='*__init__.py' ovs webapps config scripts/install *.txt".format(SourceCollector.package_path,
+                                                                                                                                                                                                         version_string),
                             working_directory=SourceCollector.repo_path_code)
         SourceCollector.run(command='rm -f CHANGELOG.txt',
                             working_directory=SourceCollector.repo_path_code)
