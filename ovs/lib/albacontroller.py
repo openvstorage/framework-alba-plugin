@@ -8,7 +8,7 @@ AlbaController module
 import time
 import json
 from tempfile import NamedTemporaryFile
-
+from subprocess import check_output
 from ovs.celery_run import celery
 from celery.schedules import crontab
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller, ArakoonClusterConfig
@@ -29,6 +29,7 @@ from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.servicelist import ServiceList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.services.service import ServiceManager
 
 
@@ -42,6 +43,7 @@ class AlbaController(object):
     ABM_PLUGIN = 'albamgr_plugin'
     NSM_PLUGIN = 'nsm_host_plugin'
     ARAKOON_PLUGIN_DIR = '/usr/lib/alba'
+    ALBA_MAINTENANCE_SERVICE_PREFIX = 'alba-maintenance_'
 
     @staticmethod
     @celery.task(name='alba.add_units')
@@ -324,9 +326,10 @@ class AlbaController(object):
 
             # Stop and delete the ALBA maintenance service on this node
             print 'Removing ALBA maintenance service for {0}'.format(alba_backend.backend.name)
-            if ServiceManager.has_service('alba-maintenance_{0}'.format(service.name), client=client) is True:
-                ServiceManager.stop_service('alba-maintenance_{0}'.format(service.name), client=client)
-                ServiceManager.remove_service('alba-maintenance_{0}'.format(service.name), client=client)
+            service_name = '{0}{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, service.name)
+            if ServiceManager.has_service(service_name, client=client) is True:
+                ServiceManager.stop_service(service_name, client=client)
+                ServiceManager.remove_service(service_name, client=client)
 
     @staticmethod
     @celery.task(name='alba.nsm_checkup', bind=True, schedule=crontab(minute='30', hour='0'))
@@ -589,6 +592,40 @@ class AlbaController(object):
             return success
 
     @staticmethod
+    @add_hooks('update', 'metadata')
+    def get_metadata():
+        """
+        Retrieve ALBA packages and services which ALBA depends upon
+        """
+        alba_services = ['{0}{1}-abm'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, albabackend.backend.name) for albabackend in AlbaBackendList.get_albabackends()]
+        package_info = {'alba': {'packages': ['openvstorage-backend-core', 'openvstorage-backend-webapps'],
+                                 'services': alba_services}}
+        return_value = []
+        for package_group, packages in package_info.iteritems():
+            services_to_stop = []
+            packages_to_update = []
+            for package_name in packages['packages']:
+                version_info = PackageManager.get_installed_and_candidate_version(package_name)
+                installed = version_info[0]
+                candidate = version_info[1]
+
+                if installed == '(none)':  # Package is not installed, but candidate is available
+                    services_to_stop = []
+                    packages_to_update = []
+                    break
+
+                if installed != candidate:
+                    services_to_stop = packages['services']
+                    packages_to_update = packages['packages']
+
+            return_value.append({'name': package_group,
+                                 'services': services_to_stop,  # Order of services is order in which they are stopped and reverse order in which they're started again
+                                 'packages': packages_to_update,
+                                 'namespace': package_group})
+
+        return return_value
+
+    @staticmethod
     def _setup_maintenance_service(ip, abm_name):
         """
         Creates and starts a maintenance service/process
@@ -605,8 +642,9 @@ class AlbaController(object):
         backend_file_name = '{0}_{1}.conf'.format(config_file_base, abm_name)
         if ovs_client.file_exists(template_file_name):
             ovs_client.run('cp -f {0} {1}'.format(template_file_name, backend_file_name))
-        ServiceManager.add_service(name='alba-maintenance_{0}'.format(abm_name), params=params, client=root_client)
-        ServiceManager.start_service('alba-maintenance_{0}'.format(abm_name), root_client)
+        service_name = '{0}{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, abm_name)
+        ServiceManager.add_service(name=service_name, params=params, client=root_client)
+        ServiceManager.start_service(service_name, root_client)
 
         if ovs_client.file_exists(backend_file_name):
             ovs_client.file_delete(backend_file_name)
@@ -617,9 +655,10 @@ class AlbaController(object):
         Stops and removes the maintenance service/process
         """
         client = SSHClient(ip, username='root')
-        if ServiceManager.has_service('alba-maintenance_{0}'.format(abm_name), client=client) is True:
-            ServiceManager.stop_service('alba-maintenance_{0}'.format(abm_name), client=client)
-            ServiceManager.remove_service('alba-maintenance_{0}'.format(abm_name), client=client)
+        service_name = '{0}{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, abm_name)
+        if ServiceManager.has_service(service_name, client=client) is True:
+            ServiceManager.stop_service(service_name, client=client)
+            ServiceManager.remove_service(service_name, client=client)
         client.file_delete('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name))
 
 if __name__ == '__main__':

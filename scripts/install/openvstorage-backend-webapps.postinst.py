@@ -16,7 +16,6 @@
 # Register the Alba plugin in the Open vStorage configuration file
 import sys
 import json
-from ovs.extensions.generic.plugins import PluginManager
 
 config_filename = '/opt/OpenvStorage/config/ovs.json'
 with open(config_filename, 'r') as config_file:
@@ -27,5 +26,7 @@ if 'alba' not in contents['plugins']['backends']:
         config_file.write(json.dumps(contents, indent=4))
 
 # (Re)load plugins to make the Alba plugin available
-if sys.argv[2] == 'install':
+if len(sys.argv) == 3 and sys.argv[2] == 'configure':  # If more options are specified, its an upgrade
+    sys.path.append('/opt/OpenvStorage')
+    from ovs.extensions.generic.plugins import PluginManager
     PluginManager.install_plugins()
