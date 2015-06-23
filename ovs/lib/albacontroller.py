@@ -29,6 +29,7 @@ from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.servicelist import ServiceList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.services.service import ServiceManager
 
 
@@ -604,15 +605,9 @@ class AlbaController(object):
             services_to_stop = []
             packages_to_update = []
             for package_name in packages['packages']:
-                installed = None
-                candidate = None
-                for line in check_output('apt-cache policy {0}'.format(package_name), shell=True).splitlines():
-                    line = line.strip()
-                    if line.startswith('Installed:'):
-                        installed = line.lstrip('Installed:').strip()
-                    elif line.startswith('Candidate:'):
-                        candidate = line.lstrip('Candidate:').strip()
-                        break
+                version_info = PackageManager.get_installed_and_candidate_version(package_name)
+                installed = version_info[0]
+                candidate = version_info[1]
 
                 if installed == '(none)':  # Package is not installed, but candidate is available
                     services_to_stop = []
