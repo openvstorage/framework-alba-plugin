@@ -46,7 +46,7 @@ class DebianPackager(object):
         if os.path.exists(debian_folder):
             shutil.rmtree(debian_folder)
         # /<rp>/packaging/debian -> /<pp>/debian
-        shutil.copytree('/tmp/repo_openvstorage_code/packaging/debian', debian_folder)
+        shutil.copytree('/tmp/repo_openvstorage-alba_code/packaging/debian', debian_folder)
 
         # Rename tgz
         # /<pp>/openvstorage_1.2.3.tar.gz -> /<pp>/debian/openvstorage_1.2.3.orig.tar.gz
