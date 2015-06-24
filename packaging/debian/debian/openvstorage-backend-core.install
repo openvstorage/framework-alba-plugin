@@ -1,0 +1,3 @@
+ovs                                                    opt/OpenvStorage
+config/templates                                       opt/OpenvStorage/config
+scripts/install/openvstorage-backend-core.postinst.py  opt/OpenvStorage/scripts/install

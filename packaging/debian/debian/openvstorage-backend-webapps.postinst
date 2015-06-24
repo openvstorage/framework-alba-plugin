@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo "$@" > /tmp/testfile
+python /opt/OpenvStorage/scripts/install/openvstorage-backend-webapps.postinst.py "__NEW_VERSION__" "$@"
