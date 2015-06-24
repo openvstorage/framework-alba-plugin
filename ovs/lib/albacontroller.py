@@ -33,7 +33,7 @@ from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.services.service import ServiceManager
 
 
-logger = LogHandler('lib', name='alba')
+logger = LogHandler.get('lib', name='alba')
 
 
 class AlbaController(object):

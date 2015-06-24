@@ -19,7 +19,7 @@ import json
 from subprocess import check_output, CalledProcessError
 from ovs.log.logHandler import LogHandler
 
-logger = LogHandler('extensions', name='albacli')
+logger = LogHandler.get('extensions', name='albacli')
 
 
 class AlbaCLI(object):

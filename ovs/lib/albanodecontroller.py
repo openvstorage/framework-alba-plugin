@@ -19,7 +19,7 @@ from ovs.lib.disk import DiskController
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.extensions.generic.sshclient import SSHClient
 
-logger = LogHandler('lib', name='albanode')
+logger = LogHandler.get('lib', name='albanode')
 
 
 class AlbaNodeController(object):
