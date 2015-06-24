@@ -29,6 +29,7 @@ define([
         self.albaBackend     = ko.observable();
         self.albaBackendGuid = ko.observable();
         self.parentABGuid    = ko.observable(albaBackendGuid);
+        self.highlighted     = ko.observable(false);
 
         // Computed
         self.isLocal = ko.computed(function() {
@@ -69,14 +70,7 @@ define([
         };
         self.remove = function() {
             self.processing(true);
-            self.node.removeOSD(self.name())
-                .done(function() {
-                    self.ignoreNext(true);
-                    self.status('uninitialized');
-                })
-                .always(function() {
-                    self.processing(false);
-                });
+            self.node.removeOSD(self);
         };
         self.claim = function() {
             var osds = {};

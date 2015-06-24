@@ -24,9 +24,9 @@ class AlbaBackend(DataObject):
                   Dynamic('statistics', dict, 5),
                   Dynamic('license_info', dict, 5),
                   Dynamic('ns_statistics', dict, 60),
-                  Dynamic('policies', list, 60),
-                  Dynamic('safety', dict, 60),
-                  Dynamic('available', bool, 60)]
+                  Dynamic('presets', list, 60),
+                  Dynamic('available', bool, 60),
+                  Dynamic('name', str, 3600)]
 
     def _all_disks(self):
         """
@@ -196,31 +196,41 @@ class AlbaBackend(DataObject):
             dataset['unknown']['logical'] += alba_dataset[namespace]['logical']
         return dataset
 
-    def _policies(self):
+    def _presets(self):
         """
         Returns the policies active on the node
         """
+        all_disks = self.all_disks
+        disks = {}
+        for node in AlbaNodeList.get_albanodes():
+            disks[node.box_id] = 0
+            for disk in all_disks:
+                if disk['box_id'] == node.box_id and disk['status'] in ['claimed', 'warning']:
+                    disks[node.box_id] += 1
         config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(self.backend.name)
         presets = AlbaCLI.run('list-presets', config=config_file, as_json=True)
+        preset_dict = {}
         for preset in presets:
-            # Currently, we assume there's only one preset active for all OSDs and namespaces
-            if 'is_default' in preset and preset['is_default'] is True:
-                return preset['policies']
-        raise RuntimeError('Unexpected number of (default) policies found')
-
-    def _safety(self):
-        """
-        Calculates the safety of the backend
-        """
-        safety = {'active_policy': None,
-                  'rw_policies': [],
-                  'ro_policies': [],
-                  'used_policies': [],
-                  'state': 'ro',
-                  'removal_impact': {}}
-        all_disks = self.all_disks
-        policies = self.policies
-        config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(self.backend.name)
+            preset_dict[preset['name']] = preset
+            if 'in_use' not in preset:
+                preset['in_use'] = True
+            if 'is_default' not in preset:
+                preset['is_default'] = False
+            preset['is_available'] = False
+            preset['policies'] = [tuple(policy) for policy in preset['policies']]
+            preset['policy_metadata'] = {}
+            active_policy = None
+            for policy in preset['policies']:
+                is_available = False
+                available_disks = sum(min(disks[node], policy[2]) for node in disks)
+                if available_disks >= policy[0] + policy[1]:
+                    if active_policy is None:
+                        active_policy = policy
+                    is_available = True
+                preset['policy_metadata'][policy] = {'is_active': False, 'in_use': False, 'is_available': is_available}
+                preset['is_available'] |= is_available
+            if active_policy is not None:
+                preset['policy_metadata'][active_policy]['is_active'] = True
         namespaces = AlbaCLI.run('list-namespaces', config=config_file, as_json=True)
         for namespace_data in namespaces:
             if namespace_data['state'] == 'active':
@@ -228,44 +238,25 @@ class AlbaBackend(DataObject):
                 try:
                     policy_usage = AlbaCLI.run('show-namespace', config=config_file, as_json=True, extra_params=namespace)['bucket_count']
                 except:
-                    # This might fail every now and then, e.g. on disk removal. Let's ignore for now.
                     continue
+                preset = preset_dict[namespace_data['preset_name']]
                 for usage in policy_usage:
-                    if usage[0] not in safety['used_policies']:
-                        safety['used_policies'].append(usage[0])
-        disks = {}
-        for node in AlbaNodeList.get_albanodes():
-            disks[node.box_id] = 0
-            for disk in all_disks:
-                if disk['box_id'] == node.box_id and disk['status'] in ['claimed', 'warning']:
-                    disks[node.box_id] += 1
-        for policy in policies:
-            min_disks = policy[0] + policy[1]
-            available_disks = sum(min(disks[node], policy[2]) for node in disks)
-            if available_disks >= min_disks:
-                if safety['active_policy'] is None:
-                    safety['active_policy'] = policy
-                    safety['state'] = 'rw'
-                safety['rw_policies'].append(policy)
-            elif available_disks == policy[0]:
-                safety['ro_policies'].append(policy)
-        for node in disks:
-            if node not in safety['removal_impact']:
-                safety['removal_impact'][node] = {'new_policy': None,
-                                                  'lost_policies': []}
-            temp_disks = copy.deepcopy(disks)
-            temp_disks[node] = max(0, temp_disks[node] - 1)
-            for policy in policies:
-                available_disks = sum(min(temp_disks[_node], policy[2]) for _node in temp_disks)
-                if available_disks >= policy[0] + policy[1]:
-                    if safety['removal_impact'][node]['new_policy'] is None:
-                        safety['removal_impact'][node]['new_policy'] = policy
-                elif policy in safety['used_policies'] and available_disks < policy[0]:
-                    safety['removal_impact'][node]['lost_policies'].append(policy)
-        return safety
+                    preset['policy_metadata'][tuple(usage[0])]['in_use'] = True
+        for preset in presets:
+            preset['policies'] = [str(policy) for policy in preset['policies']]
+            for key in preset['policy_metadata'].keys():
+                preset['policy_metadata'][str(key)] = preset['policy_metadata'][key]
+                del preset['policy_metadata'][key]
+        return presets
 
     def _available(self):
         """
         Returns True if the backend can be used
         """
-        return self.backend.status == 'RUNNING' and self.safety['state'] == 'rw'
+        return self.backend.status == 'RUNNING'
+
+    def _name(self):
+        """
+        Returns the backend's name
+        """
+        return self.backend.name

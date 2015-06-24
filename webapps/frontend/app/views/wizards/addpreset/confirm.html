@@ -1,0 +1,32 @@
+<!--
+Copyright 2014 CloudFounders NV
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<div>
+    <form role="form form-horizontal" class="form-horizontal">
+        <p data-i18n="alba:wizards.addpreset.confirm.basicinfo"></p>
+        <ul>
+            <li><b data-i18n="alba:wizards.addpreset.gather.name"></b>: <span data-bind="text: data.name"></span></li>
+            <li><b data-i18n="alba:wizards.addpreset.gather.compression"></b>: <span data-bind="translate: 'alba:generic.compressions.' + data.compression()"></span></li>
+            <li><b data-i18n="alba:wizards.addpreset.gather.policies"></b>: (<span data-bind="text: data.cleanPolicies().join('), (')"></span>)</li>
+        </ul>
+    </form>
+    <div class="alert alert-danger" data-bind="visible: !canContinue().value" style="margin-bottom: -10px;">
+        <p data-bind="visible: canContinue().reasons.length === 0"><span data-i18n="ovs:generic.errorsfound"></span></p>
+        <p data-bind="visible: canContinue().reasons.length > 0"><span data-i18n="ovs:generic.followingerrorsfound"></span></p>
+        <ul data-bind="visible: canContinue().reasons.length > 0, foreach: canContinue().reasons">
+            <li data-bind="text: $data"></li>
+        </ul>
+    </div>
+</div>

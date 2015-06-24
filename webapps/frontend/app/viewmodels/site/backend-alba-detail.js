@@ -2,11 +2,12 @@
 // All rights reserved
 /*global define */
 define([
-    'jquery', 'durandal/app', 'knockout',
+    'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/backend', '../containers/backendtype', '../containers/albabackend',
-    '../containers/albanode', '../containers/albaosd', '../containers/storagerouter', '../containers/vpool', '../containers/license'
-], function($, app, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node, OSD, StorageRouter, VPool, License) {
+    '../containers/albanode', '../containers/albaosd', '../containers/storagerouter', '../containers/vpool',
+    '../containers/license', '../wizards/addpreset/index'
+], function($, app, ko, router, dialog, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node, OSD, StorageRouter, VPool, License, AddPresetWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -34,6 +35,20 @@ define([
         self.otherAlbaBackendsCache = ko.observable({});
 
         // Computed
+        self.expanded = ko.computed({
+            write: function(value) {
+                $.each(self.registeredNodes(), function(index, node) {
+                    node.expanded(value)
+                });
+            },
+            read: function() {
+                var expanded = false;
+                $.each(self.registeredNodes(), function(index, node) {
+                    expanded |= node.expanded();  // Bitwise or, |= is correct.
+                });
+                return expanded;
+            }
+        });
         self.otherAlbaBackends = ko.computed(function() {
             var albaBackends = [], cache = self.otherAlbaBackendsCache(), counter = 0;
             $.each(cache, function(index, albaBackend) {
@@ -114,7 +129,11 @@ define([
                         }).promise();
                     })
                     .then(function(albaBackend) {
-                        return albaBackend.load();
+                        return albaBackend.load()
+                            .then(function(data) {
+                                albaBackend.getAvailableActions();
+                                return data;
+                            });
                     })
                     .done(deferred.resolve)
                     .fail(deferred.reject);
@@ -371,6 +390,88 @@ define([
                         }
                     });
             }).promise();
+        };
+        self.removeBackend = function() {
+            return $.Deferred(function(deferred) {
+                if (self.albaBackend() === undefined || !self.albaBackend().availableActions().contains('REMOVE')) {
+                    deferred.reject();
+                    return;
+                }
+                app.showMessage(
+                    $.t('alba:detail.delete.warning'),
+                    $.t('ovs:generic.areyousure'),
+                    [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
+                )
+                    .done(function(answer) {
+                        if (answer === $.t('ovs:generic.yes')) {
+                            generic.alertSuccess(
+                                $.t('alba:detail.delete.started'),
+                                $.t('alba:detail.delete.msgstarted')
+                            );
+                            router.navigate(self.shared.routing.loadHash('backends'));
+                            api.del('alba/backends/' + self.albaBackend().guid())
+                                .then(self.shared.tasks.wait)
+                                .done(function() {
+                                    generic.alertSuccess(
+                                        $.t('alba:detail.delete.complete'),
+                                        $.t('alba:detail.delete.success')
+                                    );
+                                    deferred.resolve();
+                                })
+                                .fail(function(error) {
+                                    generic.alertError(
+                                        $.t('ovs:generic.error'),
+                                        $.t('alba:detail.delete.failed', { why: error })
+                                    );
+                                    deferred.reject();
+                                });
+                        } else {
+                            deferred.reject();
+                        }
+                    });
+            }).promise();
+        };
+        self.removePreset = function(name) {
+            return $.Deferred(function(deferred) {
+                app.showMessage(
+                    $.t('alba:presets.delete.warning', { what: name }),
+                    $.t('ovs:generic.areyousure'),
+                    [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
+                )
+                    .done(function(answer) {
+                        if (answer === $.t('ovs:generic.yes')) {
+                            generic.alertSuccess(
+                                $.t('alba:presets.delete.started'),
+                                $.t('alba:presets.delete.msgstarted')
+                            );
+                            api.post('alba/backends/' + self.albaBackend().guid() + '/delete_preset', { data: { name: name } })
+                                .then(self.shared.tasks.wait)
+                                .done(function() {
+                                    generic.alertSuccess(
+                                        $.t('alba:presets.delete.complete'),
+                                        $.t('alba:presets.delete.success')
+                                    );
+                                    deferred.resolve();
+                                })
+                                .fail(function(error) {
+                                    generic.alertError(
+                                        $.t('ovs:generic.error'),
+                                        $.t('alba:presets.delete.failed', { why: error })
+                                    );
+                                    deferred.reject();
+                                });
+                        } else {
+                            deferred.reject();
+                        }
+                    });
+            }).promise();
+        };
+        self.addPreset = function() {
+            dialog.show(new AddPresetWizard({
+                modal: true,
+                backend: self.albaBackend(),
+                currentPresets: self.albaBackend().enhancedPresets()
+            }));
         };
 
         // Durandal

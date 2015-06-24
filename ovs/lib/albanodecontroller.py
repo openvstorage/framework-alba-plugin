@@ -15,6 +15,7 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.log.logHandler import LogHandler
 from ovs.lib.albacontroller import AlbaController
+from ovs.lib.disk import DiskController
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.extensions.generic.sshclient import SSHClient
 
@@ -70,32 +71,6 @@ class AlbaNodeController(object):
             return []
 
     @staticmethod
-    @celery.task(name='albanode.fetch_disks')
-    def fetch_disks(node_guid):
-        """
-        Return a node's disk information
-        """
-        node = AlbaNode(node_guid)
-        try:
-            return dict((disk['name'], disk) for disk in node.all_disks)
-        except:
-            return {}
-
-    @staticmethod
-    @celery.task(name='albanode.fetch_ips')
-    def fetch_ips(node_guid=None, ip=None, port=None):
-        """
-        Returns a list of all available ips on the node
-        """
-        if node_guid is not None:
-            node = AlbaNode(node_guid)
-        else:
-            node = AlbaNode()
-            node.ip = ip
-            node.port = port
-        return node.ips
-
-    @staticmethod
     @celery.task(name='albanode.register')
     def register(box_id, ip, port, username, password, asd_ips):
         """
@@ -126,21 +101,33 @@ class AlbaNodeController(object):
         """
         node = AlbaNode(node_guid)
         available_disks = dict((disk['name'], disk) for disk in node.all_disks)
-        failures = []
+        failures = {}
+        added_disks = []
         for disk in disks:
             logger.debug('Initializing disk {0} at node {1}'.format(disk, node.ip))
             if disk not in available_disks or available_disks[disk]['available'] is False:
                 logger.exception('Disk {0} not available on node {1}'.format(disk, node.ip))
-                failures.append(disk)
+                failures[disk] = 'Disk unavailable'
             else:
                 result = node.client.add_disk(disk)
                 if result['_success'] is False:
-                    failures.append(disk)
+                    failures[disk] = result['_error']
+                else:
+                    added_disks.append(result)
+        if node.storagerouter is not None:
+            DiskController.sync_with_reality(node.storagerouter_guid)
+            for disk in node.storagerouter.disks:
+                if disk.path in [result['device'] for result in added_disks]:
+                    partition = disk.partitions[0]
+                    partition.usage = [{'type': 'backend',
+                                        'metadata': {'type': 'alba'},
+                                        'size': None}]
+                    partition.save()
         return failures
 
     @staticmethod
     @celery.task(name='albanode.remove_disk')
-    def remove_disk(alba_backend_guid, node_guid, disk):
+    def remove_disk(alba_backend_guid, node_guid, disk, expected_safety):
         """
         Removes a disk
         """
@@ -153,6 +140,11 @@ class AlbaNodeController(object):
             raise RuntimeError('Could not find disk')
         asds = [asd for asd in alba_backend.asds if asd.asd_id == disks[disk]['asd_id']]
         asd = asds[0] if len(asds) == 1 else None
+        final_safety = AlbaController.calculate_safety(alba_backend_guid, [disks[disk]['asd_id']])
+        if (final_safety['critical'] != 0 or final_safety['lost'] != 0) and (final_safety['critical'] != expected_safety['critical'] or final_safety['lost'] != expected_safety['lost']):
+            raise RuntimeError('Cannot remove disk {0} as the current safety is not as expected ({1} vs {2})'.format(
+                disk, final_safety, expected_safety
+            ))
         AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']], absorb_exception=True)
         result = node.client.remove_disk(disk)
         if result['_success'] is False:
@@ -163,6 +155,8 @@ class AlbaNodeController(object):
         node.invalidate_dynamics()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
+        if node.storagerouter is not None:
+            DiskController.sync_with_reality(node.storagerouter_guid)
         return True
 
     @staticmethod
@@ -185,11 +179,17 @@ class AlbaNodeController(object):
 
     @staticmethod
     @add_hooks('setup', ['firstnode', 'extranode'])
+    @add_hooks('plugin', ['postinstall'])
     def model_local_albanode(**kwargs):
         config_path = '/opt/alba-asdmanager/config/config.json'
-        node_ip = kwargs['cluster_ip']
+        if 'cluster_ip' in kwargs:
+            node_ip = kwargs['cluster_ip']
+        elif 'ip' in kwargs:
+            node_ip = kwargs['ip']
+        else:
+            raise RuntimeError('The model_local_albanode needs a cluster_ip or ip keyword argument')
         storagerouter = StorageRouterList.get_by_ip(node_ip)
-        client = SSHClient.load(node_ip)
+        client = SSHClient(node_ip)
         if client.file_exists(config_path):
             config = json.loads(client.file_read(config_path))
             node = AlbaNodeList.get_albanode_by_ip(node_ip)

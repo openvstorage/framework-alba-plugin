@@ -4,8 +4,8 @@
 define([
     'jquery', 'knockout', 'durandal/app', 'plugins/dialog',
     'ovs/generic', 'ovs/api', 'ovs/shared',
-    '../containers/albaosd', '../wizards/addalbanode/index'
-], function($, ko, app, dialog, generic, api, shared, OSD, AddAlbaNodeWizard) {
+    '../containers/albaosd', '../wizards/addalbanode/index', '../wizards/removeosd/index'
+], function($, ko, app, dialog, generic, api, shared, OSD, AddAlbaNodeWizard, RemoveOSDWizard) {
     "use strict";
     return function(boxID, parent) {
         var self = this;
@@ -27,6 +27,7 @@ define([
         self.storageRouterGuid = ko.observable();
         self.disks             = ko.observableArray([]);
         self.ips               = ko.observableArray([]);
+        self.expanded          = ko.observable(true);
 
         // Computed
         self.diskRows         = ko.splitRows(3, self.disks);
@@ -62,6 +63,13 @@ define([
 
             self.loaded(true);
         };
+        self.highlight = function(status, highlight) {
+            $.each(self.disks(), function(index, disk) {
+                if (disk.status() === status && (!highlight || disk.processing() === false)) {
+                    disk.highlighted(highlight);
+                }
+            });
+        };
         self.register = function() {
             dialog.show(new AddAlbaNodeWizard({
                 modal: true,
@@ -79,8 +87,11 @@ define([
                 })
                     .then(self.shared.tasks.wait)
                     .done(function(failures) {
-                        if (failures.length > 0) {
-                            var error = 'Could not initialize disk';
+                        if (generic.keys(failures).length > 0) {
+                            var error = '';
+                            $.each(failures, function(disk, message) {
+                                error = message;
+                            });
                             generic.alertError(
                                 $.t('ovs:generic.error'),
                                 $.t('alba:disks.initialize.failed', { why: error })
@@ -129,65 +140,13 @@ define([
                     });
             }).promise();
         };
-        self.removeOSD = function(disk) {
-            return $.Deferred(function(deferred) {
-                var policies = [], info = '', entries = [], impact = self.parent.albaBackend().safety().removal_impact,
-                    active_policy = self.parent.albaBackend().safety().active_policy;
-                if (impact.hasOwnProperty(self.boxID())) {
-                    if (impact[self.boxID()].new_policy !== null && !impact[self.boxID()].new_policy.equals(active_policy)) {
-                        entries.push('<li>' + $.t('alba:disks.remove.impact.newpolicy', {what: JSON.stringify(impact[self.boxID()].new_policy)}) + '</li>');
-                    } else if (impact[self.boxID()].new_policy === null) {
-                        entries.push('<li>' + $.t('alba:disks.remove.impact.nopolicy') + '</li>');
-                    }
-                    if (impact[self.boxID()].lost_policies.length > 0) {
-                        $.each(impact[self.boxID()].lost_policies, function (index, policy) {
-                            policies.push(JSON.stringify(policy));
-                        });
-                        entries.push('<li>' + $.t('alba:disks.remove.impact.lostpolicies', {what: policies.join(', ')}) + '</li>');
-                    }
-                    if (entries.length > 0) {
-                        info  = '<br /><div class="alert alert-danger">' + $.t('alba:disks.remove.impact.warning') + '<ul>';
-                        info += entries.join('');
-                        info += '</ul></div>';
-                    }
-                }
-                app.showMessage(
-                    $.t('alba:disks.remove.warning', { what: '<ul><li>' + disk + '</li></ul>', info: info }).trim(),
-                    $.t('ovs:generic.areyousure'),
-                    [$.t('ovs:generic.no'), $.t('ovs:generic.yes')]
-                )
-                    .done(function(answer) {
-                        if (answer === $.t('ovs:generic.yes')) {
-                            generic.alertSuccess(
-                                $.t('alba:disks.remove.started'),
-                                $.t('alba:disks.remove.msgstarted')
-                            );
-                            api.post('alba/nodes/' + self.guid() + '/remove_disk', {
-                                data: {
-                                    disk: disk,
-                                    alba_backend_guid: self.parent.albaBackend().guid()
-                                }
-                            })
-                                .then(self.shared.tasks.wait)
-                                .done(function() {
-                                    generic.alertSuccess(
-                                        $.t('alba:disks.remove.complete'),
-                                        $.t('alba:disks.remove.success')
-                                    );
-                                    deferred.resolve();
-                                })
-                                .fail(function(error) {
-                                    generic.alertError(
-                                        $.t('ovs:generic.error'),
-                                        $.t('alba:disks.remove.failed', { why: error })
-                                    );
-                                    deferred.reject();
-                                });
-                        } else {
-                            deferred.reject();
-                        }
-                    });
-            }).promise();
+        self.removeOSD = function(osd) {
+            dialog.show(new RemoveOSDWizard({
+                modal: true,
+                albaOSD: osd,
+                albaNode: self,
+                albaBackend: self.parent.albaBackend()
+            }));
         };
         self.claimOSD = self.parent.claimOSD;
         self.initializeAll = function() {
@@ -215,10 +174,14 @@ define([
                             })
                                 .then(self.shared.tasks.wait)
                                 .done(function(failures) {
-                                    if (failures.length > 0) {
+                                    if (generic.keys(failures).length > 0) {
+                                        var errors = [];
+                                        $.each(failures, function(disk, message) {
+                                            errors.push(disk + ': ' + message);
+                                        });
                                         generic.alertInfo(
                                             $.t('alba:disks.initializeall.complete'),
-                                            $.t('alba:disks.initializeall.somefailed', { which: '<ul><li>' + failures.join('</li><li>') + '</li></ul>' })
+                                            $.t('alba:disks.initializeall.somefailed', { which: '<ul><li>' + errors.join('</li><li>') + '</li></ul>' })
                                         );
                                         deferred.resolve();
                                     } else {

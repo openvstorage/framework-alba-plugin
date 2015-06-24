@@ -1,12 +1,4 @@
 #!/bin/bash
-ipython -c """
-from ConfigParser import RawConfigParser
-filename = '/opt/OpenvStorage/config/ovs.cfg'
-config = RawConfigParser()
-config.read(filename)
-if not config.has_section('plugins'):
-    config.add_section('plugins')
-config.set('plugins', 'backend.alba', 1)
-with open(filename, 'wb') as configfile:
-    config.write(configfile)
-"""
+
+echo "$@" > /tmp/testfile
+python /opt/OpenvStorage/scripts/install/openvstorage-backend-webapps.postinst.py "__NEW_VERSION__" "$@"

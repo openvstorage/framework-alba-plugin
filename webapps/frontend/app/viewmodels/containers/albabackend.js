@@ -11,59 +11,66 @@ define([
         var self = this;
 
         // Handles
-        self.loadHandle = undefined;
+        self.loadHandle    = undefined;
+        self.actionsHandle = undefined;
 
         // External dependencies
         self.vPools = undefined;
         self.license = ko.observable();
 
         // Observables
-        self.loading     = ko.observable(false);
-        self.loaded      = ko.observable(false);
-        self.guid        = ko.observable(guid);
-        self.name        = ko.observable();
-        self.backend     = ko.observable();
-        self.backendGuid = ko.observable();
-        self.color       = ko.observable();
-        self.readIOps    = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
-        self.writeIOps   = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
-        self.licenseInfo = ko.observable();
-        self.usage       = ko.observable([]);
-        self.policies    = ko.observableArray([]);
-        self.safety      = ko.observable();
+        self.loading          = ko.observable(false);
+        self.loaded           = ko.observable(false);
+        self.guid             = ko.observable(guid);
+        self.name             = ko.observable();
+        self.backend          = ko.observable();
+        self.backendGuid      = ko.observable();
+        self.color            = ko.observable();
+        self.readIOps         = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.writeIOps        = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.licenseInfo      = ko.observable();
+        self.usage            = ko.observable([]);
+        self.presets          = ko.observableArray([]);
+        self.availableActions = ko.observableArray([]);
 
         // Computed
-        self.enhancedPolicies = ko.computed(function() {
-            var policies = [], newPolicy, isRW, isRO, isActive, isUsed;
-            if (self.safety() !== undefined) {
-                $.each(self.policies(), function (index, policy) {
-                    isRW = policy.nestedIn(self.safety().rw_policies);
-                    isRO = policy.nestedIn(self.safety().ro_policies);
-                    isActive = policy.equals(self.safety().active_policy);
-                    isUsed = policy.nestedIn(self.safety().used_policies);
+        self.enhancedPresets = ko.computed(function() {
+            var presets = [], policies, newPolicy, isAvailable, isActive, inUse,
+                policyMapping = ['grey', 'black', 'green'], worstPolicy;
+            $.each(self.presets(), function(index, preset) {
+                worstPolicy = 0;
+                policies = [];
+                $.each(preset.policies, function(jndex, policy) {
+                    isAvailable = preset.policy_metadata[policy].is_available;
+                    isActive = preset.policy_metadata[policy].is_active;
+                    inUse = preset.policy_metadata[policy].in_use;
                     newPolicy = {
-                        text: JSON.stringify(policy),
+                        text: policy,
                         color: 'grey',
-                        inUse: false
+                        isActive: false
                     };
-                    if (isRW) {
+                    if (isAvailable) {
                         newPolicy.color = 'black';
                     }
                     if (isActive) {
+                        newPolicy.isActive = true;
+                    }
+                    if (inUse) {
                         newPolicy.color = 'green';
                     }
-                    if (isUsed) {
-                        newPolicy.inUse = true;
-                        if (isRO) {
-                            newPolicy.color = 'orange';
-                        } else if (!isRW) {
-                            newPolicy.color = 'red';
-                        }
-                    }
+                    worstPolicy = Math.max(policyMapping.indexOf(newPolicy.color), worstPolicy);
                     policies.push(newPolicy);
                 });
-            }
-            return policies;
+                presets.push({
+                    policies: policies,
+                    name: preset.name,
+                    compression: preset.compression,
+                    color: policyMapping[worstPolicy],
+                    inUse: preset.in_use,
+                    isDefault: preset.is_default
+                });
+            });
+            return presets;
         });
         self.configurable = ko.computed(function() {
             var license = self.license(), licenseData, licenseInfo = self.licenseInfo();
@@ -80,11 +87,24 @@ define([
         });
 
         // Functions
+        self.getAvailableActions = function() {
+            return $.Deferred(function(deferred) {
+                if (generic.xhrCompleted(self.actionsHandle)) {
+                    self.actionsHandle = api.get('alba/backends/' + self.guid() + '/get_available_actions')
+                        .done(function(data) {
+                            self.availableActions(data);
+                            deferred.resolve();
+                        })
+                        .fail(deferred.reject);
+                } else {
+                    deferred.reject();
+                }
+            }).promise();
+        };
         self.fillData = function(data) {
             self.name(data.name);
             generic.trySet(self.licenseInfo, data, 'license_info');
-            generic.trySet(self.policies, data, 'policies');
-            generic.trySet(self.safety, data, 'safety');
+            generic.trySet(self.presets, data, 'presets');
             if (self.backendGuid() !== data.backend_guid) {
                 self.backendGuid(data.backend_guid);
                 self.backend(new Backend(data.backend_guid));
