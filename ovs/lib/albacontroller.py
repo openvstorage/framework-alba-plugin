@@ -8,7 +8,6 @@ AlbaController module
 import time
 import json
 from tempfile import NamedTemporaryFile
-from subprocess import check_output
 from ovs.celery_run import celery
 from celery.schedules import crontab
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller, ArakoonClusterConfig
@@ -597,33 +596,45 @@ class AlbaController(object):
         """
         Retrieve ALBA packages and services which ALBA depends upon
         """
+        logger.info('Retrieving metadata for ALBA plugin')
         alba_services = ['{0}{1}-abm'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, albabackend.backend.name) for albabackend in AlbaBackendList.get_albabackends()]
-        package_info = {'alba': {'packages': ['openvstorage-backend-core', 'openvstorage-backend-webapps'],
-                                 'services': alba_services}}
+        package_info = [{'packages': {'alba': ['alba'],
+                                      'arakoon': ['arakoon'],
+                                      'openvstorage-backend': ['openvstorage-backend-core', 'openvstorage-backend-webapps']},
+                         'services': alba_services}]
         return_value = []
-        for package_group, packages in package_info.iteritems():
-            services_to_stop = []
-            packages_to_update = []
-            for package_name in packages['packages']:
-                version_info = PackageManager.get_installed_and_candidate_version(package_name)
-                installed = version_info[0]
-                candidate = version_info[1]
-
-                if installed == '(none)':  # Package is not installed, but candidate is available
-                    services_to_stop = []
-                    packages_to_update = []
-                    break
-
-                if installed != candidate:
-                    services_to_stop = packages['services']
-                    packages_to_update = packages['packages']
-
-            return_value.append({'name': package_group,
-                                 'services': services_to_stop,  # Order of services is order in which they are stopped and reverse order in which they're started again
-                                 'packages': packages_to_update,
-                                 'namespace': package_group})
-
+        for item in package_info:
+            for package_group, packages in item['packages'].iteritems():
+                return_value.append({'name': package_group,
+                                     'services': item['services'],  # Order of services is order in which they are stopped and reverse order in which they're started again
+                                     'packages': packages,
+                                     'namespace': 'alba'})
         return return_value
+
+    @staticmethod
+    @add_hooks('update', 'postupgrade')
+    def restart_arakoon_clusters(master_ip):
+        """
+        Restart all arakoon clusters after arakoon and/or alba package upgrade
+        :param master_ip: IP of 1 of the masternodes (On which the update is initiated)
+        :return: None
+        """
+        for alba_backend in AlbaBackendList.get_albabackends():
+            logger.info('Restarting clusters for backend {0}'.format(alba_backend.name), print_msg=True)
+            storagerouter_ips = [abm_service.service.storagerouter.ip for abm_service in alba_backend.abm_services]
+            if master_ip not in storagerouter_ips:
+                raise RuntimeError('Error executing restart in Alba plugin: IP conflict')
+
+            logger.info('Restarting ABM cluster', print_msg=True)
+            abm_service = alba_backend.abm_services[0].service
+            ArakoonInstaller.restart_cluster(cluster_name=abm_service.name,
+                                             master_ip=master_ip)
+
+            unique_nsm_services = dict((service.service.name, service) for service in alba_backend.nsm_services)
+            for nsm_service in unique_nsm_services.itervalues():
+                logger.info('Restarting NSM cluster {0}'.format(nsm_service.number), print_msg=True)
+                ArakoonInstaller.restart_cluster(cluster_name=nsm_service.service.name,
+                                                 master_ip=master_ip)
 
     @staticmethod
     def _setup_maintenance_service(ip, abm_name):
