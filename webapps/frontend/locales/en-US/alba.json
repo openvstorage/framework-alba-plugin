@@ -160,6 +160,8 @@
     },
     "packages": {
         "alba": "OpenvStorage Backend",
+        "arakoon": "Arakoon",
+        "openvstorage-backend": "OpenvStorage Backend",
         "sdm": "Storage Device Manager"
     },
     "disks" : {
