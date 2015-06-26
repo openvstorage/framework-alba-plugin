@@ -19,7 +19,13 @@ limitations under the License.
         <ul>
             <li><b data-i18n="alba:wizards.addpreset.gather.name"></b>: <span data-bind="text: data.name"></span></li>
             <li><b data-i18n="alba:wizards.addpreset.gather.compression"></b>: <span data-bind="translate: 'alba:generic.compressions.' + data.compression()"></span></li>
-            <li><b data-i18n="alba:wizards.addpreset.gather.policies"></b>: (<span data-bind="text: data.cleanPolicies().join('), (')"></span>)</li>
+            <li>
+                <b data-i18n="alba:wizards.addpreset.gather.policies"></b>:
+                <span data-bind="visible: !data.advanced()">
+                    <span data-bind="text: data.replication()"></span><span data-i18n="alba:generic.wayreplication"></span>
+                </span>
+                (<span data-bind="text: data.cleanPolicies().join('), (')"></span>)
+            </li>
         </ul>
     </form>
     <div class="alert alert-danger" data-bind="visible: !canContinue().value" style="margin-bottom: -10px;">

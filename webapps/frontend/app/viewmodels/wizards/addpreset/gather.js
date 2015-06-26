@@ -33,7 +33,7 @@ define([
                 fields.push('name');
                 reasons.push($.t('alba:wizards.addpreset.gather.invalidname'));
             }
-            if (self.data.policies().length === 0) {
+            if (self.data.cleanPolicies().length === 0) {
                 valid = false;
                 fields.push('policies');
                 reasons.push($.t('alba:wizards.addpreset.gather.insufficientpolicies'));

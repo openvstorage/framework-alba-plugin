@@ -458,6 +458,9 @@ All rights reserved
                                 <td data-bind="text: name"></td>
                                 <td data-bind="translate: 'alba:generic.compressions.' + compression"></td>
                                 <td>
+                                    <span data-bind="visible: replication !== undefined">
+                                        <span data-bind="text: replication"></span><span data-i18n="alba:generic.wayreplication"></span>
+                                    </span>
                                     <!-- ko foreach: policies -->
                                         <span data-bind="text: text, style: {
                                                              color: color,

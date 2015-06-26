@@ -23,69 +23,94 @@ limitations under the License.
             </div>
         </div>
         <div class="form-group">
-            <label class="col-lg-3 control-label" data-i18n="alba:wizards.addpreset.gather.compression"></label>
             <div class="col-lg-7">
-                <span data-bind="dropdown: {
-                                     items: data.compressionOptions, target: data.compression,
-                                     text: function(item) {
-                                         return $.t('alba:generic.compressions.' + item);
-                                     }
-                                 }"></span>
+                <input type="checkbox" id="advanced" style="margin-top: 9px; margin-left: 15px;" data-bind="checked: data.advanced">
+                <label for="advanced" class="help-block" data-i18n="alba:wizards.addpreset.gather.advancedtext" style="padding-left: 10px; display: inline-block;"></label>
             </div>
         </div>
-        <div class="form-group" data-bind="css: { 'has-error': $.inArray('policies', canContinue().fields) !== -1 }">
-            <label class="col-lg-3 control-label" data-i18n="alba:wizards.addpreset.gather.policies"></label>
+        <div class="form-group" data-bind="visible: !data.advanced()">
+            <label class="col-lg-3 control-label" data-i18n="alba:wizards.addpreset.gather.replication"></label>
             <div class="col-lg-7">
-                <table class="table table-condensed table-striped table-hover">
-                    <thead>
-                        <tr>
-                            <th style="width: 60px; padding-left: 8px;">k</th>
-                            <th style="width: 60px; padding-left: 8px;">m</th>
-                            <th style="padding-left: 8px;">x</th>
-                            <th style="width: 30px;">&nbsp;</th>
-                            <th style="width: 30px;">&nbsp;</th>
-                            <th style="width: 30px;">&nbsp;</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- ko foreach: data.policies -->
+                <div data-bind="slider: data.replication" style="margin-left: 4px; margin-bottom: 30px; width: 370px;"></div>
+            </div>
+        </div>
+        <div data-bind="visible: data.advanced() && !data.accepted()">
+            <div class="alert alert-warning">
+                <p data-i18n="[html]alba:wizards.addpreset.gather.warning"></p>
+            </div>
+            <div class="form-group">
+                <div class="col-lg-7">
+                    <input type="checkbox" id="accept" style="margin-top: 9px; margin-left: 15px;" data-bind="checked: data.accepted">
+                    <label for="accept" class="help-block" data-i18n="alba:wizards.addpreset.gather.accepttext" style="padding-left: 10px; display: inline-block;"></label>
+                </div>
+            </div>
+        </div>
+        <div data-bind="visible: data.advanced() && data.accepted()">
+            <div class="form-group">
+                <label class="col-lg-3 control-label" data-i18n="alba:wizards.addpreset.gather.compression"></label>
+                <div class="col-lg-7">
+                    <span data-bind="dropdown: {
+                                         items: data.compressionOptions, target: data.compression,
+                                         text: function(item) {
+                                             return $.t('alba:generic.compressions.' + item);
+                                         }
+                                     }"></span>
+                </div>
+            </div>
+            <div class="form-group" data-bind="css: { 'has-error': $.inArray('policies', canContinue().fields) !== -1 }">
+                <label class="col-lg-3 control-label" data-i18n="alba:wizards.addpreset.gather.policies"></label>
+                <div class="col-lg-7">
+                    <table class="table table-condensed table-striped table-hover">
+                        <thead>
                             <tr>
-                                <td>
-                                    <input style="width: 50px;" type="text" data-bind="value: k" />
-                                </td>
-                                <td>
-                                    <input style="width: 50px;" type="text" data-bind="value: m" />
-                                </td>
-                                <td>
-                                    <input style="width: 50px;" type="text" data-bind="value: x" />
-                                </td>
-                                <td>
-                                    <i data-bind="click: function() { $root.downPolicy(id()); },
-                                                  style: { color: $index() !== ($root.data.policies().length - 1) ? 'black' : 'lightgrey' }"
-                                       class="hand fa fa-fw" style="padding-top: 7px;" data-i18n="[html]alba:icons.down"></i>
-                                </td>
-                                <td>
-                                    <i data-bind="click: function() { $root.upPolicy(id()); },
-                                                  style: { color: $index() !== 0 ? 'black' : 'lightgrey' }"
-                                       class="hand fa fa-fw" style="padding-top: 7px;" data-i18n="[html]alba:icons.up"></i>
-                                </td>
-                                <td>
-                                    <i data-bind="click: function() { $root.removePolicy(id()); }"
-                                       class="hand fa fa-fw" style="padding-top: 7px;" data-i18n="[html]ovs:icons.delete"></i>
+                                <th style="width: 60px; padding-left: 8px;">k</th>
+                                <th style="width: 60px; padding-left: 8px;">m</th>
+                                <th style="padding-left: 8px;">x</th>
+                                <th style="width: 30px;">&nbsp;</th>
+                                <th style="width: 30px;">&nbsp;</th>
+                                <th style="width: 30px;">&nbsp;</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- ko foreach: data.policies -->
+                                <tr>
+                                    <td>
+                                        <input style="width: 50px;" type="text" data-bind="value: k" />
+                                    </td>
+                                    <td>
+                                        <input style="width: 50px;" type="text" data-bind="value: m" />
+                                    </td>
+                                    <td>
+                                        <input style="width: 50px;" type="text" data-bind="value: x" />
+                                    </td>
+                                    <td>
+                                        <i data-bind="click: function() { $root.downPolicy(id()); },
+                                                      style: { color: $index() !== ($root.data.policies().length - 1) ? 'black' : 'lightgrey' }"
+                                           class="hand fa fa-fw" style="padding-top: 7px;" data-i18n="[html]alba:icons.down"></i>
+                                    </td>
+                                    <td>
+                                        <i data-bind="click: function() { $root.upPolicy(id()); },
+                                                      style: { color: $index() !== 0 ? 'black' : 'lightgrey' }"
+                                           class="hand fa fa-fw" style="padding-top: 7px;" data-i18n="[html]alba:icons.up"></i>
+                                    </td>
+                                    <td>
+                                        <i data-bind="click: function() { $root.removePolicy(id()); }"
+                                           class="hand fa fa-fw" style="padding-top: 7px;" data-i18n="[html]ovs:icons.delete"></i>
+                                    </td>
+                                </tr>
+                            <!-- /ko -->
+                            <tr>
+                                <td colspan="6">
+                                    <span class="hand" id="buttonAddPolicy" data-bind="click: addPolicy">
+                                        <span class="fa hand" data-i18n="[html]ovs:icons.add"></span>&nbsp;
+                                        <span class="hand" data-i18n="alba:generic.addpolicy"></span>
+                                    </span>
                                 </td>
                             </tr>
-                        <!-- /ko -->
-                        <tr>
-                            <td colspan="6">
-                                <span class="hand" id="buttonAddPolicy" data-bind="click: addPolicy">
-                                    <span class="fa hand" data-i18n="[html]ovs:icons.add"></span>&nbsp;
-                                    <span class="hand" data-i18n="alba:generic.addpolicy"></span>
-                                </span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-                <span data-i18n="[html]alba:presets.policies.shorthelpcontent"></span>
+                        </tbody>
+                    </table>
+                    <span data-i18n="[html]alba:presets.policies.shorthelpcontent"></span>
+                </div>
             </div>
         </div>
     </form>

@@ -35,12 +35,13 @@ define([
 
         // Computed
         self.enhancedPresets = ko.computed(function() {
-            var presets = [], policies, newPolicy, isAvailable, isActive, inUse,
-                policyMapping = ['grey', 'black', 'green'], worstPolicy;
+            var presets = [], policies, newPolicy, isAvailable, isActive, inUse, hasReplication = true,
+                policyMapping = ['grey', 'black', 'green'], worstPolicy, replication, policyObject;
             $.each(self.presets(), function(index, preset) {
                 worstPolicy = 0;
                 policies = [];
                 $.each(preset.policies, function(jndex, policy) {
+                    policyObject = JSON.parse(policy.replace('(', '[').replace(')', ']'));
                     isAvailable = preset.policy_metadata[policy].is_available;
                     isActive = preset.policy_metadata[policy].is_active;
                     inUse = preset.policy_metadata[policy].in_use;
@@ -60,6 +61,11 @@ define([
                     }
                     worstPolicy = Math.max(policyMapping.indexOf(newPolicy.color), worstPolicy);
                     policies.push(newPolicy);
+                    if (replication === undefined) {
+                        replication = {k: policyObject[0], m: policyObject[1]};
+                    } else if (replication.k !== policyObject[0] || replication.m !== policyObject[1]) {
+                        hasReplication = false;
+                    }
                 });
                 presets.push({
                     policies: policies,
@@ -67,7 +73,8 @@ define([
                     compression: preset.compression,
                     color: policyMapping[worstPolicy],
                     inUse: preset.in_use,
-                    isDefault: preset.is_default
+                    isDefault: preset.is_default,
+                    replication: hasReplication ? (replication.k + replication.m) : undefined
                 });
             });
             return presets;

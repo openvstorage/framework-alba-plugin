@@ -14,8 +14,8 @@
 /*global define */
 define([
     'jquery', 'ovs/generic',
-    '../build', './gather', './confirm', './warning', './data'
-], function($, generic, build, Gather, Confirm, Warning, data) {
+    '../build', './gather', './confirm', './data'
+], function($, generic, build, Gather, Confirm, data) {
     "use strict";
     return function(options) {
         var self = this;
@@ -29,12 +29,14 @@ define([
         self.modal(generic.tryGet(options, 'modal', false));
         self.data.backend(options.backend);
         self.data.currentPresets(options.currentPresets);
-        self.steps([new Warning(), new Gather(), new Confirm()]);
+        self.steps([new Gather(), new Confirm()]);
         self.activateStep();
 
         // Cleaning data
         data.name('');
-        data.accept(false);
+        data.advanced(false);
+        data.accepted(false);
+        data.replication(1);
         data.compression('snappy');
         data.policies([]);
     };
