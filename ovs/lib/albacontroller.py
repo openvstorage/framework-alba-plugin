@@ -42,7 +42,8 @@ class AlbaController(object):
     ABM_PLUGIN = 'albamgr_plugin'
     NSM_PLUGIN = 'nsm_host_plugin'
     ARAKOON_PLUGIN_DIR = '/usr/lib/alba'
-    ALBA_MAINTENANCE_SERVICE_PREFIX = 'alba-maintenance_'
+    ALBA_MAINTENANCE_SERVICE_PREFIX = 'alba-maintenance'
+    ALBA_REBALANCER_SERVICE_PREFIX = 'alba-rebalancer'
 
     @staticmethod
     @celery.task(name='alba.add_units')
@@ -186,7 +187,8 @@ class AlbaController(object):
 
         # Configure maintenance service
         for master in masters:
-            AlbaController._setup_maintenance_service(master.ip, abm_name)
+            AlbaController._setup_service('maintenance', master.ip, abm_name, albabackend.backend.name)
+            AlbaController._setup_service('rebalancer', master.ip, abm_name, albabackend.backend.name)
 
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(albabackend.backend.name + '-abm')
         albabackend.alba_id = AlbaCLI.run('get-alba-id', config=config_file, as_json=True)['id']
@@ -215,7 +217,8 @@ class AlbaController(object):
 
         abm_name = albabackend.backend.name + '-abm'
         for master in masters:
-            AlbaController._remove_maintenance_service(master.ip, abm_name)
+            AlbaController._remove_service('maintenance', master.ip, abm_name, albabackend.backend.name)
+            AlbaController._remove_service('rebalancer', master.ip, abm_name, albabackend.backend.name)
 
         cluster_removed = False
         for abm_service in albabackend.abm_services:
@@ -291,8 +294,9 @@ class AlbaController(object):
             ArakoonInstaller.restart_cluster_add(service.name, storagerouter_ips, cluster_ip)
 
             # Add and start an ALBA maintenance service
-            print 'Adding ALBA maintenance service for {0}'.format(alba_backend.backend.name)
-            AlbaController._setup_maintenance_service(cluster_ip, service.name)
+            print 'Adding ALBA services for {0}'.format(alba_backend.backend.name)
+            AlbaController._setup_service('maintenance', cluster_ip, service.name, alba_backend.backend.name)
+            AlbaController._setup_service('rebalancer', cluster_ip, service.name, alba_backend.backend.name)
 
     @staticmethod
     @add_hooks('setup', 'demote')
@@ -324,11 +328,8 @@ class AlbaController(object):
             service.delete()
 
             # Stop and delete the ALBA maintenance service on this node
-            print 'Removing ALBA maintenance service for {0}'.format(alba_backend.backend.name)
-            service_name = '{0}{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, service.name)
-            if ServiceManager.has_service(service_name, client=client) is True:
-                ServiceManager.stop_service(service_name, client=client)
-                ServiceManager.remove_service(service_name, client=client)
+            AlbaController._remove_service('maintenance', client.ip, service.name, alba_backend.backend.name)
+            AlbaController._remove_service('rebalancer', client.ip, service.name, alba_backend.backend.name)
 
     @staticmethod
     @celery.task(name='alba.nsm_checkup', bind=True, schedule=crontab(minute='30', hour='0'))
@@ -396,13 +397,17 @@ class AlbaController(object):
                         # Extend the cluster (configuration, services, ...)
                         if candidate_sr not in used_ports:
                             used_ports[candidate_sr] = []
+                        logger.debug('  Extending cluster config')
                         nsm_result = ArakoonInstaller.extend_cluster(current_nsm.service.storagerouter.ip, candidate_sr.ip,
                                                                      service_name, used_ports[candidate_sr])
+                        logger.debug('  Linking plugin')
                         AlbaController.link_plugins(SSHClient(candidate_sr.ip), [AlbaController.NSM_PLUGIN], service_name)
                         ports = [nsm_result['client_port'], nsm_result['messaging_port']]
                         used_ports[candidate_sr] += ports
+                        logger.debug('  Model services')
                         AlbaController._model_service(service_name, nsmservice_type, ports,
                                                       candidate_sr, NSMService, backend, current_nsm.number)
+                        logger.debug('  Restart sequence')
                         ArakoonInstaller.restart_cluster_add(service_name, [sr.ip for sr in current_srs], candidate_sr.ip)
                         AlbaController.update_nsm(abm_service.service.name, service_name, candidate_sr.ip)
                         logger.debug('Node added')
@@ -597,11 +602,14 @@ class AlbaController(object):
         Retrieve ALBA packages and services which ALBA depends upon
         """
         logger.info('Retrieving metadata for ALBA plugin')
-        alba_services = ['{0}{1}-abm'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, albabackend.backend.name) for albabackend in AlbaBackendList.get_albabackends()]
+        alba_services = set()
+        for albabackend in AlbaBackendList.get_albabackends():
+            alba_services.add('{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, albabackend.backend.name))
+            alba_services.add('{0}_{1}'.format(AlbaController.ALBA_REBALANCER_SERVICE_PREFIX, albabackend.backend.name))
         package_info = [{'packages': {'alba': ['alba'],
                                       'arakoon': ['arakoon'],
                                       'openvstorage-backend': ['openvstorage-backend-core', 'openvstorage-backend-webapps']},
-                         'services': alba_services}]
+                         'services': list(alba_services)}]
         return_value = []
         for item in package_info:
             for package_group, packages in item['packages'].iteritems():
@@ -637,40 +645,48 @@ class AlbaController(object):
                                                  master_ip=master_ip)
 
     @staticmethod
-    def _setup_maintenance_service(ip, abm_name):
+    def _setup_service(service_type, ip, abm_name, backend_name):
         """
         Creates and starts a maintenance service/process
         """
+        if service_type == 'maintenance':
+            service_prefix = AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX
+        elif service_type == 'rebalancer':
+            service_prefix = AlbaController.ALBA_REBALANCER_SERVICE_PREFIX
+        else:
+            raise RuntimeError('Unknown service type')
         ovs_client = SSHClient(ip)
         root_client = SSHClient(ip, username='root')
-        ovs_client.file_write('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name), json.dumps({
+        json_filename = '{0}/{1}/{2}-{3}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name, backend_name, service_type)
+        ovs_client.file_write(json_filename, json.dumps({
             'log_level': 'debug',
             'albamgr_cfg_file': '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)
         }))
-        params = {'ALBA_CONFIG': '{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)}
-        config_file_base = '/opt/OpenvStorage/config/templates/upstart/ovs-alba-maintenance'
-        template_file_name = '{0}.conf'.format(config_file_base)
-        backend_file_name = '{0}_{1}.conf'.format(config_file_base, abm_name)
-        if ovs_client.file_exists(template_file_name):
-            ovs_client.run('cp -f {0} {1}'.format(template_file_name, backend_file_name))
-        service_name = '{0}{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, abm_name)
+        params = {'ALBA_CONFIG': json_filename}
+        service_name = '{0}_{1}'.format(service_prefix, backend_name)
+        ServiceManager.prepare_template('ovs-{0}'.format(service_prefix), 'ovs-{0}'.format(service_name), client=ovs_client)
         ServiceManager.add_service(name=service_name, params=params, client=root_client)
         ServiceManager.start_service(service_name, root_client)
 
-        if ovs_client.file_exists(backend_file_name):
-            ovs_client.file_delete(backend_file_name)
-
     @staticmethod
-    def _remove_maintenance_service(ip, abm_name):
+    def _remove_service(service_type, ip, abm_name, backend_name):
         """
         Stops and removes the maintenance service/process
         """
+        if service_type == 'maintenance':
+            service_prefix = AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX
+        elif service_type == 'rebalancer':
+            service_prefix = AlbaController.ALBA_REBALANCER_SERVICE_PREFIX
+        else:
+            raise RuntimeError('Unknown service type')
         client = SSHClient(ip, username='root')
-        service_name = '{0}{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, abm_name)
+        json_filename = '{0}/{1}/{2}-{3}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name, backend_name, service_type)
+        service_name = '{0}_{1}'.format(service_prefix, backend_name)
         if ServiceManager.has_service(service_name, client=client) is True:
-            ServiceManager.stop_service(service_name, client=client)
+            if ServiceManager.get_service_status(service_name, client=client) is True:
+                ServiceManager.stop_service(service_name, client=client)
             ServiceManager.remove_service(service_name, client=client)
-        client.file_delete('{0}/{1}/{1}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name))
+        client.file_delete(json_filename)
 
 if __name__ == '__main__':
     try:
