@@ -250,8 +250,8 @@ All rights reserved
                             <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                 <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
                                         data-bind="click: claim, css: { disabled: processing() || !loaded() },
-                                                   style: { 'opacity': $root.configurable() ? '' : '0.65' },
-                                                   tooltip: ($root.configurable() ? '' : 'ovs:generic.licenselimited'),
+                                                   style: { 'opacity': $root.configurable()[$parents[1].boxID()] ? '' : '0.65' },
+                                                   tooltip: ($root.configurable()[$parents[1].boxID()] ? '' : 'ovs:generic.licenselimited'),
                                                    placement: 'bottom'"></button>
                                 <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
                                         data-bind="click: remove, css: { disabled: processing() || !loaded() }"></button>

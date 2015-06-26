@@ -80,17 +80,11 @@ define([
             return presets;
         });
         self.configurable = ko.computed(function() {
-            var license = self.license(), licenseData, licenseInfo = self.licenseInfo();
+            var license = self.license(), licenseInfo = self.licenseInfo();
             if (license === undefined || licenseInfo === undefined) {
                 return false;
             }
-            if (license.validUntil() !== null && license.validUntil() * 1000 < generic.getTimestamp()) {
-                return false;
-            }
-            licenseData = license.data();
-            return !((licenseData.namespaces !== null && licenseInfo.namespaces >= licenseData.namespaces) ||
-                     (licenseData.nodes !== null && licenseInfo.nodes >= licenseData.nodes) ||
-                     (licenseData.osds !== null && licenseInfo.asds >= licenseData.osds));
+            return !(license.validUntil() !== null && license.validUntil() * 1000 < generic.getTimestamp());
         });
 
         // Functions
