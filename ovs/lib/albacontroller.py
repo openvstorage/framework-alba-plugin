@@ -28,7 +28,6 @@ from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.servicelist import ServiceList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
-from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.services.service import ServiceManager
 
 
@@ -600,12 +599,27 @@ class AlbaController(object):
     def get_metadata():
         """
         Retrieve ALBA packages and services which ALBA depends upon
+        Also check the arakoon clusters to be able to warn the customer for potential downtime
+        :return: List of dictionaries which contain services to restart, packages to update and information about downtime regarding the ALBA plugin
         """
         logger.info('Retrieving metadata for ALBA plugin')
+        downtime = []
         alba_services = set()
         for albabackend in AlbaBackendList.get_albabackends():
             alba_services.add('{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, albabackend.backend.name))
             alba_services.add('{0}_{1}'.format(AlbaController.ALBA_REBALANCER_SERVICE_PREFIX, albabackend.backend.name))
+            if len(albabackend.abm_services) < 3:
+                downtime.append(('alba', 'backend', albabackend.backend.name))
+                continue  # No need to check other services for this backend since downtime is a fact
+
+            nsm_service_info = {}
+            for service in albabackend.nsm_services:
+                if service.service.name not in nsm_service_info:
+                    nsm_service_info[service.service.name] = 0
+                nsm_service_info[service.service.name] += 1
+            if min(nsm_service_info.values()) < 3:
+                downtime.append(('alba', 'backend', albabackend.backend.name))
+
         package_info = [{'packages': {'alba': ['alba'],
                                       'arakoon': ['arakoon'],
                                       'openvstorage-backend': ['openvstorage-backend-core', 'openvstorage-backend-webapps']},
@@ -616,6 +630,7 @@ class AlbaController(object):
                 return_value.append({'name': package_group,
                                      'services': item['services'],  # Order of services is order in which they are stopped and reverse order in which they're started again
                                      'packages': packages,
+                                     'downtime': downtime,
                                      'namespace': 'alba'})
         return return_value
 

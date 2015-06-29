@@ -164,6 +164,9 @@
         "openvstorage-backend": "OpenvStorage Backend",
         "sdm": "Storage Device Manager"
     },
+    "downtime": {
+        "backend": "Backend"
+    },
     "disks" : {
         "initialize": {
             "started": "Started",
