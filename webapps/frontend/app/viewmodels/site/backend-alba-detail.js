@@ -86,7 +86,37 @@ define([
             return states;
         });
         self.configurable = ko.computed(function() {
-            return self.albaBackend() !== undefined && self.albaBackend().configurable();
+            var backend_configurable = self.albaBackend() !== undefined && self.albaBackend().configurable(),
+                configurable = {}, totalClaimed = 0, totalNodes = 0, license;
+            if (backend_configurable) {
+                $.each(self.registeredNodes(), function (jndex, node) {
+                    configurable[node.boxID()] = 0;
+                    $.each(node.disks(), function (index, disk) {
+                        if (disk.status() === 'claimed') {
+                            configurable[node.boxID()] += 1;
+                            totalClaimed += 1;
+                        }
+                    });
+                    if (configurable[node.boxID()] > 0) {
+                        totalNodes += 1;
+                    }
+                });
+                license = self.albaBackend().license().data();
+                $.each(configurable, function(boxID, amount) {
+                    if (license.osds === null && license.nodes === null) {
+                        configurable[boxID] = true;
+                    } else if (license.osds !== null && license.nodes !== null) {
+                        configurable[boxID] = !(totalClaimed >= license.osds || (amount === 0 && totalNodes >= license.nodes));
+                    } else {
+                        configurable[boxID] = license.osds === null ? !(amount === 0 && totalNodes >= license.nodes) : totalClaimed < license.osds;
+                    }
+                });
+            } else {
+                $.each(self.registeredNodes(), function (jndex, node) {
+                    configurable[node.boxID()] = false;
+                });
+            }
+            return configurable;
         });
 
         // Functions
@@ -313,9 +343,9 @@ define([
                 });
             });
         };
-        self.claimOSD = function(osds, disk) {
+        self.claimOSD = function(osds, disk, boxID) {
             return $.Deferred(function(deferred) {
-                if (!self.configurable()) {
+                if (!self.configurable()[boxID]) {
                     deferred.reject();
                     return;
                 }
