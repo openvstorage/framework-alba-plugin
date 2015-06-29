@@ -76,7 +76,7 @@ define([
             var osds = {};
             osds[self.asdID()] = self.node.guid();
             self.processing(true);
-            self.node.claimOSD(osds, self.name())
+            self.node.claimOSD(osds, self.name(), self.node.boxID())
                 .done(function() {
                     self.ignoreNext(true);
                     self.status('claimed');

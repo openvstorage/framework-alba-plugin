@@ -103,7 +103,13 @@ define([
                 });
                 license = self.albaBackend().license().data();
                 $.each(configurable, function(boxID, amount) {
-                    configurable[boxID] = !(totalClaimed >= license.osds || (amount === 0 && totalNodes >= license.nodes));
+                    if (license.osds === null && license.nodes === null) {
+                        configurable[boxID] = true;
+                    } else if (license.osds !== null && license.nodes !== null) {
+                        configurable[boxID] = !(totalClaimed >= license.osds || (amount === 0 && totalNodes >= license.nodes));
+                    } else {
+                        configurable[boxID] = license.osds === null ? !(amount === 0 && totalNodes >= license.nodes) : totalClaimed < license.osds;
+                    }
                 });
             } else {
                 $.each(self.registeredNodes(), function (jndex, node) {
@@ -337,9 +343,9 @@ define([
                 });
             });
         };
-        self.claimOSD = function(osds, disk) {
+        self.claimOSD = function(osds, disk, boxID) {
             return $.Deferred(function(deferred) {
-                if (!self.configurable()) {
+                if (!self.configurable()[boxID]) {
                     deferred.reject();
                     return;
                 }
