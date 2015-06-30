@@ -1,0 +1,79 @@
+#!/usr/bin/make -f
+
+openvstorage-backend-core:
+	dh_testdir
+	dh_testroot
+	dh_installdirs  -p$@
+	dh_installchangelogs  -p$@  CHANGELOG.txt
+	dh_install -p$@
+	dh_installman  -p$@
+	dh_link  -p$@
+	dh_strip  -p$@
+	dh_compress  -p$@
+	dh_fixperms  -p$@
+	dh_installdeb -p$@
+	dh_shlibdeps  -p$@
+	dh_gencontrol  -p$@
+	dh_md5sums  -p$@
+	dh_builddeb  -p$@
+
+openvstorage-backend-webapps:
+	dh_testdir
+	dh_testroot
+	dh_installdirs  -p$@
+	dh_installchangelogs  -p$@  CHANGELOG.txt
+	dh_install -p$@
+	dh_installman  -p$@
+	dh_link  -p$@
+	dh_strip  -p$@
+	dh_compress  -p$@
+	dh_fixperms  -p$@
+	dh_installdeb -p$@
+	dh_shlibdeps  -p$@
+	dh_gencontrol  -p$@
+	dh_md5sums  -p$@
+	dh_builddeb  -p$@
+
+openvstorage-backend:
+	dh_testdir
+	dh_testroot
+	dh_installdirs  -p$@
+	dh_installchangelogs  -p$@  CHANGELOG.txt
+	dh_install -p$@
+	dh_installman  -p$@
+	dh_link  -p$@
+	dh_strip  -p$@
+	dh_compress  -p$@
+	dh_fixperms  -p$@
+	dh_installdeb -p$@
+	dh_shlibdeps  -p$@
+	dh_gencontrol  -p$@
+	dh_md5sums  -p$@
+	dh_builddeb  -p$@
+
+openvstorage-hc:
+	dh_testdir
+	dh_testroot
+	dh_installdirs  -p$@
+	dh_installchangelogs  -p$@  CHANGELOG.txt
+	dh_install -p$@
+	dh_installman  -p$@
+	dh_link  -p$@
+	dh_strip  -p$@
+	dh_compress  -p$@
+	dh_fixperms  -p$@
+	dh_installdeb -p$@
+	dh_shlibdeps  -p$@
+	dh_gencontrol  -p$@
+	dh_md5sums  -p$@
+	dh_builddeb  -p$@
+
+clean:
+	if [ -f debian/openvstorage-backend ]; then rm debian/openvstorage-backend; fi
+	if [ -f debian/openvstorage-backend-hc ]; then rm debian/openvstorage-backend-hc; fi
+	if [ -f debian/openvstorage-backend-core ]; then rm debian/openvstorage-backend-core; fi
+	if [ -f debian/openvstorage-backend-webapps ]; then rm debian/openvstorage-backend-webapps; fi
+
+binary: openvstorage-backend-core openvstorage-backend-webapps openvstorage-backend openvstorage-hc
+
+.PHONY: clean build
