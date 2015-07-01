@@ -631,7 +631,8 @@ class AlbaController(object):
                                      'services': item['services'],  # Order of services is order in which they are stopped and reverse order in which they're started again
                                      'packages': packages,
                                      'downtime': downtime,
-                                     'namespace': 'alba'})
+                                     'namespace': 'alba',
+                                     'prerequisites': []})
         return return_value
 
     @staticmethod
@@ -677,8 +678,7 @@ class AlbaController(object):
             'log_level': 'debug',
             'albamgr_cfg_file': '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)
         }))
-        params = {'ALBA_CONFIG': json_filename,
-                  'BACKEND_NAME': backend_name}
+        params = {'ALBA_CONFIG': json_filename}
         service_name = '{0}_{1}'.format(service_prefix, backend_name)
         ServiceManager.prepare_template('ovs-{0}'.format(service_prefix), 'ovs-{0}'.format(service_name), client=ovs_client)
         ServiceManager.add_service(name=service_name, params=params, client=root_client)
