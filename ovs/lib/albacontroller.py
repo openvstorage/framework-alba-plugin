@@ -28,6 +28,7 @@ from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.servicelist import ServiceList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.services.service import ServiceManager
 
 
@@ -596,18 +597,25 @@ class AlbaController(object):
 
     @staticmethod
     @add_hooks('update', 'metadata')
-    def get_metadata():
+    def get_metadata_alba(client):
         """
         Retrieve ALBA packages and services which ALBA depends upon
         Also check the arakoon clusters to be able to warn the customer for potential downtime
-        :return: List of dictionaries which contain services to restart, packages to update and information about downtime regarding the ALBA plugin
+        :client: SSHClient on which to retrieve the metadata
+        :return: List of dictionaries which contain services to restart,
+                                                    packages to update,
+                                                    information about potential downtime
+                                                    information about unmet prerequisites
         """
-        logger.info('Retrieving metadata for ALBA plugin')
+        logger.info('Retrieving metadata for ALBA plugin update')
         downtime = []
         alba_services = set()
+        arakoon_cluster_services = set()
         for albabackend in AlbaBackendList.get_albabackends():
             alba_services.add('{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, albabackend.backend.name))
             alba_services.add('{0}_{1}'.format(AlbaController.ALBA_REBALANCER_SERVICE_PREFIX, albabackend.backend.name))
+            arakoon_cluster_services.add('arakoon-{0}'.format(albabackend.abm_services[0].service.name))
+            arakoon_cluster_services.update(['arakoon-{0}'.format(service.service.name) for service in albabackend.nsm_services])
             if len(albabackend.abm_services) < 3:
                 downtime.append(('alba', 'backend', albabackend.backend.name))
                 continue  # No need to check other services for this backend since downtime is a fact
@@ -620,20 +628,37 @@ class AlbaController(object):
             if min(nsm_service_info.values()) < 3:
                 downtime.append(('alba', 'backend', albabackend.backend.name))
 
-        package_info = [{'packages': {'alba': ['alba'],
-                                      'arakoon': ['arakoon'],
-                                      'openvstorage-backend': ['openvstorage-backend-core', 'openvstorage-backend-webapps']},
-                         'services': list(alba_services)}]
-        return_value = []
-        for item in package_info:
-            for package_group, packages in item['packages'].iteritems():
-                return_value.append({'name': package_group,
-                                     'services': item['services'],  # Order of services is order in which they are stopped and reverse order in which they're started again
-                                     'packages': packages,
-                                     'downtime': downtime,
-                                     'namespace': 'alba',
-                                     'prerequisites': []})
-        return return_value
+        core_info = PackageManager.verify_update_required(packages=['openvstorage-backend-core', 'openvstorage-backend-webapps'],
+                                                          services=[],
+                                                          client=client)
+        alba_info = PackageManager.verify_update_required(packages=['alba'],
+                                                          services=list(alba_services),
+                                                          client=client)
+        arakoon_info = PackageManager.verify_update_required(packages=['arakoon'],
+                                                             services=arakoon_cluster_services,
+                                                             client=client)
+
+        return {'framework': [{'name': 'openvstorage-backend',
+                               'version': core_info['version'],
+                               'services': core_info['services'],
+                               'packages': core_info['packages'],
+                               'downtime': [],
+                               'namespace': 'alba',
+                               'prerequisites': []},
+                              {'name': 'alba',
+                               'version': alba_info['version'],
+                               'services': alba_info['services'],
+                               'packages': alba_info['packages'],
+                               'downtime': downtime,
+                               'namespace': 'alba',
+                               'prerequisites': []},
+                              {'name': 'arakoon',
+                               'version': arakoon_info['version'],
+                               'services': arakoon_info['services'],
+                               'packages': arakoon_info['packages'],
+                               'downtime': downtime,
+                               'namespace': 'alba',
+                               'prerequisites': []}]}
 
     @staticmethod
     @add_hooks('update', 'postupgrade')
