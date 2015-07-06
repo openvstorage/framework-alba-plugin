@@ -18,6 +18,9 @@ Generic ALBA CLI module
 import json
 import base64
 import requests
+from ovs.log.logHandler import LogHandler
+
+logger = LogHandler.get('extensions', name='asdmanagerclient')
 
 
 class ASDManagerClient(object):
@@ -58,9 +61,13 @@ class ASDManagerClient(object):
         """
         self._refresh()
         disks = [] if as_list is True else {}
-        data = requests.get('{0}/disks'.format(self._base_url),
-                            headers=self._base_headers,
-                            verify=False).json()
+        try:
+            data = requests.get('{0}/disks'.format(self._base_url),
+                                headers=self._base_headers,
+                                verify=False).json()
+        except requests.ConnectionError, ex:
+            logger.error('Could not load data: {0}'.format(ex))
+            return disks
         for disk in data.keys():
             if not disk.startswith('_'):
                 for key in data[disk].keys():
