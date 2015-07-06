@@ -28,6 +28,7 @@ from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.servicelist import ServiceList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.services.service import ServiceManager
 
 
@@ -596,18 +597,24 @@ class AlbaController(object):
 
     @staticmethod
     @add_hooks('update', 'metadata')
-    def get_metadata():
+    def get_metadata_alba(client):
         """
         Retrieve ALBA packages and services which ALBA depends upon
         Also check the arakoon clusters to be able to warn the customer for potential downtime
-        :return: List of dictionaries which contain services to restart, packages to update and information about downtime regarding the ALBA plugin
+        :param client: SSHClient on which to retrieve the metadata
+        :return: List of dictionaries which contain services to restart,
+                                                    packages to update,
+                                                    information about potential downtime
+                                                    information about unmet prerequisites
         """
-        logger.info('Retrieving metadata for ALBA plugin')
         downtime = []
         alba_services = set()
+        arakoon_cluster_services = set()
         for albabackend in AlbaBackendList.get_albabackends():
             alba_services.add('{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, albabackend.backend.name))
             alba_services.add('{0}_{1}'.format(AlbaController.ALBA_REBALANCER_SERVICE_PREFIX, albabackend.backend.name))
+            arakoon_cluster_services.add('arakoon-{0}'.format(albabackend.abm_services[0].service.name))
+            arakoon_cluster_services.update(['arakoon-{0}'.format(service.service.name) for service in albabackend.nsm_services])
             if len(albabackend.abm_services) < 3:
                 downtime.append(('alba', 'backend', albabackend.backend.name))
                 continue  # No need to check other services for this backend since downtime is a fact
@@ -620,44 +627,76 @@ class AlbaController(object):
             if min(nsm_service_info.values()) < 3:
                 downtime.append(('alba', 'backend', albabackend.backend.name))
 
-        package_info = [{'packages': {'alba': ['alba'],
-                                      'arakoon': ['arakoon'],
-                                      'openvstorage-backend': ['openvstorage-backend-core', 'openvstorage-backend-webapps']},
-                         'services': list(alba_services)}]
-        return_value = []
-        for item in package_info:
-            for package_group, packages in item['packages'].iteritems():
-                return_value.append({'name': package_group,
-                                     'services': item['services'],  # Order of services is order in which they are stopped and reverse order in which they're started again
-                                     'packages': packages,
-                                     'downtime': downtime,
-                                     'namespace': 'alba'})
-        return return_value
+        core_info = PackageManager.verify_update_required(packages=['openvstorage-backend-core', 'openvstorage-backend-webapps'],
+                                                          services=['watcher-framework', 'memcached'],
+                                                          client=client)
+        alba_info = PackageManager.verify_update_required(packages=['alba'],
+                                                          services=list(alba_services),
+                                                          client=client)
+        arakoon_info = PackageManager.verify_update_required(packages=['arakoon'],
+                                                             services=list(arakoon_cluster_services),
+                                                             client=client)
+
+        return {'framework': [{'name': 'openvstorage-backend',
+                               'version': core_info['version'],
+                               'services': core_info['services'],
+                               'packages': core_info['packages'],
+                               'downtime': [],
+                               'namespace': 'alba',
+                               'prerequisites': []},
+                              {'name': 'alba',
+                               'version': alba_info['version'],
+                               'services': alba_info['services'],
+                               'packages': alba_info['packages'],
+                               'downtime': downtime,
+                               'namespace': 'alba',
+                               'prerequisites': []},
+                              {'name': 'arakoon',
+                               'version': arakoon_info['version'],
+                               'services': [],
+                               'packages': arakoon_info['packages'],
+                               'downtime': downtime,
+                               'namespace': 'alba',
+                               'prerequisites': []}]}
 
     @staticmethod
     @add_hooks('update', 'postupgrade')
-    def restart_arakoon_clusters(master_ip):
+    def restart_arakoon_clusters(client):
         """
         Restart all arakoon clusters after arakoon and/or alba package upgrade
-        :param master_ip: IP of 1 of the masternodes (On which the update is initiated)
+        :param client: IP of 1 of the masternodes (On which the update is initiated)
         :return: None
         """
+        services = []
         for alba_backend in AlbaBackendList.get_albabackends():
-            logger.info('Restarting clusters for backend {0}'.format(alba_backend.name), print_msg=True)
-            storagerouter_ips = [abm_service.service.storagerouter.ip for abm_service in alba_backend.abm_services]
-            if master_ip not in storagerouter_ips:
-                raise RuntimeError('Error executing restart in Alba plugin: IP conflict')
+            services.append('arakoon-{0}'.format(alba_backend.abm_services[0].service.name))
+            services.extend(list(set(['arakoon-{0}'.format(service.service.name) for service in alba_backend.nsm_services])))
 
-            logger.info('Restarting ABM cluster', print_msg=True)
-            abm_service = alba_backend.abm_services[0].service
-            ArakoonInstaller.restart_cluster(cluster_name=abm_service.name,
-                                             master_ip=master_ip)
-
-            unique_nsm_services = dict((service.service.name, service) for service in alba_backend.nsm_services)
-            for nsm_service in unique_nsm_services.itervalues():
-                logger.info('Restarting NSM cluster {0}'.format(nsm_service.number), print_msg=True)
-                ArakoonInstaller.restart_cluster(cluster_name=nsm_service.service.name,
-                                                 master_ip=master_ip)
+        info = PackageManager.verify_update_required(packages=['arakoon'],
+                                                     services=services,
+                                                     client=client)
+        for service in info['services']:
+            cluster_name = service.lstrip('arakoon-')
+            logger.info('Restarting cluster {0}'.format(cluster_name), print_msg=True)
+            ArakoonInstaller.restart_cluster(cluster_name=cluster_name,
+                                             master_ip=client.ip)
+        else:  # In case no arakoonclusters are restarted, we check if alba has been updated and still restart clusters
+            proxies = []
+            this_sr = StorageRouterList.get_by_ip(client.ip)
+            for sr in StorageRouterList.get_storagerouters():
+                for service in sr.services:
+                    if service.type.name == 'AlbaProxy' and service.storagerouter_guid == this_sr.guid:
+                        proxies.append(service.name)
+            if proxies:
+                info = PackageManager.verify_update_required(packages=['alba'],
+                                                             services=proxies,
+                                                             client=client)
+                if info['services']:
+                    for service in services:
+                        cluster_name = service.lstrip('arakoon-')
+                        logger.info('Restarting cluster {0}'.format(cluster_name), print_msg=True)
+                        ArakoonInstaller.restart_cluster(cluster_name=cluster_name,
+                                                         master_ip=client.ip)
 
     @staticmethod
     def _setup_service(service_type, ip, abm_name, backend_name):
