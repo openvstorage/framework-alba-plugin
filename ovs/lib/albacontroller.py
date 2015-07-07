@@ -24,6 +24,7 @@ from ovs.dal.hybrids.albaasd import AlbaASD
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.licenselist import LicenseList
 from ovs.dal.lists.albabackendlist import AlbaBackendList
+from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.servicelist import ServiceList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
@@ -617,6 +618,36 @@ class AlbaController(object):
 
     @staticmethod
     @add_hooks('update', 'metadata')
+    def get_metadata_sdm(client):
+        """
+        Retrieve information about the SDM packages
+        :param client: SSHClient on which to retrieve the metadata
+        :return: List of dictionaries which contain services to restart,
+                                                    packages to update,
+                                                    information about potential downtime
+                                                    information about unmet prerequisites
+        """
+        other_storage_router_ips = [sr.ip for sr in StorageRouterList.get_storagerouters() if sr.ip != client.ip]
+        candidate = None
+        for node in AlbaNodeList.get_albanodes():
+            if node.ip in other_storage_router_ips:
+                continue
+            try:
+                candidate = node.client.get_available_version()['version']
+                if candidate:
+                    break
+            except ValueError:
+                pass
+        return {'framework': [{'name': 'openvstorage-sdm',
+                               'version': candidate,
+                               'services': [],
+                               'packages': ['openvstorage-sdm'],
+                               'downtime': [],
+                               'namespace': 'alba',
+                               'prerequisites': []}]}
+
+    @staticmethod
+    @add_hooks('update', 'metadata')
     def get_metadata_alba(client):
         """
         Retrieve ALBA packages and services which ALBA depends upon
@@ -678,6 +709,22 @@ class AlbaController(object):
                                'downtime': downtime,
                                'namespace': 'alba',
                                'prerequisites': []}]}
+
+    @staticmethod
+    @add_hooks('update', 'postupgrade')
+    def upgrade_sdm(client):
+        """
+        Upgrade the openvstorage-sdm packages
+        :param client: IP of 1 of the masternodes (On which the update is initiated)
+        :return: None
+        """
+        other_storage_router_ips = [sr.ip for sr in StorageRouterList.get_storagerouters() if sr.ip != client.ip]
+        for node in AlbaNodeList.get_albanodes():
+            if node.ip in other_storage_router_ips:
+                continue
+
+            logger.info('{0}: Upgrading SDM'.format(node.ip))
+            node.client.execute_update()
 
     @staticmethod
     @add_hooks('update', 'postupgrade')

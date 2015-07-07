@@ -119,6 +119,30 @@ class ASDManagerClient(object):
                              headers=self._base_headers,
                              verify=False).json()
 
+    def get_available_version(self):
+        """
+        Checks whether update for openvstorage-sdm package is available
+        :return: Latest available version or None if no new version is available
+        """
+        self._refresh()
+        data = requests.get('{0}/update/available'.format(self._base_url),
+                            headers=self._base_headers,
+                            verify=False).json()
+        for key in data.keys():
+            if key.startswith('_'):
+                del data[key]
+        return data
+
+    def execute_update(self):
+        """
+        Execute an update
+        :return: None
+        """
+        self._refresh()
+        return requests.post('{0}/update/execute'.format(self._base_url),
+                             headers=self._base_headers,
+                             verify=False).json()
+
     def _refresh(self):
         self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
         self._base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}

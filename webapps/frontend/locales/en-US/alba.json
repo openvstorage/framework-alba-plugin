@@ -162,7 +162,7 @@
         "alba": "OpenvStorage Backend",
         "arakoon": "Arakoon",
         "openvstorage-backend": "OpenvStorage Backend",
-        "sdm": "Storage Device Manager"
+        "openvstorage-sdm": "Storage Device Manager"
     },
     "downtime": {
         "backend": "Backend"
