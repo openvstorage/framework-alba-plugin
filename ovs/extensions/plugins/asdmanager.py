@@ -119,13 +119,13 @@ class ASDManagerClient(object):
                              headers=self._base_headers,
                              verify=False).json()
 
-    def get_available_version(self):
+    def get_update_information(self):
         """
         Checks whether update for openvstorage-sdm package is available
-        :return: Latest available version or None if no new version is available
+        :return: Latest available version and services which require a restart
         """
         self._refresh()
-        data = requests.get('{0}/update/available'.format(self._base_url),
+        data = requests.get('{0}/update/information'.format(self._base_url),
                             headers=self._base_headers,
                             verify=False).json()
         for key in data.keys():

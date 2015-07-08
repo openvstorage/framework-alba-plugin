@@ -628,20 +628,22 @@ class AlbaController(object):
                                                     information about unmet prerequisites
         """
         other_storage_router_ips = [sr.ip for sr in StorageRouterList.get_storagerouters() if sr.ip != client.ip]
-        candidate = None
+        version = ''
         for node in AlbaNodeList.get_albanodes():
             if node.ip in other_storage_router_ips:
                 continue
             try:
-                candidate = node.client.get_available_version()['version']
-                if candidate:
+                candidate = node.client.get_update_information()
+                if candidate['version']:
+                    version = candidate['version']
                     break
-            except ValueError:
-                pass
+            except ValueError as ve:
+                if 'No JSON object could be decoded' in ve.message:
+                    version = 'Remote ASD'
         return {'framework': [{'name': 'openvstorage-sdm',
-                               'version': candidate,
+                               'version': version,
                                'services': [],
-                               'packages': ['openvstorage-sdm'],
+                               'packages': [],
                                'downtime': [],
                                'namespace': 'alba',
                                'prerequisites': []}]}
