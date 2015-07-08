@@ -1,4 +1,4 @@
-# Copyright 2014 CloudFounders NV
+# Copyright 2014 Open vStorage NV
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ class DebianPackager(object):
 
   * For changes, see individual changelogs
 
- -- Packaging System <info@cloudfounders.com>  {2}
+ -- Packaging System <engineering@openvstorage.com>  {2}
 """.format(version_string, distribution, revision_date.strftime('%a, %d %b %Y %H:%M:%S +0000')))
 
         # Some more tweaks
