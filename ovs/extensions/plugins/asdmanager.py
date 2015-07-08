@@ -133,13 +133,23 @@ class ASDManagerClient(object):
                 del data[key]
         return data
 
-    def execute_update(self):
+    def execute_update(self, status):
         """
         Execute an update
         :return: None
         """
         self._refresh()
-        return requests.post('{0}/update/execute'.format(self._base_url),
+        return requests.post('{0}/update/execute/{1}'.format(self._base_url, status),
+                             headers=self._base_headers,
+                             verify=False).json()
+
+    def restart_services(self):
+        """
+        Restart the alba-asd-<ID> services
+        :return: None
+        """
+        self._refresh()
+        return requests.post('{0}/update/restart_services'.format(self._base_url),
                              headers=self._base_headers,
                              verify=False).json()
 

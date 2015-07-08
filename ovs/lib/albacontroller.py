@@ -634,7 +634,7 @@ class AlbaController(object):
                 continue
             try:
                 candidate = node.client.get_update_information()
-                if candidate['version']:
+                if candidate.get('version'):
                     version = candidate['version']
                     break
             except ValueError as ve:
@@ -726,7 +726,21 @@ class AlbaController(object):
                 continue
 
             logger.info('{0}: Upgrading SDM'.format(node.ip))
-            node.client.execute_update()
+            counter = 0
+            status = 'started'
+            while True and counter < 6:
+                try:
+                    status = node.client.execute_update(status).get('status')
+                    if status == 'done':
+                        break
+                except Exception as ex:
+                    logger.warning('{0}: Error during update: {1}'.format(node.ip, ex.message))
+                time.sleep(10)
+                counter += 1
+            if status != 'done':
+                logger.error('{0}: Failed to perform SDM update'.format(node.ip))
+            else:
+                node.client.restart_services()
 
     @staticmethod
     @add_hooks('update', 'postupgrade')
