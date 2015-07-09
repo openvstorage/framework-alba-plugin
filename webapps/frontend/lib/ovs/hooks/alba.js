@@ -1,4 +1,4 @@
-// Copyright 2014 CloudFounders NV
+// Copyright 2014 Open vStorage NV
 // All rights reserved
 /*global define, require */
 define(['jquery'], function($) {

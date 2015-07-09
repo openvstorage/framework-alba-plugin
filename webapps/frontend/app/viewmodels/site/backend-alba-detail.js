@@ -1,4 +1,4 @@
-// Copyright 2014 CloudFounders NV
+// Copyright 2014 Open vStorage NV
 // All rights reserved
 /*global define */
 define([
@@ -29,16 +29,26 @@ define([
         self.rNodesLoading          = ko.observable(true);
         self.dNodesLoading          = ko.observable(false);
         self.registeredNodes        = ko.observableArray([]);
+        self.registeredNodesBoxIDs  = ko.observableArray([]);
         self.discoveredNodes        = ko.observableArray([]);
         self.disks                  = ko.observableArray([]);
         self.vPools                 = ko.observableArray([]);
         self.otherAlbaBackendsCache = ko.observable({});
 
         // Computed
+        self.filteredDiscoveredNodes = ko.computed(function() {
+            var nodes = [];
+            $.each(self.discoveredNodes(), function(index, node) {
+                if (!self.registeredNodesBoxIDs().contains(node.boxID())) {
+                    nodes.push(node);
+                }
+            });
+            return nodes;
+        });
         self.expanded = ko.computed({
             write: function(value) {
                 $.each(self.registeredNodes(), function(index, node) {
-                    node.expanded(value)
+                    node.expanded(value);
                 });
             },
             read: function() {
@@ -257,6 +267,9 @@ define([
                                     nodeIDs.push(item.box_id);
                                     nodes[item.box_id] = item;
                                 });
+                                if (!discover) {
+                                    self.registeredNodesBoxIDs(nodeIDs);
+                                }
                                 generic.crossFiller(
                                     nodeIDs, oArray,
                                     function(boxID) {
