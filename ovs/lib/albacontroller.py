@@ -728,7 +728,7 @@ class AlbaController(object):
             logger.info('{0}: Upgrading SDM'.format(node.ip))
             counter = 0
             status = 'started'
-            while True and counter < 6:
+            while True and counter < 12:
                 try:
                     status = node.client.execute_update(status).get('status')
                     if status == 'done':
@@ -738,7 +738,7 @@ class AlbaController(object):
                 time.sleep(10)
                 counter += 1
             if status != 'done':
-                logger.error('{0}: Failed to perform SDM update'.format(node.ip))
+                logger.error('{0}: Failed to perform SDM update. Please check /var/log/upstart/alba-asdmanager.log on the appropriate node'.format(node.ip))
             else:
                 node.client.restart_services()
 
