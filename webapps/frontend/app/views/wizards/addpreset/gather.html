@@ -65,6 +65,7 @@ limitations under the License.
                             <tr>
                                 <th style="width: 60px; padding-left: 8px;">k</th>
                                 <th style="width: 60px; padding-left: 8px;">m</th>
+                                <th style="width: 60px; padding-left: 8px;">c</th>
                                 <th style="padding-left: 8px;">x</th>
                                 <th style="width: 30px;">&nbsp;</th>
                                 <th style="width: 30px;">&nbsp;</th>
@@ -79,6 +80,10 @@ limitations under the License.
                                     </td>
                                     <td>
                                         <input style="width: 50px;" type="text" data-bind="value: m" />
+                                    </td>
+                                    <td>
+                                        <input style="width: 50px;" type="text"
+                                               data-bind="value: c, style: { 'border': $.inArray('c_' + id(), $root.canContinue().fields) !== -1 ? 'solid #d6605e 2px' : '' }" />
                                     </td>
                                     <td>
                                         <input style="width: 50px;" type="text" data-bind="value: x" />

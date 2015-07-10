@@ -51,7 +51,7 @@ define([
                 deferred.resolve();
                 api.post('alba/nodes', {
                     data: {
-                        box_id: self.data.node().boxID(),
+                        node_id: self.data.node().nodeID(),
                         ip: self.data.node().ip(),
                         port: self.data.node().port(),
                         username: self.data.username(),

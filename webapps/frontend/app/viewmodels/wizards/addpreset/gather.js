@@ -14,9 +14,8 @@
 /*global define */
 define([
     'jquery', 'knockout',
-    './data',
-    'ovs/api', 'ovs/generic', 'ovs/shared'
-], function($, ko, data, api, generic, shared) {
+    './data'
+], function($, ko, data) {
     "use strict";
     return function() {
         var self = this;
@@ -43,6 +42,16 @@ define([
                 fields.push('name');
                 reasons.push($.t('alba:wizards.addpreset.gather.duplicatename'));
             }
+            $.each(data.policies(), function (index, policy) {
+                if (policy.k() > policy.c() || policy.c() > (policy.k() + policy.m())) {
+                    fields.push('c_' + policy.id());
+                    if (!fields.contains('c')) {
+                        valid = false;
+                        fields.push('c');
+                        reasons.push($.t('alba:wizards.addpreset.gather.invalidc'));
+                    }
+                }
+            });
             return { value: valid, reasons: reasons, fields: fields };
         });
 
@@ -74,6 +83,7 @@ define([
                 id: ko.observable(newID),
                 k: ko.observable(0).extend({ numeric: { min: 1 } }),
                 m: ko.observable(0).extend({ numeric: { min: 0 } }),
+                c: ko.observable(0).extend({ numeric: { min: 1 } }),
                 x: ko.observable(0).extend({ numeric: { min: 1 } })
             });
         };

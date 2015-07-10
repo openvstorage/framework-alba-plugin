@@ -36,7 +36,7 @@
         "macaddress": "MAC",
         "ipaddress": "IP",
         "connection": "Connection",
-        "boxid": "Node ID",
+        "nodeid": "Node ID",
         "nodes": "ASD Nodes",
         "initialize": "Initialize",
         "initializeall": "Initialize all uninitialized disks",
@@ -146,8 +146,8 @@
         "policies": {
             "title": "Policies",
             "helptitle": "Policies - Help",
-            "helpcontent": "Each available policy (e.g. (5, 2, 3)) consists out of 3 numbers:<ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 2)</li><li><b>x</b>: The maximum number of fragments per storage node (e.g. 3)</li></ul>For example, (5, 2, 3) means each object will be split in 7 fragments (5 data and 2 parity) which will be stored across all available disks. However, no more than 3 fragments will end up within a single storage node. In case this policy can not be met, the policy will be unavailable. If no policies are available, the backend can not be used.",
-            "shorthelpcontent": "Parameter information: <ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 2)</li><li><b>x</b>: The maximum number of fragments per storage node (e.g. 3)</li></ul>"
+            "helpcontent": "Each available policy (e.g. (5, 4, 8, 3)) consists out of 4 numbers:<ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 4)</li><li><b>c</b>: The minimum numbers of fragments to write (e.g. 8)</li><li><b>x</b>: The maximum number of fragments per storage node (e.g. 3)</li></ul>For example, (5, 4, 8, 3) means each object will be split in 9 fragments (5 data and 4 parity) which will be stored across all available disks. The object can be written as soon as 8 fragments can be written. However, no more than 3 fragments will end up within a single storage node. In case this policy can not be met, the policy will be unavailable. If no policies are available, the backend can not be used.",
+            "shorthelpcontent": "Parameter information: <ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 4)</li><li><b>c</b>: The minimum numbers of fragments to write (e.g. 8)</li><li><b>x</b>: The maximum number of fragments per storage node (e.g. 3)</li><li>Requirements: k <= c <= (k + m)</li></ul>"
         },
         "delete": {
             "warning": "Are you sure you want to delete preset \"__what__\"?",
@@ -267,7 +267,8 @@
                 "replication": "Replication copies",
                 "advancedtext": "Advanced settings",
                 "accepttext": "I understand the risks",
-                "warning": "Adding presets can help shape the Open vStorage Backend to your specific needs.<br /><br />When creating a preset, make sure to understand the impact of certain compression algorithms and policies. For example, creating a (1, 0, 1) policy might cause dataloss when a single disk fails. Remember that the order in which policies are defined is the same order in which policies will be used. Make sure to put the safest/most preferred policies on top.<br /><br />Improperly configured presets can cause dataloss!"
+                "invalidc": "One or more 'c' values does not meet the requirement k <= c <= (k + m)",
+                "warning": "Adding presets can help shape the Open vStorage Backend to your specific needs.<br /><br />When creating a preset, make sure to understand the impact of certain compression algorithms and policies. For example, creating a (1, 0, 1, 1) policy might cause dataloss when a single disk fails. Remember that the order in which policies are defined is the same order in which policies will be used. Make sure to put the safest/most preferred policies on top.<br /><br />Improperly configured presets can cause dataloss!"
             },
             "confirm": {
                 "basicinfo": "Confirm your preset. Make sure policies are in the correct order and are correctly defined.",

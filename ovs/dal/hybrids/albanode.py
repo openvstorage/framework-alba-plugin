@@ -16,7 +16,7 @@ class AlbaNode(DataObject):
     """
     __properties = [Property('ip', str, doc='IP Address'),
                     Property('port', int, doc='Port'),
-                    Property('box_id', str, doc='Alba box_id identifier'),
+                    Property('node_id', str, doc='Alba node_id identifier'),
                     Property('username', str, doc='Username of the AlbaNode'),
                     Property('password', str, doc='Password of the AlbaNode'),
                     Property('type', ['ASD', 'SUPERMICRO'], default='ASD', doc='The type of the AlbaNode')]

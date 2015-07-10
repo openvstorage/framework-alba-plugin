@@ -29,7 +29,7 @@ define([
         self.rNodesLoading          = ko.observable(true);
         self.dNodesLoading          = ko.observable(false);
         self.registeredNodes        = ko.observableArray([]);
-        self.registeredNodesBoxIDs  = ko.observableArray([]);
+        self.registeredNodesNodeIDs = ko.observableArray([]);
         self.discoveredNodes        = ko.observableArray([]);
         self.disks                  = ko.observableArray([]);
         self.vPools                 = ko.observableArray([]);
@@ -39,7 +39,7 @@ define([
         self.filteredDiscoveredNodes = ko.computed(function() {
             var nodes = [];
             $.each(self.discoveredNodes(), function(index, node) {
-                if (!self.registeredNodesBoxIDs().contains(node.boxID())) {
+                if (!self.registeredNodesNodeIDs().contains(node.nodeID())) {
                     nodes.push(node);
                 }
             });
@@ -100,30 +100,30 @@ define([
                 configurable = {}, totalClaimed = 0, totalNodes = 0, license;
             if (backend_configurable) {
                 $.each(self.registeredNodes(), function (jndex, node) {
-                    configurable[node.boxID()] = 0;
+                    configurable[node.nodeID()] = 0;
                     $.each(node.disks(), function (index, disk) {
                         if (disk.status() === 'claimed') {
-                            configurable[node.boxID()] += 1;
+                            configurable[node.nodeID()] += 1;
                             totalClaimed += 1;
                         }
                     });
-                    if (configurable[node.boxID()] > 0) {
+                    if (configurable[node.nodeID()] > 0) {
                         totalNodes += 1;
                     }
                 });
                 license = self.albaBackend().license().data();
-                $.each(configurable, function(boxID, amount) {
+                $.each(configurable, function(nodeID, amount) {
                     if (license.osds === null && license.nodes === null) {
-                        configurable[boxID] = true;
+                        configurable[nodeID] = true;
                     } else if (license.osds !== null && license.nodes !== null) {
-                        configurable[boxID] = !(totalClaimed >= license.osds || (amount === 0 && totalNodes >= license.nodes));
+                        configurable[nodeID] = !(totalClaimed >= license.osds || (amount === 0 && totalNodes >= license.nodes));
                     } else {
-                        configurable[boxID] = license.osds === null ? !(amount === 0 && totalNodes >= license.nodes) : totalClaimed < license.osds;
+                        configurable[nodeID] = license.osds === null ? !(amount === 0 && totalNodes >= license.nodes) : totalClaimed < license.osds;
                     }
                 });
             } else {
                 $.each(self.registeredNodes(), function (jndex, node) {
-                    configurable[node.boxID()] = false;
+                    configurable[node.nodeID()] = false;
                 });
             }
             return configurable;
@@ -254,8 +254,8 @@ define([
             return $.Deferred(function(deferred) {
                 if (generic.xhrCompleted(self.nodesHandle[discover])) {
                     var options = {
-                        sort: 'box_id',
-                        contents: 'box_id,_relations' + (discover ? ',_dynamics' : ''),
+                        sort: 'node_id',
+                        contents: 'node_id,_relations' + (discover ? ',_dynamics' : ''),
                         discover: discover,
                         alba_backend_guid: self.albaBackend().guid()
                     };
@@ -264,21 +264,21 @@ define([
                             .done(function (data) {
                                 var nodeIDs = [], nodes = {}, oArray = discover ? self.discoveredNodes : self.registeredNodes;
                                 $.each(data.data, function (index, item) {
-                                    nodeIDs.push(item.box_id);
-                                    nodes[item.box_id] = item;
+                                    nodeIDs.push(item.node_id);
+                                    nodes[item.node_id] = item;
                                 });
                                 if (!discover) {
-                                    self.registeredNodesBoxIDs(nodeIDs);
+                                    self.registeredNodesNodeIDs(nodeIDs);
                                 }
                                 generic.crossFiller(
                                     nodeIDs, oArray,
-                                    function(boxID) {
-                                        return new Node(boxID, self);
-                                    }, 'boxID'
+                                    function(nodeID) {
+                                        return new Node(nodeID, self);
+                                    }, 'nodeID'
                                 );
                                 $.each(oArray(), function (index, node) {
-                                    if ($.inArray(node.boxID(), nodeIDs) !== -1) {
-                                        node.fillData(nodes[node.boxID()]);
+                                    if ($.inArray(node.nodeID(), nodeIDs) !== -1) {
+                                        node.fillData(nodes[node.nodeID()]);
                                         var sr, storageRouterGuid = node.storageRouterGuid();
                                         if (storageRouterGuid && (node.storageRouter() === undefined || node.storageRouter().guid() !== storageRouterGuid)) {
                                             if (!self.storageRouterCache.hasOwnProperty(storageRouterGuid)) {
@@ -335,7 +335,7 @@ define([
                 diskNames.push(disk.name());
                 if (disk.node === undefined) {
                     $.each(self.registeredNodes(), function(jndex, node) {
-                        if (disk.boxID() === node.boxID()) {
+                        if (disk.nodeID() === node.nodeID()) {
                             disk.node = node;
                             node.disks.push(disk);
                             node.disks.sort(function (a, b) {
@@ -356,9 +356,9 @@ define([
                 });
             });
         };
-        self.claimOSD = function(osds, disk, boxID) {
+        self.claimOSD = function(osds, disk, nodeID) {
             return $.Deferred(function(deferred) {
-                if (!self.configurable()[boxID]) {
+                if (!self.configurable()[nodeID]) {
                     deferred.reject();
                     return;
                 }

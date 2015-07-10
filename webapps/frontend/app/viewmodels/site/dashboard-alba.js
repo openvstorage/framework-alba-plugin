@@ -105,8 +105,8 @@ define([
             return $.Deferred(function(deferred) {
                 if (generic.xhrCompleted(self.loadNodesHandle)) {
                     var options = {
-                        sort: 'box_id',
-                        contents: 'box_id',
+                        sort: 'node_id',
+                        contents: 'node_id',
                         discover: false,
                         alba_backend_guid: self.albaBackends()[0].guid()
                     };
@@ -114,18 +114,18 @@ define([
                         .done(function (data) {
                             var nodeIDs = [], nodes = {};
                             $.each(data.data, function (index, item) {
-                                nodeIDs.push(item.box_id);
-                                nodes[item.box_id] = item;
+                                nodeIDs.push(item.node_id);
+                                nodes[item.node_id] = item;
                             });
                             generic.crossFiller(
                                 nodeIDs, self.nodes,
-                                function(boxID) {
-                                    return new Node(boxID, self);
-                                }, 'boxID'
+                                function(nodeID) {
+                                    return new Node(nodeID, self);
+                                }, 'nodeID'
                             );
                             $.each(self.nodes(), function (index, node) {
-                                if ($.inArray(node.boxID(), nodeIDs) !== -1) {
-                                    node.fillData(nodes[node.boxID()]);
+                                if ($.inArray(node.nodeID(), nodeIDs) !== -1) {
+                                    node.fillData(nodes[node.nodeID()]);
                                 }
                             });
                             deferred.resolve();
@@ -174,7 +174,7 @@ define([
                 diskNames.push(disk.name());
                 if (disk.node === undefined) {
                     $.each(self.nodes(), function(jndex, node) {
-                        if (disk.boxID() === node.boxID()) {
+                        if (disk.nodeID() === node.nodeID()) {
                             disk.node = node;
                             node.disks.push(disk);
                             node.disks.sort(function (a, b) {

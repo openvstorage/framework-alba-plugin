@@ -7,7 +7,7 @@ define([
     '../containers/albaosd', '../wizards/addalbanode/index', '../wizards/removeosd/index'
 ], function($, ko, app, dialog, generic, api, shared, OSD, AddAlbaNodeWizard, RemoveOSDWizard) {
     "use strict";
-    return function(boxID, parent) {
+    return function(nodeID, parent) {
         var self = this;
 
         // Variables
@@ -23,7 +23,7 @@ define([
         self.ip                = ko.observable();
         self.port              = ko.observable();
         self.username          = ko.observable();
-        self.boxID             = ko.observable(boxID);
+        self.nodeID            = ko.observable(nodeID);
         self.storageRouterGuid = ko.observable();
         self.disks             = ko.observableArray([]);
         self.ips               = ko.observableArray([]);

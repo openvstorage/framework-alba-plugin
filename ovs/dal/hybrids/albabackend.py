@@ -46,7 +46,7 @@ class AlbaBackend(DataObject):
                     if disk['state']['state'] == 'ok':
                         disk['status'] = 'initialized'
                         for osd in all_osds:
-                            if osd['box_id'] == node.box_id and 'asd_id' in disk and osd['long_id'] == disk['asd_id']:
+                            if osd['node_id'] == node.node_id and 'asd_id' in disk and osd['long_id'] == disk['asd_id']:
                                 if osd['id'] is None:
                                     if osd['alba_id'] is None:
                                         disk['status'] = 'available'
@@ -75,7 +75,7 @@ class AlbaBackend(DataObject):
                         disk['status'] = 'error'
                         disk['status_detail'] = disk['state']['detail']
                         for osd in all_osds:
-                            if osd['box_id'] == node.box_id and 'asd_id' in disk and osd['long_id'] == disk['asd_id']:
+                            if osd['node_id'] == node.node_id and 'asd_id' in disk and osd['long_id'] == disk['asd_id']:
                                 other_abackend = AlbaBackendList.get_by_alba_id(osd['alba_id'])
                                 if other_abackend is not None:
                                     disk['alba_backend_guid'] = other_abackend.guid
@@ -203,10 +203,10 @@ class AlbaBackend(DataObject):
         all_disks = self.all_disks
         disks = {}
         for node in AlbaNodeList.get_albanodes():
-            disks[node.box_id] = 0
+            disks[node.node_id] = 0
             for disk in all_disks:
-                if disk['box_id'] == node.box_id and disk['status'] in ['claimed', 'warning']:
-                    disks[node.box_id] += 1
+                if disk['node_id'] == node.node_id and disk['status'] in ['claimed', 'warning']:
+                    disks[node.node_id] += 1
         config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(self.backend.name)
         presets = AlbaCLI.run('list-presets', config=config_file, as_json=True)
         preset_dict = {}
@@ -222,8 +222,8 @@ class AlbaBackend(DataObject):
             active_policy = None
             for policy in preset['policies']:
                 is_available = False
-                available_disks = sum(min(disks[node], policy[2]) for node in disks)
-                if available_disks >= policy[0] + policy[1]:
+                available_disks = sum(min(disks[node], policy[3]) for node in disks)
+                if available_disks >= policy[2]:
                     if active_policy is None:
                         active_policy = policy
                     is_available = True

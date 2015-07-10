@@ -35,13 +35,13 @@ class AlbaNodeViewSet(viewsets.ViewSet):
             return AlbaNodeList.get_albanodes()
         else:
             nodes = {}
-            model_box_ids = [node.box_id for node in AlbaNodeList.get_albanodes()]
-            found_box_ids = []
+            model_node_ids = [node.node_id for node in AlbaNodeList.get_albanodes()]
+            found_node_ids = []
             for node_data in AlbaNodeController.discover.delay().get():
                 node = AlbaNode(data=node_data, volatile=True)
-                if node.box_id not in model_box_ids and node.box_id not in found_box_ids:
+                if node.node_id not in model_node_ids and node.node_id not in found_node_ids:
                     nodes[node.guid] = node
-                    found_box_ids.append(node.box_id)
+                    found_node_ids.append(node.node_id)
             node_list = DataObjectList(nodes.keys(), AlbaNode)
             node_list._objects = nodes
             return node_list
@@ -50,11 +50,11 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load()
-    def create(self, box_id, ip, port, username, password, asd_ips):
+    def create(self, node_id, ip, port, username, password, asd_ips):
         """
-        Adds a node with a given box_id to the model
+        Adds a node with a given node_id to the model
         """
-        return AlbaNodeController.register.delay(box_id, ip, port, username, password, asd_ips)
+        return AlbaNodeController.register.delay(node_id, ip, port, username, password, asd_ips)
 
     @action()
     @required_roles(['read', 'write', 'manage'])

@@ -132,7 +132,7 @@ All rights reserved
                                 <span class="hand fa" data-i18n="[html]alba:icons.expand"
                                       data-bind="visible: !$root.expanded(), click: function() { $root.expanded(!$root.expanded()); }"></span>
                             </th>
-                            <th data-i18n="alba:generic.boxid" style="width: 400px;"></th>
+                            <th data-i18n="alba:generic.nodeid" style="width: 400px;"></th>
                             <th data-i18n="alba:generic.node"></th>
                             <th data-i18n="ovs:generic.actions" style="width: 80px;"></th>
                         </tr>
@@ -149,7 +149,7 @@ All rights reserved
                                                 <span class="hand fa" data-i18n="[html]alba:icons.expand"
                                                       data-bind="visible: !expanded(), click: function() { expanded(!expanded()); }"></span>
                                             </td>
-                                            <td style="width: 400px; border-top: 0;" data-bind="text: boxID"></td>
+                                            <td style="width: 400px; border-top: 0;" data-bind="text: nodeID"></td>
                                             <td style="border-top: 0;">
                                                 <!-- ko if: storageRouterGuid() === undefined || storageRouter() === undefined -->
                                                     <span data-bind="text: ip"></span>:<span data-bind="text: port"></span>
@@ -163,7 +163,7 @@ All rights reserved
                                                 <!-- /ko -->
                                             </td>
                                             <td style="width: 80px; border-top: 0;">
-                                                <i data-bind="attr: { id: 'initialize_all_' + boxID() },
+                                                <i data-bind="attr: { id: 'initialize_all_' + nodeID() },
                                                               click: function() {
                                                                   if (canInitializeAll() && $.inArray('manage', $root.shared.user.roles()) !== -1) {
                                                                       initializeAll();
@@ -176,7 +176,7 @@ All rights reserved
                                                               tooltip: 'alba:generic.initializeall',
                                                               style: { color: $.inArray('manage', $root.shared.user.roles()) !== -1 && canInitializeAll() ? 'black' : 'lightgrey' }"
                                                    class="hand fa fa-fw" data-i18n="[html]alba:icons.initialize"></i>
-                                                <i data-bind="attr: { id: 'claim_all_' + boxID() },
+                                                <i data-bind="attr: { id: 'claim_all_' + nodeID() },
                                                               click: function() {
                                                                   if (canClaimAll() && $.inArray('manage', $root.shared.user.roles()) !== -1) {
                                                                       claimAll();
@@ -250,8 +250,8 @@ All rights reserved
                             <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                 <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
                                         data-bind="click: claim, css: { disabled: processing() || !loaded() },
-                                                   style: { 'opacity': $root.configurable()[$parents[1].boxID()] ? '' : '0.65' },
-                                                   tooltip: ($root.configurable()[$parents[1].boxID()] ? '' : 'ovs:generic.licenselimited'),
+                                                   style: { 'opacity': $root.configurable()[$parents[1].nodeID()] ? '' : '0.65' },
+                                                   tooltip: ($root.configurable()[$parents[1].nodeID()] ? '' : 'ovs:generic.licenselimited'),
                                                    placement: 'bottom'"></button>
                                 <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
                                         data-bind="click: remove, css: { disabled: processing() || !loaded() }"></button>
@@ -333,10 +333,10 @@ All rights reserved
                         <!-- ko foreach: filteredDiscoveredNodes -->
                             <tr>
                                 <td style="width: 40px;">&nbsp;</td>
-                                <td style="width: 400px;" data-bind="text: boxID"></td>
+                                <td style="width: 400px;" data-bind="text: nodeID"></td>
                                 <td><span data-bind="text: ip"></span>:<span data-bind="text: port"></span></td>
                                 <td style="width: 80px;">
-                                    <i data-bind="attr: { id: 'registernode_' + boxID() },
+                                    <i data-bind="attr: { id: 'registernode_' + nodeID() },
                                                   click: function() {
                                                       if ($.inArray('manage', $root.shared.user.roles()) !== -1) {
                                                           register();

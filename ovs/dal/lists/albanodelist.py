@@ -40,14 +40,14 @@ class AlbaNodeList(object):
         return None
 
     @staticmethod
-    def get_albanode_by_box_id(box_id):
+    def get_albanode_by_node_id(node_id):
         """
-        Returns a node by its box_id
+        Returns a node by its node_id
         """
         nodes = DataList({'object': AlbaNode,
                           'data': DataList.select.GUIDS,
                           'query': {'type': DataList.where_operator.AND,
-                                    'items': [('box_id', DataList.operator.EQUALS, box_id)]}}).data
+                                    'items': [('node_id', DataList.operator.EQUALS, node_id)]}}).data
         if len(nodes) == 1:
             return Descriptor(AlbaNode, nodes[0]).get_object(True)
         return None

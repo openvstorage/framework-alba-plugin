@@ -17,7 +17,7 @@ define([
         self.ignoreNext      = ko.observable(false);
         self.loaded          = ko.observable(false);
         self.name            = ko.observable(name);
-        self.boxID           = ko.observable();
+        self.nodeID          = ko.observable();
         self.asdID           = ko.observable();
         self.usage           = ko.observable();
         self.status          = ko.observable();
@@ -42,7 +42,7 @@ define([
                 self.ignoreNext(false);
             } else {
                 self.status(data.status);
-                self.boxID(data.box_id);
+                self.nodeID(data.node_id);
                 generic.trySet(self.statusDetail, data, 'status_detail');
                 generic.trySet(self.albaBackendGuid, data, 'alba_backend_guid');
                 generic.trySet(self.asdID, data, 'asd_id');
@@ -76,7 +76,7 @@ define([
             var osds = {};
             osds[self.asdID()] = self.node.guid();
             self.processing(true);
-            self.node.claimOSD(osds, self.name(), self.node.boxID())
+            self.node.claimOSD(osds, self.name(), self.node.nodeID())
                 .done(function() {
                     self.ignoreNext(true);
                     self.status('claimed');

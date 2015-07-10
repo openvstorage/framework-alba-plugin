@@ -42,27 +42,27 @@ class AlbaNodeController(object):
                 # split(';') -> [3]  = asd_node_ZrdSgl4cYulH7SjvpRuICM3CBcRmfKfp
                 #               [7]  = 10.100.154.233 (ip)
                 #               [8]  = 8500 (port)
-                # split('_') -> [-1] = ZrdSgl4cYulH7SjvpRuICM3CBcRmfKfp (box_id)
+                # split('_') -> [-1] = ZrdSgl4cYulH7SjvpRuICM3CBcRmfKfp (node_id)
                 entry_parts = entry.split(';')
                 if entry_parts[0] == '=' and entry_parts[2] == 'IPv4':
                     node = AlbaNode(volatile=True)
                     node.ip = entry_parts[7]
                     node.port = int(entry_parts[8])
                     node.type = 'ASD'
-                    node.box_id = entry_parts[3].split('_')[-1]
+                    node.node_id = entry_parts[3].split('_')[-1]
                     storagerouter = StorageRouterList.get_by_ip(node.ip)
                     if storagerouter is not None:
                         # Its a public ip from one of the StorageRouters, so that one's preferred
-                        nodes[node.box_id] = node
+                        nodes[node.node_id] = node
                         continue
-                    if node.box_id not in nodes:
+                    if node.node_id not in nodes:
                         # Still not in there. If the ip is reachable, this one is choosen
                         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         sock.settimeout(1)
                         try:
                             sock.connect((node.ip, node.port))
                             sock.close()
-                            nodes[node.box_id] = node
+                            nodes[node.node_id] = node
                         except Exception:
                             pass
             return [node.export() for node in nodes.values()]
@@ -72,11 +72,11 @@ class AlbaNodeController(object):
 
     @staticmethod
     @celery.task(name='albanode.register')
-    def register(box_id, ip, port, username, password, asd_ips):
+    def register(node_id, ip, port, username, password, asd_ips):
         """
-        Adds a Node with a given box_id to the model
+        Adds a Node with a given node_id to the model
         """
-        node = AlbaNodeList.get_albanode_by_box_id(box_id)
+        node = AlbaNodeList.get_albanode_by_node_id(node_id)
         if node is None:
             node = AlbaNode()
             node.ip = ip
@@ -86,10 +86,10 @@ class AlbaNodeController(object):
         data = node.client.get_metadata()
         if data['_success'] is False and data['_error'] == 'Invalid credentials':
             raise RuntimeError('Invalid credentials')
-        if data['box_id'] != box_id:
-            raise RuntimeError('Unexpected box_id: {0} vs {1}'.format(data['box_id'], box_id))
+        if data['node_id'] != node_id:
+            raise RuntimeError('Unexpected node_id: {0} vs {1}'.format(data['node_id'], node_id))
         node.client.set_ips(asd_ips)
-        node.box_id = box_id
+        node.node_id = node_id
         node.type = 'ASD'
         node.save()
 
@@ -205,6 +205,6 @@ class AlbaNodeController(object):
             node.port = 8500
             node.username = config['main']['username']
             node.password = config['main']['password']
-            node.box_id = config['main']['box_id']
+            node.node_id = config['main']['node_id']
             node.type = 'ASD'
             node.save()
