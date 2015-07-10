@@ -777,7 +777,7 @@ class AlbaController(object):
                 if info['services']:
                     for service in services:
                         cluster_name = service.lstrip('arakoon-')
-                        logger.info('Restarting cluster {0}'.format(cluster_name), print_msg=True)
+                        logger.info('Restarting cluster {0} because of ALBA update'.format(cluster_name), print_msg=True)
                         ArakoonInstaller.restart_cluster(cluster_name=cluster_name,
                                                          master_ip=client.ip)
 
