@@ -241,7 +241,11 @@ class AlbaBackend(DataObject):
                     continue
                 preset = preset_dict[namespace_data['preset_name']]
                 for usage in policy_usage:
-                    preset['policy_metadata'][tuple(usage[0])]['in_use'] = True
+                    upolicy = tuple(usage[0])  # Policy as reported to be "in use"
+                    for cpolicy in preset['policies']:  # All configured policies
+                        if upolicy[0] == cpolicy[0] and upolicy[1] == cpolicy[1] and upolicy[3] <= cpolicy[3]:
+                            preset['policy_metadata'][cpolicy]['in_use'] = True
+                            break
         for preset in presets:
             preset['policies'] = [str(policy) for policy in preset['policies']]
             for key in preset['policy_metadata'].keys():
