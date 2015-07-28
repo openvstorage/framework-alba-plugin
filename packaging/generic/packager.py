@@ -33,7 +33,7 @@ from sourcecollector import SourceCollector
 from debian import DebianPackager
 
 if __name__ == '__main__':
-    parser = OptionParser(description='Open vStorage ALBA packager')
+    parser = OptionParser(description='Open vStorage packager')
     parser.add_option('-d', '--target', dest='target', default='unstable')
     parser.add_option('-r', '--revision', dest='revision', default=None)
     parser.add_option('-s', '--suffix', dest='suffix', default=None)
