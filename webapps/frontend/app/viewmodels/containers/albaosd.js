@@ -1,5 +1,16 @@
-// Copyright 2014 CloudFounders NV
-// All rights reserved
+// Copyright 2014 Open vStorage NV
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 /*global define */
 define([
     'knockout',
@@ -17,7 +28,7 @@ define([
         self.ignoreNext      = ko.observable(false);
         self.loaded          = ko.observable(false);
         self.name            = ko.observable(name);
-        self.boxID           = ko.observable();
+        self.nodeID          = ko.observable();
         self.asdID           = ko.observable();
         self.usage           = ko.observable();
         self.status          = ko.observable();
@@ -29,6 +40,7 @@ define([
         self.albaBackend     = ko.observable();
         self.albaBackendGuid = ko.observable();
         self.parentABGuid    = ko.observable(albaBackendGuid);
+        self.highlighted     = ko.observable(false);
 
         // Computed
         self.isLocal = ko.computed(function() {
@@ -41,7 +53,7 @@ define([
                 self.ignoreNext(false);
             } else {
                 self.status(data.status);
-                self.boxID(data.box_id);
+                self.nodeID(data.node_id);
                 generic.trySet(self.statusDetail, data, 'status_detail');
                 generic.trySet(self.albaBackendGuid, data, 'alba_backend_guid');
                 generic.trySet(self.asdID, data, 'asd_id');
@@ -69,20 +81,13 @@ define([
         };
         self.remove = function() {
             self.processing(true);
-            self.node.removeOSD(self.name())
-                .done(function() {
-                    self.ignoreNext(true);
-                    self.status('uninitialized');
-                })
-                .always(function() {
-                    self.processing(false);
-                });
+            self.node.removeOSD(self);
         };
         self.claim = function() {
             var osds = {};
             osds[self.asdID()] = self.node.guid();
             self.processing(true);
-            self.node.claimOSD(osds, self.name())
+            self.node.claimOSD(osds, self.name(), self.node.nodeID())
                 .done(function() {
                     self.ignoreNext(true);
                     self.status('claimed');

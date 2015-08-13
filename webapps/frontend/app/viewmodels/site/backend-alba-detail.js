@@ -1,12 +1,24 @@
-// Copyright 2014 CloudFounders NV
-// All rights reserved
+// Copyright 2014 Open vStorage NV
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 /*global define */
 define([
-    'jquery', 'durandal/app', 'knockout',
+    'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/backend', '../containers/backendtype', '../containers/albabackend',
-    '../containers/albanode', '../containers/albaosd', '../containers/storagerouter', '../containers/vpool', '../containers/license'
-], function($, app, ko, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node, OSD, StorageRouter, VPool, License) {
+    '../containers/albanode', '../containers/albaosd', '../containers/storagerouter', '../containers/vpool',
+    '../containers/license', '../wizards/addpreset/index'
+], function($, app, ko, router, dialog, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node, OSD, StorageRouter, VPool, License, AddPresetWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -28,12 +40,36 @@ define([
         self.rNodesLoading          = ko.observable(true);
         self.dNodesLoading          = ko.observable(false);
         self.registeredNodes        = ko.observableArray([]);
+        self.registeredNodesNodeIDs = ko.observableArray([]);
         self.discoveredNodes        = ko.observableArray([]);
         self.disks                  = ko.observableArray([]);
         self.vPools                 = ko.observableArray([]);
         self.otherAlbaBackendsCache = ko.observable({});
 
         // Computed
+        self.filteredDiscoveredNodes = ko.computed(function() {
+            var nodes = [];
+            $.each(self.discoveredNodes(), function(index, node) {
+                if (!self.registeredNodesNodeIDs().contains(node.nodeID())) {
+                    nodes.push(node);
+                }
+            });
+            return nodes;
+        });
+        self.expanded = ko.computed({
+            write: function(value) {
+                $.each(self.registeredNodes(), function(index, node) {
+                    node.expanded(value);
+                });
+            },
+            read: function() {
+                var expanded = false;
+                $.each(self.registeredNodes(), function(index, node) {
+                    expanded |= node.expanded();  // Bitwise or, |= is correct.
+                });
+                return expanded;
+            }
+        });
         self.otherAlbaBackends = ko.computed(function() {
             var albaBackends = [], cache = self.otherAlbaBackendsCache(), counter = 0;
             $.each(cache, function(index, albaBackend) {
@@ -71,7 +107,37 @@ define([
             return states;
         });
         self.configurable = ko.computed(function() {
-            return self.albaBackend() !== undefined && self.albaBackend().configurable();
+            var backend_configurable = self.albaBackend() !== undefined && self.albaBackend().configurable(),
+                configurable = {}, totalClaimed = 0, totalNodes = 0, license;
+            if (backend_configurable) {
+                $.each(self.registeredNodes(), function (jndex, node) {
+                    configurable[node.nodeID()] = 0;
+                    $.each(node.disks(), function (index, disk) {
+                        if (disk.status() === 'claimed') {
+                            configurable[node.nodeID()] += 1;
+                            totalClaimed += 1;
+                        }
+                    });
+                    if (configurable[node.nodeID()] > 0) {
+                        totalNodes += 1;
+                    }
+                });
+                license = self.albaBackend().license().data();
+                $.each(configurable, function(nodeID, amount) {
+                    if (license.osds === null && license.nodes === null) {
+                        configurable[nodeID] = true;
+                    } else if (license.osds !== null && license.nodes !== null) {
+                        configurable[nodeID] = !(totalClaimed >= license.osds || (amount === 0 && totalNodes >= license.nodes));
+                    } else {
+                        configurable[nodeID] = license.osds === null ? !(amount === 0 && totalNodes >= license.nodes) : totalClaimed < license.osds;
+                    }
+                });
+            } else {
+                $.each(self.registeredNodes(), function (jndex, node) {
+                    configurable[node.nodeID()] = false;
+                });
+            }
+            return configurable;
         });
 
         // Functions
@@ -114,7 +180,11 @@ define([
                         }).promise();
                     })
                     .then(function(albaBackend) {
-                        return albaBackend.load();
+                        return albaBackend.load()
+                            .then(function(data) {
+                                albaBackend.getAvailableActions();
+                                return data;
+                            });
                     })
                     .done(deferred.resolve)
                     .fail(deferred.reject);
@@ -195,8 +265,8 @@ define([
             return $.Deferred(function(deferred) {
                 if (generic.xhrCompleted(self.nodesHandle[discover])) {
                     var options = {
-                        sort: 'box_id',
-                        contents: 'box_id,_relations' + (discover ? ',_dynamics' : ''),
+                        sort: 'node_id',
+                        contents: 'node_id,_relations' + (discover ? ',_dynamics' : ''),
                         discover: discover,
                         alba_backend_guid: self.albaBackend().guid()
                     };
@@ -205,18 +275,21 @@ define([
                             .done(function (data) {
                                 var nodeIDs = [], nodes = {}, oArray = discover ? self.discoveredNodes : self.registeredNodes;
                                 $.each(data.data, function (index, item) {
-                                    nodeIDs.push(item.box_id);
-                                    nodes[item.box_id] = item;
+                                    nodeIDs.push(item.node_id);
+                                    nodes[item.node_id] = item;
                                 });
+                                if (!discover) {
+                                    self.registeredNodesNodeIDs(nodeIDs);
+                                }
                                 generic.crossFiller(
                                     nodeIDs, oArray,
-                                    function(boxID) {
-                                        return new Node(boxID, self);
-                                    }, 'boxID'
+                                    function(nodeID) {
+                                        return new Node(nodeID, self);
+                                    }, 'nodeID'
                                 );
                                 $.each(oArray(), function (index, node) {
-                                    if ($.inArray(node.boxID(), nodeIDs) !== -1) {
-                                        node.fillData(nodes[node.boxID()]);
+                                    if ($.inArray(node.nodeID(), nodeIDs) !== -1) {
+                                        node.fillData(nodes[node.nodeID()]);
                                         var sr, storageRouterGuid = node.storageRouterGuid();
                                         if (storageRouterGuid && (node.storageRouter() === undefined || node.storageRouter().guid() !== storageRouterGuid)) {
                                             if (!self.storageRouterCache.hasOwnProperty(storageRouterGuid)) {
@@ -273,7 +346,7 @@ define([
                 diskNames.push(disk.name());
                 if (disk.node === undefined) {
                     $.each(self.registeredNodes(), function(jndex, node) {
-                        if (disk.boxID() === node.boxID()) {
+                        if (disk.nodeID() === node.nodeID()) {
                             disk.node = node;
                             node.disks.push(disk);
                             node.disks.sort(function (a, b) {
@@ -294,9 +367,9 @@ define([
                 });
             });
         };
-        self.claimOSD = function(osds, disk) {
+        self.claimOSD = function(osds, disk, nodeID) {
             return $.Deferred(function(deferred) {
-                if (!self.configurable()) {
+                if (!self.configurable()[nodeID]) {
                     deferred.reject();
                     return;
                 }
@@ -371,6 +444,88 @@ define([
                         }
                     });
             }).promise();
+        };
+        self.removeBackend = function() {
+            return $.Deferred(function(deferred) {
+                if (self.albaBackend() === undefined || !self.albaBackend().availableActions().contains('REMOVE')) {
+                    deferred.reject();
+                    return;
+                }
+                app.showMessage(
+                    $.t('alba:detail.delete.warning'),
+                    $.t('ovs:generic.areyousure'),
+                    [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
+                )
+                    .done(function(answer) {
+                        if (answer === $.t('ovs:generic.yes')) {
+                            generic.alertSuccess(
+                                $.t('alba:detail.delete.started'),
+                                $.t('alba:detail.delete.msgstarted')
+                            );
+                            router.navigate(self.shared.routing.loadHash('backends'));
+                            api.del('alba/backends/' + self.albaBackend().guid())
+                                .then(self.shared.tasks.wait)
+                                .done(function() {
+                                    generic.alertSuccess(
+                                        $.t('alba:detail.delete.complete'),
+                                        $.t('alba:detail.delete.success')
+                                    );
+                                    deferred.resolve();
+                                })
+                                .fail(function(error) {
+                                    generic.alertError(
+                                        $.t('ovs:generic.error'),
+                                        $.t('alba:detail.delete.failed', { why: error })
+                                    );
+                                    deferred.reject();
+                                });
+                        } else {
+                            deferred.reject();
+                        }
+                    });
+            }).promise();
+        };
+        self.removePreset = function(name) {
+            return $.Deferred(function(deferred) {
+                app.showMessage(
+                    $.t('alba:presets.delete.warning', { what: name }),
+                    $.t('ovs:generic.areyousure'),
+                    [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
+                )
+                    .done(function(answer) {
+                        if (answer === $.t('ovs:generic.yes')) {
+                            generic.alertSuccess(
+                                $.t('alba:presets.delete.started'),
+                                $.t('alba:presets.delete.msgstarted')
+                            );
+                            api.post('alba/backends/' + self.albaBackend().guid() + '/delete_preset', { data: { name: name } })
+                                .then(self.shared.tasks.wait)
+                                .done(function() {
+                                    generic.alertSuccess(
+                                        $.t('alba:presets.delete.complete'),
+                                        $.t('alba:presets.delete.success')
+                                    );
+                                    deferred.resolve();
+                                })
+                                .fail(function(error) {
+                                    generic.alertError(
+                                        $.t('ovs:generic.error'),
+                                        $.t('alba:presets.delete.failed', { why: error })
+                                    );
+                                    deferred.reject();
+                                });
+                        } else {
+                            deferred.reject();
+                        }
+                    });
+            }).promise();
+        };
+        self.addPreset = function() {
+            dialog.show(new AddPresetWizard({
+                modal: true,
+                backend: self.albaBackend(),
+                currentPresets: self.albaBackend().enhancedPresets()
+            }));
         };
 
         // Durandal

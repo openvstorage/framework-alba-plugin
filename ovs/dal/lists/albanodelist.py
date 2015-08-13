@@ -1,5 +1,16 @@
-# Copyright 2014 CloudFounders NV
-# All rights reserved
+# Copyright 2014 Open vStorage NV
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 """
 AlbaNodeList module
@@ -40,14 +51,14 @@ class AlbaNodeList(object):
         return None
 
     @staticmethod
-    def get_albanode_by_box_id(box_id):
+    def get_albanode_by_node_id(node_id):
         """
-        Returns a node by its box_id
+        Returns a node by its node_id
         """
         nodes = DataList({'object': AlbaNode,
                           'data': DataList.select.GUIDS,
                           'query': {'type': DataList.where_operator.AND,
-                                    'items': [('box_id', DataList.operator.EQUALS, box_id)]}}).data
+                                    'items': [('node_id', DataList.operator.EQUALS, node_id)]}}).data
         if len(nodes) == 1:
             return Descriptor(AlbaNode, nodes[0]).get_object(True)
         return None

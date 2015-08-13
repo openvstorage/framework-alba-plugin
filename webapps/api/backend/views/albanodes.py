@@ -1,5 +1,16 @@
-# Copyright 2015 CloudFounders NV
-# All rights reserved
+# Copyright 2014 Open vStorage NV
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 """
 Contains the AlbaNodeViewSet
@@ -35,11 +46,13 @@ class AlbaNodeViewSet(viewsets.ViewSet):
             return AlbaNodeList.get_albanodes()
         else:
             nodes = {}
-            model_ips = [node.ip for node in AlbaNodeList.get_albanodes()]
+            model_node_ids = [node.node_id for node in AlbaNodeList.get_albanodes()]
+            found_node_ids = []
             for node_data in AlbaNodeController.discover.delay().get():
                 node = AlbaNode(data=node_data, volatile=True)
-                if node.ip not in model_ips:
+                if node.node_id not in model_node_ids and node.node_id not in found_node_ids:
                     nodes[node.guid] = node
+                    found_node_ids.append(node.node_id)
             node_list = DataObjectList(nodes.keys(), AlbaNode)
             node_list._objects = nodes
             return node_list
@@ -48,11 +61,11 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load()
-    def create(self, box_id, ip, port, username, password, asd_ips):
+    def create(self, node_id, ip, port, username, password, asd_ips):
         """
-        Adds a node with a given box_id to the model
+        Adds a node with a given node_id to the model
         """
-        return AlbaNodeController.register.delay(box_id, ip, port, username, password, asd_ips)
+        return AlbaNodeController.register.delay(node_id, ip, port, username, password, asd_ips)
 
     @action()
     @required_roles(['read', 'write', 'manage'])
@@ -68,11 +81,11 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaNode)
-    def remove_disk(self, albanode, disk, alba_backend_guid):
+    def remove_disk(self, albanode, disk, alba_backend_guid, safety):
         """
         Removes a disk
         """
-        return AlbaNodeController.remove_disk.delay(alba_backend_guid, albanode.guid, disk)
+        return AlbaNodeController.remove_disk.delay(alba_backend_guid, albanode.guid, disk, safety)
 
     @action()
     @required_roles(['read', 'write', 'manage'])

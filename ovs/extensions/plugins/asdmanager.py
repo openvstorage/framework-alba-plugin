@@ -1,4 +1,4 @@
-# Copyright 2015 CloudFounders NV
+# Copyright 2015 Open vStorage NV
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@ Generic ALBA CLI module
 import json
 import base64
 import requests
+from ovs.log.logHandler import LogHandler
+
+logger = LogHandler.get('extensions', name='asdmanagerclient')
 
 
 class ASDManagerClient(object):
@@ -58,9 +61,13 @@ class ASDManagerClient(object):
         """
         self._refresh()
         disks = [] if as_list is True else {}
-        data = requests.get('{0}/disks'.format(self._base_url),
-                            headers=self._base_headers,
-                            verify=False).json()
+        try:
+            data = requests.get('{0}/disks'.format(self._base_url),
+                                headers=self._base_headers,
+                                verify=False).json()
+        except requests.ConnectionError, ex:
+            logger.error('Could not load data: {0}'.format(ex))
+            return disks
         for disk in data.keys():
             if not disk.startswith('_'):
                 for key in data[disk].keys():
@@ -109,6 +116,40 @@ class ASDManagerClient(object):
         """
         self._refresh()
         return requests.post('{0}/disks/{1}/restart'.format(self._base_url, disk),
+                             headers=self._base_headers,
+                             verify=False).json()
+
+    def get_update_information(self):
+        """
+        Checks whether update for openvstorage-sdm package is available
+        :return: Latest available version and services which require a restart
+        """
+        self._refresh()
+        data = requests.get('{0}/update/information'.format(self._base_url),
+                            headers=self._base_headers,
+                            verify=False).json()
+        for key in data.keys():
+            if key.startswith('_'):
+                del data[key]
+        return data
+
+    def execute_update(self, status):
+        """
+        Execute an update
+        :return: None
+        """
+        self._refresh()
+        return requests.post('{0}/update/execute/{1}'.format(self._base_url, status),
+                             headers=self._base_headers,
+                             verify=False).json()
+
+    def restart_services(self):
+        """
+        Restart the alba-asd-<ID> services
+        :return: None
+        """
+        self._refresh()
+        return requests.post('{0}/update/restart_services'.format(self._base_url),
                              headers=self._base_headers,
                              verify=False).json()
 

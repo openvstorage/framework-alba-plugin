@@ -1,5 +1,16 @@
-# Copyright 2014 CloudFounders NV
-# All rights reserved
+# Copyright 2014 Open vStorage NV
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 """
 AlbaNode module
@@ -16,7 +27,7 @@ class AlbaNode(DataObject):
     """
     __properties = [Property('ip', str, doc='IP Address'),
                     Property('port', int, doc='Port'),
-                    Property('box_id', str, doc='Alba box_id identifier'),
+                    Property('node_id', str, doc='Alba node_id identifier'),
                     Property('username', str, doc='Username of the AlbaNode'),
                     Property('password', str, doc='Password of the AlbaNode'),
                     Property('type', ['ASD', 'SUPERMICRO'], default='ASD', doc='The type of the AlbaNode')]

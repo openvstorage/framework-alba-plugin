@@ -1,4 +1,4 @@
-// Copyright 2014 CloudFounders NV
+// Copyright 2014 Open vStorage NV
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ define([
                 deferred.resolve();
                 api.post('alba/nodes', {
                     data: {
-                        box_id: self.data.node().boxID(),
+                        node_id: self.data.node().nodeID(),
                         ip: self.data.node().ip(),
                         port: self.data.node().port(),
                         username: self.data.username(),

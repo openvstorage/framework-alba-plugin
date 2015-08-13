@@ -1,7 +1,18 @@
 {
     "license": [
-        "Copyright 2014 CloudFounders NV",
-        "All rights reserved"
+        "Copyright 2014 Open vStorage NV",
+        "",
+        "Licensed under the Apache License, Version 2.0 (the \"License\");",
+        "you may not use this file except in compliance with the License.",
+        "You may obtain a copy of the License at",
+        "",
+        "    http://www.apache.org/licenses/LICENSE-2.0",
+        "",
+        "Unless required by applicable law or agreed to in writing, software",
+        "distributed under the License is distributed on an \"AS IS\" BASIS,",
+        "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.",
+        "See the License for the specific language governing permissions and",
+        "limitations under the License."
     ],
     "generic": {
         "nodisks": "No disks available",
@@ -36,7 +47,7 @@
         "macaddress": "MAC",
         "ipaddress": "IP",
         "connection": "Connection",
-        "boxid": "Node ID",
+        "nodeid": "Node ID",
         "nodes": "ASD Nodes",
         "initialize": "Initialize",
         "initializeall": "Initialize all uninitialized disks",
@@ -59,7 +70,13 @@
         "policies": "Policies",
         "safety": "Safety",
         "inuse": "*",
+        "presets": "Presets",
+        "addpreset": "Add preset",
+        "addpolicy": "Add policy",
+        "asdsremaining": "There are still ASDs in use",
+        "deletebackend": "Delete this backend",
         "nolicense": "Open vStorage Backend is unlicensed. It will be impossible to claim disks which will cause the backend to be unavailable. Please request a Community License to start using this backend.",
+        "wayreplication": "-way replication:",
         "statusdetails": {
             "missing": "Disk is missing",
             "ioerror": "I/O errors",
@@ -93,6 +110,11 @@
                 "warning": "This ASD is in warning state. Action may be needed",
                 "claimed": "This ASD is in use by this backend"
             }
+        },
+        "compressions": {
+            "snappy": "Snappy",
+            "bz2": "BZip2",
+            "none": "No compression"
         }
     },
     "licensing": {
@@ -104,7 +126,15 @@
         }
     },
     "detail": {
-        "title": "Alternate Backend"
+        "title": "Open vStorage Backend",
+        "delete": {
+            "warning": "You are about to delete this Backend, are you sure?",
+            "started": "Deleting",
+            "msgstarted": "The backend is being deleted",
+            "complete": "Deleted",
+            "success": "The backend is deleted",
+            "failed": "The backend could not be deleted: __why__"
+        }
     },
     "dashboard": {
         "title": "Open vStorage Backends",
@@ -115,11 +145,38 @@
         "nodes": "ASD nodes",
         "register": "Claim node"
     },
-    "policies": {
-        "helptitle": "Policies - Help",
-        "helpcontent": "Each available policy (e.g. [5,2,3]) consists out of 3 numbers:<ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 2)</li><li><b>x</b>: The maximum number of fragments per storage node (e.g. 3)</li></ul>For example, [5,2,3] means each object will be split in 7 fragments (5 data and 2 parity) which will be stored across all available disks. However, no more than 3 fragments will end up within a single storage node. In case this policy can not be met, the policy will be unavailable. If no policies are available, the backend can not be used.<br /><br />Colors:<ul><li>Grey: This policy is unavailable with the current disk configuration.</li><li>Green: New objects will be stored using this policy.</li><li>Black: This policy is available, but not used as a better policy is available.</li><li>Orange: This policy is degraded, loosing one more disk will cause dataloss.</li><li>Red: This policy has insufficient disks, data written using this policy is lost.</li></ul>Icons:<ul><li><span class='fa'>&#xf016;</span>: This policy is not in use.</li><li><span class='fa'>&#xf15b;</span>: This policy is in use: objects have been written using this policy.</li></ul>",
-        "inuse": "This policy is in use: objects have been written using this policy",
-        "notinuse": "This policy is not in use"
+    "presets": {
+        "name": "Name",
+        "cantdelete": "The preset is in use or is default",
+        "compression": "Compression",
+        "legend": "Preset/policy legend:",
+        "inuse": "In use",
+        "available": "Available",
+        "unavailable": "Unavailable",
+        "policyinfo": "Policies displayed in bold will be used when writing new data",
+        "policies": {
+            "title": "Policies",
+            "helptitle": "Policies - Help",
+            "helpcontent": "Each available policy (e.g. (5, 4, 8, 3)) consists out of 4 numbers:<ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 4)</li><li><b>c</b>: The minimum numbers of fragments to write (e.g. 8)</li><li><b>x</b>: The maximum number of fragments per storage node (e.g. 3)</li></ul>For example, (5, 4, 8, 3) means each object will be split in 9 fragments (5 data and 4 parity) which will be stored across all available disks. The object can be written as soon as 8 fragments can be written. However, no more than 3 fragments will end up within a single storage node. In case this policy can not be met, the policy will be unavailable. If no policies are available, the backend can not be used.",
+            "shorthelpcontent": "Parameter information: <ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 4)</li><li><b>c</b>: The minimum numbers of fragments to write (e.g. 8)</li><li><b>x</b>: The maximum number of fragments per storage node (e.g. 3)</li><li>Requirements: k <= c <= (k + m)</li></ul>"
+        },
+        "delete": {
+            "warning": "Are you sure you want to delete preset \"__what__\"?",
+            "started": "Deleting",
+            "msgstarted": "The preset is being deleted",
+            "complete": "Deleted",
+            "success": "The preset was deleted",
+            "failed": "Could not delete this preset: __why__"
+        }
+    },
+    "packages": {
+        "alba": "OpenvStorage Backend",
+        "arakoon": "Arakoon",
+        "openvstorage-backend": "OpenvStorage Backend",
+        "openvstorage-sdm": "Storage Device Manager"
+    },
+    "downtime": {
+        "backend": "Backend"
     },
     "disks" : {
         "initialize": {
@@ -185,7 +242,12 @@
         "claim": "&#xf140;",
         "discover": "&#xf002;",
         "inuse": "&#xf15b;",
-        "notinuse": "&#xf016;"
+        "notinuse": "&#xf016;",
+        "expand": "&#xf196;",
+        "collapse": "&#xf147;",
+        "presets": "&#xf126;",
+        "up": "&#xf077;",
+        "down": "&#xf078;"
     },
     "wizards": {
         "addalbanode": {
@@ -201,6 +263,42 @@
                 "complete": "Completed",
                 "success": "Node added",
                 "failed": "Adding node failed: __why__"
+            }
+        },
+        "addpreset": {
+            "title": "Add preset",
+            "gather": {
+                "basicinfo": "Define your preset.",
+                "compression": "Compression",
+                "name": "Name",
+                "policies": "Policies",
+                "invalidname": "Invalid name (should be between 3 and 20 letters and/or numbers)",
+                "insufficientpolicies": "There should be at least one policy",
+                "duplicatename": "Name already exists",
+                "replication": "Replication copies",
+                "advancedtext": "Advanced settings",
+                "accepttext": "I understand the risks",
+                "invalidc": "One or more 'c' values does not meet the requirement k <= c <= (k + m)",
+                "warning": "Adding presets can help shape the Open vStorage Backend to your specific needs.<br /><br />When creating a preset, make sure to understand the impact of certain compression algorithms and policies. For example, creating a (1, 0, 1, 1) policy might cause dataloss when a single disk fails. Remember that the order in which policies are defined is the same order in which policies will be used. Make sure to put the safest/most preferred policies on top.<br /><br />Improperly configured presets can cause dataloss!"
+            },
+            "confirm": {
+                "basicinfo": "Confirm your preset. Make sure policies are in the correct order and are correctly defined.",
+                "started": "Creating preset",
+                "inprogress": "Creation of the preset is in progress",
+                "complete": "Preset created",
+                "success": "The preset was create successful",
+                "failed": "Error during preset creation: __why__"
+            }
+        },
+        "removeosd": {
+            "title": "Remove ASD",
+            "gather": {
+                "warning": "Are you sure you want to remove the following disk?",
+                "alert": "Attention:",
+                "critical": "The removal of this disk brings data on this backend at risk. Loosing one more disk will cause data loss.",
+                "lost": "The removal of this disk will cause data loss.",
+                "accepttext": "I understand the risks, this disk can be removed.",
+                "loading": "Disk safety is being loaded."
             }
         }
     }

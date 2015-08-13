@@ -1,5 +1,16 @@
-// Copyright 2014 CloudFounders NV
-// All rights reserved
+// Copyright 2014 Open vStorage NV
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 /*global define */
 define([
     'jquery', 'knockout',
@@ -11,80 +22,101 @@ define([
         var self = this;
 
         // Handles
-        self.loadHandle = undefined;
+        self.loadHandle    = undefined;
+        self.actionsHandle = undefined;
 
         // External dependencies
         self.vPools = undefined;
         self.license = ko.observable();
 
         // Observables
-        self.loading     = ko.observable(false);
-        self.loaded      = ko.observable(false);
-        self.guid        = ko.observable(guid);
-        self.name        = ko.observable();
-        self.backend     = ko.observable();
-        self.backendGuid = ko.observable();
-        self.color       = ko.observable();
-        self.readIOps    = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
-        self.writeIOps   = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
-        self.licenseInfo = ko.observable();
-        self.usage       = ko.observable([]);
-        self.policies    = ko.observableArray([]);
-        self.safety      = ko.observable();
+        self.loading          = ko.observable(false);
+        self.loaded           = ko.observable(false);
+        self.guid             = ko.observable(guid);
+        self.name             = ko.observable();
+        self.backend          = ko.observable();
+        self.backendGuid      = ko.observable();
+        self.color            = ko.observable();
+        self.readIOps         = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.writeIOps        = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.licenseInfo      = ko.observable();
+        self.usage            = ko.observable([]);
+        self.presets          = ko.observableArray([]);
+        self.availableActions = ko.observableArray([]);
 
         // Computed
-        self.enhancedPolicies = ko.computed(function() {
-            var policies = [], newPolicy, isRW, isRO, isActive, isUsed;
-            if (self.safety() !== undefined) {
-                $.each(self.policies(), function (index, policy) {
-                    isRW = policy.nestedIn(self.safety().rw_policies);
-                    isRO = policy.nestedIn(self.safety().ro_policies);
-                    isActive = policy.equals(self.safety().active_policy);
-                    isUsed = policy.nestedIn(self.safety().used_policies);
+        self.enhancedPresets = ko.computed(function() {
+            var presets = [], policies, newPolicy, isAvailable, isActive, inUse, hasReplication = true,
+                policyMapping = ['grey', 'black', 'green'], worstPolicy, replication, policyObject;
+            $.each(self.presets(), function(index, preset) {
+                worstPolicy = 0;
+                policies = [];
+                $.each(preset.policies, function(jndex, policy) {
+                    policyObject = JSON.parse(policy.replace('(', '[').replace(')', ']'));
+                    isAvailable = preset.policy_metadata[policy].is_available;
+                    isActive = preset.policy_metadata[policy].is_active;
+                    inUse = preset.policy_metadata[policy].in_use;
                     newPolicy = {
-                        text: JSON.stringify(policy),
+                        text: policy,
                         color: 'grey',
-                        inUse: false
+                        isActive: false
                     };
-                    if (isRW) {
+                    if (isAvailable) {
                         newPolicy.color = 'black';
                     }
                     if (isActive) {
+                        newPolicy.isActive = true;
+                    }
+                    if (inUse) {
                         newPolicy.color = 'green';
                     }
-                    if (isUsed) {
-                        newPolicy.inUse = true;
-                        if (isRO) {
-                            newPolicy.color = 'orange';
-                        } else if (!isRW) {
-                            newPolicy.color = 'red';
-                        }
-                    }
+                    worstPolicy = Math.max(policyMapping.indexOf(newPolicy.color), worstPolicy);
                     policies.push(newPolicy);
+                    if (replication === undefined) {
+                        replication = {k: policyObject[0], m: policyObject[1]};
+                    } else if (replication.k !== policyObject[0] || replication.m !== policyObject[1]) {
+                        hasReplication = false;
+                    }
                 });
-            }
-            return policies;
+                presets.push({
+                    policies: policies,
+                    name: preset.name,
+                    compression: preset.compression,
+                    color: policyMapping[worstPolicy],
+                    inUse: preset.in_use,
+                    isDefault: preset.is_default,
+                    replication: hasReplication ? (replication.k + replication.m) : undefined
+                });
+            });
+            return presets;
         });
         self.configurable = ko.computed(function() {
-            var license = self.license(), licenseData, licenseInfo = self.licenseInfo();
+            var license = self.license(), licenseInfo = self.licenseInfo();
             if (license === undefined || licenseInfo === undefined) {
                 return false;
             }
-            if (license.validUntil() !== null && license.validUntil() * 1000 < generic.getTimestamp()) {
-                return false;
-            }
-            licenseData = license.data();
-            return !((licenseData.namespaces !== null && licenseInfo.namespaces >= licenseData.namespaces) ||
-                     (licenseData.nodes !== null && licenseInfo.nodes >= licenseData.nodes) ||
-                     (licenseData.osds !== null && licenseInfo.asds >= licenseData.osds));
+            return !(license.validUntil() !== null && license.validUntil() * 1000 < generic.getTimestamp());
         });
 
         // Functions
+        self.getAvailableActions = function() {
+            return $.Deferred(function(deferred) {
+                if (generic.xhrCompleted(self.actionsHandle)) {
+                    self.actionsHandle = api.get('alba/backends/' + self.guid() + '/get_available_actions')
+                        .done(function(data) {
+                            self.availableActions(data);
+                            deferred.resolve();
+                        })
+                        .fail(deferred.reject);
+                } else {
+                    deferred.reject();
+                }
+            }).promise();
+        };
         self.fillData = function(data) {
             self.name(data.name);
             generic.trySet(self.licenseInfo, data, 'license_info');
-            generic.trySet(self.policies, data, 'policies');
-            generic.trySet(self.safety, data, 'safety');
+            generic.trySet(self.presets, data, 'presets');
             if (self.backendGuid() !== data.backend_guid) {
                 self.backendGuid(data.backend_guid);
                 self.backend(new Backend(data.backend_guid));
