@@ -807,7 +807,7 @@ class AlbaController(object):
         root_client = SSHClient(ip, username='root')
         json_filename = '{0}/{1}/{2}-{3}.json'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name, backend_name, service_type)
         ovs_client.file_write(json_filename, json.dumps({
-            'log_level': 'debug',
+            'log_level': 'info',
             'albamgr_cfg_file': '{0}/{1}/{1}.cfg'.format(ArakoonInstaller.ARAKOON_CONFIG_DIR, abm_name)
         }))
         params = {'ALBA_CONFIG': json_filename}
