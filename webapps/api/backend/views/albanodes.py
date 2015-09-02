@@ -24,6 +24,8 @@ from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.lib.albanodecontroller import AlbaNodeController
 from ovs.dal.dataobjectlist import DataObjectList
+from rest_framework import status
+from rest_framework.response import Response
 
 
 class AlbaNodeViewSet(viewsets.ViewSet):
@@ -38,12 +40,26 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read'])
     @return_list(AlbaNode)
     @load()
-    def list(self, discover=False):
+    def list(self, discover=False, ip=None, port=None, username=None, password=None, node_id=None):
         """
         Lists all available ALBA Nodes
         """
         if discover is False:
             return AlbaNodeList.get_albanodes()
+        elif ip is not None:
+            node = AlbaNode(volatile=True)
+            node.ip = ip
+            node.port = int(port)
+            node.username = username
+            node.password = password
+            data = node.client.get_metadata()
+            if data['_success'] is False and data['_error'] == 'Invalid credentials':
+                raise RuntimeError('Invalid credentials')
+            if data['node_id'] != node_id:
+                raise RuntimeError('Unexpected node identifier. {0} vs {1}'.format(data['node_id'], node_id))
+            node_list = DataObjectList([node.guid], AlbaNode)
+            node_list._objects = {node.guid: node}
+            return node_list
         else:
             nodes = {}
             model_node_ids = [node.node_id for node in AlbaNodeList.get_albanodes()]

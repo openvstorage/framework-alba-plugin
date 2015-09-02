@@ -22,12 +22,26 @@ define([
         var self = this;
 
         // Variables
-        self.data   = data;
-        self.shared = shared;
+        self.data            = data;
+        self.shared          = shared;
+        self.ipsLoading      = ko.observable(false);
+        self.connectionError = ko.observable(false);
 
         // Computed
         self.canContinue = ko.computed(function() {
             var valid = true, reasons = [], fields = [];
+            if (self.data.manual() === true) {
+                if (self.data.nodeID() === undefined || self.data.nodeID() === '') {
+                    valid = false;
+                    fields.push('nodeid');
+                    reasons.push($.t('alba:wizards.addalbanode.gather.nonodeid'));
+                }
+                if (!self.data.ip.valid()) {
+                    valid = false;
+                    fields.push('ip');
+                    reasons.push($.t('ovs:wizards.addmgmtcenter.gather.invalidip'));
+                }
+            }
             if (self.data.username() === undefined || self.data.username() === '') {
                 valid = false;
                 fields.push('username');
@@ -38,10 +52,59 @@ define([
                 fields.push('password');
                 reasons.push($.t('ovs:wizards.addmgmtcenter.gather.nopassword'));
             }
+            if (self.connectionError() === true) {
+                valid = false;
+                fields.push('ip');
+                fields.push('username');
+                fields.push('password');
+                fields.push('nodeid');
+                reasons.push($.t('alba:wizards.addalbanode.gather.cannotconnect'));
+            }
             return { value: valid, reasons: reasons, fields: fields };
         });
 
+
+        // Subscriptions
+        self.data.nodeID.subscribe(function() {
+            self.connectionError(false);
+        });
+        self.data.ip.subscribe(function() {
+            self.connectionError(false);
+        });
+        self.data.port.subscribe(function() {
+            self.connectionError(false);
+        });
+        self.data.username.subscribe(function() {
+            self.connectionError(false);
+        });
+        self.data.password.subscribe(function() {
+            self.connectionError(false);
+        });
+
         // Functions
+        self.loadIps = function() {
+            self.ipsLoading(true);
+            api.get('alba/nodes', {
+                queryparams: {
+                    contents: 'ips',
+                    discover: true,
+                    ip: self.data.ip(),
+                    port: self.data.port(),
+                    username: self.data.username(),
+                    password: self.data.password(),
+                    node_id: self.data.nodeID()
+                }
+            })
+                .done(function(data) {
+                    self.data.availableIps(data.data[0].ips);
+                })
+                .fail(function() {
+                    self.connectionError(true);
+                })
+                .always(function() {
+                    self.ipsLoading(false);
+                });
+        };
         self.finish = function() {
             return $.Deferred(function(deferred) {
                 generic.alertInfo(
@@ -51,9 +114,9 @@ define([
                 deferred.resolve();
                 api.post('alba/nodes', {
                     data: {
-                        node_id: self.data.node().nodeID(),
-                        ip: self.data.node().ip(),
-                        port: self.data.node().port(),
+                        node_id: self.data.nodeID(),
+                        ip: self.data.ip(),
+                        port: self.data.port(),
                         username: self.data.username(),
                         password: self.data.password(),
                         asd_ips: self.data.ips()

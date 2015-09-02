@@ -17,8 +17,9 @@ define([
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/backend', '../containers/backendtype', '../containers/albabackend',
     '../containers/albanode', '../containers/albaosd', '../containers/storagerouter', '../containers/vpool',
-    '../containers/license', '../wizards/addpreset/index'
-], function($, app, ko, router, dialog, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend, Node, OSD, StorageRouter, VPool, License, AddPresetWizard) {
+    '../containers/license', '../wizards/addpreset/index', '../wizards/addalbanode/index'
+], function($, app, ko, router, dialog, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend,
+            Node, OSD, StorageRouter, VPool, License, AddPresetWizard, AddAlbaNodeWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -525,6 +526,12 @@ define([
                 modal: true,
                 backend: self.albaBackend(),
                 currentPresets: self.albaBackend().enhancedPresets()
+            }));
+        };
+        self.addNode = function() {
+            dialog.show(new AddAlbaNodeWizard({
+                modal: true,
+                node: undefined
             }));
         };
 
