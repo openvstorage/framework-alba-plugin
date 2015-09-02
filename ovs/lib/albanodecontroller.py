@@ -98,7 +98,8 @@ class AlbaNodeController(object):
         if data['_success'] is False and data['_error'] == 'Invalid credentials':
             raise RuntimeError('Invalid credentials')
         if data['node_id'] != node_id:
-            raise RuntimeError('Unexpected node_id: {0} vs {1}'.format(data['node_id'], node_id))
+            logger.error('Unexpected node_id: {0} vs {1}'.format(data['node_id'], node_id))
+            raise RuntimeError('Unexpected node identifier')
         node.client.set_ips(asd_ips)
         node.node_id = node_id
         node.type = 'ASD'

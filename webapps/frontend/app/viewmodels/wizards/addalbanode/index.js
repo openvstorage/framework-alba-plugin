@@ -27,11 +27,23 @@ define([
         // Setup
         self.title(generic.tryGet(options, 'title', $.t('alba:wizards.addalbanode.title')));
         self.modal(generic.tryGet(options, 'modal', false));
-        self.data.node(options.node);
         self.steps([new Gather()]);
         self.activateStep();
 
         // Cleaning data
+        if (options.node !== undefined) {
+            data.manual(false);
+            data.nodeID(options.node.nodeID());
+            data.ip(options.node.ip());
+            data.port(options.node.port());
+            data.availableIps(options.node.ips());
+        } else {
+            data.manual(true);
+            data.nodeID('');
+            data.ip('');
+            data.port(8500);
+            data.availableIps([]);
+        }
         data.username('');
         data.password('');
         data.ips([]);
