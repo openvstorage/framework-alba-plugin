@@ -28,7 +28,8 @@ class AlbaCLI(object):
     """
 
     @staticmethod
-    def run(command, config=None, host=None, long_id=None, asd_port=None, node_id=None, extra_params=None, as_json=False, debug=False, client=None, raise_on_failure=True):
+    def run(command, config=None, host=None, long_id=None, asd_port=None, node_id=None, extra_params=None,
+            as_json=False, debug=False, client=None, raise_on_failure=True, attempts=None):
         """
         Executes a command on ALBA
         """
@@ -46,6 +47,8 @@ class AlbaCLI(object):
                 cmd += ' --asd-port {0}'.format(asd_port)
             if node_id is not None:
                 cmd += ' --node-id {0}'.format(node_id)
+            if attempts is not None:
+                cmd += ' --attempts {0}'.format(attempts)
             if as_json is True:
                 cmd += ' --to-json'
             if extra_params is not None:

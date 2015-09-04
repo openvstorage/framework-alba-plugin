@@ -207,7 +207,7 @@ class AlbaController(object):
             AlbaController._setup_service('rebalancer', master.ip, abm_name, albabackend.backend.name)
 
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(albabackend.backend.name + '-abm')
-        albabackend.alba_id = AlbaCLI.run('get-alba-id', config=config_file, as_json=True)['id']
+        albabackend.alba_id = AlbaCLI.run('get-alba-id', config=config_file, as_json=True, attempts=5)['id']
         albabackend.save()
 
         lic = LicenseList.get_by_component('alba')
