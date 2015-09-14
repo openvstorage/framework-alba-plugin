@@ -738,20 +738,23 @@ class AlbaController(object):
 
             logger.info('{0}: Upgrading SDM'.format(node.ip))
             counter = 0
+            max_counter = 12
             status = 'started'
-            while True and counter < 12:
+            while True and counter < max_counter:
+                counter += 1
                 try:
                     status = node.client.execute_update(status).get('status')
                     if status == 'done':
                         break
                 except Exception as ex:
-                    logger.warning('{0}: Error during update: {1}'.format(node.ip, ex.message))
-                time.sleep(10)
-                counter += 1
+                    logger.warning('Attempt {0} to update SDM failed, trying again'.format(counter))
+                    if counter == max_counter:
+                        logger.error('{0}: Error during update: {1}'.format(node.ip, ex.message))
+                    time.sleep(10)
             if status != 'done':
                 logger.error('{0}: Failed to perform SDM update. Please check /var/log/upstart/alba-asdmanager.log on the appropriate node'.format(node.ip))
-            else:
-                node.client.restart_services()
+                raise Exception('Status after upgrade is "{0}"'.format(status))
+            node.client.restart_services()
 
     @staticmethod
     @add_hooks('update', 'postupgrade')
