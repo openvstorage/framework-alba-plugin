@@ -69,15 +69,15 @@ class AlbaASD(DataObject):
                         statistics[key]['n'] += data[source]['n']
                         statistics[key]['max'].append(data[source]['max'])
                         statistics[key]['min'].append(data[source]['min'])
-                        statistics[key]['avg'].append(data[source]['avg'])
+                        statistics[key]['avg'].append(data[source]['avg'] * data[source]['n'])
                 if data['period'] > 0:
-                    statistics[key]['n_ps'] = statistics[key]['n'] / data['period']
+                    statistics[key]['n_ps'] = statistics[key]['n'] / float(data['period'])
                 else:
                     statistics[key]['n_ps'] = 0
                 statistics[key]['max'] = max(statistics[key]['max']) if len(statistics[key]['max']) > 0 else 0
                 statistics[key]['min'] = min(statistics[key]['min']) if len(statistics[key]['min']) > 0 else 0
-                if len(statistics[key]['avg']) > 0:
-                    statistics[key]['avg'] = sum(statistics[key]['avg']) / len(statistics[key]['avg'])
+                if statistics[key]['n'] > 0:
+                    statistics[key]['avg'] = sum(statistics[key]['avg']) / float(statistics[key]['n'])
                 else:
                     statistics[key]['avg'] = 0
             return statistics
