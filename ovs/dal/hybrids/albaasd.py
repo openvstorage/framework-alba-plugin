@@ -51,17 +51,39 @@ class AlbaASD(DataObject):
         """
         Loads statistics from the ASD
         """
-        data_keys = ['apply', 'multi_get', 'range', 'range_entries']
+        data_keys = {'apply': ['Apply'],
+                     'multi_get': ['MultiGet', 'MultiGet2'],
+                     'range': ['Range'],
+                     'range_entries': ['RangeEntries'],
+                     'statistics': ['Statistics']}
         config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(self.alba_backend.backend.name)
         try:
-            statistics = AlbaCLI.run('asd-statistics', long_id=self.asd_id, config=config_file, extra_params='--clear', as_json=True)
-            for key in data_keys:
-                if statistics['period'] > 0:
-                    statistics[key]['n_ps'] = statistics[key]['n'] / statistics['period']
+            data = AlbaCLI.run('asd-statistics', long_id=self.asd_id, config=config_file, extra_params='--clear', as_json=True)
+            print data
+            statistics = {'creation': data['creation'],
+                          'period': data['period']}
+            for key, sources in data_keys.iteritems():
+                if key not in statistics:
+                    statistics[key] = {'n': 0, 'max': [], 'min': [], 'avg': []}
+                for source in sources:
+                    if source in data:
+                        statistics[key]['n'] += data[source]['n']
+                        statistics[key]['max'].append(data[source]['max'])
+                        statistics[key]['min'].append(data[source]['min'])
+                        statistics[key]['avg'].append(data[source]['avg'])
+                if data['period'] > 0:
+                    statistics[key]['n_ps'] = statistics[key]['n'] / data['period']
                 else:
                     statistics[key]['n_ps'] = 0
-                del statistics[key]['m2']
+                print statistics[key]
+                statistics[key]['max'] = max(statistics[key]['max']) if len(statistics[key]['max']) > 0 else 0
+                statistics[key]['min'] = min(statistics[key]['min']) if len(statistics[key]['min']) > 0 else 0
+                if len(statistics[key]['avg']) > 0:
+                    statistics[key]['avg'] = sum(statistics[key]['avg']) / len(statistics[key]['avg'])
+                else:
+                    statistics[key]['avg'] = 0
             return statistics
         except:
+            raise
             # This might fail every now and then, e.g. on disk removal. Let's ignore for now.
             return None
