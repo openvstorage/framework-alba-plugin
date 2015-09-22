@@ -17,9 +17,7 @@
 Basic test module
 """
 import sys
-import uuid
 from unittest import TestCase
-from ovs.dal.exceptions import *
 from ovs.dal.tests.alba_mockups import AlbaCLIModule
 from ovs.extensions.storage.persistent.dummystore import DummyPersistentStore
 from ovs.extensions.storage.volatile.dummystore import DummyVolatileStore
@@ -27,7 +25,7 @@ from ovs.extensions.storage.persistentfactory import PersistentFactory
 from ovs.extensions.storage.volatilefactory import VolatileFactory
 
 
-class Basic(TestCase):
+class Alba(TestCase):
     """
     The basic unittestsuite will test all basic functionality of the DAL framework
     It will also try accessing all dynamic properties of all hybrids making sure
@@ -61,7 +59,10 @@ class Basic(TestCase):
 
     def test_asd_statistics(self):
         """
-        Validates whether the ASD statistics work as expected
+        Validates whether the ASD statistics work as expected.
+        * Add keys that were not passed in
+        * Collapse certain keys
+        * Calculate correct per-second, average, total, min and max values
         """
         from ovs.extensions.plugins.albacli import AlbaCLI
         from ovs.dal.hybrids.albaasd import AlbaASD
@@ -85,3 +86,9 @@ class Basic(TestCase):
         asd.alba_backend.backend.name = 'foobar'
         statistics = asd._statistics()
         self.assertDictEqual(statistics, expected, 'The statistics should be as expected: {0} vs {1}'.format(statistics, expected))
+
+
+if __name__ == '__main__':
+    import unittest
+    suite = unittest.TestLoader().loadTestsFromTestCase(Alba)
+    unittest.TextTestRunner(verbosity=2).run(suite)
