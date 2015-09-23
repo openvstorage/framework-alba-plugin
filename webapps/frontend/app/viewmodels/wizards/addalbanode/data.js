@@ -14,12 +14,18 @@
 /*global define */
 define(['knockout'], function(ko){
     "use strict";
-    var singleton = function() {
+    var ipRegex, singleton;
+    ipRegex = /^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))$/;
+    singleton = function() {
         return {
-            node:     ko.observable(),
-            username: ko.observable(),
-            password: ko.observable(),
-            ips:      ko.observableArray([])
+            manual:       ko.observable(false),
+            nodeID:       ko.observable(),
+            ip:           ko.observable().extend({ regex: ipRegex }),
+            port:         ko.observable(8500).extend({ numeric: { min: 1, max: 65536 } }),
+            username:     ko.observable(),
+            password:     ko.observable(),
+            availableIps: ko.observableArray([]),
+            ips:          ko.observableArray([])
         };
     };
     return singleton();

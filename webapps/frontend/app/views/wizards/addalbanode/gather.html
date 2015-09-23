@@ -15,7 +15,25 @@ limitations under the License.
 -->
 <div>
     <form role="form form-horizontal" class="form-horizontal">
-        <p data-i18n="alba:wizards.addalbanode.gather.basicinfo"></p>
+        <p data-i18n="[html]alba:wizards.addalbanode.gather.basicinfo"></p>
+        <!-- ko if: data.manual() -->
+            <div class="form-group" data-bind="css: { 'has-error': $.inArray('nodeid', canContinue().fields) !== -1 }">
+                <label class="col-lg-3 control-label" for="nodeid" data-i18n="alba:wizards.addalbanode.gather.nodeid"></label>
+                <div class="col-lg-7">
+                    <input type="text" id="nodeid" class="autofocus form-control" data-bind="value: data.nodeID, valueUpdate: 'afterkeydown'">
+                </div>
+            </div>
+            <div class="form-group" data-bind="css: { 'has-error': $.inArray('ip', canContinue().fields) !== -1 }">
+                <label class="col-lg-3 control-label" for="ip" data-i18n="alba:wizards.addalbanode.gather.ip"></label>
+                <div class="col-lg-4">
+                    <input type="text" id="ip" class="autofocus form-control" data-bind="value: data.ip, valueUpdate: 'afterkeydown'">
+                </div>
+                <label class="col-lg-1 control-label" for="port" data-i18n="alba:wizards.addalbanode.gather.port"></label>
+                <div class="col-lg-2">
+                    <input type="text" id="port" class="autofocus form-control" data-bind="value: data.port">
+                </div>
+            </div>
+        <!-- /ko -->
         <div class="form-group" data-bind="css: { 'has-error': $.inArray('username', canContinue().fields) !== -1 }">
             <label class="col-lg-3 control-label" for="username" data-i18n="alba:wizards.addalbanode.gather.username"></label>
             <div class="col-lg-7">
@@ -31,7 +49,12 @@ limitations under the License.
         <div class="form-group">
             <label class="col-lg-3 control-label" data-i18n="alba:wizards.addalbanode.gather.asdips"></label>
             <div class="col-lg-7">
-                <span data-bind="dropdown: { items: data.node().ips, target: data.ips }"></span>
+                <span data-bind="dropdown: { items: data.availableIps, target: data.ips, emptyisloading: false }"></span>
+                <button class="btn btn-default"  style="margin-left: 10px; margin-top: -26px;"
+                        data-bind="click: loadIps, enable: !ipsLoading() && canContinue().value, visible: data.manual()">
+                    <span class="fa fa-" data-bind="css: { 'fa-spin': ipsLoading() }" data-i18n="[html]ovs:icons.load"></span>
+                    <span style="padding-left: 8px;" data-i18n="ovs:generic.reload"></span>
+                </button>
                 <p class="help-block" data-i18n="alba:wizards.addalbanode.gather.asdipshelp"></p>
             </div>
         </div>
