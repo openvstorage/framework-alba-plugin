@@ -97,17 +97,14 @@ class AlbaBackend(DataObject):
         """
         Returns statistics for all its asds
         """
-        data_keys = ['apply', 'multi_get', 'range', 'range_entries']
-        avg_keys = ['avg', 'exp_avg', 'var']
+        data_keys = ['apply', 'multi_get', 'range', 'range_entries', 'statistics']
         statistics = {}
         for key in data_keys:
             statistics[key] = {'n': 0,
                                'n_ps': 0,
-                               'avg': 0,
-                               'exp_avg': 0,
-                               'var': 0,
-                               'max': None,
-                               'min': None}
+                               'avg': [],
+                               'max': [],
+                               'min': []}
         for asd in self.asds:
             asd_stats = asd.statistics
             if asd_stats is None:
@@ -115,15 +112,16 @@ class AlbaBackend(DataObject):
             for key in data_keys:
                 statistics[key]['n'] += asd_stats[key]['n']
                 statistics[key]['n_ps'] += asd_stats[key]['n_ps']
-                statistics[key]['avg'] += asd_stats[key]['avg']
-                statistics[key]['exp_avg'] += asd_stats[key]['exp_avg']
-                statistics[key]['var'] += asd_stats[key]['var']
-                statistics[key]['max'] = min(statistics[key]['max'], asd_stats[key]['max']) if statistics[key]['max'] is not None else asd_stats[key]['max']
-                statistics[key]['min'] = min(statistics[key]['min'], asd_stats[key]['min']) if statistics[key]['min'] is not None else asd_stats[key]['min']
-        if len(self.asds) > 0:
-            for key in data_keys:
-                for avg in avg_keys:
-                    statistics[key][avg] /= float(len(self.asds))
+                statistics[key]['avg'].append(asd_stats[key]['avg'])
+                statistics[key]['max'].append(asd_stats[key]['max'])
+                statistics[key]['min'].append(asd_stats[key]['min'])
+        for key in data_keys:
+            statistics[key]['max'] = max(statistics[key]['max']) if len(statistics[key]['max']) > 0 else 0
+            statistics[key]['min'] = min(statistics[key]['min']) if len(statistics[key]['min']) > 0 else 0
+            if len(statistics[key]['avg']) > 0:
+                statistics[key]['avg'] = sum(statistics[key]['avg']) / len(statistics[key]['avg'])
+            else:
+                statistics[key]['avg'] = 0
         statistics['creation'] = time.time()
         return statistics
 
