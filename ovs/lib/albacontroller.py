@@ -325,6 +325,72 @@ class AlbaController(object):
             AlbaController._setup_service('rebalancer', cluster_ip, service.name, alba_backend.backend.name)
 
     @staticmethod
+    @celery.task(name='alba.scheduled_alba_arakoon_checkup', bind=True, schedule=crontab(minute='45', hour='*'))
+    @ensure_single(['alba.scheduled_alba_arakoon_checkup'])
+    def scheduled_alba_arakoon_checkup():
+        """
+        Makes sure the volumedriver arakoon is on all available master nodes
+        """
+        AlbaController._alba_arakoon_checkup(False)
+
+    @staticmethod
+    @celery.task(name='alba.manual_alba_arakoon_checkup')
+    def manual_alba_arakoon_checkup():
+        """
+        Creates a new Arakoon Cluster if required and extends cluster if possible on all available master nodes
+        """
+        AlbaController._alba_arakoon_checkup(True)
+
+    @staticmethod
+    def _alba_arakoon_checkup(create_cluster):
+        def add_service(service_storagerouter, arakoon_result):
+            new_service = Service()
+            new_service.name = service_name
+            new_service.type = service_type
+            new_service.ports = [arakoon_result['client_port'], arakoon_result['messaging_port']]
+            new_service.storagerouter = service_storagerouter
+            new_service.save()
+
+        service_name = 'arakoon-voldrv'
+        service_type = ServiceTypeList.get_by_name('Arakoon')
+        current_services = []
+        current_ips = []
+        for service in service_type.services:
+            if service.name == service_name:
+                current_services.append(service)
+                current_ips.append(service.storagerouter.ip)
+        available_storagerouters = {}
+        for storagerouter in StorageRouterList.get_masters():
+            storagerouter.invalidate_dynamics(['partition_config'])
+            if len(storagerouter.partition_config[DiskPartition.ROLES.DB]) > 0:
+                available_storagerouters[storagerouter] = DiskPartition(
+                    storagerouter.partition_config[DiskPartition.ROLES.DB][0])
+        if create_cluster is True and len(current_services) == 0 and len(available_storagerouters) > 0:
+            storagerouter, partition = available_storagerouters.items()[0]
+            result = ArakoonInstaller.create_cluster(cluster_name='voldrv',
+                                                     ip=storagerouter.ip,
+                                                     exclude_ports=ServiceList.get_ports_for_ip(storagerouter.ip),
+                                                     base_dir=partition.mountpoint)
+            add_service(storagerouter, result)
+            ArakoonInstaller.restart_cluster_add(service_name, current_ips, storagerouter.ip)
+            current_ips.append(storagerouter.ip)
+
+        if 0 < len(current_services) < len(available_storagerouters):
+            for storagerouter, partition in available_storagerouters.iteritems():
+                if storagerouter.ip in current_ips:
+                    continue
+                result = ArakoonInstaller.extend_cluster(
+                    current_services[0].storagerouter.ip,
+                    storagerouter.ip,
+                    service_name,
+                    ServiceList.get_ports_for_ip(storagerouter.ip),
+                    partition.mountpoint
+                )
+                add_service(storagerouter, result)
+                ArakoonInstaller.restart_cluster_add(service_name, current_ips, storagerouter.ip)
+                current_ips.append(storagerouter.ip)
+
+    @staticmethod
     @add_hooks('setup', 'demote')
     def on_demote(cluster_ip, master_ip):
         """
