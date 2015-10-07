@@ -126,15 +126,6 @@ class AlbaNodeController(object):
                     failures[disk] = result['_error']
                 else:
                     added_disks.append(result)
-        if node.storagerouter is not None:
-            DiskController.sync_with_reality(node.storagerouter_guid)
-            for disk in node.storagerouter.disks:
-                if disk.path in [result['device'] for result in added_disks]:
-                    partition = disk.partitions[0]
-                    partition.usage = [{'type': 'backend',
-                                        'metadata': {'type': 'alba'},
-                                        'size': None}]
-                    partition.save()
         return failures
 
     @staticmethod
