@@ -16,7 +16,6 @@
 AlbaBackend module
 """
 import time
-import copy
 from ovs.dal.dataobject import DataObject
 from ovs.dal.lists.vpoollist import VPoolList
 from ovs.dal.lists.albanodelist import AlbaNodeList
@@ -141,7 +140,7 @@ class AlbaBackend(DataObject):
 
     def _ns_statistics(self):
         """
-        Returns a list of the ASD's namespaces
+        Returns a list of the ASDs namespaces
         """
         # Collect ALBA related statistics
         alba_dataset = {}
