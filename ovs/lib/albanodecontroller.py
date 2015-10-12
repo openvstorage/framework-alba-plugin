@@ -22,6 +22,7 @@ from subprocess import check_output
 from ovs.celery_run import celery
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albabackend import AlbaBackend
+from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.log.logHandler import LogHandler
@@ -126,6 +127,13 @@ class AlbaNodeController(object):
                     failures[disk] = result['_error']
                 else:
                     added_disks.append(result)
+        if node.storagerouter is not None:
+            DiskController.sync_with_reality(node.storagerouter_guid)
+            for disk in node.storagerouter.disks:
+                if disk.path in [result['device'] for result in added_disks]:
+                    partition = disk.partitions[0]
+                    partition.roles.append(DiskPartition.ROLES.BACKEND)
+                    partition.save()
         return failures
 
     @staticmethod
