@@ -28,7 +28,6 @@ from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.j_abmservice import ABMService
 from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.service import Service as DalService
-from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.licenselist import LicenseList
@@ -134,26 +133,14 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.add_cluster')
-    def add_cluster(alba_backend_guid, storagerouter_guid):
+    def add_cluster(alba_backend_guid):
         """
         Adds an arakoon cluster to service backend
         """
         AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
                                                    create_nsm_cluster=True)
 
-        slaves = StorageRouterList.get_slaves()
         alba_backend = AlbaBackend(alba_backend_guid)
-        storagerouter = StorageRouter(storagerouter_guid)
-        abm_service_name = alba_backend.backend.name + "-abm"
-        nsm_service_name = alba_backend.backend.name + "-nsm_0"
-
-        # deploy client_config to slaves
-        for slave in slaves:
-            ArakoonInstaller.deploy_to_slave(storagerouter.ip, slave.ip, abm_service_name)
-            ArakoonInstaller.deploy_to_slave(storagerouter.ip, slave.ip, nsm_service_name)
-
-        AlbaController.register_nsm(abm_service_name, nsm_service_name, storagerouter.ip)
-
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
         alba_backend.alba_id = AlbaCLI.run('get-alba-id', config=config_file, as_json=True, attempts=5)['id']
         alba_backend.save()
@@ -304,6 +291,7 @@ class AlbaController(object):
             storagerouter, partition = available_storagerouters.items()[0]
             alba_backend = AlbaBackend(alba_backend_guid)
             abm_service_name = alba_backend.backend.name + "-abm"
+            nsm_service_name = alba_backend.backend.name + "-nsm_0"
             if len(current_services[alba_backend]['abm']) == 0:
                 abm_service = AlbaController.create_or_extend_cluster(create=True,
                                                                       client=clients[storagerouter],
@@ -316,6 +304,8 @@ class AlbaController(object):
                                                      new_ip=storagerouter.ip)
                 current_ips[alba_backend]['abm'].append(storagerouter.ip)
                 current_services[alba_backend]['abm'].append(abm_service)
+                for slave in masters + slaves:
+                    ArakoonInstaller.deploy_to_slave(storagerouter.ip, slave.ip, abm_service_name)
 
             if len(current_services[alba_backend]['nsm']) == 0 and create_nsm_cluster is True:
                 nsm_service = AlbaController.create_or_extend_cluster(create=True,
@@ -324,11 +314,12 @@ class AlbaController(object):
                                                                       service=nsm_service_type,
                                                                       partition=partition,
                                                                       storagerouter=storagerouter)
-                ArakoonInstaller.restart_cluster_add(cluster_name=alba_backend.backend.name + "-nsm_0",
+                ArakoonInstaller.restart_cluster_add(cluster_name=nsm_service_name,
                                                      current_ips=current_ips[alba_backend]['nsm'],
                                                      new_ip=storagerouter.ip)
                 current_ips[alba_backend]['nsm'].append(storagerouter.ip)
                 current_services[alba_backend]['nsm'].append(nsm_service)
+                AlbaController.register_nsm(abm_service_name, nsm_service_name, storagerouter.ip)
 
             AlbaController._setup_service('maintenance', storagerouter.ip, abm_service_name, alba_backend.backend.name)
             AlbaController._setup_service('rebalancer', storagerouter.ip, abm_service_name, alba_backend.backend.name)
@@ -356,6 +347,25 @@ class AlbaController(object):
                     AlbaController._setup_service('maintenance', storagerouter.ip, abm_service_name, alba_backend.backend.name)
                     AlbaController._setup_service('rebalancer', storagerouter.ip, abm_service_name, alba_backend.backend.name)
 
+                if len(current_ips[alba_backend]['abm']) != 0:
+                    for slave in masters + slaves:
+                        ArakoonInstaller.deploy_to_slave(current_ips[alba_backend]['abm'][0], slave.ip, abm_service_name)
+
+    @staticmethod
+    @add_hooks('setup', 'extranode')
+    def on_extranode(cluster_ip, master_ip=None):
+        """
+        An extra node is added, make sure it has the alba arakoon client file if possible
+        """
+        _ = master_ip  # The master_ip will be passed in by caller
+        servicetype = ServiceTypeList.get_by_name('AlbaManager')
+        for alba_backend in AlbaBackendList.get_albabackends():
+            alba_service_name = alba_backend.backend.name + "-abm"
+            for service in servicetype.services:
+                if service.name == alba_service_name:
+                    ArakoonInstaller.deploy_to_slave(service.storagerouter.ip, cluster_ip, alba_service_name)
+                    break
+
     @staticmethod
     @add_hooks('setup', 'demote')
     def on_demote(cluster_ip, master_ip):
@@ -368,26 +378,29 @@ class AlbaController(object):
             # Remove the node from the ABM
             logger.info('Shrinking ABM for {0}'.format(alba_backend.backend.name))
             storagerouter_ips = [abm_service.service.storagerouter.ip for abm_service in alba_backend.abm_services]
-            if cluster_ip not in storagerouter_ips:
-                raise RuntimeError('Error executing demote in Alba plugin: IP conflict')
-            storagerouter_ips.remove(cluster_ip)
-            abm_service = [abms for abms in alba_backend.abm_services if abms.service.storagerouter.ip == cluster_ip][0]
-            service = abm_service.service
-            logger.info('* Shrink ABM cluster')
-            ArakoonInstaller.shrink_cluster(master_ip, cluster_ip, service.name)
-            if ServiceManager.has_service('arakoon-{0}'.format(service.name), client=client) is True:
-                ServiceManager.stop_service('arakoon-{0}'.format(service.name), client=client)
-                ServiceManager.remove_service('arakoon-{0}'.format(service.name), client=client)
+            service = None
+            abm_service = None
+            service_name = alba_backend.backend.name + "-abm"
+            if cluster_ip in storagerouter_ips:
+                storagerouter_ips.remove(cluster_ip)
+                abm_service = [abms for abms in alba_backend.abm_services if abms.service.storagerouter.ip == cluster_ip][0]
+                service = abm_service.service
+                logger.info('* Shrink ABM cluster')
+            ArakoonInstaller.shrink_cluster(master_ip, cluster_ip, service_name)
+            if ServiceManager.has_service('arakoon-{0}'.format(service_name), client=client) is True:
+                ServiceManager.stop_service('arakoon-{0}'.format(service_name), client=client)
+                ServiceManager.remove_service('arakoon-{0}'.format(service_name), client=client)
 
             logger.info('* Restarting ABM')
-            ArakoonInstaller.restart_cluster_remove(service.name, storagerouter_ips)
+            ArakoonInstaller.restart_cluster_remove(service_name, storagerouter_ips)
             logger.info('* Remove old ABM node from model')
-            service.delete()
-            abm_service.delete()
+            if service is not None:
+                abm_service.delete()
+                service.delete()
 
             # Stop and delete the ALBA maintenance service on this node
-            AlbaController._remove_service('maintenance', client.ip, service.name, alba_backend.backend.name)
-            AlbaController._remove_service('rebalancer', client.ip, service.name, alba_backend.backend.name)
+            AlbaController._remove_service('maintenance', client.ip, service_name, alba_backend.backend.name)
+            AlbaController._remove_service('rebalancer', client.ip, service_name, alba_backend.backend.name)
 
     @staticmethod
     @celery.task(name='alba.nsm_checkup', bind=True, schedule=crontab(minute='30', hour='0'))

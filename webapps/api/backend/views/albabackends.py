@@ -23,12 +23,8 @@ from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albabackendlist import AlbaBackendList
-from ovs.dal.lists.storagerouterlist import StorageRouterList
-from oauth2.toolbox import Toolbox as OAuth2Toolbox
 from rest_framework.decorators import action, link
 from ovs.lib.albacontroller import AlbaController
-
-import math
 
 
 class AlbaBackendViewSet(viewsets.ViewSet):
@@ -72,8 +68,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
             alba_backend.save()
             alba_backend.backend.status = 'INSTALLING'
             alba_backend.backend.save()
-            storagerouter = StorageRouterList.get_masters()[0]
-            AlbaController.add_cluster.delay(alba_backend.guid, storagerouter.guid)
+            AlbaController.add_cluster.delay(alba_backend.guid)
             serializer = FullSerializer(AlbaBackend, contents='', instance=alba_backend)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
@@ -98,7 +93,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         Add storage units to the backend and register with alba nsm
         :param albabackend:     albabackend to add unit to
-        :param asd_ids:         list of ASD ids
+        :param asds:         list of ASD ids
         """
         return AlbaController.add_units.s(albabackend.guid, asds).apply_async(queue='ovs_masters')
 
