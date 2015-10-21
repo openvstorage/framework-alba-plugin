@@ -314,6 +314,8 @@ class AlbaController(object):
                                                                       service=nsm_service_type,
                                                                       partition=partition,
                                                                       storagerouter=storagerouter)
+                for slave in masters + slaves:
+                    ArakoonInstaller.deploy_to_slave(storagerouter.ip, slave.ip, nsm_service_name)
                 ArakoonInstaller.restart_cluster_add(cluster_name=nsm_service_name,
                                                      current_ips=current_ips[alba_backend]['nsm'],
                                                      new_ip=storagerouter.ip)
