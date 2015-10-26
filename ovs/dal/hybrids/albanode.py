@@ -19,6 +19,7 @@ from ovs.dal.dataobject import DataObject
 from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.extensions.plugins.asdmanager import ASDManagerClient
+from ovs.extensions.plugins.albacli import AlbaCLI
 
 
 class AlbaNode(DataObject):
@@ -54,4 +55,28 @@ class AlbaNode(DataObject):
         """
         Returns a live list of all disks on this node
         """
-        return self.client.get_disks()
+
+        disks = self.client.get_disks()
+        # TODO: report node down
+        # if node down !!!
+        if disks == []:
+            from ovs.dal.lists.albabackendlist import AlbaBackendList
+            for backend in AlbaBackendList.get_albabackends():
+                # All backends of this node
+                config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(backend.name)
+                osds = AlbaCLI.run('list-osds', config=config_file, as_json=True)
+                for osd in osds:
+                    if osd.get('node_id') == self.node_id:
+                        disks.append({'asd_id': osd.get('long_id'),
+                                      'node_id': osd.get('node_id'),
+                                      'port': osd.get('port'),
+                                      'available': False,
+                                      'state': {'state': 'error', 'detail': 'node down'},
+                                      'log_level': 'info',
+                                      'device': osd.get('long_id'),
+                                      'home': osd.get('long_id'),
+                                      'mountpoint': osd.get('long_id'),
+                                      'name': osd.get('long_id'),
+                                      'usage': {'available': 0, 'size': 0, 'used': 0},
+                                      })
+        return disks
