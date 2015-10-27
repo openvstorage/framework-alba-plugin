@@ -161,7 +161,7 @@ class AlbaNodeController(object):
         if disk not in disks:
             logger.exception('Disk {0} not available for removal on node {1}'.format(disk, node.ip))
             raise RuntimeError('Could not find disk')
-        elif disks[disk]['available'] is True:
+        elif disks[disk]['available'] is True or (disks[disk]['available'] is False and nodedown is False):
             final_safety = AlbaController.calculate_safety(alba_backend_guid, [disks[disk]['asd_id']])
             if (final_safety['critical'] != 0 or final_safety['lost'] != 0) and (final_safety['critical'] != expected_safety['critical'] or final_safety['lost'] != expected_safety['lost']):
                 raise RuntimeError('Cannot remove disk {0} as the current safety is not as expected ({1} vs {2})'.format(
@@ -200,7 +200,7 @@ class AlbaNodeController(object):
         node = AlbaNode(node_guid)
         logger.debug('Restarting disk {0} at node {1}'.format(disk, node.ip))
         disks = node.client.get_disks(as_list=False)
-        if disk not in disks or disks[disk]['available'] is True or disks[disk]['state']['state'] != 'error':
+        if disk not in disks:
             logger.exception('Disk {0} not available for restart on node {1}'.format(disk, node.ip))
             raise RuntimeError('Could not find disk')
         result = node.client.restart_disk(disk)
