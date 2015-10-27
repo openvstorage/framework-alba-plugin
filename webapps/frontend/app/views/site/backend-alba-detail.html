@@ -290,8 +290,10 @@ limitations under the License.
                         <!-- /ko -->
                         <!-- ko if: status() === 'error' && isLocal() -->
                             <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                <!-- ko if: statusDetail() !== 'nodedown' -->>
                                 <button type="button" class="btn btn-warning btn-xs" data-i18n="alba:generic.restart"
                                         data-bind="click: restart, css: { disabled: processing() || !loaded() }"></button>
+                                <!-- /ko -->
                                 <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
                                         data-bind="click: remove, css: { disabled: processing() || !loaded() }"></button>
                             </span>

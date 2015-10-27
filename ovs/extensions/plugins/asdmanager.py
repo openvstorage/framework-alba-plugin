@@ -55,7 +55,7 @@ class ASDManagerClient(object):
                       headers=self._base_headers,
                       verify=False)
 
-    def get_disks(self, as_list=True):
+    def get_disks(self, as_list=True, reraise=False):
         """
         Gets the node's disk states
         """
@@ -65,8 +65,10 @@ class ASDManagerClient(object):
             data = requests.get('{0}/disks'.format(self._base_url),
                                 headers=self._base_headers,
                                 verify=False).json()
-        except requests.ConnectionError, ex:
+        except requests.ConnectionError as ex:
             logger.error('Could not load data: {0}'.format(ex))
+            if reraise is True:
+                raise ex
             return disks
         for disk in data.keys():
             if not disk.startswith('_'):

@@ -19,6 +19,9 @@ limitations under the License.
             <span data-i18n="alba:wizards.removeosd.gather.warning"></span>
             <ul><li><span data-bind="text: data.albaOSD().name()"></span></li></ul>
         </p>
+        <div data-bind="visible: data.albaOSD().statusDetail() === 'nodedown' ">
+            <span data-i18n="ovs:removeosd.gather.nodedownwarning"></span>
+        </div>
         <div data-bind="visible: data.shouldConfirm, css: {
                             'alert-warning': data.safety().critical !== undefined && data.safety().critical > 0 && data.safety().lost === 0,
                             'alert-danger': data.safety().lost !== undefined && data.safety().lost > 0
