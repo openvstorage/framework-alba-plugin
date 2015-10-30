@@ -1,4 +1,4 @@
-# Copyright 2014 Open vStorage NV
+# Copyright 2014 iNuron NV
 # All rights reserved
 
 """
