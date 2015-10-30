@@ -13,5 +13,5 @@
 # limitations under the License.
 
 """
-Packaging package
+This package contains the extensions
 """
