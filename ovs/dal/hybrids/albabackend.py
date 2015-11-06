@@ -81,6 +81,9 @@ class AlbaBackend(DataObject):
                                         if len(osd['errors']) > 0 and (len(osd['read'] + osd['write']) == 0 or min(osd['read'] + osd['write']) < max(float(error[0]) for error in osd['errors']) + 3600):
                                             disk['status'] = 'warning'
                                             disk['status_detail'] = 'recenterrors'
+                    elif disk['state']['state'] == 'decommissioned':
+                        disk['status'] = 'unavailable'
+                        disk['status_detail'] = 'decommissioned'
                     else:
                         disk['status'] = 'error'
                         disk['status_detail'] = disk['state']['detail']
