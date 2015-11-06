@@ -85,7 +85,9 @@
             "corruption": "Data corruption",
             "slow": "Latency (> 0.5s)",
             "tooslow": "Latency (> 1s)",
-            "recenterrors": "Recent errors"
+            "recenterrors": "Recent errors",
+            "nodedown": "Node is unreachable",
+            "decommissioned": "ASD has been decommissioned"
         },
         "stats": {
             "freespace": "Free space",
@@ -304,7 +306,8 @@
                 "critical": "The removal of this disk brings data on this backend at risk. Loosing one more disk will cause data loss.",
                 "lost": "The removal of this disk will cause data loss.",
                 "accepttext": "I understand the risks, this disk can be removed.",
-                "loading": "Disk safety is being loaded."
+                "loading": "Disk safety is being loaded.",
+                "nodedownwarning": "Disk is being removed while node is down!"
             }
         }
     }

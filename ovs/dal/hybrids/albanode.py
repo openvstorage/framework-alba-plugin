@@ -15,10 +15,12 @@
 """
 AlbaNode module
 """
+import requests
 from ovs.dal.dataobject import DataObject
 from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.extensions.plugins.asdmanager import ASDManagerClient
+from ovs.extensions.plugins.albacli import AlbaCLI
 
 
 class AlbaNode(DataObject):
@@ -54,4 +56,32 @@ class AlbaNode(DataObject):
         """
         Returns a live list of all disks on this node
         """
-        return self.client.get_disks()
+        try:
+            disks = self.client.get_disks(reraise=True)
+        except requests.ConnectionError:
+            from ovs.dal.lists.albabackendlist import AlbaBackendList
+            disks = []
+            for backend in AlbaBackendList.get_albabackends():
+                # All backends of this node
+                config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(backend.name)
+                osds = AlbaCLI.run('list-osds', config=config_file, as_json=True)
+                for osd in osds:
+                    if osd.get('node_id') == self.node_id:
+                        asd_id = osd.get('long_id')
+                        if osd.get('decommissioned') is True:
+                            state = {'state': 'decommissioned'}
+                        else:
+                            state = {'state': 'error', 'detail': 'nodedown'}
+                        disks.append({'asd_id': asd_id,
+                                      'node_id': osd.get('node_id'),
+                                      'port': osd.get('port'),
+                                      'available': False,
+                                      'state': state,
+                                      'log_level': 'info',
+                                      'device': asd_id,
+                                      'home': asd_id,
+                                      'mountpoint': asd_id,
+                                      'name': asd_id,
+                                      'usage': {'available': 0, 'size': 0, 'used': 0},
+                                      })
+        return disks

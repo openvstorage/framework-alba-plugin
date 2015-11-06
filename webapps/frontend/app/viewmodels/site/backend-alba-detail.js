@@ -195,7 +195,11 @@ define([
             return generic.formatBytes(value);
         };
         self.formatPercentage = function(value) {
-            return generic.formatPercentage(value);
+            if (isNaN(value)) {
+                return "0 %";
+            } else {
+                return generic.formatPercentage(value);
+            }
         };
         self.loadLicense = function() {
             return $.Deferred(function(deferred) {
