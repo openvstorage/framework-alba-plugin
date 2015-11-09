@@ -39,7 +39,6 @@ define([
         self.color            = ko.observable();
         self.readIOps         = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
         self.writeIOps        = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
-        self.licenseInfo      = ko.observable();
         self.usage            = ko.observable([]);
         self.presets          = ko.observableArray([]);
         self.availableActions = ko.observableArray([]);
@@ -90,13 +89,6 @@ define([
             });
             return presets;
         });
-        self.configurable = ko.computed(function() {
-            var license = self.license(), licenseInfo = self.licenseInfo();
-            if (license === undefined || licenseInfo === undefined) {
-                return false;
-            }
-            return !(license.validUntil() !== null && license.validUntil() * 1000 < generic.getTimestamp());
-        });
 
         // Functions
         self.getAvailableActions = function() {
@@ -115,7 +107,6 @@ define([
         };
         self.fillData = function(data) {
             self.name(data.name);
-            generic.trySet(self.licenseInfo, data, 'license_info');
             generic.trySet(self.presets, data, 'presets');
             if (self.backendGuid() !== data.backend_guid) {
                 self.backendGuid(data.backend_guid);

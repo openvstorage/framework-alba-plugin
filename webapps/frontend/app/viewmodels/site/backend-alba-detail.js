@@ -107,39 +107,6 @@ define([
             }
             return states;
         });
-        self.configurable = ko.computed(function() {
-            var backend_configurable = self.albaBackend() !== undefined && self.albaBackend().configurable(),
-                configurable = {}, totalClaimed = 0, totalNodes = 0, license;
-            if (backend_configurable) {
-                $.each(self.registeredNodes(), function (jndex, node) {
-                    configurable[node.nodeID()] = 0;
-                    $.each(node.disks(), function (index, disk) {
-                        if (disk.status() === 'claimed') {
-                            configurable[node.nodeID()] += 1;
-                            totalClaimed += 1;
-                        }
-                    });
-                    if (configurable[node.nodeID()] > 0) {
-                        totalNodes += 1;
-                    }
-                });
-                license = self.albaBackend().license().data();
-                $.each(configurable, function(nodeID, amount) {
-                    if (license.osds === null && license.nodes === null) {
-                        configurable[nodeID] = true;
-                    } else if (license.osds !== null && license.nodes !== null) {
-                        configurable[nodeID] = !(totalClaimed >= license.osds || (amount === 0 && totalNodes >= license.nodes));
-                    } else {
-                        configurable[nodeID] = license.osds === null ? !(amount === 0 && totalNodes >= license.nodes) : totalClaimed < license.osds;
-                    }
-                });
-            } else {
-                $.each(self.registeredNodes(), function (jndex, node) {
-                    configurable[node.nodeID()] = false;
-                });
-            }
-            return configurable;
-        });
 
         // Functions
         self.discover = function() {
@@ -374,10 +341,6 @@ define([
         };
         self.claimOSD = function(osds, disk, nodeID) {
             return $.Deferred(function(deferred) {
-                if (!self.configurable()[nodeID]) {
-                    deferred.reject();
-                    return;
-                }
                 app.showMessage(
                     $.t('alba:disks.claim.warning', { what: '<ul><li>' + disk + '</li></ul>', info: '' }).trim(),
                     $.t('ovs:generic.areyousure'),

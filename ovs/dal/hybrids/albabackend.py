@@ -32,7 +32,6 @@ class AlbaBackend(DataObject):
     __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic backend')]
     __dynamics = [Dynamic('all_disks', list, 5),
                   Dynamic('statistics', dict, 5),
-                  Dynamic('license_info', dict, 5),
                   Dynamic('ns_statistics', dict, 60),
                   Dynamic('presets', list, 60),
                   Dynamic('available', bool, 60),
@@ -126,20 +125,6 @@ class AlbaBackend(DataObject):
                 statistics[key]['avg'] = 0
         statistics['creation'] = time.time()
         return statistics
-
-    def _license_info(self):
-        """
-        Returns information used for license checking
-        """
-        config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(self.backend.name)
-        namespaces = AlbaCLI.run('list-namespaces', config=config_file, as_json=True)
-        asds = self.asds
-        nodes = set()
-        for asd in asds:
-            nodes.add(asd.alba_node_guid)
-        return {'namespaces': len(namespaces),
-                'asds': len(asds),
-                'nodes': len(nodes)}
 
     def _ns_statistics(self):
         """

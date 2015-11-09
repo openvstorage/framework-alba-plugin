@@ -700,52 +700,6 @@ class AlbaController(object):
         return new_service
 
     @staticmethod
-    @add_hooks('license', 'alba.validate')
-    def validate(component, data, signature):
-        """
-        Validates an Alba license
-        """
-        if component != 'alba':
-            raise RuntimeError('Invalid component {0} in license.alba.validate'.format(component))
-        with NamedTemporaryFile() as data_file:
-            data_file.write(json.dumps(data, sort_keys=True))
-            data_file.flush()
-            success, _ = AlbaCLI.run('verify-license', extra_params=[data_file.name, signature], as_json=True, raise_on_failure=False)
-            return success, data
-
-    @staticmethod
-    @add_hooks('license', 'alba.sign')
-    def sign(component, data):
-        """
-        Signs data, returns the signature
-        """
-        if component != 'alba':
-            raise RuntimeError('Invalid component {0} in license.alba.sign'.format(component))
-        with NamedTemporaryFile() as data_file:
-            data_file.write(json.dumps(data, sort_keys=True))
-            data_file.flush()
-            return AlbaCLI.run('sign-license', extra_params=['/opt/OpenvStorage/config/alba_private.key', data_file.name], as_json=True)
-
-    @staticmethod
-    @add_hooks('license', 'alba.apply')
-    def apply(component, data, signature, alba_backend=None):
-        """
-        Applies a license to Alba
-        """
-        if component != 'alba':
-            raise RuntimeError('Invalid component {0} in license.alba.apply'.format(component))
-        alba_backends = [alba_backend] if alba_backend is not None else AlbaBackendList.get_albabackends()
-        with NamedTemporaryFile() as data_file:
-            data_file.write(json.dumps(data, sort_keys=True))
-            data_file.flush()
-            success = True
-            for alba_backend in alba_backends:
-                config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
-                run_success, _ = AlbaCLI.run('apply-license', config=config_file, extra_params=[data_file.name, signature], as_json=True, raise_on_failure=False)
-                success &= run_success
-            return success
-
-    @staticmethod
     @add_hooks('update', 'metadata')
     def get_metadata_sdm(client):
         """

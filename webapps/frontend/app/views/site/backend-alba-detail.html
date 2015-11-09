@@ -121,9 +121,6 @@ limitations under the License.
                     <span class="fa fa-flip-vertical hand" data-i18n="[html]alba:icons.presets"></span>
                 </a>
             </li>
-            <li data-bind="tooltip: 'ovs:generic.licensing'">
-                <a href="#licensing" data-toggle="tab" class="fa" data-i18n="[html]ovs:icons.licensing"></a>
-            </li>
         </ul>
         <div class="tab-content">
             <div class="tab-pane active" id="nodes" style="padding: 15px;" data-bind="visible: $.inArray('manage', $root.shared.user.roles()) !== -1">
@@ -266,9 +263,7 @@ limitations under the License.
                         <!-- ko if: status() === 'available' -->
                             <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                 <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
-                                        data-bind="click: claim, css: { disabled: processing() || !loaded() },
-                                                   style: { 'opacity': $root.configurable()[$parents[1].nodeID()] ? '' : '0.65' },
-                                                   tooltip: ($root.configurable()[$parents[1].nodeID()] ? '' : 'ovs:generic.licenselimited'),
+                                        data-bind="click: claim, css: { disabled: processing() || !loaded() }
                                                    placement: 'bottom'"></button>
                                 <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
                                         data-bind="click: remove, css: { disabled: processing() || !loaded() }"></button>
@@ -412,21 +407,6 @@ limitations under the License.
                         <span class="label pointer" style="background-color: #DDD; color: #333; opacity: .65;"
                               data-i18n="alba:generic.unknown"></span>
                     </span>
-                </div>
-            </div>
-            <div class="tab-pane" id="licensing" style="padding: 15px;">
-                <h4 data-i18n="ovs:generic.licensing"></h4>
-                <div style="margin-top: 25px;">
-                    <span data-i18n="alba:generic.nolicense" data-bind="if: license() === undefined"></span>
-                    <!-- ko if: license() !== undefined -->
-                        <span data-i18n="ovs:generic.name"></span>: <span data-bind="text: license().name"></span><br />
-                        <span data-i18n="ovs:generic.metadata"></span>:
-                        <ul data-bind="foreach: $root.generic.keys(license().data(), function(i) { return i !== 'token'; })">
-                            <li>
-                                <span data-bind="translate: ($parent.license().component() + ':licensing.metadata.' + $data)"></span>: <span data-bind="html: $parent.license().data()[$data] !== null ? $parent.license().data()[$data] : '<i>Unlimited</i>'"></span>
-                            </li>
-                        </ul>
-                    <!-- /ko -->
                 </div>
             </div>
             <div class="tab-pane" id="presets" style="padding: 15px;">
