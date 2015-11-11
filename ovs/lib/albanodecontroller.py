@@ -188,7 +188,8 @@ class AlbaNodeController(object):
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
         if node.storagerouter is not None:
-            DiskController.sync_with_reality(node.storagerouter_guid)
+            # Run async, deduped, in case it is called multiple times 
+            DiskController.async_sync_with_reality(node.storagerouter_guid)
         return True
 
     @staticmethod
