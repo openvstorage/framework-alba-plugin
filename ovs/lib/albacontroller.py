@@ -139,7 +139,6 @@ class AlbaController(object):
         with open(temp_config_file, 'wb') as data_file:
             data_file.write(json.dumps(preset))
             data_file.flush()
-            print 'preset: {0}'.format(preset)
             AlbaCLI.run('create-preset', config=config_file, extra_params=[name, '<', data_file.name], as_json=True)
             alba_backend.invalidate_dynamics()
         for filename in [temp_key_file, temp_config_file]:
