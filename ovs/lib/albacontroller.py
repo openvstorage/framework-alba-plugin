@@ -16,8 +16,11 @@
 AlbaController module
 """
 
-import time
 import json
+import os
+import random
+import tempfile
+import time
 from tempfile import NamedTemporaryFile
 from celery.schedules import crontab
 from ovs.celery_run import celery
@@ -95,10 +98,15 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.add_preset')
-    def add_preset(alba_backend_guid, name, compression, policies):
+    def add_preset(alba_backend_guid, name, compression, policies, encryption):
         """
         Adds a preset to Alba
+        Args:
+            compression: none | snappy | bzip2
+            encryption: none | aec-cbc-256
         """
+        temp_key_file = None
+
         alba_backend = AlbaBackend(alba_backend_guid)
         if name in [preset['name'] for preset in alba_backend.presets]:
             raise RuntimeError('Preset name {0} already exists'.format(name))
@@ -106,18 +114,37 @@ class AlbaController(object):
         preset = {'compression': compression,
                   'object_checksum': {'default': ['crc-32c'], 'verify_upload': True, 'allowed': [['none'], ['sha-1'], ['crc-32c']]},
                   'osds': ['all'],
-                  'fragment_encryption': ['none'],
                   'fragment_size': 1048576,
                   'policies': policies,
                   'fragment_checksum': ['crc-32c'],
                   'in_use': False,
                   'name': name}
+
+        if encryption in ['aes-cbc-256']:
+            encryption_key = ''
+            while len(encryption_key) != 32:
+                encryption_key = ''.join(random.choice(chr(random.randint(32, 126))) for _ in range(32))
+            temp_key_file = tempfile.mktemp()
+            with open(temp_key_file, 'wb') as f:
+                f.write(encryption_key)
+                f.flush()
+                f.close()
+            preset['fragment_encryption'] = ['{0}'.format(encryption), '{0}'.format(temp_key_file)]
+        else:
+            preset['fragment_encryption'] = ['none']
+
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
-        with NamedTemporaryFile() as data_file:
+
+        temp_config_file = tempfile.mktemp()
+        with open(temp_config_file, 'wb') as data_file:
             data_file.write(json.dumps(preset))
             data_file.flush()
+            print 'preset: {0}'.format(preset)
             AlbaCLI.run('create-preset', config=config_file, extra_params=[name, '<', data_file.name], as_json=True)
             alba_backend.invalidate_dynamics()
+        for filename in [temp_key_file, temp_config_file]:
+            if filename and os.path.exists(filename) and os.path.isfile(filename):
+                os.remove(filename)
 
     @staticmethod
     @celery.task(name='alba.delete_preset')
