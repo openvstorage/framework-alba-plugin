@@ -82,6 +82,7 @@ define([
                     policies: policies,
                     name: preset.name,
                     compression: preset.compression,
+                    encryption: preset.fragment_encryption,
                     color: policyMapping[worstPolicy],
                     inUse: preset.in_use,
                     isDefault: preset.is_default,

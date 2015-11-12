@@ -121,14 +121,11 @@ class AlbaController(object):
                   'name': name}
 
         if encryption in ['aes-cbc-256']:
-            encryption_key = ''
-            while len(encryption_key) != 32:
-                encryption_key = ''.join(random.choice(chr(random.randint(32, 126))) for _ in range(32))
+            encryption_key = ''.join(random.choice(chr(random.randint(32, 126))) for _ in range(32))
             temp_key_file = tempfile.mktemp()
-            with open(temp_key_file, 'wb') as f:
-                f.write(encryption_key)
-                f.flush()
-                f.close()
+            with open(temp_key_file, 'wb') as temp_file:
+                temp_file.write(encryption_key)
+                temp_file.flush()
             preset['fragment_encryption'] = ['{0}'.format(encryption), '{0}'.format(temp_key_file)]
         else:
             preset['fragment_encryption'] = ['none']
