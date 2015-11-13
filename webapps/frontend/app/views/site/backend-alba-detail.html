@@ -423,6 +423,7 @@ limitations under the License.
                             <th style="width: 30px;">&nbsp;</th>
                             <th style="width: 150px;" data-i18n="alba:presets.name"></th>
                             <th style="width: 150px;" data-i18n="alba:presets.compression"></th>
+                            <th style="width: 150px;" data-i18n="alba:presets.encryption"></th>
                             <th>
                                 <span data-i18n="alba:presets.policies.title"></span>
                                 <a data-bind="popover: {
@@ -456,6 +457,7 @@ limitations under the License.
                                 </td>
                                 <td data-bind="text: name"></td>
                                 <td data-bind="translate: 'alba:generic.compressions.' + compression"></td>
+                                <td data-bind="translate: 'alba:generic.encryptions.' + encryption[0]"></td>
                                 <td>
                                     <span data-bind="visible: replication !== undefined">
                                         <span data-bind="text: replication"></span><span data-i18n="alba:generic.wayreplication"></span>

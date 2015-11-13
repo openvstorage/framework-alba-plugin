@@ -126,11 +126,11 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaBackend)
-    def add_preset(self, albabackend, name, compression, policies):
+    def add_preset(self, albabackend, name, compression, policies, encryption):
         """
         Adds a preset to a backend
         """
-        return AlbaController.add_preset.delay(albabackend.guid, name, compression, policies)
+        return AlbaController.add_preset.delay(albabackend.guid, name, compression, policies, encryption)
 
     @action()
     @log()

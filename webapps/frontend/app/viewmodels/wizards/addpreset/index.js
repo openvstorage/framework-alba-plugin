@@ -38,6 +38,7 @@ define([
         data.accepted(false);
         data.replication(1);
         data.compression('snappy');
+        data.encryption('none');
         data.policies([]);
     };
 });

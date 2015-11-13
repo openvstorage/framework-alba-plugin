@@ -118,6 +118,10 @@
             "snappy": "Snappy",
             "bz2": "BZip2",
             "none": "No compression"
+        },
+        "encryptions": {
+            "aes-cbc-256": "aes-cbc-256",
+            "none": "No encryption"
         }
     },
     "licensing": {
@@ -152,6 +156,7 @@
         "name": "Name",
         "cantdelete": "The preset is in use or is default",
         "compression": "Compression",
+        "encryption": "Encryption",
         "legend": "Preset/policy legend:",
         "inuse": "In use",
         "available": "Available",
@@ -278,6 +283,7 @@
             "gather": {
                 "basicinfo": "Define your preset.",
                 "compression": "Compression",
+                "encryption": "Encryption",
                 "name": "Name",
                 "policies": "Policies",
                 "invalidname": "Invalid name (should be between 3 and 20 letters and/or numbers)",

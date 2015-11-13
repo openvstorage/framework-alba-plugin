@@ -42,7 +42,8 @@ define([
                     data: {
                         name: self.data.name(),
                         compression: self.data.compression(),
-                        policies: self.data.cleanPolicies()
+                        policies: self.data.cleanPolicies(),
+                        encryption: self.data.encryption()
                     }
                 })
                     .then(self.shared.tasks.wait)

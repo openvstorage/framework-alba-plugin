@@ -47,6 +47,17 @@ limitations under the License.
         </div>
         <div data-bind="visible: data.advanced() && data.accepted()">
             <div class="form-group">
+                <label class="col-lg-3 control-label" data-i18n="alba:wizards.addpreset.gather.encryption"></label>
+                <div class="col-lg-7">
+                    <span data-bind="dropdown: {
+                                         items: data.encryptionOptions, target: data.encryption,
+                                         text: function(item) {
+                                             return $.t('alba:generic.encryptions.' + item);
+                                         }
+                                     }"></span>
+                </div>
+            </div>
+            <div class="form-group">
                 <label class="col-lg-3 control-label" data-i18n="alba:wizards.addpreset.gather.compression"></label>
                 <div class="col-lg-7">
                     <span data-bind="dropdown: {
