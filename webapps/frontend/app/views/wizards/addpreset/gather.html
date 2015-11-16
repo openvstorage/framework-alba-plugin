@@ -18,8 +18,9 @@ limitations under the License.
         <p data-i18n="alba:wizards.addpreset.gather.basicinfo"></p>
         <div class="form-group" data-bind="css: { 'has-error': $.inArray('name', canContinue().fields) !== -1 }">
             <label class="col-lg-3 control-label" for="name" data-i18n="alba:wizards.addpreset.gather.name"></label>
-            <div class="col-lg-7">
-                <input type="text" id="name" class="autofocus form-control" data-bind="value: data.name, valueUpdate: 'input'" />
+            <div class="col-lg-7" data-bind="disabled: data.editPreset()">
+                <input type="text" id="name" class="autofocus form-control" data-bind="value: data.name,
+                    valueUpdate: 'input', attr:{ disabled: data.editPreset}" />
             </div>
         </div>
         <div class="form-group">
@@ -53,7 +54,8 @@ limitations under the License.
                                          items: data.encryptionOptions, target: data.encryption,
                                          text: function(item) {
                                              return $.t('alba:generic.encryptions.' + item);
-                                         }
+                                         },
+                                         enabled: data.canEdit
                                      }"></span>
                 </div>
             </div>
@@ -64,8 +66,9 @@ limitations under the License.
                                          items: data.compressionOptions, target: data.compression,
                                          text: function(item) {
                                              return $.t('alba:generic.compressions.' + item);
-                                         }
-                                     }"></span>
+                                         },
+                                         enabled: data.canEdit
+                                    }"></span>
                 </div>
             </div>
             <div class="form-group" data-bind="css: { 'has-error': $.inArray('policies', canContinue().fields) !== -1 }">

@@ -492,7 +492,18 @@ define([
             dialog.show(new AddPresetWizard({
                 modal: true,
                 backend: self.albaBackend(),
-                currentPresets: self.albaBackend().enhancedPresets()
+                currentPresets: self.albaBackend().enhancedPresets(),
+                editPreset: false
+            }));
+        };
+
+        self.editPreset = function(data) {
+            dialog.show(new AddPresetWizard({
+                modal: true,
+                currentPreset: data,
+                backend: self.albaBackend(),
+                currentPresets: self.albaBackend().enhancedPresets(),
+                editPreset: true
             }));
         };
         self.addNode = function() {

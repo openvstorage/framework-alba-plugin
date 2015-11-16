@@ -24,10 +24,14 @@ define([
         self.data = data;
 
         // Computed
+        self.data.canEdit = ko.computed(function() {
+            return !self.data.editPreset()
+        });
+
         self.canContinue = ko.computed(function() {
             var valid = true, reasons = [], fields = [],
                 currentNames = self.data.currentPresets().map(function(item) { return item.name; });
-            if (!self.data.name.valid()) {
+            if (!self.data.name.valid() && !self.data.editPreset()) {
                 valid = false;
                 fields.push('name');
                 reasons.push($.t('alba:wizards.addpreset.gather.invalidname'));
@@ -37,7 +41,7 @@ define([
                 fields.push('policies');
                 reasons.push($.t('alba:wizards.addpreset.gather.insufficientpolicies'));
             }
-            if (currentNames.contains(self.data.name())) {
+            if (currentNames.contains(self.data.name()) && !self.data.editPreset()) {
                 valid = false;
                 fields.push('name');
                 reasons.push($.t('alba:wizards.addpreset.gather.duplicatename'));

@@ -300,8 +300,19 @@
                 "started": "Creating preset",
                 "inprogress": "Creation of the preset is in progress",
                 "complete": "Preset created",
-                "success": "The preset was create successful",
+                "success": "The preset was created successfully",
                 "failed": "Error during preset creation: __why__"
+            }
+        },
+        "editpreset": {
+            "title": "Edit preset",
+            "confirm": {
+                "basicinfo": "Confirm your preset. Make sure policies are in the correct order and are correctly defined.",
+                "started": "Updating preset",
+                "inprogress": "Update of preset is in progress",
+                "complete": "Preset updated",
+                "success": "The preset was updated successfully",
+                "failed": "Error during preset update: __why__"
             }
         },
         "removeosd": {

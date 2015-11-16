@@ -13,9 +13,8 @@
 // limitations under the License.
 /*global define */
 define([
-    'jquery', 'ovs/generic',
-    '../build', './gather', './confirm', './data'
-], function($, generic, build, Gather, Confirm, data) {
+    'jquery', 'knockout', 'ovs/generic', '../build', './gather', './confirm', './data'],
+    function($, ko, generic, build, Gather, Confirm, data) {
     "use strict";
     return function(options) {
         var self = this;
@@ -25,7 +24,6 @@ define([
         self.data = data;
 
         // Setup
-        self.title(generic.tryGet(options, 'title', $.t('alba:wizards.addpreset.title')));
         self.modal(generic.tryGet(options, 'modal', false));
         self.data.backend(options.backend);
         self.data.currentPresets(options.currentPresets);
@@ -33,12 +31,44 @@ define([
         self.activateStep();
 
         // Cleaning data
-        data.name('');
-        data.advanced(false);
-        data.accepted(false);
-        data.replication(1);
-        data.compression('snappy');
-        data.encryption('none');
-        data.policies([]);
+        if (options.editPreset) {
+            self.title(generic.tryGet(options, 'title', $.t('alba:wizards.editpreset.title')));
+            self.data.currentPreset(options.currentPreset);
+            self.data.name(options.currentPreset.name);
+            self.data.replication(options.currentPreset.replication);
+            if (self.data.currentPreset().replication === undefined) {
+                self.data.advanced(true);
+                self.data.accepted(true);
+            } else {
+                self.data.advanced(false);
+                self.data.accepted(false);
+            }
+            self.data.compression(options.currentPreset.compression);
+            self.data.encryption(options.currentPreset.encryption);
+            self.data.policies([]);
+            if (options.currentPreset.policies) {
+                $.each(options.currentPreset.policies, function (index, policy) {
+                    self.data.policies.push({
+                        id: ko.observable(index),
+                        k: ko.observable(policy.k).extend({numeric: {min: 1}}),
+                        m: ko.observable(policy.m).extend({numeric: {min: 0}}),
+                        c: ko.observable(policy.c).extend({numeric: {min: 1}}),
+                        x: ko.observable(policy.x).extend({numeric: {min: 1}})
+                    });
+                });
+            };
+            self.data.editPreset(true);
+
+        } else {
+            self.title(generic.tryGet(options, 'title', $.t('alba:wizards.addpreset.title')));
+            data.name('');
+            data.advanced(false);
+            data.accepted(false);
+            data.replication(1);
+            data.compression('snappy');
+            data.encryption('none');
+            data.policies([]);
+            data.editPreset(false);
+        }
     };
 });
