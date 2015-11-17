@@ -33,6 +33,11 @@ define(['durandal/app', 'knockout', 'jquery'], function(app, ko, $){
             editPreset:         ko.observable(false),
             canEdit:            ko.observable(true)
         };
+
+        data.canEdit = ko.computed(function() {
+            return !data.editPreset()
+        });
+
         data.cleanPolicies = ko.computed(function() {
             var policies = [], i = 0, replication = data.replication() - 1;
             if (data.advanced()) {

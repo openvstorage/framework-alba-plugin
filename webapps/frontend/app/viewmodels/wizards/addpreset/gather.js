@@ -24,10 +24,6 @@ define([
         self.data = data;
 
         // Computed
-        self.data.canEdit = ko.computed(function() {
-            return !self.data.editPreset()
-        });
-
         self.canContinue = ko.computed(function() {
             var valid = true, reasons = [], fields = [],
                 currentNames = self.data.currentPresets().map(function(item) { return item.name; });

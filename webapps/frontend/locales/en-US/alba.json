@@ -156,6 +156,7 @@
         "name": "Name",
         "cantdelete": "The preset is in use or is default",
         "compression": "Compression",
+        "editpreset": "Edit preset",
         "encryption": "Encryption",
         "legend": "Preset/policy legend:",
         "inuse": "In use",
