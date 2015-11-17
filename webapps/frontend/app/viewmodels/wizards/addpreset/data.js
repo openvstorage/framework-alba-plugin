@@ -42,7 +42,8 @@ define(['durandal/app', 'knockout', 'jquery'], function(app, ko, $){
             var policies = [], i = 0, replication = data.replication() - 1;
             if (data.advanced()) {
                 $.each(data.policies(), function (index, policy) {
-                    policies.push([policy.k(), policy.m(), policy.c(), policy.x()]);
+                    policies.push([parseInt(policy.k()), parseInt(policy.m()), parseInt(policy.c()),
+                                   parseInt(policy.x())]);
                 });
             } else {
                 policies.push([1, replication, 1, 1 + replication]);
