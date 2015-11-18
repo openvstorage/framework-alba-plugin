@@ -21,7 +21,6 @@ import os
 import random
 import tempfile
 import time
-from tempfile import NamedTemporaryFile
 from celery.schedules import crontab
 from ovs.celery_run import celery
 from ovs.dal.hybrids.albaasd import AlbaASD
@@ -153,6 +152,34 @@ class AlbaController(object):
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
         AlbaCLI.run('delete-preset', config=config_file, extra_params=name, as_json=True)
         alba_backend.invalidate_dynamics()
+
+    @staticmethod
+    @celery.task(name='alba.update_preset')
+    def update_preset(alba_backend_guid, name, policies):
+        """
+        Updates policies for an existing preset to Alba
+        Args:
+            alba_backend_guid: guid of backend
+            name: name of backend
+            policies: new policy list to be sent to alba
+        """
+        temp_key_file = None
+
+        alba_backend = AlbaBackend(alba_backend_guid)
+        logger.debug('Adding preset {0} with policies {1}'.format(name, policies))
+        preset = {'policies': policies}
+
+        config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
+
+        temp_config_file = tempfile.mktemp()
+        with open(temp_config_file, 'wb') as data_file:
+            data_file.write(json.dumps(preset))
+            data_file.flush()
+            AlbaCLI.run('update-preset', config=config_file, extra_params=[name, '<', data_file.name], as_json=True)
+            alba_backend.invalidate_dynamics()
+        for filename in [temp_key_file, temp_config_file]:
+            if filename and os.path.exists(filename) and os.path.isfile(filename):
+                os.remove(filename)
 
     @staticmethod
     @celery.task(name='alba.add_cluster')

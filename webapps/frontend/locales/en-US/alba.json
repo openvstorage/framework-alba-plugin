@@ -156,6 +156,7 @@
         "name": "Name",
         "cantdelete": "The preset is in use or is default",
         "compression": "Compression",
+        "editpreset": "Edit preset",
         "encryption": "Encryption",
         "legend": "Preset/policy legend:",
         "inuse": "In use",
@@ -292,7 +293,9 @@
                 "replication": "Replication copies",
                 "advancedtext": "Advanced settings",
                 "accepttext": "I understand the risks",
-                "invalidc": "One or more 'c' values does not meet the requirement k <= c <= (k + m)",
+                "invalidk": "One or more 'k' values do not meet the requirement k <= c <= (k + m) and should not be 0",
+                "invalidc": "One or more 'c' values do not meet the requirement k <= c <= (k + m) and should not be 0",
+                "invalidx": "One or more 'x' values do not meet the requirement k <= c <= (k + m) and should not be 0",
                 "warning": "Adding presets can help shape the Open vStorage Backend to your specific needs.<br /><br />When creating a preset, make sure to understand the impact of certain compression algorithms and policies. For example, creating a (1, 0, 1, 1) policy might cause dataloss when a single disk fails. Remember that the order in which policies are defined is the same order in which policies will be used. Make sure to put the safest/most preferred policies on top.<br /><br />Improperly configured presets can cause dataloss!"
             },
             "confirm": {
@@ -300,8 +303,19 @@
                 "started": "Creating preset",
                 "inprogress": "Creation of the preset is in progress",
                 "complete": "Preset created",
-                "success": "The preset was create successful",
+                "success": "The preset was created successfully",
                 "failed": "Error during preset creation: __why__"
+            }
+        },
+        "editpreset": {
+            "title": "Edit preset",
+            "confirm": {
+                "basicinfo": "Confirm your preset. Make sure policies are in the correct order and are correctly defined.",
+                "started": "Updating preset",
+                "inprogress": "Update of preset is in progress",
+                "complete": "Preset updated",
+                "success": "The preset was updated successfully",
+                "failed": "Error during preset update: __why__"
             }
         },
         "removeosd": {

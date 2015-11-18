@@ -143,6 +143,17 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         return AlbaController.delete_preset.delay(albabackend.guid, name)
 
+    @action()
+    @log()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaBackend)
+    def update_preset(self, albabackend, name, policies):
+        """
+        Updates a preset's policies to a backend
+        """
+        return AlbaController.update_preset.delay(albabackend.guid, name, policies)
+
     @link()
     @log()
     @required_roles(['read'])

@@ -232,7 +232,8 @@ class AlbaBackend(DataObject):
             if namespace_data['state'] == 'active':
                 namespace = namespace_data['name']
                 try:
-                    policy_usage = AlbaCLI.run('show-namespace', config=config_file, as_json=True, extra_params=namespace)['bucket_count']
+                    policy_usage = AlbaCLI.run('show-namespace', config=config_file, as_json=True,
+                                               extra_params=namespace)['bucket_count']
                 except:
                     continue
                 preset = preset_dict[namespace_data['preset_name']]

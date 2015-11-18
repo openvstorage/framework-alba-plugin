@@ -33,33 +33,68 @@ define([
         // Functions
         self.finish = function() {
             return $.Deferred(function(deferred) {
-                generic.alertInfo(
-                    $.t('alba:wizards.addpreset.confirm.started'),
-                    $.t('alba:wizards.addpreset.confirm.inprogress')
-                );
+                if (self.data.editPreset()) {
+                    generic.alertInfo(
+                        $.t('alba:wizards.editpreset.confirm.started'),
+                        $.t('alba:wizards.editpreset.confirm.inprogress')
+                    );
+                } else {
+                    generic.alertInfo(
+                        $.t('alba:wizards.addpreset.confirm.started'),
+                        $.t('alba:wizards.addpreset.confirm.inprogress')
+                    );
+                }
                 deferred.resolve();
-                api.post('alba/backends/' + self.data.backend().guid() + '/add_preset', {
-                    data: {
+                var url = 'alba/backends/' + self.data.backend().guid();
+                var postData;
+                if (self.data.editPreset()) {
+                    url += '/update_preset';
+                    postData = {
+                        name: self.data.name(),
+                        policies: self.data.cleanPolicies()
+                    }
+                } else {
+                    url += '/add_preset';
+                    postData = {
                         name: self.data.name(),
                         compression: self.data.compression(),
                         policies: self.data.cleanPolicies(),
                         encryption: self.data.encryption()
                     }
+                }
+                api.post(url, {
+                    data: postData
                 })
                     .then(self.shared.tasks.wait)
                     .done(function() {
-                        generic.alertSuccess(
-                            $.t('alba:wizards.addpreset.confirm.complete'),
-                            $.t('alba:wizards.addpreset.confirm.success')
-                        );
+                        if (self.data.editPreset()) {
+                            generic.alertSuccess(
+                                $.t('alba:wizards.editpreset.confirm.complete'),
+                                $.t('alba:wizards.editpreset.confirm.success')
+                            );
+                        } else {
+                            generic.alertSuccess(
+                                $.t('alba:wizards.addpreset.confirm.complete'),
+                                $.t('alba:wizards.addpreset.confirm.success')
+                            );
+                        }
                     })
                     .fail(function(error) {
-                        generic.alertError(
-                            $.t('ovs:generic.error'),
-                            $.t('alba:wizards.addpreset.confirm.failed', {
-                                why: error
-                            })
-                        );
+                        if (self.data.editPreset()) {
+                            generic.alertError(
+                                $.t('ovs:generic.error'),
+                                $.t('alba:wizards.editpreset.confirm.failed', {
+                                    why: error
+                                })
+                            );
+                        } else {
+                            generic.alertError(
+                                $.t('ovs:generic.error'),
+                                $.t('alba:wizards.addpreset.confirm.failed', {
+                                    why: error
+                                })
+                            );
+                        }
                     });
             }).promise();
         };

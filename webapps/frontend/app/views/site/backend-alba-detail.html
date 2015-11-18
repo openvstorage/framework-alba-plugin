@@ -433,6 +433,7 @@ limitations under the License.
                                 </a>
                             </th>
                             <th style="width: 30px;">&nbsp;</th>
+                            <th style="width: 30px;">&nbsp;</th>
                         </tr>
                     </thead>
                     <tbody data-bind="with: albaBackend()">
@@ -468,6 +469,11 @@ limitations under the License.
                                                              'font-weight': isActive ? 'bold' : ''
                                                          }"></span><span data-bind="if: $index() < ($parent.policies.length - 1)">,</span>
                                     <!-- /ko -->
+                                </td>
+                                <td>
+                                    <i data-bind="click: function() { $root.editPreset($data) },
+                                                  tooltip: 'alba:presets.editpreset'"
+                                       class="hand fa fa-fw" style="padding-top: 7px;" data-i18n="[html]ovs:icons.edit"></i>
                                 </td>
                                 <td>
                                     <i data-bind="click: function() { if (!inUse && !isDefault) { $root.removePreset(name); } },

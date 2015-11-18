@@ -27,7 +27,7 @@ define([
         self.canContinue = ko.computed(function() {
             var valid = true, reasons = [], fields = [],
                 currentNames = self.data.currentPresets().map(function(item) { return item.name; });
-            if (!self.data.name.valid()) {
+            if (!self.data.name.valid() && !self.data.editPreset()) {
                 valid = false;
                 fields.push('name');
                 reasons.push($.t('alba:wizards.addpreset.gather.invalidname'));
@@ -37,7 +37,7 @@ define([
                 fields.push('policies');
                 reasons.push($.t('alba:wizards.addpreset.gather.insufficientpolicies'));
             }
-            if (currentNames.contains(self.data.name())) {
+            if (currentNames.contains(self.data.name()) && !self.data.editPreset()) {
                 valid = false;
                 fields.push('name');
                 reasons.push($.t('alba:wizards.addpreset.gather.duplicatename'));
@@ -49,6 +49,30 @@ define([
                         valid = false;
                         fields.push('c');
                         reasons.push($.t('alba:wizards.addpreset.gather.invalidc'));
+                    }
+                }
+                if (policy.k() === 0) {
+                    fields.push('k_' + policy.id());
+                    if (!fields.contains('k')) {
+                        valid = false;
+                        fields.push('k');
+                        reasons.push($.t('alba:wizards.addpreset.gather.invalidk'));
+                    }
+                }
+                if (policy.c() === 0) {
+                    fields.push('c_' + policy.id());
+                    if (!fields.contains('c')) {
+                        valid = false;
+                        fields.push('c');
+                        reasons.push($.t('alba:wizards.addpreset.gather.invalidc'));
+                    }
+                }
+                if (policy.x() === 0) {
+                    fields.push('x_' + policy.id());
+                    if (!fields.contains('x')) {
+                        valid = false;
+                        fields.push('x');
+                        reasons.push($.t('alba:wizards.addpreset.gather.invalidx'));
                     }
                 }
             });
@@ -81,10 +105,10 @@ define([
             var newID = Math.max(0, Math.max.apply(this, self.data.policies().map(function(item) { return item.id(); }))) + 1;
             self.data.policies.push({
                 id: ko.observable(newID),
-                k: ko.observable(0).extend({ numeric: { min: 1 } }),
-                m: ko.observable(0).extend({ numeric: { min: 0 } }),
-                c: ko.observable(0).extend({ numeric: { min: 1 } }),
-                x: ko.observable(0).extend({ numeric: { min: 1 } })
+                k: ko.observable(0).extend({numeric: { min: 0 }}),
+                m: ko.observable(0).extend({numeric: { min: 0 }}),
+                c: ko.observable(0).extend({numeric: { min: 0 }}),
+                x: ko.observable(0).extend({numeric: { min: 0 }})
             });
         };
         self.next = function() {
