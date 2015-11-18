@@ -51,6 +51,30 @@ define([
                         reasons.push($.t('alba:wizards.addpreset.gather.invalidc'));
                     }
                 }
+                if (policy.k() === 0) {
+                    fields.push('k_' + policy.id());
+                    if (!fields.contains('k')) {
+                        valid = false;
+                        fields.push('k');
+                        reasons.push($.t('alba:wizards.addpreset.gather.invalidk'));
+                    }
+                }
+                if (policy.c() === 0) {
+                    fields.push('c_' + policy.id());
+                    if (!fields.contains('c')) {
+                        valid = false;
+                        fields.push('c');
+                        reasons.push($.t('alba:wizards.addpreset.gather.invalidc'));
+                    }
+                }
+                if (policy.x() === 0) {
+                    fields.push('x_' + policy.id());
+                    if (!fields.contains('x')) {
+                        valid = false;
+                        fields.push('x');
+                        reasons.push($.t('alba:wizards.addpreset.gather.invalidx'));
+                    }
+                }
             });
             return { value: valid, reasons: reasons, fields: fields };
         });
@@ -81,10 +105,10 @@ define([
             var newID = Math.max(0, Math.max.apply(this, self.data.policies().map(function(item) { return item.id(); }))) + 1;
             self.data.policies.push({
                 id: ko.observable(newID),
-                k: ko.observable(),
-                m: ko.observable(),
-                c: ko.observable(),
-                x: ko.observable()
+                k: ko.observable(0).extend({ numeric: { min: 0 }, allowUndefined: true }),
+                m: ko.observable(0).extend({ numeric: { min: 0 }, allowUndefined: true }),
+                c: ko.observable(0).extend({ numeric: { min: 0 }, allowUndefined: true }),
+                x: ko.observable(0).extend({ numeric: { min: 0 }, allowUndefined: true })
             });
         };
         self.next = function() {
