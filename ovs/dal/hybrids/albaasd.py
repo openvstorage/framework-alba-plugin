@@ -51,7 +51,7 @@ class AlbaASD(DataObject):
         """
         Loads statistics from the ASD
         """
-        data_keys = {'apply': ['Apply'],
+        data_keys = {'apply': ['Apply', 'Apply2'],
                      'multi_get': ['MultiGet', 'MultiGet2'],
                      'range': ['Range'],
                      'range_entries': ['RangeEntries'],
