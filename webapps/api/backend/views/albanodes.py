@@ -74,6 +74,16 @@ class AlbaNodeViewSet(viewsets.ViewSet):
             return node_list
 
     @log()
+    @required_roles(['read'])
+    @return_object(AlbaNode)
+    @load(AlbaNode)
+    def retrieve(self, albanode):
+        """
+        Load information about a given AlbaBackend
+        """
+        return albanode
+
+    @log()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load()
