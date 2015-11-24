@@ -339,7 +339,7 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=crontab(minute='45', hour='*'))
-    @ensure_single(['alba.scheduled_alba_arakoon_checkup'])
+    @ensure_single(task_name='alba.scheduled_alba_arakoon_checkup')
     def scheduled_alba_arakoon_checkup():
         """
         Makes sure the volumedriver arakoon is on all available master nodes
@@ -538,7 +538,7 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.nsm_checkup', schedule=crontab(minute='30', hour='0'))
-    @ensure_single(['alba.nsm_checkup'])
+    @ensure_single(task_name='alba.nsm_checkup')
     def nsm_checkup():
         """
         Validates the current NSM setup/configuration and takes actions where required.
