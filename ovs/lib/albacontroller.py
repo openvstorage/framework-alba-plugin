@@ -32,7 +32,6 @@ from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.service import Service as DalService
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
-from ovs.dal.lists.licenselist import LicenseList
 from ovs.dal.lists.servicelist import ServiceList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
@@ -66,6 +65,13 @@ class AlbaController(object):
     def add_units(alba_backend_guid, asds):
         """
         Adds storage units to an Alba backend
+        :param alba_backend_guid: Guid of the ALBA backend
+        :type alba_backend_guid:  String
+
+        :param asds:              ASDs to add to the ALBA backend
+        :type asds:               Dictionary
+
+        :return:                  None
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
@@ -85,6 +91,16 @@ class AlbaController(object):
     def remove_units(alba_backend_guid, asd_ids, absorb_exception=False):
         """
         Removes storage units to an Alba backend
+        :param alba_backend_guid: Guid of the ALBA backend
+        :type alba_backend_guid:  String
+
+        :param asd_ids:           IDs of the ASDs
+        :type asd_ids:            List
+
+        :param absorb_exception:  Ignore potential errors
+        :type absorb_exception:   Boolean
+
+        :return:                  None
         """
         try:
             alba_backend = AlbaBackend(alba_backend_guid)
@@ -100,9 +116,22 @@ class AlbaController(object):
     def add_preset(alba_backend_guid, name, compression, policies, encryption):
         """
         Adds a preset to Alba
-        Args:
-            compression: none | snappy | bzip2
-            encryption: none | aec-cbc-256
+        :param alba_backend_guid: Guid of the ALBA backend
+        :type alba_backend_guid:  String
+
+        :param name:              Name of the preset
+        :type name:               String
+
+        :param compression:       Compression type for the preset (none | snappy | bzip2)
+        :type compression:        String
+
+        :param policies:          Policies for the preset
+        :type policies:
+
+        :param encryption:        Encryption for the preset (none | aec-cbc-256)
+        :type encryption:         String
+
+        :return:                  None
         """
         temp_key_file = None
 
@@ -146,6 +175,13 @@ class AlbaController(object):
     def delete_preset(alba_backend_guid, name):
         """
         Deletes a preset from the Alba backend
+        :param alba_backend_guid: Guid of the ALBA backend
+        :type alba_backend_guid:  String
+
+        :param name:              Name of the preset
+        :type name:               String
+
+        :return:                  None
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         logger.debug('Deleting preset {0}'.format(name))
@@ -186,6 +222,10 @@ class AlbaController(object):
     def add_cluster(alba_backend_guid):
         """
         Adds an arakoon cluster to service backend
+        :param alba_backend_guid: Guid of the ALBA backend
+        :type alba_backend_guid:  String
+
+        :return:                  None
         """
         AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
                                                    create_nsm_cluster=True)
@@ -194,10 +234,6 @@ class AlbaController(object):
         config_file = '/opt/OpenvStorage/config/arakoon/{0}/{0}.cfg'.format(alba_backend.backend.name + '-abm')
         alba_backend.alba_id = AlbaCLI.run('get-alba-id', config=config_file, as_json=True, attempts=5)['id']
         alba_backend.save()
-
-        lic = LicenseList.get_by_component('alba')
-        if lic is not None:
-            AlbaController.apply(lic.component, lic.data, lic.signature, alba_backend=alba_backend)
 
         AlbaController.nsm_checkup()
 
@@ -210,6 +246,10 @@ class AlbaController(object):
     def remove_cluster(alba_backend_guid):
         """
         Removes an Alba backend/cluster
+        :param alba_backend_guid: Guid of the ALBA backend
+        :type alba_backend_guid:  String
+
+        :return:                  None
         """
         albabackend = AlbaBackend(alba_backend_guid)
         if len(albabackend.asds) > 0:
@@ -254,6 +294,10 @@ class AlbaController(object):
     def get_config_metadata(alba_backend_guid):
         """
         Gets the configuration metadata for an Alba backend
+        :param alba_backend_guid: Guid of the ALBA backend
+        :type alba_backend_guid:  String
+
+        :return:                  Arakoon Cluster Config
         """
         service = None
         client = None
@@ -272,13 +316,29 @@ class AlbaController(object):
 
     @staticmethod
     def link_plugins(client, data_dir, plugins, cluster_name):
+        """
+        Create symlinks for the arakoon plugins to the correct (mounted) partition
+        :param client:       SSHClient to execute this on
+        :type client:        SSHClient
+
+        :param data_dir:     Directory on which the DB partition resides
+        :type data_dir:      String
+
+        :param plugins:      Plugins to symlink
+        :type plugins:       List
+
+        :param cluster_name: Name of the arakoon cluster
+        :type cluster_name:  String
+
+        :return:             None
+        """
         data_dir = '' if data_dir == '/' else data_dir
         for plugin in plugins:
             cmd = 'ln -s {0}/{1}.cmxs {2}/arakoon/{3}/db'.format(AlbaController.ARAKOON_PLUGIN_DIR, plugin, data_dir, cluster_name)
             client.run(cmd)
 
     @staticmethod
-    @celery.task(name='alba.scheduled_alba_arakoon_checkup', bind=True, schedule=crontab(minute='45', hour='*'))
+    @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=crontab(minute='45', hour='*'))
     @ensure_single(['alba.scheduled_alba_arakoon_checkup'])
     def scheduled_alba_arakoon_checkup():
         """
@@ -291,6 +351,13 @@ class AlbaController(object):
     def manual_alba_arakoon_checkup(alba_backend_guid, create_nsm_cluster=False):
         """
         Creates a new Arakoon Cluster if required and extends cluster if possible on all available master nodes
+        :param alba_backend_guid:  Guid of the ALBA backend
+        :type alba_backend_guid:   String
+
+        :param create_nsm_cluster: Create the NSM cluster if not present yet
+        :type create_nsm_cluster:  Boolean
+
+        :return:                   None
         """
         AlbaController._alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
                                              create_nsm_cluster=create_nsm_cluster)
@@ -409,6 +476,13 @@ class AlbaController(object):
     def on_extranode(cluster_ip, master_ip=None):
         """
         An extra node is added, make sure it has the alba arakoon client file if possible
+        :param cluster_ip: IP of the cluster node to execute this on
+        :type cluster_ip:  String
+
+        :param master_ip:  IP of the master of the cluster
+        :type master_ip:   String
+
+        :return:           None
         """
         _ = master_ip  # The master_ip will be passed in by caller
         servicetype = ServiceTypeList.get_by_name('AlbaManager')
@@ -424,6 +498,13 @@ class AlbaController(object):
     def on_demote(cluster_ip, master_ip):
         """
         A node is being demoted
+        :param cluster_ip: IP of the cluster node to execute this on
+        :type cluster_ip:  String
+
+        :param master_ip:  IP of the master of the cluster
+        :type master_ip:   String
+
+        :return:           None
         """
         alba_backends = AlbaBackendList.get_albabackends()
         client = SSHClient(cluster_ip, username='root')
@@ -456,7 +537,7 @@ class AlbaController(object):
             AlbaController._remove_service('rebalancer', client.ip, service_name, alba_backend.backend.name)
 
     @staticmethod
-    @celery.task(name='alba.nsm_checkup', bind=True, schedule=crontab(minute='30', hour='0'))
+    @celery.task(name='alba.nsm_checkup', schedule=crontab(minute='30', hour='0'))
     @ensure_single(['alba.nsm_checkup'])
     def nsm_checkup():
         """
@@ -636,6 +717,13 @@ class AlbaController(object):
     def calculate_safety(alba_backend_guid, removal_asd_ids):
         """
         Calculates/loads the safety when a certain set of disks are removed
+        :param alba_backend_guid: Guid of the ALBA backend
+        :type alba_backend_guid:  String
+
+        :param removal_asd_ids:   ASDs to take into account for safety calculation
+        :type removal_asd_ids:    List
+
+        :return:                  Dictionary with amount of good, critical and lost ASDs
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         error_disks = [disk['asd_id'] for disk in alba_backend.all_disks if 'asd_id' in disk and 'status' in disk and disk['status'] == 'error']
@@ -662,6 +750,10 @@ class AlbaController(object):
     def get_load(nsm_service):
         """
         Calculates the load of an NSM node, returning a float percentage
+        :param nsm_service: NSM service to retrieve the load for
+        :type nsm_service:  NSMService
+
+        :return:            Load of the NSM service
         """
         service_capacity = float(nsm_service.capacity)
         if service_capacity < 0:
@@ -676,6 +768,19 @@ class AlbaController(object):
 
     @staticmethod
     def register_nsm(abm_name, nsm_name, ip):
+        """
+        Register the NSM service to the cluster
+        :param abm_name: Name of the ABM service
+        :type abm_name:  String
+
+        :param nsm_name: Name of the NSM service
+        :type nsm_name:  String
+
+        :param ip:       IP of node in the cluster to register
+        :type ip:        String
+
+        :return:         None
+        """
         nsm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(nsm_name)
         abm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(abm_name)
         if ArakoonInstaller.wait_for_cluster(nsm_name) and ArakoonInstaller.wait_for_cluster(abm_name):
@@ -684,6 +789,19 @@ class AlbaController(object):
 
     @staticmethod
     def update_nsm(abm_name, nsm_name, ip):
+        """
+        Update the NSM service
+        :param abm_name: Name of the ABM service
+        :type abm_name:  String
+
+        :param nsm_name: Name of the NSM service
+        :type nsm_name:  String
+
+        :param ip:       IP of node in the cluster to update
+        :type ip:        String
+
+        :return:         None
+        """
         nsm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(nsm_name)
         abm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(abm_name)
         if ArakoonInstaller.wait_for_cluster(nsm_name) and ArakoonInstaller.wait_for_cluster(abm_name):
@@ -713,6 +831,31 @@ class AlbaController(object):
 
     @staticmethod
     def create_or_extend_cluster(create, client, backend, service, partition, storagerouter, master_ip=None):
+        """
+        Create a new arakoon cluster for ALBA or extend an existing one
+        :param create:        If True create a new cluster, otherwise extend existing
+        :type create:         Boolean
+
+        :param client:        SSHClient to execute this on
+        :type client:         SSHClient
+
+        :param backend:       The ALBA backend to create/extend cluster for
+        :type backend:        AlbaBackend
+
+        :param service:       The service to create/extend cluster for
+        :type service:        Service
+
+        :param partition:     Partition with the DB role
+        :type partition:      DiskPartition
+
+        :param storagerouter: Storagerouter to create/extend cluster on
+        :type storagerouter:  StorageRouter
+
+        :param master_ip:     Master IP of the cluster
+        :type master_ip:      String
+
+        :return:              Service created
+        """
         if service.name == 'AlbaManager':
             number = None
             plugins = [AlbaController.ABM_PLUGIN]
