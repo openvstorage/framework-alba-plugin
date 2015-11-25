@@ -364,8 +364,6 @@ class AlbaController(object):
                                                                       service=nsm_service_type,
                                                                       partition=partition,
                                                                       storagerouter=storagerouter)
-                for slave in masters + slaves:
-                    ArakoonInstaller.deploy_to_slave(storagerouter.ip, slave.ip, nsm_service_name)
                 ArakoonInstaller.restart_cluster_add(cluster_name=nsm_service_name,
                                                      current_ips=current_ips[alba_backend]['nsm'],
                                                      new_ip=storagerouter.ip)
@@ -471,6 +469,7 @@ class AlbaController(object):
             logger.debug('Ensuring NSM safety for backend {0}'.format(abm_service_name))
             nsm_groups = {}
             nsm_storagerouter = {}
+            nsm_loads = {}
             for abms in backend.abm_services:
                 storagerouter = abms.service.storagerouter
                 if storagerouter not in nsm_storagerouter:
@@ -479,6 +478,7 @@ class AlbaController(object):
                 number = nsm_service.number
                 if number not in nsm_groups:
                     nsm_groups[number] = []
+                    nsm_loads[number] = AlbaController.get_load(nsm_service)
                 nsm_groups[number].append(nsm_service)
                 storagerouter = nsm_service.service.storagerouter
                 if storagerouter not in nsm_storagerouter:
@@ -490,7 +490,8 @@ class AlbaController(object):
                     clients[sr] = SSHClient(sr)
             except UnableToConnectException:
                 raise RuntimeError('Not all StorageRouters are reachable')
-            maxnumber = max(nsm_groups.keys())
+
+            # Safety
             for number in nsm_groups:
                 logger.debug('Processing NSM {0}'.format(number))
                 # Check amount of nodes
@@ -549,84 +550,70 @@ class AlbaController(object):
                                                   ip=candidate_sr.ip)
                         logger.debug('Node added')
 
-                # Check the cluster load
-                overloaded = False
-                for service in nsm_groups[number]:
-                    load = AlbaController.get_load(service)
-                    if load > maxload:
-                        overloaded = True
+            # Load
+            if min(nsm_loads.values()) >= maxload:
+                maxnumber = max(nsm_loads.keys())
+                logger.debug('NSM overloaded, adding new NSM')
+                # On of the this NSMs node is overloaded. This means the complete NSM is considered overloaded
+                # Figure out which StorageRouters are the least occupied
+                loads = sorted(nsm_storagerouter.values())[:safety]
+                storagerouters = []
+                for storagerouter in nsm_storagerouter:
+                    if nsm_storagerouter[storagerouter] in loads:
+                        storagerouters.append(storagerouter)
+                    if len(storagerouters) == safety:
                         break
-                if overloaded is True:
-                    logger.debug('NSM overloaded, adding new NSM')
-                    # On of the this NSMs node is overloaded. This means the complete NSM is considered overloaded
-                    # Figure out which StorageRouters are the least occupied
-                    storagerouters = []
-                    for storagerouter in nsm_storagerouter:
-                        count = nsm_storagerouter[storagerouter]
-                        if len(storagerouters) < safety:
-                            storagerouters.append((storagerouter, count))
-                        else:
-                            maxcount = max(sr[1] for sr in storagerouters)
-                            if count < maxcount:
-                                new_storagerouters = []
-                                for sr in storagerouters:
-                                    if sr[1] == maxload:
-                                        new_storagerouters.append((storagerouter, count))
-                                    else:
-                                        new_storagerouters.append(sr)
-                                storagerouters = new_storagerouters[:]
-                    # Cloning one of the NSMs to the found StorageRouters
-                    storagerouters = [storagerouter[0] for storagerouter in storagerouters]
-                    maxnumber += 1
-                    nsm_name = '{0}-nsm_{1}'.format(backend.backend.name, maxnumber)
-                    first_ip = None
-                    for storagerouter in storagerouters:
-                        storagerouter.invalidate_dynamics(['partition_config'])
-                        partition = DiskPartition(storagerouter.partition_config[DiskPartition.ROLES.DB][0])
-                        if first_ip is None:
-                            nsm_result = ArakoonInstaller.create_cluster(cluster_name=nsm_name,
-                                                                         ip=storagerouter.ip,
-                                                                         exclude_ports=ServiceList.get_ports_for_ip(storagerouter.ip),
-                                                                         base_dir=partition.folder,
-                                                                         plugins=AlbaController.NSM_PLUGIN)
-                            AlbaController.link_plugins(client=clients[storagerouter],
-                                                        data_dir=partition.folder,
-                                                        plugins=[AlbaController.NSM_PLUGIN],
-                                                        cluster_name=nsm_name)
-                            AlbaController._model_service(service_name=nsm_name,
-                                                          service_type=nsm_service_type,
-                                                          ports=[nsm_result['client_port'], nsm_result['messaging_port']],
-                                                          storagerouter=storagerouter,
-                                                          junction_type=NSMService,
-                                                          backend=backend,
-                                                          number=maxnumber)
-                            first_ip = storagerouter.ip
-                        else:
-                            nsm_result = ArakoonInstaller.extend_cluster(master_ip=first_ip,
-                                                                         new_ip=storagerouter.ip,
-                                                                         cluster_name=nsm_name,
-                                                                         exclude_ports=ServiceList.get_ports_for_ip(storagerouter.ip),
-                                                                         base_dir=partition.folder)
-                            AlbaController.link_plugins(client=clients[storagerouter],
-                                                        data_dir=partition.folder,
-                                                        plugins=[AlbaController.NSM_PLUGIN],
-                                                        cluster_name=nsm_name)
-                            AlbaController._model_service(service_name=nsm_name,
-                                                          service_type=nsm_service_type,
-                                                          ports=[nsm_result['client_port'], nsm_result['messaging_port']],
-                                                          storagerouter=storagerouter,
-                                                          junction_type=NSMService,
-                                                          backend=backend,
-                                                          number=maxnumber)
-                    for storagerouter in storagerouters:
-                        client = SSHClient(storagerouter, username='root')
-                        ArakoonInstaller.start(nsm_name, client)
-                    AlbaController.register_nsm(abm_name=abm_service_name,
-                                                nsm_name=nsm_name,
-                                                ip=storagerouters[0].ip)
-                    logger.debug('New NSM ({0}) added'.format(maxnumber))
-                else:
-                    logger.debug('NSM load OK')
+                # Creating a new NSM cluster
+                maxnumber += 1
+                nsm_name = '{0}-nsm_{1}'.format(backend.backend.name, maxnumber)
+                first_ip = None
+                for storagerouter in storagerouters:
+                    storagerouter.invalidate_dynamics(['partition_config'])
+                    partition = DiskPartition(storagerouter.partition_config[DiskPartition.ROLES.DB][0])
+                    if first_ip is None:
+                        nsm_result = ArakoonInstaller.create_cluster(cluster_name=nsm_name,
+                                                                     ip=storagerouter.ip,
+                                                                     exclude_ports=ServiceList.get_ports_for_ip(storagerouter.ip),
+                                                                     base_dir=partition.folder,
+                                                                     plugins=AlbaController.NSM_PLUGIN)
+                        AlbaController.link_plugins(client=clients[storagerouter],
+                                                    data_dir=partition.folder,
+                                                    plugins=[AlbaController.NSM_PLUGIN],
+                                                    cluster_name=nsm_name)
+                        AlbaController._model_service(service_name=nsm_name,
+                                                      service_type=nsm_service_type,
+                                                      ports=[nsm_result['client_port'], nsm_result['messaging_port']],
+                                                      storagerouter=storagerouter,
+                                                      junction_type=NSMService,
+                                                      backend=backend,
+                                                      number=maxnumber)
+                        first_ip = storagerouter.ip
+                    else:
+                        nsm_result = ArakoonInstaller.extend_cluster(master_ip=first_ip,
+                                                                     new_ip=storagerouter.ip,
+                                                                     cluster_name=nsm_name,
+                                                                     exclude_ports=ServiceList.get_ports_for_ip(storagerouter.ip),
+                                                                     base_dir=partition.folder)
+                        AlbaController.link_plugins(client=clients[storagerouter],
+                                                    data_dir=partition.folder,
+                                                    plugins=[AlbaController.NSM_PLUGIN],
+                                                    cluster_name=nsm_name)
+                        AlbaController._model_service(service_name=nsm_name,
+                                                      service_type=nsm_service_type,
+                                                      ports=[nsm_result['client_port'], nsm_result['messaging_port']],
+                                                      storagerouter=storagerouter,
+                                                      junction_type=NSMService,
+                                                      backend=backend,
+                                                      number=maxnumber)
+                for storagerouter in storagerouters:
+                    client = SSHClient(storagerouter, username='root')
+                    ArakoonInstaller.start(nsm_name, client)
+                AlbaController.register_nsm(abm_name=abm_service_name,
+                                            nsm_name=nsm_name,
+                                            ip=storagerouters[0].ip)
+                logger.debug('New NSM ({0}) added'.format(maxnumber))
+            else:
+                logger.debug('NSM load OK')
 
     @staticmethod
     @celery.task(name='alba.calculate_safety')
@@ -675,16 +662,16 @@ class AlbaController(object):
     def register_nsm(abm_name, nsm_name, ip):
         nsm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(nsm_name)
         abm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(abm_name)
-        if ArakoonInstaller.wait_for_cluster(nsm_name) and ArakoonInstaller.wait_for_cluster(abm_name):
-            client = SSHClient(ip)
+        client = SSHClient(ip)
+        if ArakoonInstaller.wait_for_cluster(nsm_name, client) and ArakoonInstaller.wait_for_cluster(abm_name, client):
             AlbaCLI.run('add-nsm-host', config=abm_config_file, extra_params=nsm_config_file, client=client)
 
     @staticmethod
     def update_nsm(abm_name, nsm_name, ip):
         nsm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(nsm_name)
         abm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(abm_name)
-        if ArakoonInstaller.wait_for_cluster(nsm_name) and ArakoonInstaller.wait_for_cluster(abm_name):
-            client = SSHClient(ip)
+        client = SSHClient(ip)
+        if ArakoonInstaller.wait_for_cluster(nsm_name, client) and ArakoonInstaller.wait_for_cluster(abm_name, client):
             AlbaCLI.run('update-nsm-host', config=abm_config_file, extra_params=nsm_config_file, client=client)
 
     @staticmethod
