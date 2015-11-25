@@ -377,7 +377,6 @@ class AlbaController(object):
             AlbaController._setup_service('rebalancer', storagerouter.ip, abm_service_name, alba_backend.backend.name)
 
         for alba_backend in alba_backends:
-            distributed = False
             abm_service_name = alba_backend.backend.name + "-abm"
             if 0 < len(current_services[alba_backend]['abm']) < len(available_storagerouters):
                 for storagerouter, partition in available_storagerouters.iteritems():
@@ -391,10 +390,8 @@ class AlbaController(object):
                                                                           partition=partition,
                                                                           storagerouter=storagerouter,
                                                                           master_ip=current_ips[alba_backend]['abm'][0])
-                    if distributed is False:
-                        distributed = True
-                        for slave in masters + slaves:
-                            ArakoonInstaller.deploy_to_slave(current_ips[alba_backend]['abm'][0], slave.ip, abm_service_name)
+                    for slave in masters + slaves:
+                        ArakoonInstaller.deploy_to_slave(current_ips[alba_backend]['abm'][0], slave.ip, abm_service_name)
                     ArakoonInstaller.restart_cluster_add(cluster_name=alba_backend.backend.name + "-abm",
                                                          current_ips=current_ips[alba_backend]['abm'],
                                                          new_ip=storagerouter.ip)
