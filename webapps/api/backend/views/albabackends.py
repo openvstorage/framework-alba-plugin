@@ -1,10 +1,10 @@
 # Copyright 2014 iNuron NV
 #
-# Licensed under the Open vStorage Non-Commercial License, Version 1.0 (the "License");
+# Licensed under the Open vStorage Modified Apache License (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.openvstorage.org/OVS_NON_COMMERCIAL
+#     http://www.openvstorage.org/license
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -142,6 +142,17 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         Deletes a preset
         """
         return AlbaController.delete_preset.delay(albabackend.guid, name)
+
+    @action()
+    @log()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaBackend)
+    def update_preset(self, albabackend, name, policies):
+        """
+        Updates a preset's policies to a backend
+        """
+        return AlbaController.update_preset.delay(albabackend.guid, name, policies)
 
     @link()
     @log()

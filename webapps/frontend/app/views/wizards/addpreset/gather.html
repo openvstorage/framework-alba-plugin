@@ -1,11 +1,11 @@
 <!--
 Copyright 2014 iNuron NV
 
-Licensed under the Open vStorage Non-Commercial License, Version 1.0 (the "License");
+Licensed under the Open vStorage Modified Apache License (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.openvstorage.org/OVS_NON_COMMERCIAL
+    http://www.openvstorage.org/license
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,8 +18,9 @@ limitations under the License.
         <p data-i18n="alba:wizards.addpreset.gather.basicinfo"></p>
         <div class="form-group" data-bind="css: { 'has-error': $.inArray('name', canContinue().fields) !== -1 }">
             <label class="col-lg-3 control-label" for="name" data-i18n="alba:wizards.addpreset.gather.name"></label>
-            <div class="col-lg-7">
-                <input type="text" id="name" class="autofocus form-control" data-bind="value: data.name, valueUpdate: 'input'" />
+            <div class="col-lg-7" data-bind="disabled: data.editPreset()">
+                <input type="text" id="name" class="autofocus form-control"
+                       data-bind="value: data.name, valueUpdate: 'input', attr:{ disabled: data.editPreset}" />
             </div>
         </div>
         <div class="form-group">
@@ -53,7 +54,8 @@ limitations under the License.
                                          items: data.encryptionOptions, target: data.encryption,
                                          text: function(item) {
                                              return $.t('alba:generic.encryptions.' + item);
-                                         }
+                                         },
+                                         enabled: data.canEdit
                                      }"></span>
                 </div>
             </div>
@@ -64,7 +66,8 @@ limitations under the License.
                                          items: data.compressionOptions, target: data.compression,
                                          text: function(item) {
                                              return $.t('alba:generic.compressions.' + item);
-                                         }
+                                         },
+                                         enabled: data.canEdit
                                      }"></span>
                 </div>
             </div>
@@ -87,7 +90,8 @@ limitations under the License.
                             <!-- ko foreach: data.policies -->
                                 <tr>
                                     <td>
-                                        <input style="width: 50px;" type="text" data-bind="value: k" />
+                                        <input style="width: 50px;" type="text"
+                                               data-bind="value: k, style: { 'border': $.inArray('k_' + id(), $root.canContinue().fields) !== -1 ? 'solid #d6605e 2px' : '' }" />
                                     </td>
                                     <td>
                                         <input style="width: 50px;" type="text" data-bind="value: m" />
@@ -97,7 +101,8 @@ limitations under the License.
                                                data-bind="value: c, style: { 'border': $.inArray('c_' + id(), $root.canContinue().fields) !== -1 ? 'solid #d6605e 2px' : '' }" />
                                     </td>
                                     <td>
-                                        <input style="width: 50px;" type="text" data-bind="value: x" />
+                                        <input style="width: 50px;" type="text"
+                                               data-bind="value: x, style: { 'border': $.inArray('x_' + id(), $root.canContinue().fields) !== -1 ? 'solid #d6605e 2px' : '' }" />
                                     </td>
                                     <td>
                                         <i data-bind="click: function() { $root.downPolicy(id()); },

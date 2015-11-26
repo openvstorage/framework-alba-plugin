@@ -1,10 +1,10 @@
 # Copyright 2014 iNuron NV
 #
-# Licensed under the Open vStorage Non-Commercial License, Version 1.0 (the "License");
+# Licensed under the Open vStorage Modified Apache License (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.openvstorage.org/OVS_NON_COMMERCIAL
+#     http://www.openvstorage.org/license
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,7 +31,7 @@ from ovs.lib.albacontroller import AlbaController
 from ovs.lib.disk import DiskController
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.extensions.generic.sshclient import SSHClient
-from ovs.extensions.plugins.albacli import AlbaCLI
+
 logger = LogHandler.get('lib', name='albanode')
 
 
@@ -69,7 +69,7 @@ class AlbaNodeController(object):
                         nodes[node.node_id] = node
                         continue
                     if node.node_id not in nodes:
-                        # Still not in there. If the ip is reachable, this one is choosen
+                        # Still not in there. If the ip is reachable, this one is chosen
                         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         sock.settimeout(1)
                         try:
@@ -88,6 +88,12 @@ class AlbaNodeController(object):
     def register(node_id, ip, port, username, password, asd_ips):
         """
         Adds a Node with a given node_id to the model
+        :param node_id: ID of the ALBA node
+        :param ip: IP of the ALBA node
+        :param port: Port
+        :param username: Username
+        :param password: Password
+        :param asd_ips: IPs of the ASDs
         """
         node = AlbaNodeList.get_albanode_by_node_id(node_id)
         if node is None:
@@ -112,6 +118,8 @@ class AlbaNodeController(object):
     def initialize_disks(node_guid, disks):
         """
         Initializes a disk
+        :param node_guid: Guid of the node which disks need to be initialized
+        :param disks: Disks to initialize
         """
         node = AlbaNode(node_guid)
         available_disks = dict((disk['name'], disk) for disk in node.all_disks)
@@ -142,6 +150,10 @@ class AlbaNodeController(object):
     def remove_disk(alba_backend_guid, node_guid, disk, expected_safety):
         """
         Removes a disk
+        :param alba_backend_guid: Guid of the ALBA backend
+        :param node_guid: Guid of the node to remove a disk from
+        :param disk: Disk to remove
+        :param expected_safety: Expected safety after having removed the disk
         """
         node = AlbaNode(node_guid)
         alba_backend = AlbaBackend(alba_backend_guid)
@@ -178,7 +190,7 @@ class AlbaNodeController(object):
             logger.warning('Alba decommission osd {0}'.format(disks[disk]['asd_id']))
             AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']], absorb_exception=True)
         else:
-            raise RuntimeError("Cannot remove disk {0}, available {1}, nodedown {2}".format(disk, disks[disk]['available'], nodedown))
+            raise RuntimeError("Cannot remove disk {0}, available {1}, node down {2}".format(disk, disks[disk]['available'], nodedown))
 
         asds = [asd for asd in alba_backend.asds if asd.asd_id == disks[disk]['asd_id']]
         asd = asds[0] if len(asds) == 1 else None
@@ -188,15 +200,16 @@ class AlbaNodeController(object):
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
         if node.storagerouter is not None:
-            # Run async, deduped, in case it is called multiple times 
-            DiskController.async_sync_with_reality(node.storagerouter_guid)
+            DiskController.sync_with_reality(node.storagerouter_guid)
         return True
 
     @staticmethod
-    @celery.task(name='albabide.restart_disk')
+    @celery.task(name='albanode.restart_disk')
     def restart_disk(node_guid, disk):
         """
         Restarts a disk
+        :param node_guid: Guid of the node to restart a disk of
+        :param disk: Disk to be restarted
         """
         node = AlbaNode(node_guid)
         logger.debug('Restarting disk {0} at node {1}'.format(disk, node.ip))
@@ -219,6 +232,11 @@ class AlbaNodeController(object):
     @add_hooks('setup', ['firstnode', 'extranode'])
     @add_hooks('plugin', ['postinstall'])
     def model_local_albanode(**kwargs):
+        """
+        Add an ALBA node to the model
+        :param kwargs: Kwargs containing information regarding the node
+        :return: None
+        """
         config_path = '/opt/alba-asdmanager/config/config.json'
         if 'cluster_ip' in kwargs:
             node_ip = kwargs['cluster_ip']

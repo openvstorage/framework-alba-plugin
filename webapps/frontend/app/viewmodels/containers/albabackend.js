@@ -1,10 +1,10 @@
 // Copyright 2014 iNuron NV
 //
-// Licensed under the Open vStorage Non-Commercial License, Version 1.0 (the "License");
+// Licensed under the Open vStorage Modified Apache License (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.openvstorage.org/OVS_NON_COMMERCIAL
+//     http://www.openvstorage.org/license
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -45,11 +45,12 @@ define([
 
         // Computed
         self.enhancedPresets = ko.computed(function() {
-            var presets = [], policies, newPolicy, isAvailable, isActive, inUse, hasReplication = true,
+            var presets = [], policies, newPolicy, isAvailable, isActive, inUse,
                 policyMapping = ['grey', 'black', 'green'], worstPolicy, replication, policyObject;
             $.each(self.presets(), function(index, preset) {
                 worstPolicy = 0;
                 policies = [];
+                replication = undefined;
                 $.each(preset.policies, function(jndex, policy) {
                     policyObject = JSON.parse(policy.replace('(', '[').replace(')', ']'));
                     isAvailable = preset.policy_metadata[policy].is_available;
@@ -58,7 +59,11 @@ define([
                     newPolicy = {
                         text: policy,
                         color: 'grey',
-                        isActive: false
+                        isActive: false,
+                        k: policyObject[0],
+                        m: policyObject[1],
+                        c: policyObject[2],
+                        x: policyObject[3],
                     };
                     if (isAvailable) {
                         newPolicy.color = 'black';
@@ -71,12 +76,13 @@ define([
                     }
                     worstPolicy = Math.max(policyMapping.indexOf(newPolicy.color), worstPolicy);
                     policies.push(newPolicy);
-                    if (replication === undefined) {
-                        replication = {k: policyObject[0], m: policyObject[1]};
-                    } else if (replication.k !== policyObject[0] || replication.m !== policyObject[1]) {
-                        hasReplication = false;
-                    }
                 });
+                if (preset.policies.length === 1) {
+                    policyObject = JSON.parse(preset.policies[0].replace('(', '[').replace(')', ']'));
+                    if (policyObject[0] === 1 && policyObject[0] + policyObject[1] === policyObject[3] && policyObject[2] === 1) {
+                        replication = policyObject[0] + policyObject[1];
+                    }
+                }
                 presets.push({
                     policies: policies,
                     name: preset.name,
@@ -85,7 +91,7 @@ define([
                     color: policyMapping[worstPolicy],
                     inUse: preset.in_use,
                     isDefault: preset.is_default,
-                    replication: hasReplication ? (replication.k + replication.m) : undefined
+                    replication: replication
                 });
             });
             return presets;
