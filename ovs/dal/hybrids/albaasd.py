@@ -57,6 +57,7 @@ class AlbaASD(DataObject):
                      'range_entries': ['RangeEntries'],
                      'statistics': ['Statistics']}
         config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(self.alba_backend.backend.name)
+        statistics = {}
         try:
             data = AlbaCLI.run('asd-statistics', long_id=self.asd_id, config=config_file, extra_params='--clear', as_json=True)
             statistics = {'creation': data['creation'],
@@ -80,7 +81,7 @@ class AlbaASD(DataObject):
                     statistics[key]['avg'] = sum(statistics[key]['avg']) / float(statistics[key]['n'])
                 else:
                     statistics[key]['avg'] = 0
-            return statistics
         except:
             # This might fail every now and then, e.g. on disk removal. Let's ignore for now.
-            return None
+            pass
+        return statistics
