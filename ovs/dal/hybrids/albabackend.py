@@ -15,6 +15,7 @@
 """
 AlbaBackend module
 """
+import sys
 import time
 from ovs.dal.dataobject import DataObject
 from ovs.dal.lists.vpoollist import VPoolList
@@ -70,10 +71,12 @@ class AlbaBackend(DataObject):
                                     for asd in asds:
                                         if asd.asd_id == disk['asd_id']:
                                             stats = asd.statistics
-                                            if stats['apply']['max'] > 1 or stats['multi_get']['max'] > 1:
+                                            apply_max = stats.get('apply', {}).get('max', sys.maxint)
+                                            multi_get_max = stats.get('multi_get', {}).get('max', sys.maxint)
+                                            if apply_max > 1 or multi_get_max > 1:
                                                 disk['status'] = 'error'
                                                 disk['status_detail'] = 'tooslow'
-                                            elif stats['apply']['max'] > 0.5 or stats['multi_get']['max'] > 0.5:
+                                            elif apply_max > 0.5 or multi_get_max > 0.5:
                                                 disk['status'] = 'warning'
                                                 disk['status_detail'] = 'slow'
                                     if disk['status'] == 'claimed':
