@@ -15,6 +15,7 @@
 """
 Generic ALBA CLI module
 """
+import time
 import json
 from subprocess import check_output, CalledProcessError
 from ovs.log.logHandler import LogHandler
@@ -60,6 +61,7 @@ class AlbaCLI(object):
             if debug is False:
                 cmd += ' 2> /dev/null'
             debug_log.append('Command: {0}'.format(cmd))
+            start = time.time()
             if client is None:
                 try:
                     output = check_output(cmd, shell=True).strip()
@@ -72,6 +74,9 @@ class AlbaCLI(object):
                 else:
                     output = client.run(cmd, debug=False).strip()
                 debug_log.append('Output: {0}'.format(output))
+            duration = time.time() - start
+            if duration > 0.5:
+                logger.warning('AlbaCLI call {0} took {1}s'.format(command, round(duration, 2)))
             if debug is True:
                 for debug_line in debug_log:
                     logger.debug(debug_line)
