@@ -338,7 +338,7 @@ class AlbaController(object):
             client.run(cmd)
 
     @staticmethod
-    @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=crontab(minute='45', hour='*'))
+    @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=crontab(minute='30', hour='*'))
     @ensure_single(task_name='alba.scheduled_alba_arakoon_checkup')
     def scheduled_alba_arakoon_checkup():
         """
