@@ -338,7 +338,7 @@ class AlbaController(object):
             client.run(cmd)
 
     @staticmethod
-    @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=crontab(minute='45', hour='*'))
+    @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=crontab(minute='30', hour='*'))
     @ensure_single(task_name='alba.scheduled_alba_arakoon_checkup')
     def scheduled_alba_arakoon_checkup():
         """
@@ -532,8 +532,8 @@ class AlbaController(object):
             AlbaController._remove_service('rebalancer', client.ip, service_name, alba_backend.backend.name)
 
     @staticmethod
-    @celery.task(name='alba.nsm_checkup', schedule=crontab(minute='30', hour='0'))
-    @ensure_single(task_name='alba.nsm_checkup')
+    @celery.task(name='alba.nsm_checkup', schedule=crontab(minute='45', hour='*'))
+    @ensure_single(task_name='alba.nsm_checkup', mode='CHAINED')
     def nsm_checkup():
         """
         Validates the current NSM setup/configuration and takes actions where required.
