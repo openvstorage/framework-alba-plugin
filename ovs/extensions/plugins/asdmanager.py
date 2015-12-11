@@ -16,7 +16,9 @@
 Generic ALBA CLI module
 """
 import json
+import time
 import base64
+import inspect
 import requests
 from ovs.log.logHandler import LogHandler
 
@@ -24,47 +26,69 @@ logger = LogHandler.get('extensions', name='asdmanagerclient')
 
 
 class ASDManagerClient(object):
-
+    """ ASD Manager Client """
     def __init__(self, node):
         self.node = node
+        self._log_min_duration = 1
 
     def get_metadata(self):
         """
         Gets metadata from the node
         """
         self._refresh()
-        return requests.get('{0}/'.format(self._base_url),
+        start = time.time()
+        data = requests.get('{0}/'.format(self._base_url),
                             headers=self._base_headers,
                             verify=False).json()
+        duration = time.time() - start
+        if duration > self._log_min_duration:
+            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+        return data
 
     def get_ips(self):
         """
         Gets the ips from a node
         """
         self._refresh()
-        return requests.get('{0}/net'.format(self._base_url),
+        start = time.time()
+        data = requests.get('{0}/net'.format(self._base_url),
                             verify=False).json()['ips']
+        duration = time.time() - start
+        if duration > self._log_min_duration:
+            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+        return data
 
     def set_ips(self, ips):
         """
         Set primary storage ips
+        :param ips: IPs to set
         """
         self._refresh()
-        requests.post('{0}/net'.format(self._base_url),
-                      data={'ips': json.dumps(ips)},
-                      headers=self._base_headers,
-                      verify=False)
+        start = time.time()
+        data = requests.post('{0}/net'.format(self._base_url),
+                             data={'ips': json.dumps(ips)},
+                             headers=self._base_headers,
+                             verify=False)
+        duration = time.time() - start
+        if duration > self._log_min_duration:
+            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
 
     def get_disks(self, as_list=True, reraise=False):
         """
         Gets the node's disk states
+        :param as_list: Return a list if True else dictionary
+        :param reraise: Raise exception if True and error occurs
         """
         self._refresh()
         disks = [] if as_list is True else {}
+        start = time.time()
         try:
             data = requests.get('{0}/disks'.format(self._base_url),
                                 headers=self._base_headers,
                                 verify=False).json()
+            duration = time.time() - start
+            if duration > self._log_min_duration:
+                logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
         except requests.ConnectionError as ex:
             logger.error('Could not load data: {0}'.format(ex))
             if reraise is True:
@@ -84,11 +108,17 @@ class ASDManagerClient(object):
     def get_disk(self, disk):
         """
         Gets one of the node's disk's state
+        :param disk: Guid of the disk
         """
         self._refresh()
+        start = time.time()
         data = requests.get('{0}/disks/{1}'.format(self._base_url, disk),
                             headers=self._base_headers,
                             verify=False).json()
+        duration = time.time() - start
+        if duration > self._log_min_duration:
+            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+
         for key in data.keys():
             if key.startswith('_'):
                 del data[key]
@@ -97,29 +127,47 @@ class ASDManagerClient(object):
     def add_disk(self, disk):
         """
         Adds a disk
+        :param disk: Guid of the disk
         """
         self._refresh()
-        return requests.post('{0}/disks/{1}/add'.format(self._base_url, disk),
+        start = time.time()
+        data = requests.post('{0}/disks/{1}/add'.format(self._base_url, disk),
                              headers=self._base_headers,
                              verify=False).json()
+        duration = time.time() - start
+        if duration > self._log_min_duration:
+            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+        return data
 
     def remove_disk(self, disk):
         """
         Removes a disk
+        :param disk: Guid of the disk
         """
         self._refresh()
-        return requests.post('{0}/disks/{1}/delete'.format(self._base_url, disk),
+        start = time.time()
+        data = requests.post('{0}/disks/{1}/delete'.format(self._base_url, disk),
                              headers=self._base_headers,
                              verify=False).json()
+        duration = time.time() - start
+        if duration > self._log_min_duration:
+            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+        return data
 
     def restart_disk(self, disk):
         """
         Restarts a disk
+        :param disk: Guid of the disk
         """
         self._refresh()
-        return requests.post('{0}/disks/{1}/restart'.format(self._base_url, disk),
+        start = time.time()
+        data = requests.post('{0}/disks/{1}/restart'.format(self._base_url, disk),
                              headers=self._base_headers,
                              verify=False).json()
+        duration = time.time() - start
+        if duration > self._log_min_duration:
+            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+        return data
 
     def get_update_information(self):
         """
@@ -127,9 +175,14 @@ class ASDManagerClient(object):
         :return: Latest available version and services which require a restart
         """
         self._refresh()
+        start = time.time()
         data = requests.get('{0}/update/information'.format(self._base_url),
                             headers=self._base_headers,
                             verify=False).json()
+        duration = time.time() - start
+        if duration > self._log_min_duration:
+            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+
         for key in data.keys():
             if key.startswith('_'):
                 del data[key]
@@ -138,12 +191,18 @@ class ASDManagerClient(object):
     def execute_update(self, status):
         """
         Execute an update
+        :param status: Status of update
         :return: None
         """
         self._refresh()
-        return requests.post('{0}/update/execute/{1}'.format(self._base_url, status),
+        start = time.time()
+        data = requests.post('{0}/update/execute/{1}'.format(self._base_url, status),
                              headers=self._base_headers,
                              verify=False).json()
+        duration = time.time() - start
+        if duration > self._log_min_duration:
+            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+        return data
 
     def restart_services(self):
         """
@@ -151,9 +210,14 @@ class ASDManagerClient(object):
         :return: None
         """
         self._refresh()
-        return requests.post('{0}/update/restart_services'.format(self._base_url),
+        start = time.time()
+        data = requests.post('{0}/update/restart_services'.format(self._base_url),
                              headers=self._base_headers,
                              verify=False).json()
+        duration = time.time() - start
+        if duration > self._log_min_duration:
+            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+        return data
 
     def _refresh(self):
         self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
