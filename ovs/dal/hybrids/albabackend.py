@@ -111,7 +111,7 @@ class AlbaBackend(DataObject):
                                'min': []}
         for asd in self.asds:
             asd_stats = asd.statistics
-            if asd_stats is None:
+            if not asd_stats:
                 continue
             for key in data_keys:
                 statistics[key]['n'] += asd_stats[key]['n']
