@@ -339,7 +339,6 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=crontab(minute='30', hour='*'))
-    @ensure_single(task_name='alba.scheduled_alba_arakoon_checkup')
     def scheduled_alba_arakoon_checkup():
         """
         Makes sure the volumedriver arakoon is on all available master nodes
@@ -363,6 +362,7 @@ class AlbaController(object):
                                              create_nsm_cluster=create_nsm_cluster)
 
     @staticmethod
+    @ensure_single(task_name='alba.alba_arakoon_checkup')
     def _alba_arakoon_checkup(create_nsm_cluster, alba_backend_guid=None):
         current_ips = {}
         current_services = {}
@@ -607,7 +607,6 @@ class AlbaController(object):
                         nsm_result = ArakoonInstaller.extend_cluster(master_ip=current_nsm.service.storagerouter.ip,
                                                                      new_ip=candidate_sr.ip,
                                                                      cluster_name=nsm_service_name,
-                                                                     exclude_ports=ServiceList.get_ports_for_ip(candidate_sr.ip),
                                                                      base_dir=partition.folder)
                         logger.debug('  Linking plugin')
                         AlbaController.link_plugins(client=clients[candidate_sr],
@@ -654,7 +653,6 @@ class AlbaController(object):
                     if first_ip is None:
                         nsm_result = ArakoonInstaller.create_cluster(cluster_name=nsm_name,
                                                                      ip=storagerouter.ip,
-                                                                     exclude_ports=ServiceList.get_ports_for_ip(storagerouter.ip),
                                                                      base_dir=partition.folder,
                                                                      plugins=AlbaController.NSM_PLUGIN)
                         AlbaController.link_plugins(client=clients[storagerouter],
@@ -673,7 +671,6 @@ class AlbaController(object):
                         nsm_result = ArakoonInstaller.extend_cluster(master_ip=first_ip,
                                                                      new_ip=storagerouter.ip,
                                                                      cluster_name=nsm_name,
-                                                                     exclude_ports=ServiceList.get_ports_for_ip(storagerouter.ip),
                                                                      base_dir=partition.folder)
                         AlbaController.link_plugins(client=clients[storagerouter],
                                                     data_dir=partition.folder,
@@ -854,14 +851,12 @@ class AlbaController(object):
         if create is True:
             result = ArakoonInstaller.create_cluster(cluster_name=service_name,
                                                      ip=storagerouter.ip,
-                                                     exclude_ports=ServiceList.get_ports_for_ip(storagerouter.ip),
                                                      base_dir=partition.folder,
                                                      plugins=plugins)
         else:
             result = ArakoonInstaller.extend_cluster(master_ip=master_ip,
                                                      new_ip=storagerouter.ip,
                                                      cluster_name=service_name,
-                                                     exclude_ports=ServiceList.get_ports_for_ip(storagerouter.ip),
                                                      base_dir=partition.folder)
         AlbaController.link_plugins(client=client,
                                     data_dir=partition.folder,
