@@ -32,7 +32,6 @@ from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.service import Service as DalService
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
-from ovs.dal.lists.servicelist import ServiceList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig
@@ -364,6 +363,15 @@ class AlbaController(object):
     @staticmethod
     @ensure_single(task_name='alba.alba_arakoon_checkup')
     def _alba_arakoon_checkup(create_nsm_cluster, alba_backend_guid=None):
+        slaves = StorageRouterList.get_slaves()
+        masters = StorageRouterList.get_masters()
+        clients = {}
+        for storagerouter in masters + slaves:
+            try:
+                clients[storagerouter] = SSHClient(storagerouter)
+            except UnableToConnectException:
+                logger.warning("Storage Router with IP {0} is not reachable".format(storagerouter.ip))
+
         current_ips = {}
         current_services = {}
         abm_service_type = ServiceTypeList.get_by_name('AlbaManager')
@@ -386,20 +394,12 @@ class AlbaController(object):
                     current_ips[alba_backend]['nsm'].append(service.storagerouter.ip)
                     current_services[alba_backend]['nsm'].append(service)
 
-        slaves = StorageRouterList.get_slaves()
-        masters = StorageRouterList.get_masters()
-        clients = {}
-        try:
-            for storagerouter in masters + slaves:
-                clients[storagerouter] = SSHClient(storagerouter)
-        except UnableToConnectException:
-            raise RuntimeError('Not all StorageRouters are reachable')
-
         available_storagerouters = {}
         for storagerouter in masters:
-            storagerouter.invalidate_dynamics(['partition_config'])
-            if len(storagerouter.partition_config[DiskPartition.ROLES.DB]) > 0:
-                available_storagerouters[storagerouter] = DiskPartition(storagerouter.partition_config[DiskPartition.ROLES.DB][0])
+            if storagerouter in clients:
+                storagerouter.invalidate_dynamics(['partition_config'])
+                if len(storagerouter.partition_config[DiskPartition.ROLES.DB]) > 0:
+                    available_storagerouters[storagerouter] = DiskPartition(storagerouter.partition_config[DiskPartition.ROLES.DB][0])
 
         if not available_storagerouters:
             raise RuntimeError('Could not find any partitions with DB role')
@@ -417,10 +417,13 @@ class AlbaController(object):
                                                                       partition=partition,
                                                                       storagerouter=storagerouter)
                 for slave in masters + slaves:
-                    ArakoonInstaller.deploy_to_slave(storagerouter.ip, slave.ip, abm_service_name)
+                    if slave in clients:
+                        ArakoonInstaller.deploy_to_slave(storagerouter.ip, slave.ip, abm_service_name)
                 ArakoonInstaller.restart_cluster_add(cluster_name=abm_service_name,
                                                      current_ips=current_ips[alba_backend]['abm'],
                                                      new_ip=storagerouter.ip)
+                AlbaController._update_abm_client_config(abm_name=abm_service_name,
+                                                         ip=storagerouter.ip)
                 current_ips[alba_backend]['abm'].append(storagerouter.ip)
                 current_services[alba_backend]['abm'].append(abm_service)
 
@@ -456,10 +459,13 @@ class AlbaController(object):
                                                                           storagerouter=storagerouter,
                                                                           master_ip=current_ips[alba_backend]['abm'][0])
                     for slave in masters + slaves:
-                        ArakoonInstaller.deploy_to_slave(current_ips[alba_backend]['abm'][0], slave.ip, abm_service_name)
-                    ArakoonInstaller.restart_cluster_add(cluster_name=alba_backend.backend.name + "-abm",
+                        if slave in clients:
+                            ArakoonInstaller.deploy_to_slave(current_ips[alba_backend]['abm'][0], slave.ip, abm_service_name)
+                    ArakoonInstaller.restart_cluster_add(cluster_name=abm_service_name,
                                                          current_ips=current_ips[alba_backend]['abm'],
                                                          new_ip=storagerouter.ip)
+                    AlbaController._update_abm_client_config(abm_name=abm_service_name,
+                                                             ip=storagerouter.ip)
                     current_ips[alba_backend]['abm'].append(storagerouter.ip)
                     current_services[alba_backend]['abm'].append(abm_service)
 
@@ -480,66 +486,116 @@ class AlbaController(object):
         :return:           None
         """
         _ = master_ip  # The master_ip will be passed in by caller
+        failures = []
+        client_list = []
         servicetype = ServiceTypeList.get_by_name('AlbaManager')
         for alba_backend in AlbaBackendList.get_albabackends():
+            deployed = False
+            service_found = False
             alba_service_name = alba_backend.backend.name + "-abm"
             for service in servicetype.services:
                 if service.name == alba_service_name:
+                    service_found = True
+                    if service.storagerouter not in client_list:
+                        try:
+                            SSHClient(service.storagerouter)
+                            client_list.append(service.storagerouter)
+                        except UnableToConnectException:
+                            continue
                     ArakoonInstaller.deploy_to_slave(service.storagerouter.ip, cluster_ip, alba_service_name)
+                    deployed = True
                     break
+            if service_found is True and deployed is False:
+                failures.append('Failed to deploy config for ALBA backend {0} to slave with IP {1}'.format(alba_backend.backend.name, cluster_ip))
+        if len(failures) > 0:
+            raise RuntimeError('Failure distributing configurations to slaves:\n - {0}'.format('\n - '.join(failures)))
 
     @staticmethod
     @add_hooks('setup', 'demote')
-    def on_demote(cluster_ip, master_ip):
+    def on_demote(cluster_ip, master_ip, offline_node_ips=None):
         """
         A node is being demoted
         :param cluster_ip: IP of the cluster node to execute this on
         :type cluster_ip:  String
 
-        :param master_ip:  IP of the master of the cluster
-        :type master_ip:   String
+        :param master_ip: IP of the master of the cluster
+        :type master_ip:  String
 
-        :return:           None
+        :param offline_node_ips: IPs of nodes which are offline
+        :type offline_node_ips:  list
+
+        :return: None
         """
+        if offline_node_ips is None:
+            offline_node_ips = []
         alba_backends = AlbaBackendList.get_albabackends()
-        client = SSHClient(cluster_ip, username='root')
+        client = SSHClient(cluster_ip, username='root') if cluster_ip not in offline_node_ips else None
         for alba_backend in alba_backends:
             # Remove the node from the ABM
             logger.info('Shrinking ABM for {0}'.format(alba_backend.backend.name))
             storagerouter_ips = [abm_service.service.storagerouter.ip for abm_service in alba_backend.abm_services]
             service = None
             abm_service = None
-            service_name = alba_backend.backend.name + "-abm"
+            abm_service_name = alba_backend.backend.name + "-abm"
             if cluster_ip in storagerouter_ips:
                 storagerouter_ips.remove(cluster_ip)
                 abm_service = [abms for abms in alba_backend.abm_services if abms.service.storagerouter.ip == cluster_ip][0]
                 service = abm_service.service
                 logger.info('* Shrink ABM cluster')
-            ArakoonInstaller.shrink_cluster(master_ip, cluster_ip, service_name)
-            if ServiceManager.has_service('arakoon-{0}'.format(service_name), client=client) is True:
-                ServiceManager.stop_service('arakoon-{0}'.format(service_name), client=client)
-                ServiceManager.remove_service('arakoon-{0}'.format(service_name), client=client)
+            ArakoonInstaller.shrink_cluster(master_ip, cluster_ip, abm_service_name, offline_node_ips)
+            if client is not None:
+                if ServiceManager.has_service('arakoon-{0}'.format(abm_service_name), client=client) is True:
+                    ServiceManager.stop_service('arakoon-{0}'.format(abm_service_name), client=client)
+                    ServiceManager.remove_service('arakoon-{0}'.format(abm_service_name), client=client)
 
             logger.info('* Restarting ABM')
-            ArakoonInstaller.restart_cluster_remove(service_name, storagerouter_ips)
+            remaining_ips = list(set(storagerouter_ips).difference(set(offline_node_ips)))
+            ArakoonInstaller.restart_cluster_remove(abm_service_name, remaining_ips)
+            AlbaController._update_abm_client_config(abm_name=abm_service_name,
+                                                     ip=remaining_ips[0])
             logger.info('* Remove old ABM node from model')
             if service is not None:
                 abm_service.delete()
                 service.delete()
 
             # Stop and delete the ALBA maintenance service on this node
-            AlbaController._remove_service('maintenance', client.ip, service_name, alba_backend.backend.name)
-            AlbaController._remove_service('rebalancer', client.ip, service_name, alba_backend.backend.name)
+            if client is not None:
+                AlbaController._remove_service('maintenance', client.ip, abm_service_name, alba_backend.backend.name)
+                AlbaController._remove_service('rebalancer', client.ip, abm_service_name, alba_backend.backend.name)
+
+    @staticmethod
+    @add_hooks('setup', 'remove')
+    def on_remove(cluster_ip):
+        """
+        A node is removed
+        :param cluster_ip: IP of the node being removed
+        :return: None
+        """
+        services_to_delete = []
+        for alba_backend in AlbaBackendList.get_albabackends():
+            for nsm_service in alba_backend.nsm_services:
+                if nsm_service.service.storagerouter.ip == cluster_ip:
+                    services_to_delete.append(nsm_service)
+        for nsm_service in services_to_delete:
+            nsm_service.delete()
+            nsm_service.service.delete()
+
+        storage_router = StorageRouterList.get_by_ip(cluster_ip)
+        for alba_node in storage_router.alba_nodes:
+            alba_node.delete()
 
     @staticmethod
     @celery.task(name='alba.nsm_checkup', schedule=crontab(minute='45', hour='*'))
     @ensure_single(task_name='alba.nsm_checkup', mode='CHAINED')
-    def nsm_checkup():
+    def nsm_checkup(allow_offline=False):
         """
         Validates the current NSM setup/configuration and takes actions where required.
         Assumptions:
         * A 2 node NSM is considered safer than a 1 node NSM.
         * When adding an NSM, the nodes with the least amount of NSM participation are preferred
+
+        :param allow_offline: Ignore offline nodes
+        :type allow_offline:  bool
         """
         nsm_service_type = ServiceTypeList.get_by_name('NamespaceManager')
         safety = Configuration.get('alba.nsm.safety')
@@ -566,11 +622,16 @@ class AlbaController(object):
                     nsm_storagerouter[storagerouter] = 0
                 nsm_storagerouter[storagerouter] += 1
             clients = {}
-            try:
-                for sr in nsm_storagerouter.keys():
-                    clients[sr] = SSHClient(sr)
-            except UnableToConnectException:
-                raise RuntimeError('Not all StorageRouters are reachable')
+            for sr in nsm_storagerouter.keys():
+                try:
+                    client = SSHClient(sr)
+                    client.run('pwd')
+                    clients[sr] = client
+                except UnableToConnectException:
+                    if allow_offline is True:
+                        logger.debug('Storage Router with IP {0} is not reachable'.format(sr.ip))
+                    else:
+                        raise RuntimeError('Not all StorageRouters are reachable')
 
             # Safety
             for number in nsm_groups:
@@ -788,6 +849,24 @@ class AlbaController(object):
         client = SSHClient(ip)
         if ArakoonInstaller.wait_for_cluster(nsm_name, client) and ArakoonInstaller.wait_for_cluster(abm_name, client):
             AlbaCLI.run('update-nsm-host', config=abm_config_file, extra_params=nsm_config_file, client=client)
+
+    @staticmethod
+    def _update_abm_client_config(abm_name, ip):
+        """
+        Update the client configuration for the ABM cluster
+        :param abm_name: Name of the ABM service
+        :type abm_name:  String
+
+        :param ip: Any IP of a remaining node in the cluster with the correct configuration file available
+        :type ip:  String
+
+        :return: None
+        """
+        abm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(abm_name)
+        client = SSHClient(ip)
+        # Try 8 times, this means 1st time immediately, 2nd time after 2 secs, 3rd time after 4 seconds, 4th time after 8 seconds,.... This will be up to 2 minutes
+        # Reason for trying multiple times is because after a cluster has been shrunk or extended, master might not be known, thus updating config might fail
+        AlbaCLI.run('update-abm-client-config', config=abm_config_file, attempts=8, client=client)
 
     @staticmethod
     def _model_service(service_name, service_type, ports, storagerouter, junction_type, backend, number=None):
