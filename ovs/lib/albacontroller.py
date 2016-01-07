@@ -42,6 +42,7 @@ from ovs.extensions.generic.sshclient import UnableToConnectException
 from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.extensions.services.service import ServiceManager
+from ovs.lib.albanodecontroller import AlbaNodeController
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.lib.helpers.decorators import ensure_single
 from ovs.log.logHandler import LogHandler
@@ -582,6 +583,12 @@ class AlbaController(object):
 
         storage_router = StorageRouterList.get_by_ip(cluster_ip)
         for alba_node in storage_router.alba_nodes:
+            for asd in alba_node.asds:
+                alba_backend_guid = asd.alba_backend.guid
+                node_guid = asd.alba_node.guid
+                disk = asd.name
+                expected_safety = None
+                AlbaNodeController.remove_disk(alba_backend_guid, node_guid, disk, expected_safety)
             alba_node.delete()
 
     @staticmethod
