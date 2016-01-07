@@ -590,6 +590,10 @@ class AlbaController(object):
                 expected_safety = None
                 AlbaNodeController.remove_disk(alba_backend_guid, node_guid, disk, expected_safety)
             alba_node.delete()
+        for service in storage_router.services:
+            if service.abm_service is not None:
+                service.abm_service.delete()
+            service.delete()
 
     @staticmethod
     @celery.task(name='alba.nsm_checkup', schedule=crontab(minute='45', hour='*'))
