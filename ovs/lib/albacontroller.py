@@ -36,7 +36,7 @@ from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
-from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.generic.etcdconfig import EtcdConfiguration
 from ovs.extensions.generic.sshclient import SSHClient
 from ovs.extensions.generic.sshclient import UnableToConnectException
 from ovs.extensions.packages.package import PackageManager
@@ -609,8 +609,8 @@ class AlbaController(object):
         :type allow_offline:  bool
         """
         nsm_service_type = ServiceTypeList.get_by_name('NamespaceManager')
-        safety = Configuration.get('alba.nsm.safety')
-        maxload = Configuration.get('alba.nsm.maxload')
+        safety = EtcdConfiguration.get('/ovs/framework/plugins/alba/config|nsm.safety')
+        maxload = EtcdConfiguration.get('/ovs/framework/plugins/alba/config|nsm.maxload')
 
         for backend in AlbaBackendList.get_albabackends():
             abm_service_name = backend.abm_services[0].service.name
@@ -1128,6 +1128,12 @@ class AlbaController(object):
                         logger.info('Restarting cluster {0} because of ALBA update'.format(cluster_name), print_msg=True)
                         ArakoonInstaller.restart_cluster(cluster_name=cluster_name,
                                                          master_ip=client.ip)
+
+    @staticmethod
+    @add_hooks('plugin', ['postinstall'])
+    def _add_base_configuration():
+        EtcdConfiguration.set('/ovs/framework/plugins/alba/config', {'nsm': {'maxload': 75,
+                                                                             'safety': 3}})
 
     @staticmethod
     def _setup_service(service_type, ip, abm_name, backend_name):

@@ -18,7 +18,3 @@ import shutil
 
 # Update ownership
 os.system('chown -R ovs:ovs /opt/OpenvStorage/ovs/')
-
-# Creating configuration file
-if not os.path.isfile('/opt/OpenvStorage/config/alba.json'):
-    shutil.copyfile('/opt/OpenvStorage/config/templates/alba.json', '/opt/OpenvStorage/config/alba.json')

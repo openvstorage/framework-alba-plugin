@@ -16,14 +16,14 @@
 # Register the Alba plugin in the Open vStorage configuration file
 import sys
 import json
+import etcd
 
-config_filename = '/opt/OpenvStorage/config/ovs.json'
-with open(config_filename, 'r') as config_file:
-    contents = json.loads(config_file.read())
-if 'alba' not in contents['plugins']['backends']:
-    contents['plugins']['backends'].append('alba')
-    with open(config_filename, 'w') as config_file:
-        config_file.write(json.dumps(contents, indent=4))
+key = '/ovs/framework/plugins/installed'
+client = etcd.Client(port=2379, use_proxies=True)
+data = json.loads(client.get(key).value)
+if 'alba' not in data['backends']:
+    data['backends'].append('alba')
+client.write(key, json.dumps(data))
 
 # (Re)load plugins to make the Alba plugin available
 if len(sys.argv) >= 3 and sys.argv[2] == 'configure' and (len(sys.argv) == 3 or sys.argv[3] == ''):
