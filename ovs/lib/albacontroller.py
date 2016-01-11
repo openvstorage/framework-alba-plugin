@@ -1130,6 +1130,7 @@ class AlbaController(object):
                                                          master_ip=client.ip)
 
     @staticmethod
+    @add_hooks('setup', ['firstnode', 'extranode'])
     @add_hooks('plugin', ['postinstall'])
     def _add_base_configuration():
         EtcdConfiguration.set('/ovs/framework/plugins/alba/config', {'nsm': {'maxload': 75,
