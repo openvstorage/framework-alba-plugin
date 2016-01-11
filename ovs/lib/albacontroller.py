@@ -1134,6 +1134,10 @@ class AlbaController(object):
     def _add_base_configuration():
         EtcdConfiguration.set('/ovs/framework/plugins/alba/config', {'nsm': {'maxload': 75,
                                                                              'safety': 3}})
+        installed = EtcdConfiguration.get('/ovs/framework/plugins/installed')
+        if 'alba' not in installed['backends']:
+            installed['backends'].append('alba')
+        EtcdConfiguration.set('/ovs/framework/plugins/installed', installed)
 
     @staticmethod
     def _setup_service(service_type, ip, abm_name, backend_name):
