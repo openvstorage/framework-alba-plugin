@@ -1132,7 +1132,8 @@ class AlbaController(object):
     @staticmethod
     @add_hooks('setup', ['firstnode', 'extranode'])
     @add_hooks('plugin', ['postinstall'])
-    def _add_base_configuration():
+    def _add_base_configuration(*args, **kwargs):
+        _ = args, kwargs
         EtcdConfiguration.set('/ovs/framework/plugins/alba/config', {'nsm': {'maxload': 75,
                                                                              'safety': 3}})
         installed = EtcdConfiguration.get('/ovs/framework/plugins/installed')
