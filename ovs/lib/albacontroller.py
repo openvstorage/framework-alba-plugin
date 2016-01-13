@@ -310,7 +310,7 @@ class AlbaController(object):
         if client is None or service is None:
             raise RuntimeError('Could load metadata')
         config = ArakoonClusterConfig(service.name)
-        config.load_config(client)
+        config.load_config()
         return config.export()
 
     @staticmethod
@@ -526,6 +526,7 @@ class AlbaController(object):
 
         :return: None
         """
+        _ = master_ip
         if offline_node_ips is None:
             offline_node_ips = []
         alba_backends = AlbaBackendList.get_albabackends()
@@ -542,7 +543,7 @@ class AlbaController(object):
                 abm_service = [abms for abms in alba_backend.abm_services if abms.service.storagerouter.ip == cluster_ip][0]
                 service = abm_service.service
                 logger.info('* Shrink ABM cluster')
-            ArakoonInstaller.shrink_cluster(master_ip, cluster_ip, abm_service_name, offline_node_ips)
+            ArakoonInstaller.shrink_cluster(cluster_ip, abm_service_name, offline_node_ips)
             if client is not None:
                 if ServiceManager.has_service('arakoon-{0}'.format(abm_service_name), client=client) is True:
                     ServiceManager.stop_service('arakoon-{0}'.format(abm_service_name), client=client)
