@@ -63,8 +63,8 @@ class AlbaNode(DataObject):
             disks = []
             for backend in AlbaBackendList.get_albabackends():
                 # All backends of this node
-                config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(backend.name)
-                osds = AlbaCLI.run('list-osds', config=config_file, as_json=True)
+                config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(backend.name)
+                osds = AlbaCLI.run('list-osds', config=config, as_json=True)
                 for osd in osds:
                     if osd.get('node_id') == self.node_id:
                         asd_id = osd.get('long_id')
