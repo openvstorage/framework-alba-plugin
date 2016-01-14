@@ -44,8 +44,8 @@ class AlbaBackend(DataObject):
         """
         from ovs.dal.lists.albanodelist import AlbaNodeList
         from ovs.dal.lists.albabackendlist import AlbaBackendList
-        config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(self.backend.name)
-        all_osds = AlbaCLI.run('list-all-osds', config=config_file, as_json=True)
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(self.backend.name)
+        all_osds = AlbaCLI.run('list-all-osds', config=config, as_json=True)
         disks = []
         for node in AlbaNodeList.get_albanodes():
             asds = node.asds
@@ -135,14 +135,14 @@ class AlbaBackend(DataObject):
         """
         # Collect ALBA related statistics
         alba_dataset = {}
-        config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(self.backend.name)
-        namespaces = AlbaCLI.run('list-namespaces', config=config_file, as_json=True)
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(self.backend.name)
+        namespaces = AlbaCLI.run('list-namespaces', config=config, as_json=True)
         for namespace_data in namespaces:
             if namespace_data['state'] != 'active':
                 continue
             namespace = namespace_data['name']
             try:
-                alba_dataset[namespace] = AlbaCLI.run('show-namespace', config=config_file, as_json=True, extra_params=namespace)
+                alba_dataset[namespace] = AlbaCLI.run('show-namespace', config=config, as_json=True, extra_params=namespace)
             except:
                 # This might fail every now and then, e.g. on disk removal. Let's ignore for now.
                 pass
@@ -206,8 +206,8 @@ class AlbaBackend(DataObject):
             for disk in all_disks:
                 if disk['node_id'] == node.node_id and disk['status'] in ['claimed', 'warning']:
                     disks[node.node_id] += 1
-        config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(self.backend.name)
-        presets = AlbaCLI.run('list-presets', config=config_file, as_json=True)
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(self.backend.name)
+        presets = AlbaCLI.run('list-presets', config=config, as_json=True)
         preset_dict = {}
         for preset in presets:
             preset_dict[preset['name']] = preset
@@ -230,12 +230,12 @@ class AlbaBackend(DataObject):
                 preset['is_available'] |= is_available
             if active_policy is not None:
                 preset['policy_metadata'][active_policy]['is_active'] = True
-        namespaces = AlbaCLI.run('list-namespaces', config=config_file, as_json=True)
+        namespaces = AlbaCLI.run('list-namespaces', config=config, as_json=True)
         for namespace_data in namespaces:
             if namespace_data['state'] == 'active':
                 namespace = namespace_data['name']
                 try:
-                    policy_usage = AlbaCLI.run('show-namespace', config=config_file, as_json=True,
+                    policy_usage = AlbaCLI.run('show-namespace', config=config, as_json=True,
                                                extra_params=namespace)['bucket_count']
                 except:
                     continue

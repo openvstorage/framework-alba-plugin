@@ -56,10 +56,10 @@ class AlbaASD(DataObject):
                      'range': ['Range'],
                      'range_entries': ['RangeEntries'],
                      'statistics': ['Statistics']}
-        config_file = '/opt/OpenvStorage/config/arakoon/{0}-abm/{0}-abm.cfg'.format(self.alba_backend.backend.name)
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(self.alba_backend.backend.name)
         statistics = {}
         try:
-            data = AlbaCLI.run('asd-statistics', long_id=self.asd_id, config=config_file, extra_params='--clear', as_json=True)
+            data = AlbaCLI.run('asd-statistics', long_id=self.asd_id, config=config, extra_params='--clear', as_json=True)
             statistics = {'creation': data['creation'],
                           'period': data['period']}
             for key, sources in data_keys.iteritems():
