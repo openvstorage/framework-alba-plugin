@@ -230,12 +230,12 @@ class AlbaBackend(DataObject):
                 preset['is_available'] |= is_available
             if active_policy is not None:
                 preset['policy_metadata'][active_policy]['is_active'] = True
-        namespaces = AlbaCLI.run('list-namespaces', config=config_file, as_json=True)
+        namespaces = AlbaCLI.run('list-namespaces', config=config, as_json=True)
         for namespace_data in namespaces:
             if namespace_data['state'] == 'active':
                 namespace = namespace_data['name']
                 try:
-                    policy_usage = AlbaCLI.run('show-namespace', config=config_file, as_json=True,
+                    policy_usage = AlbaCLI.run('show-namespace', config=config, as_json=True,
                                                extra_params=namespace)['bucket_count']
                 except:
                     continue

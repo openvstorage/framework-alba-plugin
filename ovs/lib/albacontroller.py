@@ -765,7 +765,7 @@ class AlbaController(object):
             return 50
         if service_capacity == 0:
             return float('inf')
-        filename = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(nsm_service.alba_backend.abm_services[0].service.name)
+        filename = ArakoonInstaller.ETCD_CONFIG_PATH.format(nsm_service.alba_backend.abm_services[0].service.name)
         hosts_data = AlbaCLI.run('list-nsm-hosts', config=filename, as_json=True)
         host = [host for host in hosts_data if host['id'] == nsm_service.service.name][0]
         usage = host['namespaces_count']
@@ -786,8 +786,8 @@ class AlbaController(object):
 
         :return:         None
         """
-        nsm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(nsm_name)
-        abm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(abm_name)
+        nsm_config_file = ArakoonInstaller.ETCD_CONFIG_PATH.format(nsm_name)
+        abm_config_file = ArakoonInstaller.ETCD_CONFIG_PATH.format(abm_name)
         client = SSHClient(ip)
         if ArakoonInstaller.wait_for_cluster(nsm_name, client) and ArakoonInstaller.wait_for_cluster(abm_name, client):
             AlbaCLI.run('add-nsm-host', config=abm_config_file, extra_params=nsm_config_file, client=client)
@@ -807,8 +807,8 @@ class AlbaController(object):
 
         :return:         None
         """
-        nsm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(nsm_name)
-        abm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(abm_name)
+        nsm_config_file = ArakoonInstaller.ETCD_CONFIG_PATH.format(nsm_name)
+        abm_config_file = ArakoonInstaller.ETCD_CONFIG_PATH.format(abm_name)
         client = SSHClient(ip)
         if ArakoonInstaller.wait_for_cluster(nsm_name, client) and ArakoonInstaller.wait_for_cluster(abm_name, client):
             AlbaCLI.run('update-nsm-host', config=abm_config_file, extra_params=nsm_config_file, client=client)
@@ -825,7 +825,7 @@ class AlbaController(object):
 
         :return: None
         """
-        abm_config_file = ArakoonInstaller.ARAKOON_CONFIG_FILE.format(abm_name)
+        abm_config_file = ArakoonInstaller.ETCD_CONFIG_PATH.format(abm_name)
         client = SSHClient(ip)
         # Try 8 times, this means 1st time immediately, 2nd time after 2 secs, 3rd time after 4 seconds, 4th time after 8 seconds,.... This will be up to 2 minutes
         # Reason for trying multiple times is because after a cluster has been shrunk or extended, master might not be known, thus updating config might fail
@@ -1104,7 +1104,7 @@ class AlbaController(object):
         config_location = '/ovs/alba/backends/{0}/maintenance/config'.format(alba_backend.guid)
         EtcdConfiguration.set(config_location, json.dumps({
             'log_level': 'info',
-            'albamgr_cfg_file': 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(abm_name)
+            'albamgr_cfg_url': 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(abm_name)
         }), raw=True)
         params = {'ALBA_CONFIG': 'etcd://127.0.0.1:2379{0}'.format(config_location)}
         for service_prefix in [AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, AlbaController.ALBA_REBALANCER_SERVICE_PREFIX]:
@@ -1114,13 +1114,13 @@ class AlbaController(object):
             ServiceManager.start_service(service_name, root_client)
 
     @staticmethod
-    def _remove_services(ip, abm_name, backend_name):
+    def _remove_services(ip, abm_name, alba_backend):
         """
         Stops and removes the maintenance service/process
         """
         client = SSHClient(ip, username='root')
         for service_prefix in [AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, AlbaController.ALBA_REBALANCER_SERVICE_PREFIX]:
-            service_name = '{0}_{1}'.format(service_prefix, backend_name)
+            service_name = '{0}_{1}'.format(service_prefix, alba_backend.backend.name)
             if ServiceManager.has_service(service_name, client=client) is True:
                 if ServiceManager.get_service_status(service_name, client=client) is True:
                     ServiceManager.stop_service(service_name, client=client)
