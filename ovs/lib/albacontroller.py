@@ -257,9 +257,8 @@ class AlbaController(object):
         slaves = StorageRouterList.get_slaves()
         masters = StorageRouterList.get_masters()
 
-        abm_name = albabackend.backend.name + '-abm'
         for master in masters:
-            AlbaController._remove_services(master.ip, abm_name, albabackend)
+            AlbaController._remove_services(master.ip, albabackend)
 
         cluster_removed = False
         for abm_service in albabackend.abm_services:
@@ -514,7 +513,7 @@ class AlbaController(object):
 
             # Stop and delete the ALBA maintenance service on this node
             if client is not None:
-                AlbaController._remove_services(client.ip, abm_service_name, alba_backend)
+                AlbaController._remove_services(client.ip, alba_backend)
 
     @staticmethod
     @add_hooks('setup', 'remove')
@@ -1115,7 +1114,7 @@ class AlbaController(object):
             ServiceManager.start_service(service_name, root_client)
 
     @staticmethod
-    def _remove_services(ip, abm_name, alba_backend):
+    def _remove_services(ip, alba_backend):
         """
         Stops and removes the maintenance service/process
         """
