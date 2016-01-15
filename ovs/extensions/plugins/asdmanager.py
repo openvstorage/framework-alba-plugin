@@ -15,7 +15,6 @@
 """
 Generic ALBA CLI module
 """
-import json
 import time
 import base64
 import inspect
@@ -44,34 +43,6 @@ class ASDManagerClient(object):
         if duration > self._log_min_duration:
             logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
         return data
-
-    def get_ips(self):
-        """
-        Gets the ips from a node
-        """
-        self._refresh()
-        start = time.time()
-        data = requests.get('{0}/net'.format(self._base_url),
-                            verify=False).json()['ips']
-        duration = time.time() - start
-        if duration > self._log_min_duration:
-            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
-        return data
-
-    def set_ips(self, ips):
-        """
-        Set primary storage ips
-        :param ips: IPs to set
-        """
-        self._refresh()
-        start = time.time()
-        data = requests.post('{0}/net'.format(self._base_url),
-                             data={'ips': json.dumps(ips)},
-                             headers=self._base_headers,
-                             verify=False)
-        duration = time.time() - start
-        if duration > self._log_min_duration:
-            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
 
     def get_disks(self, as_list=True, reraise=False):
         """

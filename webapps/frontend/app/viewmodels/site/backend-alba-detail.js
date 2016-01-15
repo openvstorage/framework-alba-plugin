@@ -17,9 +17,9 @@ define([
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/backend', '../containers/backendtype', '../containers/albabackend',
     '../containers/albanode', '../containers/albaosd', '../containers/storagerouter', '../containers/vpool',
-    '../containers/license', '../wizards/addpreset/index', '../wizards/addalbanode/index'
+    '../containers/license', '../wizards/addpreset/index'
 ], function($, app, ko, router, dialog, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend,
-            Node, OSD, StorageRouter, VPool, License, AddPresetWizard, AddAlbaNodeWizard) {
+            Node, OSD, StorageRouter, VPool, License, AddPresetWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -109,7 +109,7 @@ define([
         });
 
         // Functions
-        self.discover = function() {
+        self.refresh = function() {
             self.dNodesLoading(true);
             self.fetchNodes(true);
         };
@@ -237,10 +237,9 @@ define([
             return $.Deferred(function(deferred) {
                 if (generic.xhrCompleted(self.nodesHandle[discover])) {
                     var options = {
-                        sort: 'node_id',
+                        sort: 'ip',
                         contents: 'node_id,_relations' + (discover ? ',_dynamics' : ''),
-                        discover: discover,
-                        alba_backend_guid: self.albaBackend().guid()
+                        discover: discover
                     };
                     if (self.albaBackend() !== undefined) {
                         self.nodesHandle[discover] = api.get('alba/nodes', {queryparams: options})
@@ -504,12 +503,6 @@ define([
                 backend: self.albaBackend(),
                 currentPresets: self.albaBackend().enhancedPresets(),
                 editPreset: true
-            }));
-        };
-        self.addNode = function() {
-            dialog.show(new AddAlbaNodeWizard({
-                modal: true,
-                node: undefined
             }));
         };
 

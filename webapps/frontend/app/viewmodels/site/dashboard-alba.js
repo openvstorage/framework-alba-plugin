@@ -116,10 +116,9 @@ define([
             return $.Deferred(function(deferred) {
                 if (generic.xhrCompleted(self.loadNodesHandle)) {
                     var options = {
-                        sort: 'node_id',
+                        sort: 'ip',
                         contents: 'node_id',
-                        discover: false,
-                        alba_backend_guid: self.albaBackends()[0].guid()
+                        discover: false
                     };
                     self.loadNodesHandle = api.get('alba/nodes', {queryparams: options})
                         .done(function (data) {

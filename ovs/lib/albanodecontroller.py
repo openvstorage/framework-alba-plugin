@@ -16,21 +16,18 @@
 AlbaNodeController module
 """
 
-import json
-import socket
 import requests
-from subprocess import check_output
 from ovs.celery_run import celery
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
+from ovs.extensions.db.etcd.configuration import EtcdConfiguration
 from ovs.log.logHandler import LogHandler
 from ovs.lib.albacontroller import AlbaController
 from ovs.lib.disk import DiskController
 from ovs.lib.helpers.decorators import add_hooks
-from ovs.extensions.generic.sshclient import SSHClient
 
 logger = LogHandler.get('lib', name='albanode')
 
@@ -39,76 +36,28 @@ class AlbaNodeController(object):
     """
     Contains all BLL related to ALBA nodes
     """
-
-    @staticmethod
-    @celery.task(name='albanode.discover')
-    def discover():
-        """
-        Discovers nodes, returning them as a fake, in-memory DataObjectList
-        """
-        try:
-            nodes = {}
-            discover_result = check_output('timeout -k 10 5 avahi-browse -rtp _asd_node._tcp 2> /dev/null || true', shell=True)
-            # logger.debug('Avahi discovery result:\n{0}'.format(discover_result))
-            for entry in discover_result.split('\n'):
-                # =;eth1;IPv4;asd_node_ZrdSgl4cYulH7SjvpRuICM3CBcRmfKfp;_asd_node._tcp;local;ovs154233.local;10.100.154.233;8500;
-                # split(';') -> [3]  = asd_node_ZrdSgl4cYulH7SjvpRuICM3CBcRmfKfp
-                #               [7]  = 10.100.154.233 (ip)
-                #               [8]  = 8500 (port)
-                # split('_') -> [-1] = ZrdSgl4cYulH7SjvpRuICM3CBcRmfKfp (node_id)
-                entry_parts = entry.split(';')
-                if entry_parts[0] == '=' and entry_parts[2] == 'IPv4':
-                    node = AlbaNode(volatile=True)
-                    node.ip = entry_parts[7]
-                    node.port = int(entry_parts[8])
-                    node.type = 'ASD'
-                    node.node_id = entry_parts[3].split('_')[-1]
-                    storagerouter = StorageRouterList.get_by_ip(node.ip)
-                    if storagerouter is not None:
-                        # Its a public ip from one of the StorageRouters, so that one's preferred
-                        nodes[node.node_id] = node
-                        continue
-                    if node.node_id not in nodes:
-                        # Still not in there. If the ip is reachable, this one is chosen
-                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        sock.settimeout(1)
-                        try:
-                            sock.connect((node.ip, node.port))
-                            sock.close()
-                            nodes[node.node_id] = node
-                        except Exception:
-                            pass
-            return [node.export() for node in nodes.values()]
-        except Exception as ex:
-            logger.exception('Error discovering Alba nodes: {0}'.format(ex))
-            return []
-
     @staticmethod
     @celery.task(name='albanode.register')
-    def register(node_id, ip, port, username, password, asd_ips):
+    def register(node_id):
         """
         Adds a Node with a given node_id to the model
         :param node_id: ID of the ALBA node
-        :param ip: IP of the ALBA node
-        :param port: Port
-        :param username: Username
-        :param password: Password
-        :param asd_ips: IPs of the ASDs
         """
         node = AlbaNodeList.get_albanode_by_node_id(node_id)
+        network_config = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/network'.format(node_id))
         if node is None:
+            main_config = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main'.format(node_id))
             node = AlbaNode()
-            node.ip = ip
-            node.port = port
-            node.username = username
-            node.password = password
+            node.ip = main_config['ip']
+            node.port = network_config['port']
+            node.username = main_config['username']
+            node.password = main_config['password']
         data = node.client.get_metadata()
         if data['_success'] is False and data['_error'] == 'Invalid credentials':
             raise RuntimeError('Invalid credentials')
         if data['node_id'] != node_id:
             logger.error('Unexpected node_id: {0} vs {1}'.format(data['node_id'], node_id))
             raise RuntimeError('Unexpected node identifier')
-        node.client.set_ips(asd_ips)
         node.node_id = node_id
         node.type = 'ASD'
         node.save()
@@ -173,16 +122,17 @@ class AlbaNodeController(object):
         if disk not in disks:
             logger.exception('Disk {0} not available for removal on node {1}'.format(disk, node.ip))
             raise RuntimeError('Could not find disk')
-        elif disks[disk]['available'] is True or (disks[disk]['available'] is False and nodedown is False):
+
+        if disks[disk]['available'] is True or (disks[disk]['available'] is False and nodedown is False):
             final_safety = AlbaController.calculate_safety(alba_backend_guid, [disks[disk]['asd_id']])
             if (final_safety['critical'] != 0 or final_safety['lost'] != 0) and (final_safety['critical'] != expected_safety['critical'] or final_safety['lost'] != expected_safety['lost']):
-                raise RuntimeError('Cannot remove disk {0} as the current safety is not as expected ({1} vs {2})'.format(
-                    disk, final_safety, expected_safety
-                ))
+                raise RuntimeError('Cannot remove disk {0} as the current safety is not as expected ({1} vs {2})'.format(disk, final_safety, expected_safety))
+
             AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']], absorb_exception=True)
             result = node.client.remove_disk(disk)
             if result['_success'] is False:
                 raise RuntimeError('Error removing disk: {0}'.format(result['_error']))
+
             AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']], absorb_exception=True)
         elif disks[disk]['available'] is False and nodedown is True:
             # Forcefully remove disk -> decommission-osd
@@ -233,11 +183,10 @@ class AlbaNodeController(object):
     @add_hooks('plugin', ['postinstall'])
     def model_local_albanode(**kwargs):
         """
-        Add an ALBA node to the model
+        Add all ALBA nodes known to etcd to the model
         :param kwargs: Kwargs containing information regarding the node
         :return: None
         """
-        config_path = '/opt/alba-asdmanager/config/config.json'
         if 'cluster_ip' in kwargs:
             node_ip = kwargs['cluster_ip']
         elif 'ip' in kwargs:
@@ -245,17 +194,17 @@ class AlbaNodeController(object):
         else:
             raise RuntimeError('The model_local_albanode needs a cluster_ip or ip keyword argument')
         storagerouter = StorageRouterList.get_by_ip(node_ip)
-        client = SSHClient(node_ip)
-        if client.file_exists(config_path):
-            config = json.loads(client.file_read(config_path))
-            node = AlbaNodeList.get_albanode_by_ip(node_ip)
-            if node is None:
-                node = AlbaNode()
-            node.storagerouter = storagerouter
-            node.ip = node_ip
-            node.port = 8500
-            node.username = config['main']['username']
-            node.password = config['main']['password']
-            node.node_id = config['main']['node_id']
-            node.type = 'ASD'
-            node.save()
+
+        if EtcdConfiguration.dir_exists('/ovs/alba/asdnodes'):
+            for node_id in EtcdConfiguration.list('/ovs/alba/asdnodes'):
+                node = AlbaNodeList.get_albanode_by_ip(node_ip)
+                if node is None:
+                    node = AlbaNode()
+                node.storagerouter = storagerouter
+                node.ip = node_ip
+                node.port = 8500
+                node.username = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|username'.format(node_id))
+                node.password = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|password'.format(node_id))
+                node.node_id = node_id
+                node.type = 'ASD'
+                node.save()

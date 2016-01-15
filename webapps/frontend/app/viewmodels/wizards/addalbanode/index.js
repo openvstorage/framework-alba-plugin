@@ -14,8 +14,8 @@
 /*global define */
 define([
     'jquery', 'ovs/generic',
-    '../build', './gather', './data'
-], function($, generic, build, Gather, data) {
+    '../build', './confirm', './data'
+], function($, generic, build, Confirm, data) {
     "use strict";
     return function(options) {
         var self = this;
@@ -27,25 +27,14 @@ define([
         // Setup
         self.title(generic.tryGet(options, 'title', $.t('alba:wizards.addalbanode.title')));
         self.modal(generic.tryGet(options, 'modal', false));
-        self.steps([new Gather()]);
+        self.steps([new Confirm()]);
         self.activateStep();
 
         // Cleaning data
-        if (options.node !== undefined) {
-            data.manual(false);
-            data.nodeID(options.node.nodeID());
-            data.ip(options.node.ip());
-            data.port(options.node.port());
-            data.availableIps(options.node.ips());
-        } else {
-            data.manual(true);
-            data.nodeID('');
-            data.ip('');
-            data.port(8500);
-            data.availableIps([]);
-        }
-        data.username('');
-        data.password('');
-        data.ips([]);
+        data.nodeID(options.node.nodeID());
+        data.ip(options.node.ip());
+        data.port(options.node.port());
+        data.username(options.node.username());
+        data.asdIPs(options.node.ips());
     };
 });

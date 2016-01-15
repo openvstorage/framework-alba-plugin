@@ -16,15 +16,22 @@
 Contains the AlbaBackendViewSet
 """
 
+from backend.decorators import load
+from backend.decorators import log
+from backend.decorators import required_roles
+from backend.decorators import return_list
+from backend.decorators import return_object
+from backend.decorators import return_task
 from backend.serializers.serializers import FullSerializer
-from rest_framework.response import Response
-from backend.decorators import required_roles, return_object, return_list, load, return_task, log
-from rest_framework import status, viewsets
-from rest_framework.permissions import IsAuthenticated
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albabackendlist import AlbaBackendList
-from rest_framework.decorators import action, link
 from ovs.lib.albacontroller import AlbaController
+from rest_framework import status
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.decorators import link
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 
 class AlbaBackendViewSet(viewsets.ViewSet):
@@ -52,6 +59,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     def retrieve(self, albabackend):
         """
         Load information about a given AlbaBackend
+        :param albabackend: ALBA backend to retrieve
         """
         return albabackend
 
@@ -61,6 +69,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     def create(self, request):
         """
         Creates an AlbaBackend
+        :param request: Data regarding ALBA backend to create
         """
         serializer = FullSerializer(AlbaBackend, instance=AlbaBackend(), data=request.DATA, allow_passwords=True)
         if serializer.is_valid():
@@ -81,6 +90,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     def destroy(self, albabackend):
         """
         Deletes an AlbaBackend
+        :param albabackend: ALBA backend to destroy
         """
         return AlbaController.remove_cluster.delay(albabackend.guid)
 
@@ -105,6 +115,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     def get_config_metadata(self, albabackend):
         """
         Gets the configuration metadata for an Alba backend
+        :param albabackend: ALBA backend to retrieve metadata for
         """
         return AlbaController.get_config_metadata.delay(albabackend.guid)
 
@@ -115,6 +126,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     def get_available_actions(self, albabackend):
         """
         Gets a list of all available actions
+        :param albabackend: ALBA backend to retrieve available actions for
         """
         actions = []
         if len(albabackend.asds) == 0:
@@ -129,6 +141,11 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     def add_preset(self, albabackend, name, compression, policies, encryption):
         """
         Adds a preset to a backend
+        :param albabackend: ALBA backend to add preset for
+        :param name: Name of preset
+        :param compression: Compression type
+        :param policies: Policies linked to the preset
+        :param encryption: Encryption type
         """
         return AlbaController.add_preset.delay(albabackend.guid, name, compression, policies, encryption)
 
@@ -140,6 +157,8 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     def delete_preset(self, albabackend, name):
         """
         Deletes a preset
+        :param albabackend: ALBA backend to delete present from
+        :param name: Name of preset to delete
         """
         return AlbaController.delete_preset.delay(albabackend.guid, name)
 
@@ -151,6 +170,9 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     def update_preset(self, albabackend, name, policies):
         """
         Updates a preset's policies to a backend
+        :param albabackend: ALBA backend to update preset for
+        :param name: Name of preset
+        :param policies: Policies to set
         """
         return AlbaController.update_preset.delay(albabackend.guid, name, policies)
 
@@ -162,5 +184,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     def calculate_safety(self, albabackend, asd_id):
         """
         Returns the safety resulting the removal of a given disk
+        :param albabackend: ALBA backend to calculate safety for
+        :param asd_id: ID of the ASD to calculate safety off
         """
         return AlbaController.calculate_safety.delay(albabackend.guid, [asd_id])
