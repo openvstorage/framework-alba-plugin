@@ -254,7 +254,6 @@ class AlbaController(object):
         if len(albabackend.asds) > 0:
             raise RuntimeError('A backend with claimed OSDs cannot be removed')
 
-        slaves = StorageRouterList.get_slaves()
         masters = StorageRouterList.get_masters()
 
         for master in masters:

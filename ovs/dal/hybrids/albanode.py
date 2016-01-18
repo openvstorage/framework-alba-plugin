@@ -51,7 +51,7 @@ class AlbaNode(DataObject):
         """
         Returns the IPs of the node
         """
-        return EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/network|asd_ips'.format(self.node_id))
+        return EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/network|ips'.format(self.node_id))
 
     def _all_disks(self):
         """
