@@ -202,7 +202,7 @@ class AlbaNodeController(object):
                     node = AlbaNode()
                 node.storagerouter = storagerouter
                 node.ip = node_ip
-                node.port = 8500
+                node.port = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|port'.format(node_id))
                 node.username = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|username'.format(node_id))
                 node.password = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|password'.format(node_id))
                 node.node_id = node_id

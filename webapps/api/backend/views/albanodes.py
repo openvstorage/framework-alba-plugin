@@ -64,7 +64,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
             node.ip = ip
             node.type = 'ASD'
             node.node_id = node_id
-            node.port = 8500
+            node.port = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|port'.format(node_id))
             node.username = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|username'.format(node_id))
             node.password = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|password'.format(node_id))
             data = node.client.get_metadata()
@@ -85,10 +85,10 @@ class AlbaNodeViewSet(viewsets.ViewSet):
 
         for node_id in asd_node_ids:
             node = AlbaNode(volatile=True)
-            node.port = 8500
             node.type = 'ASD'
             node.node_id = node_id
             node.ip = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|ip'.format(node_id))
+            node.port = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|port'.format(node_id))
             node.username = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|username'.format(node_id))
             node.password = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|password'.format(node_id))
             if node.node_id not in model_node_ids and node.node_id not in found_node_ids:
