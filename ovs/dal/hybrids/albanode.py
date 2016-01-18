@@ -19,6 +19,7 @@ import requests
 from ovs.dal.dataobject import DataObject
 from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.dal.hybrids.storagerouter import StorageRouter
+from ovs.extensions.db.etcd.configuration import EtcdConfiguration
 from ovs.extensions.plugins.asdmanager import ASDManagerClient
 from ovs.extensions.plugins.albacli import AlbaCLI
 
@@ -50,7 +51,7 @@ class AlbaNode(DataObject):
         """
         Returns the IPs of the node
         """
-        return self.client.get_ips()
+        return EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/network|asd_ips'.format(self.node_id))
 
     def _all_disks(self):
         """
