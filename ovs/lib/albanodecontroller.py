@@ -51,6 +51,7 @@ class AlbaNodeController(object):
             node.port = main_config['port']
             node.username = main_config['username']
             node.password = main_config['password']
+            node.storagerouter = StorageRouterList.get_by_ip(main_config['ip'])
         data = node.client.get_metadata()
         if data['_success'] is False and data['_error'] == 'Invalid credentials':
             raise RuntimeError('Invalid credentials')
@@ -186,24 +187,18 @@ class AlbaNodeController(object):
         :param kwargs: Kwargs containing information regarding the node
         :return: None
         """
-        if 'cluster_ip' in kwargs:
-            node_ip = kwargs['cluster_ip']
-        elif 'ip' in kwargs:
-            node_ip = kwargs['ip']
-        else:
-            raise RuntimeError('The model_local_albanode needs a cluster_ip or ip keyword argument')
-        storagerouter = StorageRouterList.get_by_ip(node_ip)
-
+        _ = kwargs
         if EtcdConfiguration.dir_exists('/ovs/alba/asdnodes'):
             for node_id in EtcdConfiguration.list('/ovs/alba/asdnodes'):
-                node = AlbaNodeList.get_albanode_by_ip(node_ip)
+                node = AlbaNodeList.get_albanode_by_node_id(node_id)
                 if node is None:
                     node = AlbaNode()
-                node.storagerouter = storagerouter
-                node.ip = node_ip
-                node.port = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|port'.format(node_id))
-                node.username = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|username'.format(node_id))
-                node.password = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|password'.format(node_id))
-                node.node_id = node_id
+                main_config = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main'.format(node_id))
                 node.type = 'ASD'
+                node.node_id = node_id
+                node.ip = main_config['ip']
+                node.port = main_config['port']
+                node.username = main_config['username']
+                node.password = main_config['password']
+                node.storagerouter = StorageRouterList.get_by_ip(main_config['ip'])
                 node.save()

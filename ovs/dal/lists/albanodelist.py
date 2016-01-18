@@ -40,7 +40,8 @@ class AlbaNodeList(object):
     @staticmethod
     def get_albanode_by_ip(ip):
         """
-        Returns a node by ip
+        Returns a node by IP
+        :param ip: IP of the ALBa node to retrieve
         """
         nodes = DataList({'object': AlbaNode,
                           'data': DataList.select.GUIDS,
@@ -54,6 +55,7 @@ class AlbaNodeList(object):
     def get_albanode_by_node_id(node_id):
         """
         Returns a node by its node_id
+        :param node_id: ID of the ALBA node to retrieve
         """
         nodes = DataList({'object': AlbaNode,
                           'data': DataList.select.GUIDS,
