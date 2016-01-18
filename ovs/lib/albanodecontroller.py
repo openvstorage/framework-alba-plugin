@@ -44,12 +44,11 @@ class AlbaNodeController(object):
         :param node_id: ID of the ALBA node
         """
         node = AlbaNodeList.get_albanode_by_node_id(node_id)
-        network_config = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/network'.format(node_id))
         if node is None:
             main_config = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main'.format(node_id))
             node = AlbaNode()
             node.ip = main_config['ip']
-            node.port = network_config['port']
+            node.port = main_config['port']
             node.username = main_config['username']
             node.password = main_config['password']
         data = node.client.get_metadata()
