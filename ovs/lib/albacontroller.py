@@ -265,8 +265,6 @@ class AlbaController(object):
             ip = abm_service.service.storagerouter.ip
             service_name = abm_service.service.name
             if cluster_removed is False:
-                for slave in slaves:
-                    ArakoonInstaller.remove_from_slave(ip, slave.ip, service_name)
                 ArakoonInstaller.delete_cluster(service_name, ip)
                 cluster_removed = True
             service = abm_service.service
