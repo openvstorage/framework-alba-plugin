@@ -1,0 +1,14 @@
+[Unit]
+Description="alba rebalancer"
+After=network.target local-fs.target
+
+[Service]
+Group=root
+User=root
+Restart=on-failure
+RestartSec=10s
+TimeoutStopSec=60
+Environment=LD_LIBRARY_PATH=/usr/lib/alba
+
+ExecStart=/usr/bin/alba maintenance --config <ALBA_CONFIG> --only-rebalance
+ExecStartPre=/bin/sh -c "if [ ! -d /opt/OpenvStorage/run ]; then mkdir /opt/OpenvStorage/run; chown ovs:ovs /opt/OpenvStorage/run; fi; echo `alba version --terse` > /opt/OpenvStorage/run/<SERVICE_NAME>.version"
