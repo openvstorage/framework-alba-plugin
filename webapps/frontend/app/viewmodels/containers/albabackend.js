@@ -26,22 +26,24 @@ define([
         self.actionsHandle = undefined;
 
         // External dependencies
-        self.vPools = undefined;
+        self.vPools  = undefined;
         self.license = ko.observable();
 
         // Observables
-        self.loading          = ko.observable(false);
-        self.loaded           = ko.observable(false);
-        self.guid             = ko.observable(guid);
-        self.name             = ko.observable();
-        self.backend          = ko.observable();
-        self.backendGuid      = ko.observable();
-        self.color            = ko.observable();
-        self.readIOps         = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
-        self.writeIOps        = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
-        self.usage            = ko.observable([]);
-        self.presets          = ko.observableArray([]);
-        self.availableActions = ko.observableArray([]);
+        self.availableActions    = ko.observableArray([]);
+        self.backend             = ko.observable();
+        self.backendGuid         = ko.observable();
+        self.color               = ko.observable();
+        self.guid                = ko.observable(guid);
+        self.loaded              = ko.observable(false);
+        self.loading             = ko.observable(false);
+        self.metadataInformation = ko.observable();
+        self.name                = ko.observable();
+        self.presets             = ko.observableArray([]);
+        self.readIOps            = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.totalSize           = ko.observable();
+        self.usage               = ko.observable([]);
+        self.writeIOps           = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
 
         // Computed
         self.enhancedPresets = ko.computed(function() {
@@ -63,7 +65,7 @@ define([
                         k: policyObject[0],
                         m: policyObject[1],
                         c: policyObject[2],
-                        x: policyObject[3],
+                        x: policyObject[3]
                     };
                     if (isAvailable) {
                         newPolicy.color = 'black';
@@ -123,46 +125,51 @@ define([
                 self.readIOps(data.statistics.multi_get.n_ps);
                 self.writeIOps(data.statistics.apply.n_ps);
             }
-            if (data.hasOwnProperty('ns_statistics') && self.vPools !== undefined) {
-                var stats = data.ns_statistics,
-                    usage, freespace, unknown, overhead, vpools = [], total = 0;
-                freespace = stats.global.size - stats.global.used;
-                unknown = stats.unknown.storage;
-                $.each(self.vPools(), function(index, vpool) {
-                    if (stats.vpools.hasOwnProperty(vpool.guid())) {
-                        total += stats.vpools[vpool.guid()].storage;
-                        vpools.push({
-                            name: $.t('ovs:generic.vpool') + ': ' + vpool.name(),
-                            value: stats.vpools[vpool.guid()].storage,
-                            percentage: stats.global.size > 0 ? stats.vpools[vpool.guid()].storage / stats.global.size : 0
-                        });
-                    }
-                });
-                overhead = Math.max(stats.global.used - total, 0);
-                usage = [
-                    {
-                        name: $.t('alba:generic.stats.freespace'),
-                        value: stats.global.size > 0 ? freespace : 0.000001,
-                        percentage: stats.global.size > 0 ? freespace / stats.global.size : 1
-                    },
-                    {
-                        name: $.t('alba:generic.stats.unknown'),
-                        value: unknown,
-                        percentage: stats.global.size > 0 ? unknown / stats.global.size : 0
-                    },
-                    {
-                        name: $.t('alba:generic.stats.overhead'),
-                        value: overhead,
-                        percentage: stats.global.size > 0 ? overhead / stats.global.size : 0
-                    }
-                ].concat(vpools);
-                self.usage(usage);
-            } else {
-                self.usage([]);
+            if (data.hasOwnProperty('metadata_information')) {
+                self.metadataInformation(data.metadata_information);
             }
-
-            self.loaded(true);
-            self.loading(false);
+            if (data.hasOwnProperty('ns_statistics')) {
+                var stats = data.ns_statistics;
+                self.totalSize(stats.global.size);
+                if (self.vPools !== undefined) {
+                    var usage, freespace, unknown, overhead, vpools = [], total = 0;
+                    freespace = stats.global.size - stats.global.used;
+                    unknown = stats.unknown.storage;
+                    $.each(self.vPools(), function (index, vpool) {
+                        if (stats.vpools.hasOwnProperty(vpool.guid())) {
+                            total += stats.vpools[vpool.guid()].storage;
+                            vpools.push({
+                                name: $.t('ovs:generic.vpool') + ': ' + vpool.name(),
+                                value: stats.vpools[vpool.guid()].storage,
+                                percentage: stats.global.size > 0 ? stats.vpools[vpool.guid()].storage / stats.global.size : 0
+                            });
+                        }
+                    });
+                    overhead = Math.max(stats.global.used - total, 0);
+                    usage = [
+                        {
+                            name: $.t('alba:generic.stats.freespace'),
+                            value: stats.global.size > 0 ? freespace : 0.000001,
+                            percentage: stats.global.size > 0 ? freespace / stats.global.size : 1
+                        },
+                        {
+                            name: $.t('alba:generic.stats.unknown'),
+                            value: unknown,
+                            percentage: stats.global.size > 0 ? unknown / stats.global.size : 0
+                        },
+                        {
+                            name: $.t('alba:generic.stats.overhead'),
+                            value: overhead,
+                            percentage: stats.global.size > 0 ? overhead / stats.global.size : 0
+                        }
+                    ].concat(vpools);
+                    self.usage(usage);
+                } else {
+                    self.usage([]);
+                }
+                self.loaded(true);
+                self.loading(false);
+            }
         };
         self.load = function() {
             return $.Deferred(function(deferred) {
