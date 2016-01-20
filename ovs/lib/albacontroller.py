@@ -37,6 +37,7 @@ from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
+from ovs.extensions.generic.remote import Remote
 from ovs.extensions.generic.sshclient import SSHClient
 from ovs.extensions.generic.sshclient import UnableToConnectException
 from ovs.extensions.packages.package import PackageManager
@@ -959,7 +960,6 @@ class AlbaController(object):
         arakoon_cluster_services = set()
         for albabackend in AlbaBackendList.get_albabackends():
             alba_services.add('{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, albabackend.backend.name))
-            alba_services.add('{0}_{1}'.format(AlbaController.ALBA_REBALANCER_SERVICE_PREFIX, albabackend.backend.name))
             arakoon_cluster_services.add('arakoon-{0}'.format(albabackend.abm_services[0].service.name))
             arakoon_cluster_services.update(['arakoon-{0}'.format(service.service.name) for service in albabackend.nsm_services])
             if len(albabackend.abm_services) < 3:
@@ -1104,11 +1104,11 @@ class AlbaController(object):
             'albamgr_cfg_url': 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(abm_name)
         }), raw=True)
         params = {'ALBA_CONFIG': 'etcd://127.0.0.1:2379{0}'.format(config_location)}
-        for service_prefix in [AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, AlbaController.ALBA_REBALANCER_SERVICE_PREFIX]:
-            service_name = '{0}_{1}'.format(service_prefix, backend_name)
-            ServiceManager.prepare_template('ovs-{0}'.format(service_prefix), 'ovs-{0}'.format(service_name), client=ovs_client)
-            ServiceManager.add_service(name=service_name, params=params, client=root_client)
-            ServiceManager.start_service(service_name, root_client)
+        service_name = '{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, backend_name)
+        ServiceManager.prepare_template('ovs-{0}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX),
+                                        'ovs-{0}'.format(service_name), client=ovs_client)
+        ServiceManager.add_service(name=service_name, params=params, client=root_client)
+        ServiceManager.start_service(service_name, root_client)
 
     @staticmethod
     def _remove_services(ip, alba_backend):
@@ -1116,12 +1116,28 @@ class AlbaController(object):
         Stops and removes the maintenance service/process
         """
         client = SSHClient(ip, username='root')
-        for service_prefix in [AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, AlbaController.ALBA_REBALANCER_SERVICE_PREFIX]:
-            service_name = '{0}_{1}'.format(service_prefix, alba_backend.backend.name)
+        service_name = '{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, alba_backend.backend.name)
+        if ServiceManager.has_service(service_name, client=client) is True:
+            if ServiceManager.get_service_status(service_name, client=client) is True:
+                ServiceManager.stop_service(service_name, client=client)
+            ServiceManager.remove_service(service_name, client=client)
+
+    @staticmethod
+    @add_hooks('update', 'postupgrade')
+    def upgrade_alba_plugin(client):
+
+        from ovs.dal.lists.albabackendlist import AlbaBackendList
+        alba_backends = AlbaBackendList.get_albabackends()
+        for alba_backend in alba_backends:
+            alba_backend_name = alba_backend.backend.name
+            service_name = '{0}_{1}'.format(AlbaController.ALBA_REBALANCER_SERVICE_PREFIX, alba_backend_name)
             if ServiceManager.has_service(service_name, client=client) is True:
                 if ServiceManager.get_service_status(service_name, client=client) is True:
                     ServiceManager.stop_service(service_name, client=client)
                 ServiceManager.remove_service(service_name, client=client)
+
+            AlbaController._setup_services(client.ip, alba_backend_name + '-abm', alba_backend_name)
+
 
 if __name__ == '__main__':
     try:
