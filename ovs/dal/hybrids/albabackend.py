@@ -36,7 +36,8 @@ class AlbaBackend(DataObject):
                   Dynamic('ns_statistics', dict, 60),
                   Dynamic('presets', list, 60),
                   Dynamic('available', bool, 60),
-                  Dynamic('name', str, 3600)]
+                  Dynamic('name', str, 3600),
+                  Dynamic('metadata_information', dict, 60)]
 
     def _all_disks(self):
         """
@@ -264,3 +265,22 @@ class AlbaBackend(DataObject):
         Returns the backend's name
         """
         return self.backend.name
+
+    def _metadata_information(self):
+        """
+        Returns metadata information about the backend
+        """
+        from ovs.dal.hybrids.diskpartition import DiskPartition
+        from ovs.dal.lists.servicetypelist import ServiceTypeList
+
+        info = {'nsm_partition_guids': []}
+
+        nsm_service_name = self.backend.name + "-nsm_0"
+        nsm_service_type = ServiceTypeList.get_by_name('NamespaceManager')
+        for service in nsm_service_type.services:
+            if service.name == nsm_service_name:
+                for disk in service.storagerouter.disks:
+                    for partition in disk.partitions:
+                        if DiskPartition.ROLES.DB in partition.roles:
+                            info['nsm_partition_guids'].append(partition.guid)
+        return info
