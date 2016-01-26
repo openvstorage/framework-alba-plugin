@@ -537,25 +537,18 @@ class AlbaController(object):
                 raise RuntimeError('No ABM services found for ALBA backend "{0}"'.format(alba_backend.backend.name))
             abm_service_name = alba_backend.abm_services[0].service.name
             abm_storagerouter_ips = [abm_service.service.storagerouter.ip for abm_service in alba_backend.abm_services]
-            remaining_ips = list(set(abm_storagerouter_ips).difference(set(offline_node_ips)))
-            if len(remaining_ips) == 0:
+            abm_remaining_ips = list(set(abm_storagerouter_ips).difference(set(offline_node_ips)))
+            if len(abm_remaining_ips) == 0:
                 raise RuntimeError('No other available nodes found in the ABM cluster')
 
             if cluster_ip in abm_storagerouter_ips:
                 logger.info('* Shrink ABM cluster')
                 ArakoonInstaller.shrink_cluster(master_ip, cluster_ip, abm_service_name, offline_node_ips)
 
-                if client is not None:
-                    arakoon_service_name = 'arakoon-{0}'.format(abm_service_name)
-                    if ServiceManager.has_service(arakoon_service_name, client=client) is True:
-                        logger.info('* Stopping arakoon service {0}'.format(arakoon_service_name))
-                        ServiceManager.stop_service(arakoon_service_name, client=client)
-                        ServiceManager.remove_service(arakoon_service_name, client=client)
-
                 logger.info('* Restarting ABM cluster')
-                ArakoonInstaller.restart_cluster_remove(abm_service_name, remaining_ips)
+                ArakoonInstaller.restart_cluster_remove(abm_service_name, abm_remaining_ips)
                 AlbaController._update_abm_client_config(abm_name=abm_service_name,
-                                                         ip=remaining_ips[0])
+                                                         ip=abm_remaining_ips[0])
 
                 logger.info('* Remove old ABM node from model')
                 abm_service = [abms for abms in alba_backend.abm_services if abms.service.storagerouter.ip == cluster_ip][0]
@@ -573,23 +566,17 @@ class AlbaController(object):
             nsm_service_map = dict((nsm_service.service.name, nsm_service.number) for nsm_service in alba_backend.nsm_services)
             for nsm_service_name, nsm_service_number in nsm_service_map.iteritems():
                 nsm_storagerouter_ips = [nsm_service.service.storagerouter.ip for nsm_service in alba_backend.nsm_services if nsm_service.service.name == nsm_service_name]
-                remaining_ips = list(set(nsm_storagerouter_ips).difference(set(offline_node_ips)))
-                if len(remaining_ips) == 0:
+                nsm_remaining_ips = list(set(nsm_storagerouter_ips).difference(set(offline_node_ips)))
+                if len(nsm_remaining_ips) == 0:
                     raise RuntimeError('No other available nodes found in the ABM cluster')
 
                 if cluster_ip in nsm_storagerouter_ips:
                     logger.info('* Shrink NSM cluster {0}'.format(nsm_service_number))
                     ArakoonInstaller.shrink_cluster(master_ip, cluster_ip, nsm_service_name, offline_node_ips)
 
-                    if client is not None:
-                        arakoon_service_name = 'arakoon-{0}'.format(nsm_service_name)
-                        if ServiceManager.has_service(arakoon_service_name, client=client) is True:
-                            logger.info('* Stopping arakoon service {0}'.format(arakoon_service_name))
-                            ServiceManager.stop_service(arakoon_service_name, client=client)
-                            ServiceManager.remove_service(arakoon_service_name, client=client)
-
                     logger.info('* Restarting NSM cluster {0}'.format(nsm_service_number))
-                    ArakoonInstaller.restart_cluster_remove(nsm_service_name, remaining_ips)
+                    ArakoonInstaller.restart_cluster_remove(nsm_service_name, nsm_remaining_ips)
+                    AlbaController.update_nsm(abm_service_name, nsm_service_name, abm_remaining_ips[0])
 
                     logger.info('* Remove old NSM node from model')
                     nsm_service = [nsm_service for nsm_service in alba_backend.nsm_services if nsm_service.service.name == nsm_service_name and nsm_service.service.storagerouter.ip == cluster_ip][0]
