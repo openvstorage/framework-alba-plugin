@@ -59,6 +59,12 @@ class AlbaController(object):
     ALBA_MAINTENANCE_SERVICE_PREFIX = 'alba-maintenance'
     ALBA_REBALANCER_SERVICE_PREFIX = 'alba-rebalancer'
 
+
+    @staticmethod
+    def _get_abm_service_name(alba_backend):
+        return alba_backend.backend.name + '-abm'
+
+
     @staticmethod
     @celery.task(name='alba.add_units')
     def add_units(alba_backend_guid, asds):
@@ -402,7 +408,7 @@ class AlbaController(object):
         if alba_backend_guid is not None:
             storagerouter, partition = available_storagerouters.items()[0]
             alba_backend = AlbaBackend(alba_backend_guid)
-            abm_service_name = alba_backend.backend.name + "-abm"
+            abm_service_name = AlbaController._get_abm_service_name(alba_backend)
             nsm_service_name = alba_backend.backend.name + "-nsm_0"
             if len(current_services[alba_backend]['abm']) == 0:
                 abm_service = AlbaController.create_or_extend_cluster(create=True,
@@ -433,10 +439,10 @@ class AlbaController(object):
                 current_services[alba_backend]['nsm'].append(nsm_service)
                 AlbaController.register_nsm(abm_service_name, nsm_service_name, storagerouter.ip)
 
-            AlbaController._setup_services(storagerouter.ip, abm_service_name, alba_backend)
+            AlbaController._setup_services(storagerouter.ip, alba_backend)
 
         for alba_backend in alba_backends:
-            abm_service_name = alba_backend.backend.name + "-abm"
+            abm_service_name = AlbaController._get_abm_service_name(alba_backend)
             if 0 < len(current_services[alba_backend]['abm']) < len(available_storagerouters):
                 for storagerouter, partition in available_storagerouters.iteritems():
                     if storagerouter.ip in current_ips[alba_backend]['abm']:
@@ -457,7 +463,7 @@ class AlbaController(object):
                     current_ips[alba_backend]['abm'].append(storagerouter.ip)
                     current_services[alba_backend]['abm'].append(abm_service)
 
-                    AlbaController._setup_services(storagerouter.ip, abm_service_name, alba_backend)
+                    AlbaController._setup_services(storagerouter.ip, alba_backend)
 
     @staticmethod
     @add_hooks('setup', 'demote')
@@ -605,7 +611,7 @@ class AlbaController(object):
                     available_srs = [storagerouter for storagerouter in nsm_storagerouter.keys()
                                      if storagerouter not in current_srs]
                     nsm_service_name = current_nsm.service.name
-                    # As long as there are available StorageRouters and there are still not enough StorageRouters configured
+                    # As long as there are available StorageRouters and still not enough StorageRouters configured
                     while len(available_srs) > 0 and len(current_srs) < safety:
                         logger.debug('Adding node')
                         candidate_sr = None
@@ -824,8 +830,10 @@ class AlbaController(object):
         """
         abm_config_file = ArakoonInstaller.ETCD_CONFIG_PATH.format(abm_name)
         client = SSHClient(ip)
-        # Try 8 times, this means 1st time immediately, 2nd time after 2 secs, 3rd time after 4 seconds, 4th time after 8 seconds,.... This will be up to 2 minutes
-        # Reason for trying multiple times is because after a cluster has been shrunk or extended, master might not be known, thus updating config might fail
+        # Try 8 times, 1st time immediately, 2nd time after 2 secs, 3rd time after 4 seconds, 4th time after 8 seconds
+        # This will be up to 2 minutes
+        # Reason for trying multiple times is because after a cluster has been shrunk or extended,
+        # master might not be known, thus updating config might fail
         AlbaCLI.run('update-abm-client-config', config=abm_config_file, attempts=8, client=client)
 
     @staticmethod
@@ -959,7 +967,6 @@ class AlbaController(object):
         arakoon_cluster_services = set()
         for albabackend in AlbaBackendList.get_albabackends():
             alba_services.add('{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, albabackend.backend.name))
-            alba_services.add('{0}_{1}'.format(AlbaController.ALBA_REBALANCER_SERVICE_PREFIX, albabackend.backend.name))
             arakoon_cluster_services.add('arakoon-{0}'.format(albabackend.abm_services[0].service.name))
             arakoon_cluster_services.update(['arakoon-{0}'.format(service.service.name) for service in albabackend.nsm_services])
             if len(albabackend.abm_services) < 3:
@@ -1091,7 +1098,7 @@ class AlbaController(object):
         EtcdConfiguration.set('/ovs/framework/plugins/installed', installed)
 
     @staticmethod
-    def _setup_services(ip, abm_name, alba_backend):
+    def _setup_services(ip, alba_backend):
         """
         Creates and starts a maintenance service/process
         """
@@ -1101,14 +1108,14 @@ class AlbaController(object):
         config_location = '/ovs/alba/backends/{0}/maintenance/config'.format(alba_backend.guid)
         EtcdConfiguration.set(config_location, json.dumps({
             'log_level': 'info',
-            'albamgr_cfg_url': 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(abm_name)
+            'albamgr_cfg_url': 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController._get_abm_service_name(alba_backend))
         }), raw=True)
         params = {'ALBA_CONFIG': 'etcd://127.0.0.1:2379{0}'.format(config_location)}
-        for service_prefix in [AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, AlbaController.ALBA_REBALANCER_SERVICE_PREFIX]:
-            service_name = '{0}_{1}'.format(service_prefix, backend_name)
-            ServiceManager.prepare_template('ovs-{0}'.format(service_prefix), 'ovs-{0}'.format(service_name), client=ovs_client)
-            ServiceManager.add_service(name=service_name, params=params, client=root_client)
-            ServiceManager.start_service(service_name, root_client)
+        service_name = '{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, backend_name)
+        ServiceManager.prepare_template('ovs-{0}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX),
+                                        'ovs-{0}'.format(service_name), client=ovs_client)
+        ServiceManager.add_service(name=service_name, params=params, client=root_client)
+        ServiceManager.start_service(service_name, root_client)
 
     @staticmethod
     def _remove_services(ip, alba_backend):
@@ -1116,12 +1123,28 @@ class AlbaController(object):
         Stops and removes the maintenance service/process
         """
         client = SSHClient(ip, username='root')
-        for service_prefix in [AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, AlbaController.ALBA_REBALANCER_SERVICE_PREFIX]:
-            service_name = '{0}_{1}'.format(service_prefix, alba_backend.backend.name)
+        service_name = '{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, alba_backend.backend.name)
+        if ServiceManager.has_service(service_name, client=client) is True:
+            if ServiceManager.get_service_status(service_name, client=client) is True:
+                ServiceManager.stop_service(service_name, client=client)
+            ServiceManager.remove_service(service_name, client=client)
+
+    @staticmethod
+    @add_hooks('update', 'postupgrade')
+    def upgrade_alba_plugin(client):
+
+        from ovs.dal.lists.albabackendlist import AlbaBackendList
+        alba_backends = AlbaBackendList.get_albabackends()
+        for alba_backend in alba_backends:
+            alba_backend_name = alba_backend.backend.name
+            service_name = '{0}_{1}'.format(AlbaController.ALBA_REBALANCER_SERVICE_PREFIX, alba_backend_name)
             if ServiceManager.has_service(service_name, client=client) is True:
                 if ServiceManager.get_service_status(service_name, client=client) is True:
                     ServiceManager.stop_service(service_name, client=client)
                 ServiceManager.remove_service(service_name, client=client)
+
+            AlbaController._setup_services(client.ip, alba_backend)
+
 
 if __name__ == '__main__':
     try:

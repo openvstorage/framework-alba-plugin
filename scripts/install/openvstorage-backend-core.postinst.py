@@ -18,3 +18,7 @@ import shutil
 
 # Update ownership
 os.system('chown -R ovs:ovs /opt/OpenvStorage/ovs/')
+
+# Remove obsolete template for rebalancer
+os.system('rm -f /opt/OpenvStorage/config/templates/systemd/ovs-alba-rebalancer.conf')
+os.system('rm -f /opt/OpenvStorage/config/templates/upstart/ovs-alba-rebalancer.conf')
