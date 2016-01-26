@@ -34,11 +34,9 @@ class AlbaScheduledTaskController(object):
     """
 
     job_schedule_x_months = 3
-    job_schedule__x_months_key = '/ovs/alba/backends/job_schedule_x_months'
-    if EtcdConfiguration.exists(job_schedule__x_months_key):
-        job_factor = EtcdConfiguration.get(job_schedule__x_months_key)
-    else:
-        EtcdConfiguration.set(job_schedule__x_months_key, job_schedule_x_months)
+    job_schedule_x_months_key = '/ovs/alba/backends/job_schedule_x_months'
+    if not EtcdConfiguration.exists(job_schedule_x_months_key):
+        EtcdConfiguration.set(job_schedule_x_months_key, job_schedule_x_months)
 
     @staticmethod
     @celery.task(name='alba.scheduled.verify_namespaces',
