@@ -28,6 +28,7 @@ from ovs.log.logHandler import LogHandler
 from ovs.lib.albacontroller import AlbaController
 from ovs.lib.disk import DiskController
 from ovs.lib.helpers.decorators import add_hooks
+from ovs.lib.helpers.decorators import ensure_single
 
 logger = LogHandler.get('lib', name='albanode')
 
@@ -96,6 +97,7 @@ class AlbaNodeController(object):
 
     @staticmethod
     @celery.task(name='albanode.remove_disk')
+    @ensure_single(task_name='albanode.remove_disk', mode='CHAINED')
     def remove_disk(alba_backend_guid, node_guid, disk, expected_safety):
         """
         Removes a disk
@@ -108,44 +110,50 @@ class AlbaNodeController(object):
         alba_backend = AlbaBackend(alba_backend_guid)
         logger.debug('Removing disk {0} at node {1}'.format(disk, node.ip))
         nodedown = False
+        disk_info = None
         try:
             disks = node.client.get_disks(as_list=False, reraise=True)
+            disk_info = disks.get(disk)
         except requests.ConnectionError:
             logger.warning('Alba HTTP Client connection failed on node {0} for disk {1}'.format(node.ip, disk))
             nodedown = True
-            # convert to dict
-            _disks = node.all_disks
-            disks = {}
-            for _disk in _disks:
-                disks[_disk['name']] = _disk
+            for d in node.all_disks:
+                if d['name'] == disk:
+                    disk_info = d
+                    break
 
-        if disk not in disks:
+        if disk_info is None or not isinstance(disk_info, dict):
             logger.exception('Disk {0} not available for removal on node {1}'.format(disk, node.ip))
-            raise RuntimeError('Could not find disk')
+            raise RuntimeError('Could not find disk with name {0}'.format(disk))
 
-        if disks[disk]['available'] is True or (disks[disk]['available'] is False and nodedown is False):
-            final_safety = AlbaController.calculate_safety(alba_backend_guid, [disks[disk]['asd_id']])
-            if (final_safety['critical'] != 0 or final_safety['lost'] != 0) and (final_safety['critical'] != expected_safety['critical'] or final_safety['lost'] != expected_safety['lost']):
+        disk_asd_id = disk_info.get('asd_id')
+        disk_available = disk_info.get('available')
+        if disk_asd_id is None or disk_available is None:
+            raise RuntimeError('Failed to retrieve information about disk with name {0}'.format(disk))
+
+        asds = [asd for asd in alba_backend.asds if asd.asd_id == disk_asd_id]
+        if len(asds) > 1:
+            raise RuntimeError('Multiple ASDs with ID {0}'.format(disk_asd_id))
+
+        if disk_available is True or nodedown is False:
+            final_safety = AlbaController.calculate_safety(alba_backend_guid, [disk_asd_id])
+            safety_lost = final_safety['lost']
+            safety_crit = final_safety['critical']
+            if (safety_crit != 0 or safety_lost != 0) and (safety_crit != expected_safety['critical'] or safety_lost != expected_safety['lost']):
                 raise RuntimeError('Cannot remove disk {0} as the current safety is not as expected ({1} vs {2})'.format(disk, final_safety, expected_safety))
 
-            AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']], absorb_exception=True)
+            AlbaController.remove_units(alba_backend_guid, [disk_asd_id])
             result = node.client.remove_disk(disk)
             if result['_success'] is False:
                 raise RuntimeError('Error removing disk: {0}'.format(result['_error']))
-
-            AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']], absorb_exception=True)
-        elif disks[disk]['available'] is False and nodedown is True:
+        else:
             # Forcefully remove disk -> decommission-osd
             # no safety checks, don't call HTTP client
-            logger.warning('Alba decommission osd {0}'.format(disks[disk]['asd_id']))
-            AlbaController.remove_units(alba_backend_guid, [disks[disk]['asd_id']], absorb_exception=True)
-        else:
-            raise RuntimeError("Cannot remove disk {0}, available {1}, node down {2}".format(disk, disks[disk]['available'], nodedown))
+            logger.warning('Alba decommission osd {0}'.format(disk_asd_id))
+            AlbaController.remove_units(alba_backend_guid, [disk_asd_id], absorb_exception=True)
 
-        asds = [asd for asd in alba_backend.asds if asd.asd_id == disks[disk]['asd_id']]
-        asd = asds[0] if len(asds) == 1 else None
-        if asd is not None:
-            asd.delete()
+        if len(asds) == 1:
+            asds[0].delete()
         node.invalidate_dynamics()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
