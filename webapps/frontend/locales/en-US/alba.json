@@ -79,12 +79,11 @@
         "nolicense": "Open vStorage Backend is unlicensed. It will be impossible to claim disks which will cause the backend to be unavailable. Please request a Community License to start using this backend.",
         "wayreplication": "-way replication:",
         "statusdetails": {
+            "communicationerror": "Communication error",
             "missing": "Disk is missing",
             "ioerror": "I/O errors",
             "servicefailure": "Service failure",
             "corruption": "Data corruption",
-            "slow": "Latency (> 0.5s)",
-            "tooslow": "Latency (> 1s)",
             "recenterrors": "Recent errors",
             "nodedown": "Node is unreachable",
             "decommissioned": "ASD has been decommissioned"
