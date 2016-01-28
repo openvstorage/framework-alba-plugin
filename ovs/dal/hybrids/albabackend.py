@@ -100,7 +100,7 @@ class AlbaBackend(DataObject):
                                     read = osd['read'] or [0]
                                     write = osd['write'] or [0]
                                     errors = osd['errors']
-                                    if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + 1800):
+                                    if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + 300):
                                         disk['status'] = 'claimed'
                                         disk['status_detail'] = ''
                     elif disk_alba_state == 'decommissioned':
