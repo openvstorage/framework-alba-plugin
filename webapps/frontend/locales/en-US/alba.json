@@ -78,12 +78,11 @@
         "warnings": "Warnings",
         "wayreplication": "-way replication:",
         "statusdetails": {
+            "communicationerror": "Communication error",
             "missing": "Disk is missing",
             "ioerror": "I/O errors",
             "servicefailure": "Service failure",
             "corruption": "Data corruption",
-            "slow": "Latency (> 0.5s)",
-            "tooslow": "Latency (> 1s)",
             "recenterrors": "Recent errors",
             "nodedown": "Node is unreachable",
             "decommissioned": "ASD has been decommissioned"
