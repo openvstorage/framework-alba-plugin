@@ -72,44 +72,52 @@ class AlbaBackend(DataObject):
         for node in alba_nodes:
             for info in node_relevant_osd_map[node.node_id]:
                 disk = info['disk']
-                if disk['available'] is True:
-                    disk['status'] = 'uninitialized'
-                else:
+                disk_status = 'uninitialized'
+                disk_status_detail = ''
+                disk_alba_backend_guid = ''
+                if disk['available'] is False:
                     osd = info['osd']
                     disk_alba_state = disk['state']['state']
                     if disk_alba_state == 'ok':
                         if osd == {}:
-                            disk['status'] = 'initialized'
+                            disk_status = 'initialized'
                         elif osd['id'] is None:
                             alba_id = osd['alba_id']
                             if alba_id is None:
-                                disk['status'] = 'available'
+                                disk_status = 'available'
                             else:
-                                disk['status'] = 'unavailable'
-                                disk['alba_backend_guid'] = AlbaBackendList.get_by_alba_id(alba_id)
+                                disk_status = 'unavailable'
+                                alba_backend = AlbaBackendList.get_by_alba_id(alba_id)
+                                if alba_backend is not None:
+                                    disk_alba_backend_guid = alba_backend.guid
                         else:
-                            disk['status'] = 'error'
-                            disk['status_detail'] = 'communicationerror'
-                            disk['alba_backend_guid'] = self.guid
+                            disk_status = 'error'
+                            disk_status_detail = 'communicationerror'
+                            disk_alba_backend_guid = self.guid
 
                             for asd in node.asds:
                                 if asd.asd_id == disk['asd_id'] and asd.statistics != {}:
-                                    disk['status'] = 'warning'
-                                    disk['status_detail'] = 'recenterrors'
+                                    disk_status = 'warning'
+                                    disk_status_detail = 'recenterrors'
 
                                     read = osd['read'] or [0]
                                     write = osd['write'] or [0]
                                     errors = osd['errors']
                                     if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + 300):
-                                        disk['status'] = 'claimed'
-                                        disk['status_detail'] = ''
+                                        disk_status = 'claimed'
+                                        disk_status_detail = ''
                     elif disk_alba_state == 'decommissioned':
-                        disk['status'] = 'unavailable'
-                        disk['status_detail'] = 'decommissioned'
+                        disk_status = 'unavailable'
+                        disk_status_detail = 'decommissioned'
                     else:
-                        disk['status'] = 'error'
-                        disk['status_detail'] = disk['state']['detail']
-                        disk['alba_backend_guid'] = AlbaBackendList.get_by_alba_id(osd.get('alba_id'))
+                        disk_status = 'error'
+                        disk_status_detail = disk['state']['detail']
+                        alba_backend = AlbaBackendList.get_by_alba_id(osd.get('alba_id'))
+                        if alba_backend is not None:
+                            disk_alba_backend_guid = alba_backend.guid
+                disk['status'] = disk_status
+                disk['status_detail'] = disk_status_detail
+                disk['alba_backend_guid'] = disk_alba_backend_guid
                 disks.append(disk)
         return disks
 
