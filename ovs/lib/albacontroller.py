@@ -1124,7 +1124,6 @@ class AlbaController(object):
         Creates and starts a maintenance service/process
         """
         backend_name = alba_backend.backend.name
-        ovs_client = SSHClient(ip)
         root_client = SSHClient(ip, username='root')
         config_location = '/ovs/alba/backends/{0}/maintenance/config'.format(alba_backend.guid)
         EtcdConfiguration.set(config_location, json.dumps({
@@ -1133,9 +1132,10 @@ class AlbaController(object):
         }), raw=True)
         params = {'ALBA_CONFIG': 'etcd://127.0.0.1:2379{0}'.format(config_location)}
         service_name = '{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, backend_name)
-        ServiceManager.prepare_template('ovs-{0}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX),
-                                        'ovs-{0}'.format(service_name), client=ovs_client)
-        ServiceManager.add_service(name=service_name, params=params, client=root_client)
+        ServiceManager.add_service(name=AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX,
+                                   target_name='ovs-{0}'.format(service_name),
+                                   params=params,
+                                   client=root_client)
         ServiceManager.start_service(service_name, root_client)
 
     @staticmethod
