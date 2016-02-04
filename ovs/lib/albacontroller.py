@@ -584,13 +584,16 @@ class AlbaController(object):
         :param allow_offline: Ignore offline nodes
         :type allow_offline:  bool
 
-        :param backend: run for a specific backend
-        :type backend: str
+        :param backend_guid: run for a specific backend
+        :type backend_guid: str
         """
         if backend_guid is None:
             for alba_backend in AlbaBackendList.get_albabackends():
-                AlbaController._nsm_checkup_backend(allow_offline=allow_offline,
-                                                    backend=alba_backend)
+                try:
+                    AlbaController._nsm_checkup_backend(allow_offline=allow_offline,
+                                                        backend=alba_backend)
+                except Exception as ex:
+                    logger.error('NSM Checkup failed for backend {0}. {1}'.format(alba_backend.name, ex))
         else:
             alba_backend = AlbaBackend(backend_guid)
             AlbaController._nsm_checkup_backend(allow_offline=allow_offline,
