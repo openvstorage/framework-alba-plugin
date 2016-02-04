@@ -14,7 +14,7 @@ before_script:
   - sudo chmod 777 /opt
   - sudo chmod 777 /var/log/ovs
   - sudo chmod 777 /run
-  - mv ../framework-alba-plugin/* /opt/OpenvStorage/
+  - cp -R ../framework-alba-plugin/* /opt/OpenvStorage/
   - export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.7/dist-packages/:/usr/lib/python2.7/dist-packages
 script:
   - ovs unittest /opt/OpenvStorage/ovs/dal/tests/test_alba.py
