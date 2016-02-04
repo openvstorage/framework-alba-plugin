@@ -17,12 +17,14 @@
 Basic test module
 """
 import sys
+import time
 from unittest import TestCase
-from ovs.dal.tests.alba_mockups import AlbaCLIModule
+from ovs.dal.tests.alba_mockups import AlbaCLIModule, ASDManagerModule
 from ovs.extensions.storage.persistent.dummystore import DummyPersistentStore
 from ovs.extensions.storage.volatile.dummystore import DummyVolatileStore
 from ovs.extensions.storage.persistentfactory import PersistentFactory
 from ovs.extensions.storage.volatilefactory import VolatileFactory
+from ovs.extensions.generic import fakesleep
 
 
 class Alba(TestCase):
@@ -41,11 +43,14 @@ class Alba(TestCase):
         """
         # Replace mocked classes
         sys.modules['ovs.extensions.plugins.albacli'] = AlbaCLIModule
+        sys.modules['ovs.extensions.plugins.asdmanager'] = ASDManagerModule
 
         PersistentFactory.store = DummyPersistentStore()
         PersistentFactory.store.clean()
         VolatileFactory.store = DummyVolatileStore()
         VolatileFactory.store.clean()
+
+        fakesleep.monkey_patch()
 
     @classmethod
     def setUp(cls):
@@ -57,6 +62,13 @@ class Alba(TestCase):
         VolatileFactory.store = DummyVolatileStore()
         VolatileFactory.store.clean()
 
+    @classmethod
+    def tearDownClass(cls):
+        """
+        Clean up the unittest
+        """
+        fakesleep.monkey_restore()
+
     def test_asd_statistics(self):
         """
         Validates whether the ASD statistics work as expected.
@@ -65,27 +77,44 @@ class Alba(TestCase):
         * Calculate correct per-second, average, total, min and max values
         """
         from ovs.extensions.plugins.albacli import AlbaCLI
+        from ovs.extensions.plugins.asdmanager import ASDManagerClient
         from ovs.dal.hybrids.albaasd import AlbaASD
+        from ovs.dal.hybrids.albanode import AlbaNode
         from ovs.dal.hybrids.albabackend import AlbaBackend
         from ovs.dal.hybrids.backend import Backend
-        expected = {'statistics': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
-                    'range': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
-                    'range_entries': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
-                    'multi_get': {'max': 10, 'n_ps': 1.0, 'min': 1, 'avg': 13.0, 'n': 5},
-                    'apply': {'max': 5, 'n_ps': 0.2, 'min': 5, 'avg': 5, 'n': 1},
-                    'creation': 123,
-                    'period': 5}
-        AlbaCLI.run_results['asd-statistics'] = {'Apply': {'n': 1, 'avg': 5, 'min': 5, 'max': 5},
-                                                 'MultiGet': {'n': 2, 'avg': 10, 'min': 5, 'max': 10},
-                                                 'MultiGet2': {'n': 3, 'avg': 15, 'min': 1, 'max': 5},
-                                                 'creation' : 123,
-                                                 'period': 5}
+        expected_0 = {'statistics': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
+                      'range': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
+                      'range_entries': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
+                      'multi_get': {'max': 10, 'n_ps': 0, 'min': 1, 'avg': 13, 'n': 5},
+                      'apply': {'max': 5, 'n_ps': 0, 'min': 5, 'avg': 5, 'n': 1},
+                      'timestamp': None}
+        expected_1 = {'statistics': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
+                      'range': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
+                      'range_entries': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
+                      'multi_get': {'max': 10, 'n_ps': 1, 'min': 1, 'avg': 12.5, 'n': 10},
+                      'apply': {'max': 5, 'n_ps': 0, 'min': 5, 'avg': 5, 'n': 1},
+                      'timestamp': None}
+        base_time = time.time()
         asd = AlbaASD()
+        asd.alba_node = AlbaNode()
         asd.alba_backend = AlbaBackend()
         asd.alba_backend.backend = Backend()
         asd.alba_backend.backend.name = 'foobar'
-        statistics = asd._statistics()
-        self.assertDictEqual(statistics, expected, 'The statistics should be as expected: {0} vs {1}'.format(statistics, expected))
+        ASDManagerClient.results['get_disks'] = []
+        AlbaCLI.run_results['asd-statistics'] = {'Apply': {'n': 1, 'avg': 5, 'min': 5, 'max': 5},
+                                                 'MultiGet': {'n': 2, 'avg': 10, 'min': 5, 'max': 10},
+                                                 'MultiGet2': {'n': 3, 'avg': 15, 'min': 1, 'max': 5}}
+        statistics = asd._statistics(AlbaASD._dynamics[4])
+        expected_0['timestamp'] = base_time
+        self.assertDictEqual(statistics, expected_0, 'The first statistics should be as expected: {0} vs {1}'.format(statistics, expected_0))
+        time.sleep(5)
+        ASDManagerClient.results['get_disks'] = []
+        AlbaCLI.run_results['asd-statistics'] = {'Apply': {'n': 1, 'avg': 5, 'min': 5, 'max': 5},
+                                                 'MultiGet': {'n': 5, 'avg': 10, 'min': 5, 'max': 10},
+                                                 'MultiGet2': {'n': 5, 'avg': 15, 'min': 1, 'max': 5}}
+        statistics = asd._statistics(AlbaASD._dynamics[4])
+        expected_1['timestamp'] = base_time + 5
+        self.assertDictEqual(statistics, expected_1, 'The second statistics should be as expected: {0} vs {1}'.format(statistics, expected_1))
 
 
 if __name__ == '__main__':
