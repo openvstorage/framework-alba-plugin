@@ -27,7 +27,6 @@ define([
 
         // External dependencies
         self.vPools  = undefined;
-        self.license = ko.observable();
 
         // Observables
         self.availableActions    = ko.observableArray([]);

@@ -30,6 +30,8 @@ class AlbaASD(DataObject):
     __relations = [Relation('alba_backend', AlbaBackend, 'asds', doc='The AlbaBackend that claimed the ASD'),
                    Relation('alba_node', AlbaNode, 'asds', doc='The AlbaNode to which the ASD belongs')]
     __dynamics = [Dynamic('name', str, 3600),
+                  Dynamic('ip', str, 300),
+                  Dynamic('port', int, 300),
                   Dynamic('info', dict, 5),
                   Dynamic('statistics', dict, 5, locked=True)]
 
@@ -38,6 +40,22 @@ class AlbaASD(DataObject):
         Returns the name based on the asd_id
         """
         return self.info['name'] if self.info is not None else None
+
+    def _ip(self):
+        """
+        ASD ip address
+        """
+        if self.info is not None:
+            ips = self.info.get('ips')
+            if ips:
+                return ips[0]
+        return self.alba_node.ip
+
+    def _port(self):
+        """
+        ASD port number
+        """
+        return self.info['port'] if self.info is not None else None
 
     def _info(self):
         """
@@ -56,10 +74,9 @@ class AlbaASD(DataObject):
                      'range': ['Range'],
                      'range_entries': ['RangeEntries'],
                      'statistics': ['Statistics']}
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(self.alba_backend.backend.name)
         statistics = {}
         try:
-            data = AlbaCLI.run('asd-statistics', long_id=self.asd_id, config=config, extra_params='--clear', as_json=True)
+            data = AlbaCLI.run('asd-statistics', extra_params=['--clear', '-h', self.ip, '-p', self.port], as_json=True)
             statistics = {'creation': data['creation'],
                           'period': data['period']}
             for key, sources in data_keys.iteritems():

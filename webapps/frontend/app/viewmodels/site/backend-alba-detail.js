@@ -17,9 +17,9 @@ define([
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/backend', '../containers/backendtype', '../containers/albabackend',
     '../containers/albanode', '../containers/albaosd', '../containers/storagerouter', '../containers/vpool',
-    '../containers/license', '../wizards/addpreset/index'
+    '../wizards/addpreset/index'
 ], function($, app, ko, router, dialog, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend,
-            Node, OSD, StorageRouter, VPool, License, AddPresetWizard) {
+            Node, OSD, StorageRouter, VPool, AddPresetWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -35,7 +35,6 @@ define([
         self.storageRouterCache = {};
 
         // Observables
-        self.license                = ko.observable();
         self.backend                = ko.observable();
         self.albaBackend            = ko.observable();
         self.rNodesLoading          = ko.observable(true);
@@ -167,32 +166,6 @@ define([
             } else {
                 return generic.formatPercentage(value);
             }
-        };
-        self.loadLicense = function() {
-            return $.Deferred(function(deferred) {
-                if (generic.xhrCompleted(self.vPoolsHandle)) {
-                    var options = {
-                        contents: '',
-                        component: 'alba'
-                    };
-                    self.vPoolsHandle = api.get('licenses', { queryparams: options })
-                        .then(function(data) {
-                            if (data.data.length === 0) {
-                                self.license(undefined);
-                            } else {
-                                var license = new License(data.data[0].guid);
-                                license.fillData(data.data[0]);
-                                self.license(license);
-                                if (self.albaBackend() !== undefined) {
-                                    self.albaBackend().license(license);
-                                }
-                            }
-                        })
-                        .always(deferred.resolve);
-                } else {
-                    deferred.resolve();
-                }
-            }).promise();
         };
         self.loadVPools = function() {
             return $.Deferred(function(deferred) {
@@ -514,8 +487,7 @@ define([
                 self.load()
                     .then(self.loadOSDs)
                     .then(self.fetchNodes)
-                    .then(self.link)
-                    .then(self.loadLicense);
+                    .then(self.link);
             }, 5000);
             self.refresher.run();
             self.refresher.start();
