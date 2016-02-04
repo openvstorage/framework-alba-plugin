@@ -23,6 +23,7 @@ from ovs.dal.lists.vpoollist import VPoolList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.hybrids.backend import Backend
 from ovs.dal.structures import Property, Relation, Dynamic
+from ovs.extensions.db.etcd.configuration import EtcdConfiguration
 from ovs.extensions.plugins.albacli import AlbaCLI
 
 
@@ -64,11 +65,11 @@ class AlbaBackend(DataObject):
                 node_disk_map[node_id].append({'osd': found_osd})
 
         # Load all_disk information
-        def load_disks(_node, _list):
+        def _load_disks(_node, _list):
             for _disk in _node.all_disks:
                 found = False
                 for container in _list:
-                    if container['osd']['long_id'] == _disk.get('asd_id'):
+                    if 'osd' in container and container['osd']['long_id'] == _disk.get('asd_id'):
                         container['disk'] = _disk
                         found = True
                         break
@@ -76,14 +77,14 @@ class AlbaBackend(DataObject):
                     _list.append({'disk': _disk})
         threads = []
         for node in alba_nodes:
-            thread = Thread(target=load_disks, args=(node, node_disk_map[node.node_id]))
+            thread = Thread(target=_load_disks, args=(node, node_disk_map[node.node_id]))
             thread.start()
             threads.append(thread)
         for thread in threads:
             thread.join()
 
         # Make mapping between node IDs and the relevant OSDs and disks
-        def process_disk(_info, _disks, _node):
+        def _process_disk(_info, _disks, _node):
             disk = _info.get('disk')
             if disk is None:
                 return
@@ -118,7 +119,12 @@ class AlbaBackend(DataObject):
                                 read = osd['read'] or [0]
                                 write = osd['write'] or [0]
                                 errors = osd['errors']
-                                if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + 300):
+                                global_interval_key = '/ovs/alba/backends/global_gui_error_interval'
+                                backend_interval_key = '/ovs/alba/backends/{0}/gui_error_interval'.format(self.guid)
+                                interval = EtcdConfiguration.get(global_interval_key)
+                                if EtcdConfiguration.exists(backend_interval_key):
+                                    interval = EtcdConfiguration.get(backend_interval_key)
+                                if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + interval):
                                     disk_status = 'claimed'
                                     disk_status_detail = ''
                 elif disk_alba_state == 'decommissioned':
@@ -135,11 +141,11 @@ class AlbaBackend(DataObject):
             disk['alba_backend_guid'] = disk_alba_backend_guid
             _disks.append(disk)
 
-        def worker(_queue, _disks):
+        def _worker(_queue, _disks):
             while True:
                 try:
                     item = _queue.get(False)
-                    process_disk(item['info'], _disks, item['node'])
+                    _process_disk(item['info'], _disks, item['node'])
                 except Empty:
                     return
 
@@ -151,7 +157,7 @@ class AlbaBackend(DataObject):
         disks = []
         threads = []
         for i in range(5):
-            thread = Thread(target=worker, args=(queue, disks))
+            thread = Thread(target=_worker, args=(queue, disks))
             thread.start()
             threads.append(thread)
         for thread in threads:
@@ -216,7 +222,7 @@ class AlbaBackend(DataObject):
                 vdisk_dataset[vpool].append(vdisk.volume_id)
 
         # Load disk statistics
-        def load_disks(_node, _dict):
+        def _load_disks(_node, _dict):
             for _asd in _node.all_disks:
                 if 'asd_id' in _asd and _asd['asd_id'] in asds and 'usage' in _asd:
                     _dict['size'] += _asd['usage']['size']
@@ -232,7 +238,7 @@ class AlbaBackend(DataObject):
                 nodes.add(asd.alba_node)
         threads = []
         for node in nodes:
-            thread = Thread(target=load_disks, args=(node, global_usage))
+            thread = Thread(target=_load_disks, args=(node, global_usage))
             thread.start()
             threads.append(thread)
         for thread in threads:
