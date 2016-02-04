@@ -76,6 +76,7 @@ class AlbaNode(DataObject):
                         disks.append({'asd_id': asd_id,
                                       'node_id': osd.get('node_id'),
                                       'port': osd.get('port'),
+                                      'ips': osd.get('ips'),
                                       'available': False,
                                       'state': state,
                                       'log_level': 'info',
