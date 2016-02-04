@@ -59,11 +59,9 @@ class AlbaController(object):
     ALBA_MAINTENANCE_SERVICE_PREFIX = 'alba-maintenance'
     ALBA_REBALANCER_SERVICE_PREFIX = 'alba-rebalancer'
 
-
     @staticmethod
     def _get_abm_service_name(alba_backend):
         return alba_backend.backend.name + '-abm'
-
 
     @staticmethod
     @celery.task(name='alba.add_units')
@@ -1133,6 +1131,7 @@ class AlbaController(object):
         if 'alba' not in installed['backends']:
             installed['backends'].append('alba')
         EtcdConfiguration.set('/ovs/framework/plugins/installed', installed)
+        EtcdConfiguration.set('/ovs/alba/backends/global_gui_error_interval', 300)
 
     @staticmethod
     def _setup_services(ip, alba_backend):
@@ -1169,7 +1168,11 @@ class AlbaController(object):
     @staticmethod
     @add_hooks('update', 'postupgrade')
     def upgrade_alba_plugin(client):
-
+        """
+        Upgrade the ALBA plugin
+        :param client: SSHClient to connect to for upgrade
+        :return: None
+        """
         from ovs.dal.lists.albabackendlist import AlbaBackendList
         alba_backends = AlbaBackendList.get_albabackends()
         for alba_backend in alba_backends:
