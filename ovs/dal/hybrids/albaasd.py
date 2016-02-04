@@ -111,5 +111,5 @@ class AlbaASD(DataObject):
             volatile.set(prev_key, statistics, dynamic.timeout * 10)
         except Exception as ex:
             # This might fail every now and then, e.g. on disk removal. Let's ignore for now.
-            print ex
+            pass
         return statistics
