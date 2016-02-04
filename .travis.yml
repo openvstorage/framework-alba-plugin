@@ -9,10 +9,12 @@ before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y --force-yes openvstorage-hc
 before_script:
+  - sudo find /opt/OpenvStorage -type d -exec chmod 777 {} +
+  - sudo find /opt/OpenvStorage -type f -exec chmod 666 {} +
   - sudo chmod 777 /opt
   - sudo chmod 777 /var/log/ovs
   - sudo chmod 777 /run
-  - mv ../openvstorage/* /opt/OpenvStorage/
+  - mv ../framework-alba-plugin/* /opt/OpenvStorage/
   - export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.7/dist-packages/:/usr/lib/python2.7/dist-packages
 script:
   - ovs unittest /opt/OpenvStorage/ovs/dal/tests/test_alba.py
