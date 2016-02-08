@@ -40,7 +40,7 @@ limitations under the License.
             </li>
         </ul>
         <div class="tab-content">
-            <!-- ko if: albaBackend() !== undefined -->
+            <!-- ko if: showDetails() -->
                 <div class="tab-pane active" id="information" style="padding: 15px;" data-bind="with: albaBackend()">
                     <table style="width: 100%;">
                         <thead>
@@ -62,7 +62,9 @@ limitations under the License.
                                 <td style="width: 15%;" data-i18n="alba:generic.putss"></td>
                                 <td style="width: 15%;"><span data-bind="text: writeIOps"></span></td>
                                 <td rowspan="5">
-                                    <div data-bind="pie: usage()"></div>
+                                    <div data-bind="if: $root.showActions()">
+                                        <div data-bind="pie: usage()"></div>
+                                    </div>
                                 </td>
                             </tr>
                             <tr style="height: 1px;">
@@ -104,14 +106,14 @@ limitations under the License.
                     </table>
                 </div>
             <!-- /ko -->
-            <!-- ko if: albaBackend() === undefined -->
+            <!-- ko if: !showDetails() -->
                 <div class="tab-pane active" id="information-undefined" style="padding: 15px;">
                     <span class="fa fa-spin" data-i18n="[html]ovs:icons.loading"></span>
                 </div>
             <!-- /ko -->
         </div>
     </div>
-    <div data-bind="if: albaBackend() !== undefined">
+    <div data-bind="if: showActions()">
         <ul class="nav nav-tabs">
             <li class="active" data-bind="tooltip: 'alba:generic.nodes', visible: $root.shared.user.roles().contains('manage')">
                 <a href="#nodes" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>
@@ -202,7 +204,8 @@ limitations under the License.
                                         <tr data-bind="visible: expanded()">
                                             <td colspan="3" style="border-top: 0; padding-left: 35px;">
                                                 <!-- ko if: diskRows().length === 0 -->
-                                                    <i data-i18n="alba:generic.nodisks"></i>
+                                                    <i style="padding-left: 12px;" data-bind="visible: !disksLoading()" data-i18n="alba:generic.nodisks"></i>
+                                                    <i style="padding-left: 12px;" data-bind="visible: disksLoading()" data-i18n="alba:generic.disksloading"></i>
                                                 <!-- /ko -->
                                                 <div data-bind="foreach: diskRows">
                                                     <div class="row" data-bind="foreach: items, style: { 'margin-top': $index() > 0 ? '10px' : '0' }"
