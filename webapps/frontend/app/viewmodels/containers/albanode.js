@@ -39,6 +39,7 @@ define([
         self.disks             = ko.observableArray([]);
         self.ips               = ko.observableArray([]);
         self.expanded          = ko.observable(true);
+        self.disksLoading      = ko.observable(true);
 
         // Computed
         self.diskRows         = ko.splitRows(3, self.disks);

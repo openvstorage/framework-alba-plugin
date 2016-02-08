@@ -33,6 +33,7 @@ define([
         self.initializing       = false;
         self.nodesHandle        = {};
         self.storageRouterCache = {};
+        self.initialRun         = true;
 
         // Observables
         self.backend                = ko.observable();
@@ -106,6 +107,12 @@ define([
             }
             return states;
         });
+        self.showDetails = ko.computed(function() {
+            return self.albaBackend() !== undefined && self.backend() !== undefined;
+        });
+        self.showActions = ko.computed(function() {
+            return self.showDetails() && !['installing', 'new'].contains(self.backend().status());
+        });
 
         // Functions
         self.refresh = function() {
@@ -147,7 +154,7 @@ define([
                         }).promise();
                     })
                     .then(function(albaBackend) {
-                        return albaBackend.load()
+                        return albaBackend.load(!self.initialRun)
                             .then(function(data) {
                                 albaBackend.getAvailableActions();
                                 return data;
@@ -228,7 +235,9 @@ define([
                                 generic.crossFiller(
                                     nodeIDs, oArray,
                                     function(nodeID) {
-                                        return new Node(nodeID, self);
+                                        var node = new Node(nodeID, self);
+                                        node.disksLoading(true);
+                                        return node;
                                     }, 'nodeID'
                                 );
                                 $.each(oArray(), function (index, node) {
@@ -262,6 +271,9 @@ define([
             }).promise();
         };
         self.loadOSDs = function(data) {
+            if (!data.hasOwnProperty('all_disks')) {
+                return;
+            }
             var diskNames = [], disks = {}, changes = data.all_disks.length !== self.disks().length;
             $.each(data.all_disks, function (index, disk) {
                 diskNames.push(disk.name);
@@ -309,6 +321,7 @@ define([
                         });
                     }
                 });
+                node.disksLoading(self.initialRun);
             });
         };
         self.claimOSD = function(osds, disk, nodeID) {
@@ -484,10 +497,16 @@ define([
             self.backend(new Backend(guid));
             self.refresher.init(function() {
                 self.loadVPools();
-                self.load()
+                return self.load()
                     .then(self.loadOSDs)
                     .then(self.fetchNodes)
-                    .then(self.link);
+                    .then(self.link)
+                    .then(function() {
+                        if (self.initialRun === true) {
+                            self.initialRun = false;
+                            self.refresher.skipPause = true;
+                        }
+                    })
             }, 5000);
             self.refresher.run();
             self.refresher.start();
