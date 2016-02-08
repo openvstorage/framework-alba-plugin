@@ -172,6 +172,9 @@ define([
             }
         };
         self.load = function(loadDynamics) {
+            if (loadDynamics === undefined) {
+                loadDynamics = true;
+            }
             return $.Deferred(function(deferred) {
                 self.loading(true);
                 if (generic.xhrCompleted(self.loadHandle)) {
