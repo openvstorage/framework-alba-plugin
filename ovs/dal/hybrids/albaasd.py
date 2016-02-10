@@ -64,7 +64,7 @@ class AlbaASD(DataObject):
         Returns the ASD information from its node
         """
         for disk in self.alba_node.all_disks:
-            if disk['asd_id'] == self.asd_id:
+            if 'asd_id' in disk and disk['asd_id'] == self.asd_id:
                 return disk
 
     def _statistics(self, dynamic):
