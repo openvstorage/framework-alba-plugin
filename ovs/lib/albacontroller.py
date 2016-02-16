@@ -58,6 +58,9 @@ class AlbaController(object):
     ARAKOON_PLUGIN_DIR = '/usr/lib/alba'
     ALBA_MAINTENANCE_SERVICE_PREFIX = 'alba-maintenance'
     ALBA_REBALANCER_SERVICE_PREFIX = 'alba-rebalancer'
+    ETCD_ALBA_BACKEND_KEY = '/ovs/alba/backends/{0}'
+    ETCD_MAINTENANCE_KEY = ETCD_ALBA_BACKEND_KEY + '/maintenance'
+    ETCD_NR_OF_AGENTS_KEY = ETCD_MAINTENANCE_KEY + '/nr_of_agents'
 
     @staticmethod
     def _get_abm_service_name(alba_backend):
@@ -93,7 +96,7 @@ class AlbaController(object):
     @celery.task(name='alba.remove_units')
     def remove_units(alba_backend_guid, asd_ids, absorb_exception=False):
         """
-        Removes storage units to an Alba backend
+        Removes storage units from an Alba backend
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid:  String
 
@@ -230,6 +233,8 @@ class AlbaController(object):
 
         :return:                  None
         """
+        from ovs.lib.albanodecontroller import AlbaNodeController
+
         AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
                                                    create_nsm_cluster=True)
 
@@ -244,6 +249,11 @@ class AlbaController(object):
         alba_backend.backend.status = 'RUNNING'
         alba_backend.backend.save()
 
+        etcd_key = AlbaController.ETCD_NR_OF_AGENTS_KEY.format(alba_backend_guid)
+        nr_of_storage_nodes = len(AlbaNodeList.get_albanodes())
+        EtcdConfiguration.set(etcd_key, nr_of_storage_nodes)
+        AlbaNodeController.checkup_maintenance_agents()
+
     @staticmethod
     @celery.task(name='alba.remove_cluster')
     def remove_cluster(alba_backend_guid):
@@ -254,14 +264,11 @@ class AlbaController(object):
 
         :return:                  None
         """
+        from ovs.lib.albanodecontroller import AlbaNodeController
+
         albabackend = AlbaBackend(alba_backend_guid)
         if len(albabackend.asds) > 0:
             raise RuntimeError('A backend with claimed OSDs cannot be removed')
-
-        masters = StorageRouterList.get_masters()
-
-        for master in masters:
-            AlbaController._remove_services(master.ip, albabackend)
 
         cluster_removed = False
         for abm_service in albabackend.abm_services:
@@ -282,6 +289,12 @@ class AlbaController(object):
             service = nsm_service.service
             nsm_service.delete()
             service.delete()
+
+        etcd_key = AlbaController.ETCD_NR_OF_AGENTS_KEY.format(alba_backend_guid)
+        EtcdConfiguration.set(etcd_key, 0)
+        AlbaNodeController.checkup_maintenance_agents()
+
+        EtcdConfiguration.delete(AlbaController.ETCD_ALBA_BACKEND_KEY.format(alba_backend_guid))
 
         backend = albabackend.backend
         albabackend.delete()
@@ -437,7 +450,7 @@ class AlbaController(object):
                 current_services[alba_backend]['nsm'].append(nsm_service)
                 AlbaController.register_nsm(abm_service_name, nsm_service_name, storagerouter.ip)
 
-            AlbaController._setup_services(storagerouter.ip, alba_backend)
+            # AlbaController._setup_services(storagerouter.ip, alba_backend)
 
         for alba_backend in alba_backends:
             abm_service_name = AlbaController._get_abm_service_name(alba_backend)
@@ -460,8 +473,6 @@ class AlbaController(object):
                                                              ip=storagerouter.ip)
                     current_ips[alba_backend]['abm'].append(storagerouter.ip)
                     current_services[alba_backend]['abm'].append(abm_service)
-
-                    AlbaController._setup_services(storagerouter.ip, alba_backend)
 
     @staticmethod
     @add_hooks('setup', 'demote')
@@ -510,9 +521,9 @@ class AlbaController(object):
                 abm_service.delete()
                 service_abm_service.delete()
 
-            # Stop and delete the ALBA maintenance service on this node
-            if client is not None:
-                AlbaController._remove_services(client.ip, alba_backend)
+            # # Stop and delete the ALBA maintenance service on this node
+            # if client is not None:
+            #     AlbaController._remove_services(client.ip, alba_backend)
 
             # Remove the node from the NSM
             logger.info('Shrinking NSM for backend "{0}"'.format(alba_backend.backend.name))
@@ -1056,6 +1067,8 @@ class AlbaController(object):
         :param client: IP of 1 of the master nodes (On which the update is initiated)
         :return: None
         """
+        from ovs.lib.albanodecontroller import AlbaNodeController
+
         other_storage_router_ips = [sr.ip for sr in StorageRouterList.get_storagerouters() if sr.ip != client.ip]
         for node in AlbaNodeList.get_albanodes():
             if node.ip in other_storage_router_ips:
@@ -1080,6 +1093,20 @@ class AlbaController(object):
                 logger.error('{0}: Failed to perform SDM update. Please check /var/log/upstart/alba-asdmanager.log on the appropriate node'.format(node.ip))
                 raise Exception('Status after upgrade is "{0}"'.format(status))
             node.client.restart_services()
+
+        nr_of_storagenodes = len(AlbaNodeList.get_albanodes())
+        for alba_backend in AlbaBackendList.get_albabackends():
+            service_name = '{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, alba_backend.backend.name)
+            if ServiceManager.has_service(service_name, client=client) is True:
+                if ServiceManager.get_service_status(service_name, client=client) is True:
+                    ServiceManager.stop_service(service_name, client=client)
+                ServiceManager.remove_service(service_name, client=client)
+
+            if not EtcdConfiguration.exists(AlbaController.ETCD_NR_OF_AGENTS_KEY.format(alba_backend.guid)):
+                print AlbaController.ETCD_NR_OF_AGENTS_KEY.format(alba_backend.guid)
+                EtcdConfiguration.set(AlbaController.ETCD_NR_OF_AGENTS_KEY.format(alba_backend.guid),
+                                      nr_of_storagenodes)
+        AlbaNodeController.checkup_maintenance_agents()
 
     @staticmethod
     @add_hooks('update', 'postupgrade')
@@ -1134,38 +1161,6 @@ class AlbaController(object):
         EtcdConfiguration.set('/ovs/alba/backends/global_gui_error_interval', 300)
 
     @staticmethod
-    def _setup_services(ip, alba_backend):
-        """
-        Creates and starts a maintenance service/process
-        """
-        backend_name = alba_backend.backend.name
-        root_client = SSHClient(ip, username='root')
-        config_location = '/ovs/alba/backends/{0}/maintenance/config'.format(alba_backend.guid)
-        EtcdConfiguration.set(config_location, json.dumps({
-            'log_level': 'info',
-            'albamgr_cfg_url': 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController._get_abm_service_name(alba_backend))
-        }), raw=True)
-        params = {'ALBA_CONFIG': 'etcd://127.0.0.1:2379{0}'.format(config_location)}
-        service_name = '{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, backend_name)
-        ServiceManager.add_service(name=AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX,
-                                   target_name='ovs-{0}'.format(service_name),
-                                   params=params,
-                                   client=root_client)
-        ServiceManager.start_service(service_name, root_client)
-
-    @staticmethod
-    def _remove_services(ip, alba_backend):
-        """
-        Stops and removes the maintenance service/process
-        """
-        client = SSHClient(ip, username='root')
-        service_name = '{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, alba_backend.backend.name)
-        if ServiceManager.has_service(service_name, client=client) is True:
-            if ServiceManager.get_service_status(service_name, client=client) is True:
-                ServiceManager.stop_service(service_name, client=client)
-            ServiceManager.remove_service(service_name, client=client)
-
-    @staticmethod
     @add_hooks('update', 'postupgrade')
     def upgrade_alba_plugin(client):
         """
@@ -1182,8 +1177,6 @@ class AlbaController(object):
                 if ServiceManager.get_service_status(service_name, client=client) is True:
                     ServiceManager.stop_service(service_name, client=client)
                 ServiceManager.remove_service(service_name, client=client)
-
-            AlbaController._setup_services(client.ip, alba_backend)
 
 
 if __name__ == '__main__':
