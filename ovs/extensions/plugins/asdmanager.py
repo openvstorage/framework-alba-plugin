@@ -217,7 +217,8 @@ class ASDManagerClient(object):
                              headers=self._base_headers,
                              data={'alba_backend_guid': alba_backend_guid,
                                    'abm_name': abm_name},
-                             verify=False).json()
+                             verify=False,
+                             timeout=self.timeout).json()
         print data
         duration = time.time() - start
         if duration > self._log_min_duration:
@@ -234,13 +235,14 @@ class ASDManagerClient(object):
         start = time.time()
         data = requests.post('{0}/maintenance/{1}/remove'.format(self._base_url, name),
                              headers=self._base_headers,
-                             verify=False).json()
+                             verify=False,
+                             timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
             logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
         return data
 
-    def get_maintenance_services(self):
+    def list_maintenance_services(self):
         """
         Retrieve configured maintenance services from asd manager
         :return: dict of services
@@ -249,7 +251,8 @@ class ASDManagerClient(object):
         start = time.time()
         data = requests.get('{0}/maintenance'.format(self._base_url),
                             headers=self._base_headers,
-                            verify=False).json()
+                            verify=False,
+                            timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
             logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))

@@ -450,8 +450,6 @@ class AlbaController(object):
                 current_services[alba_backend]['nsm'].append(nsm_service)
                 AlbaController.register_nsm(abm_service_name, nsm_service_name, storagerouter.ip)
 
-            # AlbaController._setup_services(storagerouter.ip, alba_backend)
-
         for alba_backend in alba_backends:
             abm_service_name = AlbaController._get_abm_service_name(alba_backend)
             if 0 < len(current_services[alba_backend]['abm']) < len(available_storagerouters):
@@ -520,10 +518,6 @@ class AlbaController(object):
                 service_abm_service = abm_service.service
                 abm_service.delete()
                 service_abm_service.delete()
-
-            # # Stop and delete the ALBA maintenance service on this node
-            # if client is not None:
-            #     AlbaController._remove_services(client.ip, alba_backend)
 
             # Remove the node from the NSM
             logger.info('Shrinking NSM for backend "{0}"'.format(alba_backend.backend.name))
@@ -1103,7 +1097,6 @@ class AlbaController(object):
                 ServiceManager.remove_service(service_name, client=client)
 
             if not EtcdConfiguration.exists(AlbaController.ETCD_NR_OF_AGENTS_KEY.format(alba_backend.guid)):
-                print AlbaController.ETCD_NR_OF_AGENTS_KEY.format(alba_backend.guid)
                 EtcdConfiguration.set(AlbaController.ETCD_NR_OF_AGENTS_KEY.format(alba_backend.guid),
                                       nr_of_storagenodes)
         AlbaNodeController.checkup_maintenance_agents()

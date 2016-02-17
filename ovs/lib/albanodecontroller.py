@@ -41,7 +41,7 @@ class AlbaNodeController(object):
     Contains all BLL related to ALBA nodes
     """
 
-    nr_of_agents_etcd_template = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
+    NR_OF_AGENTS_ETCD_TEMPLATE = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
 
     @staticmethod
     @celery.task(name='albanode.register')
@@ -71,7 +71,7 @@ class AlbaNodeController(object):
 
         # increase maintenance agents count for all nodes by 1
         for backend in AlbaBackendList.get_albabackends():
-            nr_of_agents_key = AlbaNodeController.nr_of_agents_etcd_template.format(backend.guid)
+            nr_of_agents_key = AlbaNodeController.NR_OF_AGENTS_ETCD_TEMPLATE.format(backend.guid)
             if EtcdConfiguration.exists(nr_of_agents_key):
                 EtcdConfiguration.set(nr_of_agents_key, int(EtcdConfiguration.get(nr_of_agents_key) + 1))
             else:
@@ -246,10 +246,9 @@ class AlbaNodeController(object):
                           'total_load': 0}
             for asd_node in asd_nodes:
                 actual_nr_of_agents = 0
-                services = asd_node.client.get_maintenance_services()['services']
+                services = asd_node.client.list_maintenance_services()['services']
                 if services:
                     for filename in services.keys():
-                        print filename
                         if service_template_key.format(backend_name, '') in filename:
                             actual_nr_of_agents += 1
                     if actual_nr_of_agents > highest_load:
@@ -260,46 +259,42 @@ class AlbaNodeController(object):
                         lowest_load = actual_nr_of_agents
                     agent_load['total_load'] += actual_nr_of_agents
 
-            print agent_load
             return agent_load
 
         alba_backends = AlbaBackendList.get_albabackends()
         for alba_backend in alba_backends:
-            nr_of_agents_key = AlbaNodeController.nr_of_agents_etcd_template.format(alba_backend.guid)
+            nr_of_agents_key = AlbaNodeController.NR_OF_AGENTS_ETCD_TEMPLATE.format(alba_backend.guid)
             name = alba_backend.backend.name
             if not EtcdConfiguration.exists(nr_of_agents_key):
                 EtcdConfiguration.set(nr_of_agents_key, nr_of_storage_nodes)
             required_nr = EtcdConfiguration.get(nr_of_agents_key)
-            maintenance_agents_map[name] = {}
-            maintenance_agents_map[name]['required'] = required_nr
-            maintenance_agents_map[name]['actual'] = get_node_load(name)['total_load']
-            maintenance_agents_map[name]['alba_backend'] = alba_backend
+            maintenance_agents_map[name] = {'required': required_nr,
+                                            'actual': get_node_load(name)['total_load'],
+                                            'alba_backend': alba_backend}
 
         for name, values in maintenance_agents_map.iteritems():
-            print 'Checking backend: {0}'.format(name)
+            logger.info('Checking backend: {0}'.format(name))
             to_process = values['required'] - values['actual']
 
             if to_process == 0:
-                print 'No action required for: {0}'.format(name)
+                logger.info('No action required for: {0}'.format(name))
             elif to_process >= 0:
-                print 'Adding {0} maintenance agent(s) for {1}'.format(to_process, name)
+                logger.info('Adding {0} maintenance agent(s) for {1}'.format(to_process, name))
                 for _ in xrange(to_process):
                     unique_hash = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(32))
                     node = get_node_load(name)['high_load_node']
-                    print 'service to add: ' + service_template_key.format(name, unique_hash)
+                    logger.info('Service to add: ' + service_template_key.format(name, unique_hash))
                     if node and node.client:
                         node.client.add_maintenance_service(service_template_key.format(name, unique_hash),
                                                             values['alba_backend'].guid,
                                                             AlbaController._get_abm_service_name(values['alba_backend']))
-                        print 'service added'
+                        logger.info('Service added')
             else:
                 to_process = abs(to_process)
-                print 'Removing {0} maintenance agent(s) for {1}'.format(to_process, name)
+                logger.info('Removing {0} maintenance agent(s) for {1}'.format(to_process, name))
                 for _ in xrange(to_process):
                     node = get_node_load(name)['high_load_node']
-                    if node:
-                        print node.client
-                    services = node.client.get_maintenance_services()['services'].keys()
+                    services = node.client.list_maintenance_services()['services'].keys()
                     if services and node and node.client:
                         for service in services:
                             if 'ovs-alba-maintenance_' + name in service:
