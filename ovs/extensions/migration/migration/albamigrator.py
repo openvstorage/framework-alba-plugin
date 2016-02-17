@@ -91,6 +91,7 @@ class AlbaMigrator(object):
                             config = json.load(config_file)
                             EtcdConfiguration.set('/ovs/framework/plugins/alba/config', config)
                         os.remove(path)
+                        EtcdConfiguration.set('/ovs/alba/backends/global_gui_error_interval', 300)
             except:
                 logger.exception('Error migrating to version 1')
 
