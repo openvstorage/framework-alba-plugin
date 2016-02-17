@@ -246,7 +246,7 @@ class AlbaNodeController(object):
                           'total_load': 0}
             for asd_node in asd_nodes:
                 actual_nr_of_agents = 0
-                services = asd_node.client.list_maintenance_services()['services']
+                services = asd_node.client.list_maintenance_services()
                 if services:
                     for filename in services.keys():
                         if service_template_key.format(backend_name, '') in filename:
@@ -294,7 +294,7 @@ class AlbaNodeController(object):
                 logger.info('Removing {0} maintenance agent(s) for {1}'.format(to_process, name))
                 for _ in xrange(to_process):
                     node = get_node_load(name)['high_load_node']
-                    services = node.client.list_maintenance_services()['services'].keys()
+                    services = node.client.list_maintenance_services().keys()
                     if services and node and node.client:
                         for service in services:
                             if 'ovs-alba-maintenance_' + name in service:
