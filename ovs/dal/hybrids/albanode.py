@@ -59,31 +59,30 @@ class AlbaNode(DataObject):
         """
         try:
             disks = self.client.get_disks(reraise=True)
-        except requests.ConnectionError:
+        except (requests.ConnectionError, requests.Timeout):
             from ovs.dal.lists.albabackendlist import AlbaBackendList
             disks = []
+            asd_ids = []
             for backend in AlbaBackendList.get_albabackends():
                 # All backends of this node
                 config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(backend.name)
-                osds = AlbaCLI.run('list-osds', config=config, as_json=True)
+                osds = AlbaCLI.run('list-all-osds', config=config, as_json=True)
                 for osd in osds:
-                    if osd.get('node_id') == self.node_id:
-                        asd_id = osd.get('long_id')
-                        if osd.get('decommissioned') is True:
-                            state = {'state': 'decommissioned'}
-                        else:
-                            state = {'state': 'error', 'detail': 'nodedown'}
+                    node_id = osd.get('node_id')
+                    asd_id = osd.get('long_id')
+                    decommissioned = osd.get('decommissioned')
+                    if node_id == self.node_id and asd_id not in asd_ids and decommissioned is False:
+                        asd_ids.append(asd_id)
                         disks.append({'asd_id': asd_id,
                                       'node_id': osd.get('node_id'),
                                       'port': osd.get('port'),
                                       'ips': osd.get('ips'),
                                       'available': False,
-                                      'state': state,
+                                      'state': {'state': 'error', 'detail': 'nodedown'},
                                       'log_level': 'info',
                                       'device': asd_id,
                                       'home': asd_id,
                                       'mountpoint': asd_id,
                                       'name': asd_id,
-                                      'usage': {'available': 0, 'size': 0, 'used': 0},
-                                      })
+                                      'usage': {'available': 0, 'size': 0, 'used': 0}})
         return disks

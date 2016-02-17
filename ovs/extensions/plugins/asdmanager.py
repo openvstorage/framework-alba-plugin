@@ -28,6 +28,7 @@ class ASDManagerClient(object):
     """ ASD Manager Client """
     def __init__(self, node):
         self.node = node
+        self.timeout = 10
         self._log_min_duration = 1
 
     def get_metadata(self):
@@ -38,7 +39,8 @@ class ASDManagerClient(object):
         start = time.time()
         data = requests.get('{0}/'.format(self._base_url),
                             headers=self._base_headers,
-                            verify=False).json()
+                            verify=False,
+                            timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
             logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
@@ -56,7 +58,8 @@ class ASDManagerClient(object):
         try:
             data = requests.get('{0}/disks'.format(self._base_url),
                                 headers=self._base_headers,
-                                verify=False).json()
+                                verify=False,
+                                timeout=self.timeout).json()
             duration = time.time() - start
             if duration > self._log_min_duration:
                 logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
@@ -85,7 +88,8 @@ class ASDManagerClient(object):
         start = time.time()
         data = requests.get('{0}/disks/{1}'.format(self._base_url, disk),
                             headers=self._base_headers,
-                            verify=False).json()
+                            verify=False,
+                            timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
             logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
@@ -104,7 +108,8 @@ class ASDManagerClient(object):
         start = time.time()
         data = requests.post('{0}/disks/{1}/add'.format(self._base_url, disk),
                              headers=self._base_headers,
-                             verify=False).json()
+                             verify=False,
+                             timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
             logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
@@ -119,7 +124,8 @@ class ASDManagerClient(object):
         start = time.time()
         data = requests.post('{0}/disks/{1}/delete'.format(self._base_url, disk),
                              headers=self._base_headers,
-                             verify=False).json()
+                             verify=False,
+                             timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
             logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
@@ -134,7 +140,8 @@ class ASDManagerClient(object):
         start = time.time()
         data = requests.post('{0}/disks/{1}/restart'.format(self._base_url, disk),
                              headers=self._base_headers,
-                             verify=False).json()
+                             verify=False,
+                             timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
             logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
@@ -149,7 +156,8 @@ class ASDManagerClient(object):
         start = time.time()
         data = requests.get('{0}/update/information'.format(self._base_url),
                             headers=self._base_headers,
-                            verify=False).json()
+                            verify=False,
+                            timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
             logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
@@ -169,7 +177,8 @@ class ASDManagerClient(object):
         start = time.time()
         data = requests.post('{0}/update/execute/{1}'.format(self._base_url, status),
                              headers=self._base_headers,
-                             verify=False).json()
+                             verify=False,
+                             timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
             logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
@@ -184,7 +193,8 @@ class ASDManagerClient(object):
         start = time.time()
         data = requests.post('{0}/update/restart_services'.format(self._base_url),
                              headers=self._base_headers,
-                             verify=False).json()
+                             verify=False,
+                             timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
             logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
