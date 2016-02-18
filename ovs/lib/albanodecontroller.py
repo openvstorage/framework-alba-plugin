@@ -19,6 +19,7 @@ AlbaNodeController module
 import random
 import requests
 import string
+import sys
 from ovs.celery_run import celery
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albabackend import AlbaBackend
@@ -240,7 +241,7 @@ class AlbaNodeController(object):
 
         def get_node_load(backend_name):
             highest_load = 0
-            lowest_load = 100
+            lowest_load = sys.maxint
             agent_load = {'high_load_node': asd_nodes[0] if asd_nodes else None,
                           'low_load_node': asd_nodes[0] if asd_nodes else None,
                           'total_load': 0}
