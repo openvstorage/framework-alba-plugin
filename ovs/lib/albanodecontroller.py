@@ -240,7 +240,7 @@ class AlbaNodeController(object):
 
         def get_node_load(backend_name):
             highest_load = 0
-            lowest_load = 0
+            lowest_load = 100
             agent_load = {'high_load_node': asd_nodes[0] if asd_nodes else None,
                           'low_load_node': asd_nodes[0] if asd_nodes else None,
                           'total_load': 0}
@@ -282,7 +282,7 @@ class AlbaNodeController(object):
                 logger.info('Adding {0} maintenance agent(s) for {1}'.format(to_process, name))
                 for _ in xrange(to_process):
                     unique_hash = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(32))
-                    node = get_node_load(name)['high_load_node']
+                    node = get_node_load(name)['low_load_node']
                     logger.info('Service to add: ' + service_template_key.format(name, unique_hash))
                     if node and node.client:
                         node.client.add_maintenance_service(service_template_key.format(name, unique_hash),
