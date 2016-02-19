@@ -29,7 +29,7 @@ class ASDManagerClient(object):
     """ ASD Manager Client """
     def __init__(self, node):
         self.node = node
-        self.timeout = 10
+        self.timeout = 20
         self._log_min_duration = 1
 
     def get_metadata(self):
