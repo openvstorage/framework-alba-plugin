@@ -249,6 +249,8 @@ class AlbaController(object):
         alba_backend.backend.status = 'RUNNING'
         alba_backend.backend.save()
 
+        AlbaNodeController.model_local_albanode()
+
         etcd_key = AlbaController.ETCD_NR_OF_AGENTS_KEY.format(alba_backend_guid)
         nr_of_storage_nodes = len(AlbaNodeList.get_albanodes())
         EtcdConfiguration.set(etcd_key, nr_of_storage_nodes)
