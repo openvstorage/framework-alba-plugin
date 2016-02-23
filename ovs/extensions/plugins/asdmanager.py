@@ -19,6 +19,7 @@ import time
 import base64
 import inspect
 import requests
+import time
 from ovs.log.logHandler import LogHandler
 
 logger = LogHandler.get('extensions', name='asdmanagerclient')
@@ -28,7 +29,7 @@ class ASDManagerClient(object):
     """ ASD Manager Client """
     def __init__(self, node):
         self.node = node
-        self.timeout = 10
+        self.timeout = 20
         self._log_min_duration = 1
 
     def get_metadata(self):
@@ -203,3 +204,56 @@ class ASDManagerClient(object):
     def _refresh(self):
         self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
         self._base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}
+
+    def add_maintenance_service(self, name, alba_backend_guid, abm_name):
+        """
+        Add service to asd manager
+        :param name: name
+        :return: result
+        """
+        self._refresh()
+        start = time.time()
+        data = requests.post('{0}/maintenance/{1}/add'.format(self._base_url, name),
+                             headers=self._base_headers,
+                             data={'alba_backend_guid': alba_backend_guid,
+                                   'abm_name': abm_name},
+                             verify=False,
+                             timeout=self.timeout).json()
+        print data
+        duration = time.time() - start
+        if duration > self._log_min_duration:
+            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+        return data
+
+    def remove_maintenance_service(self, name):
+        """
+        Remove service from asd manager
+        :param name: name
+        :return: result
+        """
+        self._refresh()
+        start = time.time()
+        data = requests.post('{0}/maintenance/{1}/remove'.format(self._base_url, name),
+                             headers=self._base_headers,
+                             verify=False,
+                             timeout=self.timeout).json()
+        duration = time.time() - start
+        if duration > self._log_min_duration:
+            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+        return data
+
+    def list_maintenance_services(self):
+        """
+        Retrieve configured maintenance services from asd manager
+        :return: dict of services
+        """
+        self._refresh()
+        start = time.time()
+        data = requests.get('{0}/maintenance'.format(self._base_url),
+                            headers=self._base_headers,
+                            verify=False,
+                            timeout=self.timeout).json()
+        duration = time.time() - start
+        if duration > self._log_min_duration:
+            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+        return data
