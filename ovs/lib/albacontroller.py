@@ -1064,12 +1064,21 @@ class AlbaController(object):
         :return: None
         """
         from ovs.lib.albanodecontroller import AlbaNodeController
+        storagerouter_ips = [sr.ip for sr in StorageRouterList.get_storagerouters()]
+        other_storagerouter_ips = [ip for ip in storagerouter_ips if ip != client.ip]
 
-        other_storage_router_ips = [sr.ip for sr in StorageRouterList.get_storagerouters() if sr.ip != client.ip]
+        nodes_to_upgrade = []
         for node in AlbaNodeList.get_albanodes():
-            if node.ip in other_storage_router_ips:
-                continue
+            version_info = node.client.get_update_information()
+            if version_info['version'].startswith('1.6.') and version_info['installed'].startswith('1.5.'):
+                # 2.6 to 2.7 upgrade
+                if node.ip not in storagerouter_ips:
+                    logger.warning('A non-hyperconverged node with pending upgrade from 2.6 (1.5) to 2.7 (1.6) was detected. No upgrade possible')
+                    return
+            if node.ip not in other_storagerouter_ips:
+                nodes_to_upgrade.append(node)
 
+        for node in nodes_to_upgrade:
             logger.info('{0}: Upgrading SDM'.format(node.ip))
             counter = 0
             max_counter = 12
