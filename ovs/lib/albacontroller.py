@@ -1068,15 +1068,18 @@ class AlbaController(object):
         other_storagerouter_ips = [ip for ip in storagerouter_ips if ip != client.ip]
 
         nodes_to_upgrade = []
+        all_nodes_to_upgrade = []
         for node in AlbaNodeList.get_albanodes():
             version_info = node.client.get_update_information()
-            if version_info['version'].startswith('1.6.') and version_info['installed'].startswith('1.5.'):
-                # 2.6 to 2.7 upgrade
-                if node.ip not in storagerouter_ips:
-                    logger.warning('A non-hyperconverged node with pending upgrade from 2.6 (1.5) to 2.7 (1.6) was detected. No upgrade possible')
-                    return
-            if node.ip not in other_storagerouter_ips:
-                nodes_to_upgrade.append(node)
+            if version_info['version'] != version_info['installed']:
+                if version_info['version'].startswith('1.6.') and version_info['installed'].startswith('1.5.'):
+                    # 2.6 to 2.7 upgrade
+                    if node.ip not in storagerouter_ips:
+                        logger.warning('A non-hyperconverged node with pending upgrade from 2.6 (1.5) to 2.7 (1.6) was detected. No upgrade possible')
+                        return
+                all_nodes_to_upgrade.append(node)
+                if node.ip not in other_storagerouter_ips:
+                    nodes_to_upgrade.append(node)
 
         for node in nodes_to_upgrade:
             logger.info('{0}: Upgrading SDM'.format(node.ip))
@@ -1098,6 +1101,7 @@ class AlbaController(object):
                 logger.error('{0}: Failed to perform SDM update. Please check /var/log/upstart/alba-asdmanager.log on the appropriate node'.format(node.ip))
                 raise Exception('Status after upgrade is "{0}"'.format(status))
             node.client.restart_services()
+            all_nodes_to_upgrade.remove(node)
 
         nr_of_storagenodes = len(AlbaNodeList.get_albanodes())
         for alba_backend in AlbaBackendList.get_albabackends():
@@ -1110,7 +1114,9 @@ class AlbaController(object):
             if not EtcdConfiguration.exists(AlbaController.ETCD_NR_OF_AGENTS_KEY.format(alba_backend.guid)):
                 EtcdConfiguration.set(AlbaController.ETCD_NR_OF_AGENTS_KEY.format(alba_backend.guid),
                                       nr_of_storagenodes)
-        AlbaNodeController.checkup_maintenance_agents()
+
+        if len(all_nodes_to_upgrade) == 0:
+            AlbaNodeController.checkup_maintenance_agents()
 
     @staticmethod
     @add_hooks('update', 'postupgrade')
