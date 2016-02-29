@@ -63,7 +63,11 @@ class AlbaController(object):
     ETCD_NR_OF_AGENTS_KEY = ETCD_MAINTENANCE_KEY + '/nr_of_agents'
 
     @staticmethod
-    def _get_abm_service_name(alba_backend):
+    def get_abm_service_name(alba_backend):
+        """
+        :param alba_backend: The backend for which the ABM name should be returned
+        :return: The ABM name
+        """
         return alba_backend.backend.name + '-abm'
 
     @staticmethod
@@ -421,7 +425,7 @@ class AlbaController(object):
         if alba_backend_guid is not None:
             storagerouter, partition = available_storagerouters.items()[0]
             alba_backend = AlbaBackend(alba_backend_guid)
-            abm_service_name = AlbaController._get_abm_service_name(alba_backend)
+            abm_service_name = AlbaController.get_abm_service_name(alba_backend)
             nsm_service_name = alba_backend.backend.name + "-nsm_0"
             if len(current_services[alba_backend]['abm']) == 0:
                 abm_service = AlbaController.create_or_extend_cluster(create=True,
@@ -453,7 +457,7 @@ class AlbaController(object):
                 AlbaController.register_nsm(abm_service_name, nsm_service_name, storagerouter.ip)
 
         for alba_backend in alba_backends:
-            abm_service_name = AlbaController._get_abm_service_name(alba_backend)
+            abm_service_name = AlbaController.get_abm_service_name(alba_backend)
             if 0 < len(current_services[alba_backend]['abm']) < len(available_storagerouters):
                 for storagerouter, partition in available_storagerouters.iteritems():
                     if storagerouter.ip in current_ips[alba_backend]['abm']:
@@ -1071,8 +1075,16 @@ class AlbaController(object):
         all_nodes_to_upgrade = []
         for node in AlbaNodeList.get_albanodes():
             version_info = node.client.get_update_information()
-            if version_info['version'] != version_info['installed']:
-                if version_info['version'].startswith('1.6.') and version_info['installed'].startswith('1.5.'):
+            # Some odd information we get back here, but we don't change it because backwards compatibility
+            # Pending updates: SDM  ASD
+            #                   Y    Y    -> installed = 1.0, version = 1.1
+            #                   Y    N    -> installed = 1.0, version = 1.1
+            #                   N    Y    -> installed = 1.0, version = 1.0  (They are equal, but there's an ASD update pending)
+            #                   N    N    -> installed = 1.0, version =      (No version? This means there's no update)
+            pending = version_info['version']
+            installed = version_info['installed']
+            if pending != '':  # If there is any update (SDM or ASD)
+                if pending.startswith('1.6.') and installed.startswith('1.5.'):
                     # 2.6 to 2.7 upgrade
                     if node.ip not in storagerouter_ips:
                         logger.warning('A non-hyperconverged node with pending upgrade from 2.6 (1.5) to 2.7 (1.6) was detected. No upgrade possible')
