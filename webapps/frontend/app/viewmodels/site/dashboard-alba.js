@@ -180,7 +180,7 @@ define([
         };
         self.link = function() {
             var diskNames = [], nodeDisks = {};
-            $.each(self.nodes(), function(jndex, node) {
+            $.each(self.nodes(), function(index, node) {
                 nodeDisks[node.nodeID()] = {
                     node: node,
                     disks: node.disks(),
