@@ -37,6 +37,7 @@ define([
         self.nodeID            = ko.observable(nodeID);
         self.storageRouterGuid = ko.observable();
         self.disks             = ko.observableArray([]);
+        self.diskNames         = ko.observableArray([]);
         self.ips               = ko.observableArray([]);
         self.expanded          = ko.observable(true);
         self.disksLoading      = ko.observable(true);

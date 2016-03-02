@@ -179,30 +179,43 @@ define([
                 });
         };
         self.link = function() {
-            var diskNames = [];
+            var diskNames = [], nodeDisks = {};
+            $.each(self.nodes(), function(index, node) {
+                nodeDisks[node.nodeID()] = {
+                    node: node,
+                    disks: node.disks(),
+                    names: node.diskNames(),
+                    changed: false
+                };
+            });
             $.each(self.disks(), function (index, disk) {
                 diskNames.push(disk.name());
                 if (disk.node === undefined) {
-                    $.each(self.nodes(), function(jndex, node) {
-                        if (disk.nodeID() === node.nodeID()) {
-                            disk.node = node;
-                            node.disks.push(disk);
-                            node.disks.sort(function (a, b) {
-                                return a.name() < b.name() ? -1 : 1;
-                            });
+                    $.each(nodeDisks, function(nodeID, nodeInfo) {
+                        if (disk.nodeID() === nodeID && !nodeInfo.names.contains(disk.name())) {
+                            disk.node = nodeInfo.node;
+                            nodeInfo.disks.push(disk);
+                            nodeInfo.names.push(disk.name());
+                            nodeInfo.changed = true;
                         }
                     });
                 }
             });
-            $.each(self.nodes(), function(jndex, node) {
-                $.each(node.disks(), function(index, disk) {
-                    if ($.inArray(disk.name(), diskNames) === -1) {
-                        node.disks.remove(disk);
-                        node.disks.sort(function (a, b) {
-                            return a.name() < b.name() ? -1 : 1;
-                        });
+            $.each(nodeDisks, function(nodeID, nodeInfo) {
+                $.each(nodeInfo.disks, function(index, disk) {
+                    if (!diskNames.contains(disk.name())) {
+                        nodeInfo.disks.remove(disk);
+                        nodeInfo.names.remove(disk.name());
+                        nodeInfo.changed = true;
                     }
                 });
+                if (nodeInfo.changed === true) {
+                    nodeInfo.disks.sort(function (a, b) {
+                        return a.name() < b.name() ? -1 : 1;
+                    });
+                    nodeInfo.node.disks(nodeInfo.disks);
+                }
+                nodeInfo.node.disksLoading(self.initialRun);
             });
             self.nodeLoaded(true);
         };
