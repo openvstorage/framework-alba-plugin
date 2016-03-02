@@ -195,6 +195,7 @@ define([
                         if (disk.nodeID() === nodeID && !nodeInfo.names.contains(disk.name())) {
                             disk.node = nodeInfo.node;
                             nodeInfo.disks.push(disk);
+                            nodeInfo.names.push(disk.name());
                             nodeInfo.changed = true;
                         }
                     });
