@@ -40,7 +40,8 @@ class AlbaBackend(DataObject):
                   Dynamic('presets', list, 60),
                   Dynamic('available', bool, 60),
                   Dynamic('name', str, 3600),
-                  Dynamic('metadata_information', dict, 60)]
+                  Dynamic('metadata_information', dict, 60),
+                  Dynamic('asd_statistics', dict, 5, locked=True)]
 
     def _all_disks(self):
         """
@@ -355,3 +356,16 @@ class AlbaBackend(DataObject):
                         if DiskPartition.ROLES.DB in partition.roles:
                             info['nsm_partition_guids'].append(partition.guid)
         return info
+
+    def _asd_statistics(self):
+        """
+        Loads statistics from all it's asds in one call
+        """
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(self.backend.name)
+        asd_ids = [asd.asd_id for asd in self.asds]
+        raw_statistics = AlbaCLI.run('asd-multistatistics', long_id=','.join(asd_ids), config=config, as_json=True)
+        statistics = {}
+        for asd_id, stats in raw_statistics.iteritems():
+            if stats['success'] is True:
+                statistics[asd_id] = stats['result']
+        return statistics

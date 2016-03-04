@@ -76,12 +76,14 @@ class AlbaASD(DataObject):
                      'range': ['Range'],
                      'range_entries': ['RangeEntries'],
                      'statistics': ['Statistics']}
-        statistics = {}
         volatile = VolatileFactory.get_client()
         prev_key = '{0}_{1}'.format(self._key, 'statistics_previous')
         previous_stats = volatile.get(prev_key, default={})
         try:
-            data = AlbaCLI.run('asd-statistics', extra_params=['-h', self.ip, '-p', self.port], as_json=True)
+            all_statistics = self.alba_backend.asd_statistics
+            if self.asd_id not in all_statistics:
+                return {}
+            data = all_statistics[self.asd_id]
             statistics = {'timestamp': time.time()}
             delta = statistics['timestamp'] - previous_stats.get('timestamp', statistics['timestamp'])
             for key, sources in data_keys.iteritems():
@@ -109,7 +111,7 @@ class AlbaASD(DataObject):
                 else:
                     statistics[key]['n_ps'] = 0
             volatile.set(prev_key, statistics, dynamic.timeout * 10)
-        except Exception as ex:
+            return statistics
+        except Exception:
             # This might fail every now and then, e.g. on disk removal. Let's ignore for now.
-            pass
-        return statistics
+            return {}
