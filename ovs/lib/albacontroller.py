@@ -246,8 +246,15 @@ class AlbaController(object):
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(alba_backend.backend.name)
         alba_backend.alba_id = AlbaCLI.run('get-alba-id', config=config, as_json=True, attempts=5)['id']
         alba_backend.save()
-
-        AlbaController.nsm_checkup(backend_guid=alba_backend.guid)
+        try:
+            AlbaController.nsm_checkup(backend_guid=alba_backend.guid)
+        except Exception as ex:
+            logger.error('Failed NSM Checkup during add cluster for backend {0}. {1}'.format(alba_backend.guid, ex))
+            try:
+                AlbaController.remove_cluster(alba_backend_guid=alba_backend.guid)
+            except Exception as ex2:
+                logger.error('Failed cluster cleanup for backend {0}. {1}'.format(alba_backend.guid, ex2))
+            raise ex
 
         # Mark the backend as "running"
         alba_backend.backend.status = 'RUNNING'
@@ -625,10 +632,12 @@ class AlbaController(object):
                 nsm_storagerouter[storagerouter] = 0
         for nsm_service in backend.nsm_services:
             number = nsm_service.number
-            if number not in nsm_groups:
-                nsm_groups[number] = []
-                nsm_loads[number] = AlbaController.get_load(nsm_service)
-            nsm_groups[number].append(nsm_service)
+            key = ArakoonInstaller.ETCD_CONFIG_PATH.format(nsm_service.alba_backend.abm_services[0].service.name)
+            if EtcdConfiguration.exists(key):
+                if number not in nsm_groups:
+                    nsm_groups[number] = []
+                    nsm_loads[number] = AlbaController.get_load(nsm_service)
+                nsm_groups[number].append(nsm_service)
             storagerouter = nsm_service.service.storagerouter
             if storagerouter not in nsm_storagerouter:
                 nsm_storagerouter[storagerouter] = 0
@@ -704,7 +713,7 @@ class AlbaController(object):
                     logger.debug('Node added')
 
         # Load
-        if min(nsm_loads.values()) >= maxload:
+        if len(nsm_loads.values()) > 0 and min(nsm_loads.values()) >= maxload:
             maxnumber = max(nsm_loads.keys())
             logger.debug('NSM overloaded, adding new NSM')
             # On of the this NSMs node is overloaded. This means the complete NSM is considered overloaded
