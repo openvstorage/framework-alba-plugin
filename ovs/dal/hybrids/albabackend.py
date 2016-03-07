@@ -362,9 +362,14 @@ class AlbaBackend(DataObject):
         Loads statistics from all it's asds in one call
         """
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(self.backend.name)
-        asd_ids = [asd.asd_id for asd in self.asds]
-        raw_statistics = AlbaCLI.run('asd-multistatistics', long_id=','.join(asd_ids), config=config, as_json=True)
         statistics = {}
+        if len(self.asds) == 0:
+            return statistics
+        asd_ids = [asd.asd_id for asd in self.asds]
+        try:
+            raw_statistics = AlbaCLI.run('asd-multistatistics', long_id=','.join(asd_ids), config=config, as_json=True)
+        except RuntimeError:
+            return statistics
         for asd_id, stats in raw_statistics.iteritems():
             if stats['success'] is True:
                 statistics[asd_id] = stats['result']
