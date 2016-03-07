@@ -82,6 +82,7 @@ class Alba(TestCase):
         from ovs.dal.hybrids.albanode import AlbaNode
         from ovs.dal.hybrids.albabackend import AlbaBackend
         from ovs.dal.hybrids.backend import Backend
+        from ovs.dal.hybrids.backendtype import BackendType
         expected_0 = {'statistics': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
                       'range': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
                       'range_entries': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
@@ -95,12 +96,29 @@ class Alba(TestCase):
                       'apply': {'max': 5, 'n_ps': 0, 'min': 5, 'avg': 5, 'n': 1},
                       'timestamp': None}
         base_time = time.time()
+        backend_type = BackendType()
+        backend_type.code = 'alba'
+        backend_type.name = 'ALBA'
+        backend_type.save()
+        backend = Backend()
+        backend.name = 'foobar'
+        backend.backend_type = backend_type
+        backend.save()
+        alba_backend = AlbaBackend()
+        alba_backend.backend = backend
+        alba_backend.save()
+        alba_node = AlbaNode()
+        alba_node.ip = '127.0.0.1'
+        alba_node.port = 8500
+        alba_node.username = 'foo'
+        alba_node.password = 'bar'
+        alba_node.node_id = 'foobar'
+        alba_node.save()
         asd = AlbaASD()
         asd.asd_id = 'foo'
-        asd.alba_node = AlbaNode()
-        asd.alba_backend = AlbaBackend()
-        asd.alba_backend.backend = Backend()
-        asd.alba_backend.backend.name = 'foobar'
+        asd.alba_backend = alba_backend
+        asd.alba_node = alba_node
+        asd.save()
         ASDManagerClient.results['get_disks'] = []
         AlbaCLI.run_results['asd-multistatistics'] = {'foo': {'success': True,
                                                               'result': {'Apply': {'n': 1, 'avg': 5, 'min': 5, 'max': 5},
