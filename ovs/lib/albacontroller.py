@@ -713,7 +713,7 @@ class AlbaController(object):
                     logger.debug('Node added')
 
         # Load
-        if len(nsm_loads.values()) > 0 and min(nsm_loads.values()) >= maxload:
+        if min(nsm_loads.values()) >= maxload:
             maxnumber = max(nsm_loads.keys())
             logger.debug('NSM overloaded, adding new NSM')
             # On of the this NSMs node is overloaded. This means the complete NSM is considered overloaded
