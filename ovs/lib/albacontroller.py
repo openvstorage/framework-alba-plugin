@@ -243,11 +243,8 @@ class AlbaController(object):
             AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
                                                        create_nsm_cluster=True)
         except Exception as ex:
-            logger.error('Failed Manual Alba Arakoon Checkup during add cluster for backend {0}. {1}'.format(alba_backend_guid, ex))
-            try:
-                AlbaController.remove_cluster(alba_backend_guid=alba_backend_guid)
-            except Exception as ex2:
-                logger.error('Failed cluster cleanup for backend {0}. {1}'.format(alba_backend_guid, ex2))
+            logger.exception('Failed Manual Alba Arakoon Checkup during add cluster for backend {0}. {1}'.format(alba_backend_guid, ex))
+            AlbaController.remove_cluster(alba_backend_guid=alba_backend_guid)
             raise ex
 
         alba_backend = AlbaBackend(alba_backend_guid)
@@ -257,11 +254,8 @@ class AlbaController(object):
         try:
             AlbaController.nsm_checkup(backend_guid=alba_backend.guid)
         except Exception as ex:
-            logger.error('Failed NSM Checkup during add cluster for backend {0}. {1}'.format(alba_backend.guid, ex))
-            try:
-                AlbaController.remove_cluster(alba_backend_guid=alba_backend.guid)
-            except Exception as ex2:
-                logger.error('Failed cluster cleanup for backend {0}. {1}'.format(alba_backend.guid, ex2))
+            logger.exception('Failed NSM Checkup during add cluster for backend {0}. {1}'.format(alba_backend.guid, ex))
+            AlbaController.remove_cluster(alba_backend_guid=alba_backend.guid)
             raise ex
 
         # Mark the backend as "running"
