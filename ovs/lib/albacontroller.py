@@ -239,15 +239,24 @@ class AlbaController(object):
         """
         from ovs.lib.albanodecontroller import AlbaNodeController
 
-        AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
-                                                   create_nsm_cluster=True)
+        try:
+            AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
+                                                       create_nsm_cluster=True)
+        except Exception as ex:
+            logger.exception('Failed Manual Alba Arakoon Checkup during add cluster for backend {0}. {1}'.format(alba_backend_guid, ex))
+            AlbaController.remove_cluster(alba_backend_guid=alba_backend_guid)
+            raise ex
 
         alba_backend = AlbaBackend(alba_backend_guid)
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(alba_backend.backend.name)
         alba_backend.alba_id = AlbaCLI.run('get-alba-id', config=config, as_json=True, attempts=5)['id']
         alba_backend.save()
-
-        AlbaController.nsm_checkup(backend_guid=alba_backend.guid)
+        try:
+            AlbaController.nsm_checkup(backend_guid=alba_backend.guid)
+        except Exception as ex:
+            logger.exception('Failed NSM Checkup during add cluster for backend {0}. {1}'.format(alba_backend.guid, ex))
+            AlbaController.remove_cluster(alba_backend_guid=alba_backend.guid)
+            raise ex
 
         # Mark the backend as "running"
         alba_backend.backend.status = 'RUNNING'
