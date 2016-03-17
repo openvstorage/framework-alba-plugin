@@ -318,8 +318,7 @@ class AlbaController(object):
         EtcdConfiguration.set(etcd_key, 0)
         AlbaNodeController.checkup_maintenance_agents()
 
-        key = AlbaController.ETCD_ALBA_BACKEND_KEY.format(alba_backend_guid)
-        EtcdConfiguration.delete(key)
+        EtcdConfiguration.delete(AlbaController.ETCD_ALBA_BACKEND_KEY.format(alba_backend_guid))
 
         backend = albabackend.backend
         albabackend.delete()
