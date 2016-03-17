@@ -247,7 +247,11 @@ class AlbaNodeController(object):
                           'total_load': 0}
             for asd_node in asd_nodes:
                 actual_nr_of_agents = 0
-                maint_services = asd_node.client.list_maintenance_services()
+                try:
+                    maint_services = asd_node.client.list_maintenance_services()
+                except requests.ConnectionError:
+                    logger.warning('Node {0} {1} appears offline'.format(asd_node.ip, asd_node.node_id))
+                    maint_services = None
                 if maint_services:
                     for filename in maint_services.keys():
                         if service_template_key.format(backend_name, '') in filename:
