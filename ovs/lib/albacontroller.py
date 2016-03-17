@@ -63,12 +63,20 @@ class AlbaController(object):
     ETCD_NR_OF_AGENTS_KEY = ETCD_MAINTENANCE_KEY + '/nr_of_agents'
 
     @staticmethod
-    def get_abm_service_name(alba_backend):
+    def get_abm_service_name(backend):
         """
-        :param alba_backend: The backend for which the ABM name should be returned
+        :param backend: The backend for which the ABM name should be returned
         :return: The ABM name
         """
-        return alba_backend.backend.name + '-abm'
+        return backend.name + '-abm'
+
+    @staticmethod
+    def get_nsm_service_name(backend):
+        """
+        :param backend: The backend for which the NSM name should be returned
+        :return: The NSM name
+        """
+        return backend.name + '-nsm_0'
 
     @staticmethod
     @celery.task(name='alba.add_units')
@@ -84,7 +92,7 @@ class AlbaController(object):
         :return:                  None
         """
         alba_backend = AlbaBackend(alba_backend_guid)
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(alba_backend.backend.name)
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(alba_backend.backend))
         for asd_id, node_guid in asds.iteritems():
             AlbaCLI.run('claim-osd', config=config, long_id=asd_id, as_json=True)
             asd = AlbaASD()
@@ -114,7 +122,7 @@ class AlbaController(object):
         """
         try:
             alba_backend = AlbaBackend(alba_backend_guid)
-            config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(alba_backend.backend.name)
+            config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(alba_backend.backend))
             for asd_id in asd_ids:
                 AlbaCLI.run('decommission-osd', config=config, long_id=asd_id)
         except:
@@ -168,7 +176,7 @@ class AlbaController(object):
         else:
             preset['fragment_encryption'] = ['none']
 
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(alba_backend.backend.name)
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(alba_backend.backend))
 
         temp_config_file = tempfile.mktemp()
         with open(temp_config_file, 'wb') as data_file:
@@ -195,7 +203,7 @@ class AlbaController(object):
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         logger.debug('Deleting preset {0}'.format(name))
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(alba_backend.backend.name)
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(alba_backend.backend))
         AlbaCLI.run('delete-preset', config=config, extra_params=name, as_json=True)
         alba_backend.invalidate_dynamics()
 
@@ -215,7 +223,7 @@ class AlbaController(object):
         logger.debug('Adding preset {0} with policies {1}'.format(name, policies))
         preset = {'policies': policies}
 
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(alba_backend.backend.name)
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(alba_backend.backend))
 
         temp_config_file = tempfile.mktemp()
         with open(temp_config_file, 'wb') as data_file:
@@ -248,7 +256,7 @@ class AlbaController(object):
             raise ex
 
         alba_backend = AlbaBackend(alba_backend_guid)
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(alba_backend.backend.name)
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(alba_backend.backend))
         alba_backend.alba_id = AlbaCLI.run('get-alba-id', config=config, as_json=True, attempts=5)['id']
         alba_backend.save()
         try:
@@ -406,8 +414,8 @@ class AlbaController(object):
         alba_backends = AlbaBackendList.get_albabackends()
 
         for alba_backend in alba_backends:
-            abm_service_name = alba_backend.backend.name + "-abm"
-            nsm_service_name = alba_backend.backend.name + "-nsm_0"
+            abm_service_name = AlbaController.get_abm_service_name(alba_backend.backend)
+            nsm_service_name = AlbaController.get_nsm_service_name(alba_backend.backend)
             current_ips[alba_backend] = {'abm': [],
                                          'nsm': []}
             current_services[alba_backend] = {'abm': [],
@@ -434,8 +442,8 @@ class AlbaController(object):
         if alba_backend_guid is not None:
             storagerouter, partition = available_storagerouters.items()[0]
             alba_backend = AlbaBackend(alba_backend_guid)
-            abm_service_name = AlbaController.get_abm_service_name(alba_backend)
-            nsm_service_name = alba_backend.backend.name + "-nsm_0"
+            abm_service_name = AlbaController.get_abm_service_name(alba_backend.backend)
+            nsm_service_name = AlbaController.get_nsm_service_name(alba_backend.backend)
             if len(current_services[alba_backend]['abm']) == 0:
                 abm_service = AlbaController.create_or_extend_cluster(create=True,
                                                                       client=clients[storagerouter],
@@ -507,7 +515,6 @@ class AlbaController(object):
         if offline_node_ips is None:
             offline_node_ips = []
         alba_backends = AlbaBackendList.get_albabackends()
-        client = SSHClient(cluster_ip, username='root') if cluster_ip not in offline_node_ips else None
         for alba_backend in alba_backends:
             # Remove the node from the ABM
             logger.info('Shrinking ABM for backend "{0}"'.format(alba_backend.backend.name))
@@ -734,6 +741,7 @@ class AlbaController(object):
                 partition = DiskPartition(storagerouter.partition_config[DiskPartition.ROLES.DB][0])
                 if first_ip is None:
                     nsm_result = ArakoonInstaller.create_cluster(cluster_name=nsm_name,
+                                                                 cluster_type='NSM',
                                                                  ip=storagerouter.ip,
                                                                  base_dir=partition.folder,
                                                                  plugins=AlbaController.NSM_PLUGIN)
@@ -794,7 +802,7 @@ class AlbaController(object):
         for asd in alba_backend.asds:
             if asd.asd_id in removal_asd_ids or asd.asd_id in error_disks:
                 extra_parameters.append('--long-id {0}'.format(asd.asd_id))
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(alba_backend.backend.name)
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(alba_backend.backend))
         safety_data = AlbaCLI.run('get-disk-safety', config=config, extra_params=extra_parameters, as_json=True)
         result = {'good': 0,
                   'critical': 0,
@@ -942,16 +950,19 @@ class AlbaController(object):
         if service.name == 'AlbaManager':
             number = None
             plugins = [AlbaController.ABM_PLUGIN]
-            service_name = backend.backend.name + "-abm"
+            service_name = AlbaController.get_abm_service_name(backend.backend)
             junction_type = ABMService
+            cluster_type = 'ABM'
         else:
             number = 0
             plugins = [AlbaController.NSM_PLUGIN]
-            service_name = backend.backend.name + "-nsm_0"
+            service_name = AlbaController.get_nsm_service_name(backend.backend)
             junction_type = NSMService
+            cluster_type = 'NSM'
 
         if create is True:
             result = ArakoonInstaller.create_cluster(cluster_name=service_name,
+                                                     cluster_type=cluster_type,
                                                      ip=storagerouter.ip,
                                                      base_dir=partition.folder,
                                                      plugins=plugins)
