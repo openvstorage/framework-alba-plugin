@@ -19,10 +19,10 @@ AlbaController module
 import json
 import os
 import random
+import requests
 import tempfile
 import time
 from celery.schedules import crontab
-from etcd import EtcdKeyNotFound
 from ovs.celery_run import celery
 from ovs.dal.hybrids.albaasd import AlbaASD
 from ovs.dal.hybrids.albabackend import AlbaBackend
@@ -287,16 +287,20 @@ class AlbaController(object):
         if len(albabackend.asds) > 0:
             raise RuntimeError('A backend with claimed OSDs cannot be removed')
 
+        for abm_service in albabackend.abm_services:
+            asd_node = AlbaNodeList.get_albanode_by_ip(abm_service.service.storagerouter.ip)
+            try:
+                asd_node.client.list_maintenance_services()
+            except requests.exceptions.ConnectionError as ce:
+                raise RuntimeError('Node {0} is not reachable, backend cannot be removed. {1}'.format(asd_node.ip, ce))
+
         cluster_removed = False
         for abm_service in albabackend.abm_services:
             ip = abm_service.service.storagerouter.ip
             service_name = abm_service.service.name
             if cluster_removed is False:
-                try:
-                    ArakoonInstaller.delete_cluster(service_name, ip)
-                    cluster_removed = True
-                except (UnableToConnectException, EtcdKeyNotFound) as ex:
-                    logger.warning('Could not remove ArakoonCluster {0} {1}. {2}'.format(service_name, ip, ex))
+                ArakoonInstaller.delete_cluster(service_name, ip)
+                cluster_removed = True
             service = abm_service.service
             abm_service.delete()
             service.delete()
@@ -304,11 +308,8 @@ class AlbaController(object):
         cluster_removed = []
         for nsm_service in albabackend.nsm_services:
             if nsm_service.service.name not in cluster_removed:
-                try:
-                    ArakoonInstaller.delete_cluster(nsm_service.service.name, nsm_service.service.storagerouter.ip)
-                    cluster_removed.append(nsm_service.service.name)
-                except (UnableToConnectException, EtcdKeyNotFound) as ex:
-                    logger.warning('Could not remove ArakoonCluster {0} {1}. {2}'.format(service_name, ip, ex))
+                ArakoonInstaller.delete_cluster(nsm_service.service.name, nsm_service.service.storagerouter.ip)
+                cluster_removed.append(nsm_service.service.name)
             service = nsm_service.service
             nsm_service.delete()
             service.delete()
@@ -318,8 +319,7 @@ class AlbaController(object):
         AlbaNodeController.checkup_maintenance_agents()
 
         key = AlbaController.ETCD_ALBA_BACKEND_KEY.format(alba_backend_guid)
-        if EtcdConfiguration.exists(key, raw=True):
-            EtcdConfiguration.delete(key)
+        EtcdConfiguration.delete(key)
 
         backend = albabackend.backend
         albabackend.delete()
