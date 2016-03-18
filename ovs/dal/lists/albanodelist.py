@@ -16,8 +16,6 @@
 AlbaNodeList module
 """
 from ovs.dal.datalist import DataList
-from ovs.dal.dataobject import DataObjectList
-from ovs.dal.helpers import Descriptor
 from ovs.dal.hybrids.albanode import AlbaNode
 
 
@@ -31,11 +29,8 @@ class AlbaNodeList(object):
         """
         Returns a list of all AlbaNodes
         """
-        nodes = DataList({'object': AlbaNode,
-                          'data': DataList.select.GUIDS,
-                          'query': {'type': DataList.where_operator.AND,
-                                    'items': []}}).data
-        return DataObjectList(nodes, AlbaNode)
+        return DataList(AlbaNode, {'type': DataList.where_operator.AND,
+                                   'items': []})
 
     @staticmethod
     def get_albanode_by_ip(ip):
@@ -43,12 +38,10 @@ class AlbaNodeList(object):
         Returns a node by IP
         :param ip: IP of the ALBa node to retrieve
         """
-        nodes = DataList({'object': AlbaNode,
-                          'data': DataList.select.GUIDS,
-                          'query': {'type': DataList.where_operator.AND,
-                                    'items': [('ip', DataList.operator.EQUALS, ip)]}}).data
+        nodes = DataList(AlbaNode, {'type': DataList.where_operator.AND,
+                                    'items': [('ip', DataList.operator.EQUALS, ip)]})
         if len(nodes) == 1:
-            return Descriptor(AlbaNode, nodes[0]).get_object(True)
+            return nodes[0]
         return None
 
     @staticmethod
@@ -57,10 +50,8 @@ class AlbaNodeList(object):
         Returns a node by its node_id
         :param node_id: ID of the ALBA node to retrieve
         """
-        nodes = DataList({'object': AlbaNode,
-                          'data': DataList.select.GUIDS,
-                          'query': {'type': DataList.where_operator.AND,
-                                    'items': [('node_id', DataList.operator.EQUALS, node_id)]}}).data
+        nodes = DataList(AlbaNode, {'type': DataList.where_operator.AND,
+                                    'items': [('node_id', DataList.operator.EQUALS, node_id)]})
         if len(nodes) == 1:
-            return Descriptor(AlbaNode, nodes[0]).get_object(True)
+            return nodes[0]
         return None
