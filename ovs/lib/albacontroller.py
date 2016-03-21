@@ -38,7 +38,7 @@ from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
-from ovs.extensions.generic.sshclient import SSHClient
+from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.generic.sshclient import UnableToConnectException
 from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.plugins.albacli import AlbaCLI
@@ -287,12 +287,21 @@ class AlbaController(object):
         if len(albabackend.asds) > 0:
             raise RuntimeError('A backend with claimed OSDs cannot be removed')
 
+        # openvstorage nodes
         for abm_service in albabackend.abm_services:
-            asd_node = AlbaNodeList.get_albanode_by_ip(abm_service.service.storagerouter.ip)
+            test_ip = abm_service.service.storagerouter.ip
             try:
-                asd_node.client.list_maintenance_services()
+                test_client = SSHClient(test_ip, username='root')
+                test_client.dir_list('/')
+            except UnableToConnectException as uc:
+                raise RuntimeError('Node {0} is not reachable, backend cannot be removed. {1}'.format(test_ip, uc))
+
+        # storage nodes
+        for alba_node in AlbaNodeList.get_albanodes():
+            try:
+                alba_node.client.list_maintenance_services()
             except requests.exceptions.ConnectionError as ce:
-                raise RuntimeError('Node {0} is not reachable, backend cannot be removed. {1}'.format(asd_node.ip, ce))
+                raise RuntimeError('Node {0} is not reachable, backend cannot be removed. {1}'.format(alba_node.ip, ce))
 
         cluster_removed = False
         for abm_service in albabackend.abm_services:
