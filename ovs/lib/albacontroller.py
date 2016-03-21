@@ -247,7 +247,7 @@ class AlbaController(object):
         except Exception as ex:
             logger.exception('Failed Manual Alba Arakoon Checkup during add cluster for backend {0}. {1}'.format(alba_backend_guid, ex))
             AlbaController.remove_cluster(alba_backend_guid=alba_backend_guid)
-            raise ex
+            raise
 
         alba_backend = AlbaBackend(alba_backend_guid)
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(alba_backend.backend.name)
@@ -258,7 +258,7 @@ class AlbaController(object):
         except Exception as ex:
             logger.exception('Failed NSM Checkup during add cluster for backend {0}. {1}'.format(alba_backend.guid, ex))
             AlbaController.remove_cluster(alba_backend_guid=alba_backend.guid)
-            raise ex
+            raise
 
         # Mark the backend as "running"
         alba_backend.backend.status = 'RUNNING'

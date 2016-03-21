@@ -22,7 +22,7 @@ from backend.decorators import required_roles
 from backend.decorators import return_list
 from backend.decorators import return_object
 from backend.decorators import return_task
-from ovs.dal.dataobjectlist import DataObjectList
+from ovs.dal.datalist import DataList
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
@@ -72,7 +72,9 @@ class AlbaNodeViewSet(viewsets.ViewSet):
                 raise RuntimeError('Invalid credentials')
             if data['node_id'] != node_id:
                 raise RuntimeError('Unexpected node identifier. {0} vs {1}'.format(data['node_id'], node_id))
-            node_list = DataObjectList([node.guid], AlbaNode)
+            node_list = DataList(AlbaNode, {})
+            node_list._executed = True
+            node_list._guids = [node.guid]
             node_list._objects = {node.guid: node}
             return node_list
 
@@ -94,7 +96,9 @@ class AlbaNodeViewSet(viewsets.ViewSet):
             if node.node_id not in model_node_ids and node.node_id not in found_node_ids:
                 nodes[node.guid] = node
                 found_node_ids.append(node.node_id)
-        node_list = DataObjectList(nodes.keys(), AlbaNode)
+        node_list = DataList(AlbaNode, {})
+        node_list._executed = True
+        node_list._guids = nodes.keys()
         node_list._objects = nodes
         return node_list
 
