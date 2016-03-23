@@ -291,8 +291,7 @@ class AlbaController(object):
         for abm_service in albabackend.abm_services:
             test_ip = abm_service.service.storagerouter.ip
             try:
-                test_client = SSHClient(test_ip, username='root')
-                test_client.dir_list('/')
+                SSHClient(test_ip, username='root')
             except UnableToConnectException as uc:
                 raise RuntimeError('Node {0} is not reachable, backend cannot be removed. {1}'.format(test_ip, uc))
 
