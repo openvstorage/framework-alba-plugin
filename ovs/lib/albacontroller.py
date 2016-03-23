@@ -30,6 +30,7 @@ from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.j_abmservice import ABMService
 from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.service import Service as DalService
+from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
@@ -741,7 +742,7 @@ class AlbaController(object):
                 partition = DiskPartition(storagerouter.partition_config[DiskPartition.ROLES.DB][0])
                 if first_ip is None:
                     nsm_result = ArakoonInstaller.create_cluster(cluster_name=nsm_name,
-                                                                 cluster_type='NSM',
+                                                                 cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                                  ip=storagerouter.ip,
                                                                  base_dir=partition.folder,
                                                                  plugins=AlbaController.NSM_PLUGIN)
@@ -952,13 +953,13 @@ class AlbaController(object):
             plugins = [AlbaController.ABM_PLUGIN]
             service_name = AlbaController.get_abm_service_name(backend.backend)
             junction_type = ABMService
-            cluster_type = 'ABM'
+            cluster_type = ServiceType.ARAKOON_CLUSTER_TYPES.ABM
         else:
             number = 0
             plugins = [AlbaController.NSM_PLUGIN]
             service_name = AlbaController.get_nsm_service_name(backend.backend)
             junction_type = NSMService
-            cluster_type = 'NSM'
+            cluster_type = ServiceType.ARAKOON_CLUSTER_TYPES.NSM
 
         if create is True:
             result = ArakoonInstaller.create_cluster(cluster_name=service_name,
