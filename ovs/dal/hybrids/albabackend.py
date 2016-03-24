@@ -16,15 +16,15 @@
 AlbaBackend module
 """
 import time
-from Queue import Queue, Empty
-from threading import Thread
 from ovs.dal.dataobject import DataObject
-from ovs.dal.lists.vpoollist import VPoolList
-from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.hybrids.backend import Backend
+from ovs.dal.lists.albanodelist import AlbaNodeList
+from ovs.dal.lists.vpoollist import VPoolList
 from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
 from ovs.extensions.plugins.albacli import AlbaCLI
+from Queue import Queue, Empty
+from threading import Thread
 
 
 class AlbaBackend(DataObject):
@@ -350,7 +350,7 @@ class AlbaBackend(DataObject):
         nsm_service_name = self.backend.name + "-nsm_0"
         nsm_service_type = ServiceTypeList.get_by_name('NamespaceManager')
         for service in nsm_service_type.services:
-            if service.name == nsm_service_name:
+            if service.name == nsm_service_name and service.is_internal is True:
                 for disk in service.storagerouter.disks:
                     for partition in disk.partitions:
                         if DiskPartition.ROLES.DB in partition.roles:

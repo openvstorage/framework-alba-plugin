@@ -112,12 +112,12 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read', 'manage'])
     @return_task()
     @load(AlbaBackend)
-    def get_config_metadata(self, albabackend):
+    def get_arakoon_config(self, albabackend):
         """
         Gets the configuration metadata for an Alba backend
         :param albabackend: ALBA backend to retrieve metadata for
         """
-        return AlbaController.get_config_metadata.delay(albabackend.guid)
+        return AlbaController.get_arakoon_config.delay(albabackend.guid)
 
     @link()
     @log()
