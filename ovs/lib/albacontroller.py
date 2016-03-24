@@ -19,6 +19,7 @@ AlbaController module
 import json
 import os
 import random
+import requests
 import tempfile
 import time
 from celery.schedules import crontab
@@ -37,11 +38,12 @@ from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
-from ovs.extensions.generic.sshclient import SSHClient
+from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.generic.sshclient import UnableToConnectException
 from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.extensions.services.service import ServiceManager
+from ovs.extensions.generic.sshclient import UnableToConnectException
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.lib.helpers.decorators import ensure_single
 from ovs.log.logHandler import LogHandler
@@ -284,6 +286,21 @@ class AlbaController(object):
         albabackend = AlbaBackend(alba_backend_guid)
         if len(albabackend.asds) > 0:
             raise RuntimeError('A backend with claimed OSDs cannot be removed')
+
+        # openvstorage nodes
+        for abm_service in albabackend.abm_services:
+            test_ip = abm_service.service.storagerouter.ip
+            try:
+                SSHClient(test_ip, username='root')
+            except UnableToConnectException as uc:
+                raise RuntimeError('Node {0} is not reachable, backend cannot be removed. {1}'.format(test_ip, uc))
+
+        # storage nodes
+        for alba_node in AlbaNodeList.get_albanodes():
+            try:
+                alba_node.client.list_maintenance_services()
+            except requests.exceptions.ConnectionError as ce:
+                raise RuntimeError('Node {0} is not reachable, backend cannot be removed. {1}'.format(alba_node.ip, ce))
 
         cluster_removed = False
         for abm_service in albabackend.abm_services:
