@@ -158,7 +158,7 @@ class ASDManagerClient(object):
         data = requests.get('{0}/update/information'.format(self._base_url),
                             headers=self._base_headers,
                             verify=False,
-                            timeout=self.timeout).json()
+                            timeout=120).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
             logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))

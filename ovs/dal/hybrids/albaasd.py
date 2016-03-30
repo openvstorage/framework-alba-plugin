@@ -20,7 +20,6 @@ from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.structures import Property, Relation, Dynamic
-from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.extensions.storage.volatilefactory import VolatileFactory
 
 
