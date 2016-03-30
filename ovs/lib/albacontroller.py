@@ -367,29 +367,6 @@ class AlbaController(object):
         return config.export()
 
     @staticmethod
-    def link_plugins(client, data_dir, plugins, cluster_name):
-        """
-        Create symlinks for the arakoon plugins to the correct (mounted) partition
-        :param client:       SSHClient to execute this on
-        :type client:        SSHClient
-
-        :param data_dir:     Directory on which the DB partition resides
-        :type data_dir:      String
-
-        :param plugins:      Plugins to symlink
-        :type plugins:       List
-
-        :param cluster_name: Name of the arakoon cluster
-        :type cluster_name:  String
-
-        :return:             None
-        """
-        data_dir = '' if data_dir == '/' else data_dir
-        for plugin in plugins:
-            cmd = 'ln -s {0}/{1}.cmxs {2}/arakoon/{3}/db'.format(AlbaController.ARAKOON_PLUGIN_DIR, plugin, data_dir, cluster_name)
-            client.run(cmd)
-
-    @staticmethod
     @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=crontab(minute='30', hour='*'))
     def scheduled_alba_arakoon_checkup():
         """
@@ -469,7 +446,6 @@ class AlbaController(object):
             nsm_service_name = AlbaController.get_nsm_service_name(alba_backend.backend)
             if len(current_services[alba_backend]['abm']) == 0:
                 abm_service = AlbaController.create_or_extend_cluster(create=True,
-                                                                      client=clients[storagerouter],
                                                                       backend=alba_backend,
                                                                       service=abm_service_type,
                                                                       partition=partition,
@@ -485,7 +461,6 @@ class AlbaController(object):
 
             if len(current_services[alba_backend]['nsm']) == 0 and create_nsm_cluster is True:
                 nsm_service = AlbaController.create_or_extend_cluster(create=True,
-                                                                      client=clients[storagerouter],
                                                                       backend=alba_backend,
                                                                       service=nsm_service_type,
                                                                       partition=partition,
@@ -507,7 +482,6 @@ class AlbaController(object):
                         if storagerouter.ip in current_ips[alba_backend]['abm']:
                             continue
                         abm_service = AlbaController.create_or_extend_cluster(create=False,
-                                                                              client=clients[storagerouter],
                                                                               backend=alba_backend,
                                                                               service=abm_service_type,
                                                                               partition=partition,
@@ -729,11 +703,6 @@ class AlbaController(object):
                                                                      new_ip=candidate_sr.ip,
                                                                      cluster_name=nsm_service_name,
                                                                      base_dir=partition.folder)
-                        logger.debug('  Linking plugin')
-                        AlbaController.link_plugins(client=clients[candidate_sr],
-                                                    data_dir=partition.folder,
-                                                    plugins=[AlbaController.NSM_PLUGIN],
-                                                    cluster_name=nsm_service_name)
                         logger.debug('  Model services')
                         AlbaController._model_service(service_name=nsm_service_name,
                                                       service_type=nsm_service_type,
@@ -764,7 +733,7 @@ class AlbaController(object):
                     storagerouters.append(storagerouter)
                 if len(storagerouters) == safety:
                     break
-            # Creating a new NSM cluster
+            # Create or claim a new NSM cluster
             maxnumber += 1
             nsm_name = '{0}-nsm_{1}'.format(backend.backend.name, maxnumber)
             first_ip = None
@@ -776,18 +745,13 @@ class AlbaController(object):
                         nsm_result = ArakoonInstaller.create_cluster(cluster_name=nsm_name,
                                                                      cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                                      ip=storagerouter.ip,
-                                                                     base_dir=partition.folder,
-                                                                     plugins=AlbaController.NSM_PLUGIN)
+                                                                     base_dir=partition.folder)
                         first_ip = storagerouter.ip
                     else:
                         nsm_result = ArakoonInstaller.extend_cluster(master_ip=first_ip,
                                                                      new_ip=storagerouter.ip,
                                                                      cluster_name=nsm_name,
                                                                      base_dir=partition.folder)
-                    AlbaController.link_plugins(client=clients[storagerouter],
-                                                data_dir=partition.folder,
-                                                plugins=[AlbaController.NSM_PLUGIN],
-                                                cluster_name=nsm_name)
                     AlbaController._model_service(service_name=nsm_name,
                                                   service_type=nsm_service_type,
                                                   ports=[nsm_result['client_port'], nsm_result['messaging_port']],
@@ -798,17 +762,20 @@ class AlbaController(object):
                 for storagerouter in storagerouters:
                     client = SSHClient(storagerouter, username='root')
                     ArakoonInstaller.start(nsm_name, client)
-                AlbaController.register_nsm(abm_name=abm_service_name,
-                                            nsm_name=nsm_name,
-                                            ip=storagerouters[0].ip)
             else:
-                nsm_result = AlbaController.create_or_extend_cluster(create=True,
-                                                                     client=None,
-                                                                     backend=alba_backend,
-                                                                     service=abm_service_type,
-                                                                     partition=partition,
-                                                                     storagerouter=storagerouter,
-                                                                     master_ip=current_ips[alba_backend]['abm'][0])
+                ArakoonInstaller.claim_cluster(cluster_name=nsm_name,
+                                               cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM)
+                AlbaController._model_service(service_name=nsm_name,
+                                              service_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
+                                              ports=[],
+                                              storagerouter=None,
+                                              junction_type=NSMService,
+                                              backend=backend,
+                                              number=maxnumber)
+            AlbaController.register_nsm(abm_name=abm_service_name,
+                                        nsm_name=nsm_name,
+                                        ip=storagerouters[0].ip)
+
             logger.debug('New NSM ({0}) added'.format(maxnumber))
         else:
             logger.debug('NSM load OK')
@@ -934,6 +901,7 @@ class AlbaController(object):
         """
         Adds service to the model
         """
+        logger.info('Model abm service: {0}'.format(str(service_name)))
         service = DalService()
         service.name = service_name
         service.type = service_type
@@ -951,14 +919,11 @@ class AlbaController(object):
         return junction_service
 
     @staticmethod
-    def create_or_extend_cluster(create, client, backend, service, partition, storagerouter, master_ip=None):
+    def create_or_extend_cluster(create, backend, service, partition, storagerouter, master_ip=None):
         """
         Create a new arakoon cluster for ALBA or extend an existing one
         :param create:        If True create a new cluster, otherwise extend existing
         :type create:         Boolean
-
-        :param client:        SSHClient to execute this on
-        :type client:         SSHClient
 
         :param backend:       The ALBA backend to create/extend cluster for
         :type backend:        AlbaBackend
@@ -977,38 +942,33 @@ class AlbaController(object):
 
         :return:              Service created
         """
+        logger.info('Create or extend cluster ... {0}'.format(service.name))
         if service.name == 'AlbaManager':
             number = None
-            plugins = [AlbaController.ABM_PLUGIN]
             service_name = AlbaController.get_abm_service_name(backend.backend)
             junction_type = ABMService
             cluster_type = ServiceType.ARAKOON_CLUSTER_TYPES.ABM
         else:
             number = 0
-            plugins = [AlbaController.NSM_PLUGIN]
             service_name = AlbaController.get_nsm_service_name(backend.backend)
             junction_type = NSMService
             cluster_type = ServiceType.ARAKOON_CLUSTER_TYPES.NSM
 
         new_service = None
+        logger.warning('Cluster_type: {0}'.format(cluster_type))
         internally_managed = ArakoonInstaller.is_internal(cluster_type=cluster_type)
         if internally_managed is True:
             if create is True:
                 result = ArakoonInstaller.create_cluster(cluster_name=service_name,
                                                          cluster_type=cluster_type,
                                                          ip=storagerouter.ip,
-                                                         base_dir=partition.folder,
-                                                         plugins=plugins)
-                ArakoonInstaller.claim_cluster(cluster_type=cluster_type, cluster_name=service_name)
+                                                         base_dir=partition.folder)
+                ArakoonInstaller.claim_cluster(cluster_name=service_name, cluster_type=cluster_type)
             else:
                 result = ArakoonInstaller.extend_cluster(master_ip=master_ip,
                                                          new_ip=storagerouter.ip,
                                                          cluster_name=service_name,
                                                          base_dir=partition.folder)
-            AlbaController.link_plugins(client=client,
-                                        data_dir=partition.folder,
-                                        plugins=plugins,
-                                        cluster_name=service_name)
 
             new_service = AlbaController._model_service(service_name=service_name,
                                                         service_type=service,
@@ -1028,7 +988,7 @@ class AlbaController(object):
                                                         junction_type=junction_type,
                                                         backend=backend,
                                                         number=number)
-            ArakoonInstaller.claim_cluster(cluster_type)
+            ArakoonInstaller.claim_cluster(cluster_name=metadata[0].cluster_id, cluster_type=cluster_type)
 
         return new_service
 
