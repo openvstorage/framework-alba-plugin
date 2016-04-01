@@ -59,7 +59,8 @@ class AlbaBackend(DataObject):
             node_disk_map[node.node_id] = []
 
         # Load OSDs
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(self.backend.name)
+        backend_name = self.abm_services[0].service.name if self.abm_services else self.backend.name + '-abm'
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(backend_name)
         for found_osd in AlbaCLI.run('list-all-osds', config=config, as_json=True):
             node_id = found_osd['node_id']
             if node_id in node_disk_map:
@@ -201,7 +202,8 @@ class AlbaBackend(DataObject):
         """
         Loads namespace data
         """
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(self.backend.name)
+        backend_name = self.abm_services[0].service.name if self.abm_services else self.backend.name + '-abm'
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(backend_name)
         return AlbaCLI.run('show-namespaces', config=config, extra_params=['--max=-1'], as_json=True)[1]
 
     def _ns_statistics(self):
@@ -284,7 +286,8 @@ class AlbaBackend(DataObject):
             for disk in all_disks:
                 if disk['node_id'] == node.node_id and disk['status'] in ['claimed', 'warning']:
                     disks[node.node_id] += 1
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(self.backend.name)
+        backend_name = self.abm_services[0].service.name if self.abm_services else self.backend.name + '-abm'
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(backend_name)
         presets = AlbaCLI.run('list-presets', config=config, as_json=True)
         preset_dict = {}
         for preset in presets:
@@ -343,12 +346,13 @@ class AlbaBackend(DataObject):
         Returns metadata information about the backend
         """
         from ovs.dal.hybrids.diskpartition import DiskPartition
+        from ovs.dal.hybrids.servicetype import ServiceType
         from ovs.dal.lists.servicetypelist import ServiceTypeList
 
         info = {'nsm_partition_guids': []}
 
         nsm_service_name = self.backend.name + "-nsm_0"
-        nsm_service_type = ServiceTypeList.get_by_name('NamespaceManager')
+        nsm_service_type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.NS_MGR)
         for service in nsm_service_type.services:
             if service.name == nsm_service_name and service.is_internal is True:
                 for disk in service.storagerouter.disks:
@@ -361,7 +365,8 @@ class AlbaBackend(DataObject):
         """
         Loads statistics from all it's asds in one call
         """
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(self.backend.name)
+        backend_name = self.abm_services[0].service.name if self.abm_services else self.backend.name + '-abm'
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(backend_name)
         statistics = {}
         if len(self.asds) == 0:
             return statistics

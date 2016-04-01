@@ -56,7 +56,8 @@ class AlbaScheduledTaskController(object):
             EtcdConfiguration.set(job_factor_key, job_factor)
 
         for albabackend in AlbaBackendList.get_albabackends():
-            config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(albabackend.backend.name)
+            backend_name = albabackend.abm_services[0].service.name if albabackend.abm_services else albabackend.name + '-abm'
+            config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(backend_name)
             namespaces = AlbaCLI.run('list-namespaces', config=config, as_json=True)
             for namespace in namespaces:
                 logger.info('verifying namespace: {0} scheduled ...'.format(namespace['name']))

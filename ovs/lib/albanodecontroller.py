@@ -50,6 +50,9 @@ class AlbaNodeController(object):
         """
         Adds a Node with a given node_id to the model
         :param node_id: ID of the ALBA node
+        :type node_id: str
+
+        :return: None
         """
         node = AlbaNodeList.get_albanode_by_node_id(node_id)
         if node is None:
@@ -85,7 +88,13 @@ class AlbaNodeController(object):
         """
         Initializes a disk
         :param node_guid: Guid of the node which disks need to be initialized
+        :type node_guid: str
+
         :param disks: Disks to initialize
+        :type disks: list
+
+        :return: Disk objects which failed to initialize
+        :rtype: list
         """
         node = AlbaNode(node_guid)
         available_disks = dict((disk['name'], disk) for disk in node.all_disks)
@@ -118,9 +127,19 @@ class AlbaNodeController(object):
         """
         Removes a disk
         :param alba_backend_guid: Guid of the ALBA backend
+        :type alba_backend_guid: str
+
         :param node_guid: Guid of the node to remove a disk from
-        :param disk: Disk to remove
+        :type node_guid: str
+
+        :param disk: Disk name to remove
+        :type disk: str
+
         :param expected_safety: Expected safety after having removed the disk
+        :type expected_safety: dict
+
+        :return: True
+        :rtype: bool
         """
         node = AlbaNode(node_guid)
         alba_backend = AlbaBackend(alba_backend_guid)
@@ -183,7 +202,13 @@ class AlbaNodeController(object):
         """
         Restarts a disk
         :param node_guid: Guid of the node to restart a disk of
-        :param disk: Disk to be restarted
+        :type node_guid: str
+
+        :param disk: Disk name to be restarted
+        :type disk: str
+
+        :return: True
+        :rtype: bool
         """
         node = AlbaNode(node_guid)
         logger.debug('Restarting disk {0} at node {1}'.format(disk, node.ip))
@@ -209,6 +234,8 @@ class AlbaNodeController(object):
         """
         Add all ALBA nodes known to etcd to the model
         :param kwargs: Kwargs containing information regarding the node
+        :type kwargs: dict
+
         :return: None
         """
         _ = kwargs
@@ -271,7 +298,7 @@ class AlbaNodeController(object):
             required_nr = EtcdConfiguration.get(nr_of_agents_key)
             maintenance_agents_map[name] = {'required': required_nr,
                                             'actual': _get_node_load(name)['total_load'],
-                                            'alba_backend': alba_backend}
+                                            'backend': alba_backend.backend}
 
         for name, values in maintenance_agents_map.iteritems():
             logger.info('Checking backend: {0}'.format(name))
@@ -287,8 +314,8 @@ class AlbaNodeController(object):
                     logger.info('Service to add: ' + service_template_key.format(name, unique_hash))
                     if node and node.client:
                         node.client.add_maintenance_service(service_template_key.format(name, unique_hash),
-                                                            values['alba_backend'].guid,
-                                                            AlbaController.get_abm_service_name(values['alba_backend']))
+                                                            values['backend'].alba_backend.guid,
+                                                            AlbaController.get_abm_service_name(values['backend']))
                         logger.info('Service added')
             else:
                 to_process = abs(to_process)
