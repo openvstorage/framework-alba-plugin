@@ -479,12 +479,17 @@ class AlbaController(object):
                                                          new_ip=storagerouter.ip)
                     current_ips[alba_backend]['abm'].append(storagerouter.ip)
                     ports = [result['client_port'], result['messaging_port']]
+                    metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_type(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM, in_use=False)
                 else:
-                    logger.info('Claiming externally managed arakoon cluster: {0}'.format(abm_service_name))
-                    metadata[0].claim()  # Claim the unused externally managed arakoon cluster
                     ports = []
                     storagerouter = None
-                    abm_service_name = metadata[0].cluster_id
+
+                if len(metadata) == 0:
+                    raise ValueError('No arakoon cluster found of type {0}'.format(ServiceType.ARAKOON_CLUSTER_TYPES.ABM))
+
+                abm_service_name = metadata[0].cluster_id
+                logger.info('Claiming {0} managed arakoon cluster: {1}'.format('externally' if storagerouter is None else 'internally', abm_service_name))
+                metadata[0].claim()
                 AlbaController._update_abm_client_config(abm_name=abm_service_name,
                                                          ip=clients.keys()[0].ip)
                 abm_service = AlbaController._model_service(service_name=abm_service_name,
@@ -498,10 +503,10 @@ class AlbaController(object):
             # NSM arakoon cluster creation
             if len(current_services[alba_backend]['nsm']) == 0 and create_nsm_cluster is True:
                 metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_type(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM, in_use=False)
-                nsm_service_name = AlbaController.get_nsm_service_name(backend=alba_backend.backend)
                 if len(metadata) == 0:  # No externally unused clusters found, we create 1 ourselves
                     if not available_storagerouters:
                         raise RuntimeError('Could not find any partitions with DB role')
+                    nsm_service_name = AlbaController.get_nsm_service_name(backend=alba_backend.backend)
                     logger.info('Creating arakoon cluster: {0}'.format(nsm_service_name))
                     storagerouter, partition = available_storagerouters.items()[0]
                     result = ArakoonInstaller.create_cluster(cluster_name=nsm_service_name,
@@ -518,12 +523,17 @@ class AlbaController(object):
                                                          new_ip=storagerouter.ip)
                     current_ips[alba_backend]['nsm'].append(storagerouter.ip)
                     ports = [result['client_port'], result['messaging_port']]
+                    metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_type(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM, in_use=False)
                 else:
-                    logger.info('Claiming externally managed arakoon cluster: {0}'.format(nsm_service_name))
-                    metadata[0].claim()  # Claim the unused externally managed arakoon cluster
                     ports = []
                     storagerouter = None
-                    nsm_service_name = metadata[0].cluster_id
+
+                if len(metadata) == 0:
+                    raise ValueError('No arakoon cluster found of type {0}'.format(ServiceType.ARAKOON_CLUSTER_TYPES.NSM))
+
+                nsm_service_name = metadata[0].cluster_id
+                logger.info('Claiming {0} managed arakoon cluster: {1}'.format('externally' if storagerouter is None else 'internally', nsm_service_name))
+                metadata[0].claim()
                 AlbaController.register_nsm(abm_service_name, nsm_service_name, clients.keys()[0])
                 nsm_service = AlbaController._model_service(service_name=nsm_service_name,
                                                             service_type=nsm_service_type,
@@ -819,6 +829,7 @@ class AlbaController(object):
                             AlbaController.register_nsm(abm_name=abm_service_name,
                                                         nsm_name=clusters[0].cluster_id,
                                                         ip=client.ip)
+                            clusters[0].claim()
                     else:
                         logger.debug('NSM overloaded, adding new NSM')
                         # One of the NSM nodes is overloaded. This means the complete NSM is considered overloaded
@@ -843,6 +854,8 @@ class AlbaController(object):
                                                                              base_dir=partition.folder,
                                                                              plugins=AlbaController.NSM_PLUGIN)
                                 first_ip = storagerouter.ip
+                                metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=nsm_name)
+                                metadata.claim()
                             else:
                                 nsm_result = ArakoonInstaller.extend_cluster(master_ip=first_ip,
                                                                              new_ip=storagerouter.ip,
