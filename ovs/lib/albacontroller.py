@@ -320,30 +320,28 @@ class AlbaController(object):
 
         cluster_removed = False
         for abm_service in albabackend.abm_services:
-            abm_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=abm_service.service.name)
-            if cluster_removed is False and abm_service.service.is_internal is True:
-                ip = abm_service.service.storagerouter.ip
-                ArakoonInstaller.delete_cluster(abm_service.service.name, ip)
-                cluster_removed = True
-                EtcdConfiguration.delete(ArakoonClusterMetadata.ETCD_METADATA_KEY.format(abm_service.service.name))
+            if cluster_removed is False:
+                abm_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=abm_service.service.name)
+                abm_metadata.unclaim()
+                if abm_service.service.is_internal is True:
+                    ip = abm_service.service.storagerouter.ip
+                    ArakoonInstaller.delete_cluster(abm_service.service.name, ip)
+                    cluster_removed = True
             service = abm_service.service
             abm_service.delete()
             service.delete()
-            if cluster_removed is False:  # Externally managed
-                abm_metadata.unclaim()
 
         cluster_removed = []
         for nsm_service in albabackend.nsm_services:
-            nsm_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=nsm_service.service.name)
+            if len(cluster_removed) == 0:
+                nsm_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=nsm_service.service.name)
+                nsm_metadata.unclaim()
             if nsm_service.service.is_internal is True and nsm_service.service.name not in cluster_removed:
                 ArakoonInstaller.delete_cluster(nsm_service.service.name, nsm_service.service.storagerouter.ip)
                 cluster_removed.append(nsm_service.service.name)
-                EtcdConfiguration.delete(ArakoonClusterMetadata.ETCD_METADATA_KEY.format(nsm_service.service.name))
             service = nsm_service.service
             nsm_service.delete()
             service.delete()
-            if len(cluster_removed) == 0:  # Externally managed
-                nsm_metadata.unclaim()
 
         # Set amount of maintenance agents to 0, to let the checkup remove all obsolete agents
         etcd_key = AlbaController.ETCD_NR_OF_AGENTS_KEY.format(alba_backend_guid)
