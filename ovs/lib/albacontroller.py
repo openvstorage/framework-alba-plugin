@@ -304,11 +304,12 @@ class AlbaController(object):
 
         # openvstorage nodes
         for abm_service in albabackend.abm_services:
-            test_ip = abm_service.service.storagerouter.ip
-            try:
-                SSHClient(test_ip, username='root')
-            except UnableToConnectException as uc:
-                raise RuntimeError('Node {0} is not reachable, backend cannot be removed. {1}'.format(test_ip, uc))
+            if abm_service.service.is_internal is True:
+                test_ip = abm_service.service.storagerouter.ip
+                try:
+                    SSHClient(test_ip, username='root')
+                except UnableToConnectException as uc:
+                    raise RuntimeError('Node {0} is not reachable, backend cannot be removed. {1}'.format(test_ip, uc))
 
         # storage nodes
         for alba_node in AlbaNodeList.get_albanodes():
