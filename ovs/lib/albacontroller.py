@@ -617,11 +617,11 @@ class AlbaController(object):
             nsm_service_name = AlbaController.get_nsm_service_name(backend=alba_backend.backend)
             abm_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=abm_service_name)
             nsm_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=nsm_service_name)
-            abm_storagerouter_ips = [abm_service.service.storagerouter.ip for abm_service in alba_backend.abm_services]
-            abm_remaining_ips = list(set(abm_storagerouter_ips).difference(set(offline_node_ips)))
             if abm_metadata.internal is True:
                 # Remove the node from the ABM
                 logger.info('Shrinking ABM for backend "{0}"'.format(alba_backend.backend.name))
+                abm_storagerouter_ips = [abm_service.service.storagerouter.ip for abm_service in alba_backend.abm_services]
+                abm_remaining_ips = list(set(abm_storagerouter_ips).difference(set(offline_node_ips)))
                 if len(alba_backend.abm_services) == 0:
                     raise RuntimeError('No ABM services found for ALBA backend "{0}"'.format(alba_backend.backend.name))
                 if len(abm_remaining_ips) == 0:
@@ -648,10 +648,10 @@ class AlbaController(object):
                 nsm_service_map = dict((nsm_service.service.name, nsm_service.number) for nsm_service in alba_backend.nsm_services)
                 for nsm_service_name, nsm_service_number in nsm_service_map.iteritems():
                     nsm_storagerouter_ips = [nsm_service.service.storagerouter.ip for nsm_service in alba_backend.nsm_services
-                                             if nsm_service.service.storagerouter is not None and nsm_service.service.name == nsm_service_name]
+                                             if nsm_service.service.is_internal is True and nsm_service.service.name == nsm_service_name]
                     nsm_remaining_ips = list(set(nsm_storagerouter_ips).difference(set(offline_node_ips)))
                     if len(nsm_remaining_ips) == 0:
-                        raise RuntimeError('No other available nodes found in the ABM cluster')
+                        raise RuntimeError('No other available nodes found in the NSM cluster')
 
                     if cluster_ip in nsm_storagerouter_ips:
                         logger.info('* Shrink NSM cluster {0}'.format(nsm_service_number))
@@ -659,7 +659,7 @@ class AlbaController(object):
 
                         logger.info('* Restarting NSM cluster {0}'.format(nsm_service_number))
                         ArakoonInstaller.restart_cluster_remove(nsm_service_name, nsm_remaining_ips)
-                        AlbaController.update_nsm(abm_service_name, nsm_service_name, abm_remaining_ips[0])
+                        AlbaController.update_nsm(abm_service_name, nsm_service_name, nsm_remaining_ips[0])
 
                         logger.info('* Remove old NSM node from model')
                         nsm_service = [nsm_service for nsm_service in alba_backend.nsm_services if nsm_service.service.name == nsm_service_name and nsm_service.service.storagerouter.ip == cluster_ip][0]
@@ -732,20 +732,21 @@ class AlbaController(object):
                 nsm_groups = {}
                 nsm_storagerouter = {}
                 nsm_loads = {}
-                for abms in alba_backend.abm_services:
-                    storagerouter = abms.service.storagerouter
-                    if storagerouter not in nsm_storagerouter and storagerouter is not None:
-                        nsm_storagerouter[storagerouter] = 0
+                for abm_service in alba_backend.abm_services:
+                    if abm_service.service.is_internal is True:
+                        storagerouter = abm_service.service.storagerouter
+                        if storagerouter not in nsm_storagerouter:
+                            nsm_storagerouter[storagerouter] = 0
                 for nsm_service in alba_backend.nsm_services:
                     number = nsm_service.number
                     if number not in nsm_groups:
                         nsm_groups[number] = []
                         nsm_loads[number] = AlbaController.get_load(nsm_service)
                     nsm_groups[number].append(nsm_service)
-                    storagerouter = nsm_service.service.storagerouter
-                    if storagerouter not in nsm_storagerouter and storagerouter is not None:
-                        nsm_storagerouter[storagerouter] = 0
-                    if storagerouter is not None:
+                    if nsm_service.service.is_internal is True:
+                        storagerouter = nsm_service.service.storagerouter
+                        if storagerouter not in nsm_storagerouter:
+                            nsm_storagerouter[storagerouter] = 0
                         nsm_storagerouter[storagerouter] += 1
                 clients = {}
                 for sr in nsm_storagerouter.keys():
