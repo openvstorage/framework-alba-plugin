@@ -328,6 +328,7 @@ class AlbaController(object):
             if len(cluster_removed) == 0:  # Externally managed
                 nsm_metadata.unclaim()
 
+        # Set amount of maintenance agents to 0, to let the checkup remove all obsolete agents
         etcd_key = AlbaController.ETCD_NR_OF_AGENTS_KEY.format(alba_backend_guid)
         EtcdConfiguration.set(etcd_key, 0)
         AlbaNodeController.checkup_maintenance_agents()
@@ -353,11 +354,12 @@ class AlbaController(object):
         client = None
         for abm_service in AlbaBackend(alba_backend_guid).abm_services:
             service = abm_service.service
-            try:
-                client = SSHClient(service.storagerouter.ip)
-                break
-            except UnableToConnectException:
-                pass
+            if service.is_internal is True:
+                try:
+                    client = SSHClient(service.storagerouter.ip)
+                    break
+                except UnableToConnectException:
+                    pass
         if service is None or (client is None and service.is_internal is True):
             raise RuntimeError('Could not load arakoon configuration')
         config = ArakoonClusterConfig(service.name)
@@ -566,7 +568,7 @@ class AlbaController(object):
                                                                 ports=[result['client_port'], result['messaging_port']],
                                                                 storagerouter=storagerouter,
                                                                 junction_type=ABMService,
-                                                                backend=alba_backend.backend)
+                                                                backend=alba_backend)
                     ArakoonInstaller.restart_cluster_add(cluster_name=metadata.cluster_id,
                                                          current_ips=current_ips[alba_backend]['abm'],
                                                          new_ip=storagerouter.ip)
