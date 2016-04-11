@@ -192,8 +192,7 @@ class AlbaBackend(DataObject):
         # Collect vPool/vDisk data
         vdisk_dataset = {}
         for vpool in VPoolList.get_vpools():
-            c = vpool.storagedriver_client
-            vdisk_dataset[vpool] = c.list_volumes()
+            vdisk_dataset[vpool] = vpool.storagedriver_client.list_volumes()
 
         # Load disk statistics
         def _load_disks(_node, _dict):
