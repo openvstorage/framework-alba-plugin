@@ -79,7 +79,6 @@
         "warnings": "Warnings",
         "wayreplication": "-way replication:",
         "statusdetails": {
-            "communicationerror": "Communication error",
             "missing": "Disk is missing",
             "ioerror": "I/O errors",
             "servicefailure": "Service failure",
