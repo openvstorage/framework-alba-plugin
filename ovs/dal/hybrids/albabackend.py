@@ -16,7 +16,6 @@
 AlbaBackend module
 """
 import time
-from Queue import Queue, Empty
 from threading import Thread
 from ovs.dal.dataobject import DataObject
 from ovs.dal.lists.vpoollist import VPoolList
@@ -34,7 +33,7 @@ class AlbaBackend(DataObject):
     __properties = [Property('alba_id', str, mandatory=False, doc='ALBA internal identifier')]
     __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic backend')]
     __dynamics = [Dynamic('all_disks', list, 5),
-                  Dynamic('statistics', dict, 5),
+                  Dynamic('statistics', dict, 5, locked=True),
                   Dynamic('ns_data', list, 60),
                   Dynamic('ns_statistics', dict, 60),
                   Dynamic('presets', list, 60),
@@ -85,84 +84,59 @@ class AlbaBackend(DataObject):
             thread.join()
 
         # Make mapping between node IDs and the relevant OSDs and disks
-        def _process_disk(_info, _disks, _node):
-            disk = _info.get('disk')
-            if disk is None:
-                return
-            disk_status = 'uninitialized'
-            disk_status_detail = ''
-            disk_alba_backend_guid = ''
-            if disk['available'] is False:
-                osd = _info.get('osd')
-                disk_alba_state = disk['state']['state']
-                if disk_alba_state == 'ok':
-                    if osd is None:
-                        disk_status = 'initialized'
-                    elif osd['id'] is None:
-                        alba_id = osd['alba_id']
-                        if alba_id is None:
-                            disk_status = 'available'
-                        else:
-                            disk_status = 'unavailable'
-                            alba_backend = alba_backend_map.get(alba_id)
-                            if alba_backend is not None:
-                                disk_alba_backend_guid = alba_backend.guid
-                    else:
-                        disk_status = 'error'
-                        disk_status_detail = 'communicationerror'
-                        disk_alba_backend_guid = self.guid
-
-                        for asd in _node.asds:
-                            if asd.asd_id == disk['asd_id'] and asd.statistics != {}:
-                                disk_status = 'warning'
-                                disk_status_detail = 'recenterrors'
-
-                                read = osd['read'] or [0]
-                                write = osd['write'] or [0]
-                                errors = osd['errors']
-                                global_interval_key = '/ovs/alba/backends/global_gui_error_interval'
-                                backend_interval_key = '/ovs/alba/backends/{0}/gui_error_interval'.format(self.guid)
-                                interval = EtcdConfiguration.get(global_interval_key)
-                                if EtcdConfiguration.exists(backend_interval_key):
-                                    interval = EtcdConfiguration.get(backend_interval_key)
-                                if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + interval):
-                                    disk_status = 'claimed'
-                                    disk_status_detail = ''
-                elif disk_alba_state == 'decommissioned':
-                    disk_status = 'unavailable'
-                    disk_status_detail = 'decommissioned'
-                else:
-                    disk_status = 'error'
-                    disk_status_detail = disk['state']['detail']
-                    alba_backend = alba_backend_map.get(osd.get('alba_id'))
-                    if alba_backend is not None:
-                        disk_alba_backend_guid = alba_backend.guid
-            disk['status'] = disk_status
-            disk['status_detail'] = disk_status_detail
-            disk['alba_backend_guid'] = disk_alba_backend_guid
-            _disks.append(disk)
-
-        def _worker(_queue, _disks):
-            while True:
-                try:
-                    item = _queue.get(False)
-                    _process_disk(item['info'], _disks, item['node'])
-                except Empty:
-                    return
-
-        queue = Queue()
+        backend_interval_key = '/ovs/alba/backends/{0}/gui_error_interval'.format(self.guid)
+        if EtcdConfiguration.exists(backend_interval_key):
+            interval = EtcdConfiguration.get(backend_interval_key)
+        else:
+            interval = EtcdConfiguration.get('/ovs/alba/backends/global_gui_error_interval')
+        disks = []
         for node in alba_nodes:
             for info in node_disk_map[node.node_id]:
-                queue.put({'info': info,
-                           'node': node})
-        disks = []
-        threads = []
-        for i in range(5):
-            thread = Thread(target=_worker, args=(queue, disks))
-            thread.start()
-            threads.append(thread)
-        for thread in threads:
-            thread.join()
+                disk = info.get('disk')
+                if disk is None:
+                    continue
+                disk_status = 'uninitialized'
+                disk_status_detail = ''
+                disk_alba_backend_guid = ''
+                if disk['available'] is False:
+                    osd = info.get('osd')
+                    disk_alba_state = disk['state']['state']
+                    if disk_alba_state == 'ok':
+                        if osd is None:
+                            disk_status = 'initialized'
+                        elif osd['id'] is None:
+                            alba_id = osd['alba_id']
+                            if alba_id is None:
+                                disk_status = 'available'
+                            else:
+                                disk_status = 'unavailable'
+                                alba_backend = alba_backend_map.get(alba_id)
+                                if alba_backend is not None:
+                                    disk_alba_backend_guid = alba_backend.guid
+                        else:
+                            disk_alba_backend_guid = self.guid
+                            disk_status = 'warning'
+                            disk_status_detail = 'recenterrors'
+
+                            read = osd['read'] or [0]
+                            write = osd['write'] or [0]
+                            errors = osd['errors']
+                            if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + interval):
+                                disk_status = 'claimed'
+                                disk_status_detail = ''
+                    elif disk_alba_state == 'decommissioned':
+                        disk_status = 'unavailable'
+                        disk_status_detail = 'decommissioned'
+                    else:
+                        disk_status = 'error'
+                        disk_status_detail = disk['state']['detail']
+                        alba_backend = alba_backend_map.get(osd.get('alba_id'))
+                        if alba_backend is not None:
+                            disk_alba_backend_guid = alba_backend.guid
+                disk['status'] = disk_status
+                disk['status_detail'] = disk_status_detail
+                disk['alba_backend_guid'] = disk_alba_backend_guid
+                disks.append(disk)
         return disks
 
     def _statistics(self):
@@ -214,13 +188,11 @@ class AlbaBackend(DataObject):
             if namespace['namespace']['state'] != 'active':
                 continue
             alba_dataset[namespace['name']] = namespace['statistics']
+
         # Collect vPool/vDisk data
         vdisk_dataset = {}
         for vpool in VPoolList.get_vpools():
-            if vpool not in vdisk_dataset:
-                vdisk_dataset[vpool] = []
-            for vdisk in vpool.vdisks:
-                vdisk_dataset[vpool].append(vdisk.volume_id)
+            vdisk_dataset[vpool] = vpool.storagedriver_client.list_volumes()
 
         # Load disk statistics
         def _load_disks(_node, _dict):
