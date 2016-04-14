@@ -23,7 +23,6 @@ from ovs.dal.lists.vpoollist import VPoolList
 from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
 from ovs.extensions.plugins.albacli import AlbaCLI
-from Queue import Queue, Empty
 from threading import Thread
 
 
@@ -50,6 +49,9 @@ class AlbaBackend(DataObject):
         from ovs.dal.lists.albanodelist import AlbaNodeList
         from ovs.dal.lists.albabackendlist import AlbaBackendList
 
+        if len(self.abm_services) == 0:
+            return []  # No ABM services yet, so backend not fully installed yet
+
         alba_backend_map = {}
         for a_backend in AlbaBackendList.get_albabackends():
             alba_backend_map[a_backend.alba_id] = a_backend
@@ -59,8 +61,7 @@ class AlbaBackend(DataObject):
             node_disk_map[node.node_id] = []
 
         # Load OSDs
-        backend_name = self.abm_services[0].service.name if self.abm_services else self.backend.name + '-abm'
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(backend_name)
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
         for found_osd in AlbaCLI.run('list-all-osds', config=config, as_json=True):
             node_id = found_osd['node_id']
             if node_id in node_disk_map:
@@ -177,8 +178,10 @@ class AlbaBackend(DataObject):
         """
         Loads namespace data
         """
-        backend_name = self.abm_services[0].service.name if self.abm_services else self.backend.name + '-abm'
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(backend_name)
+        if len(self.abm_services) == 0:
+            return []  # No ABM services yet, so backend not fully installed yet
+
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
         return AlbaCLI.run('show-namespaces', config=config, extra_params=['--max=-1'], as_json=True)[1]
 
     def _ns_statistics(self):
@@ -252,6 +255,9 @@ class AlbaBackend(DataObject):
         """
         Returns the policies active on the node
         """
+        if len(self.abm_services) == 0:
+            return []  # No ABM services yet, so backend not fully installed yet
+
         all_disks = self.all_disks
         disks = {}
         for node in AlbaNodeList.get_albanodes():
@@ -259,8 +265,7 @@ class AlbaBackend(DataObject):
             for disk in all_disks:
                 if disk['node_id'] == node.node_id and disk['status'] in ['claimed', 'warning']:
                     disks[node.node_id] += 1
-        backend_name = self.abm_services[0].service.name if self.abm_services else self.backend.name + '-abm'
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(backend_name)
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
         presets = AlbaCLI.run('list-presets', config=config, as_json=True)
         preset_dict = {}
         for preset in presets:
@@ -338,9 +343,11 @@ class AlbaBackend(DataObject):
         """
         Loads statistics from all it's asds in one call
         """
-        backend_name = self.abm_services[0].service.name if self.abm_services else self.backend.name + '-abm'
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(backend_name)
         statistics = {}
+        if len(self.abm_services) == 0:
+            return statistics  # No ABM services yet, so backend not fully installed yet
+
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
         if len(self.asds) == 0:
             return statistics
         asd_ids = [asd.asd_id for asd in self.asds]
