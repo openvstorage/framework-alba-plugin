@@ -83,6 +83,9 @@ class Alba(TestCase):
         from ovs.dal.hybrids.albabackend import AlbaBackend
         from ovs.dal.hybrids.backend import Backend
         from ovs.dal.hybrids.backendtype import BackendType
+        from ovs.dal.hybrids.j_abmservice import ABMService
+        from ovs.dal.hybrids.service import Service
+        from ovs.dal.hybrids.servicetype import ServiceType
         expected_0 = {'statistics': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
                       'range': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
                       'range_entries': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
@@ -119,6 +122,18 @@ class Alba(TestCase):
         asd.alba_backend = alba_backend
         asd.alba_node = alba_node
         asd.save()
+        service_type = ServiceType()
+        service_type.name = 'AlbaManager'
+        service_type.save()
+        service = Service()
+        service.name = 'foobar'
+        service.type = service_type
+        service.ports = []
+        service.save()
+        abm_service = ABMService()
+        abm_service.service = service
+        abm_service.alba_backend = alba_backend
+        abm_service.save()
         ASDManagerClient.results['get_disks'] = []
         AlbaCLI.run_results['asd-multistatistics'] = {'foo': {'success': True,
                                                               'result': {'Apply': {'n': 1, 'avg': 5, 'min': 5, 'max': 5},
