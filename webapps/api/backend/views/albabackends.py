@@ -16,20 +16,13 @@
 Contains the AlbaBackendViewSet
 """
 
-from backend.decorators import load
-from backend.decorators import log
-from backend.decorators import required_roles
-from backend.decorators import return_list
-from backend.decorators import return_object
-from backend.decorators import return_task
+from backend.decorators import load, log, required_roles, return_list, return_object, return_task
 from backend.serializers.serializers import FullSerializer
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.lib.albacontroller import AlbaController
-from rest_framework import status
-from rest_framework import viewsets
-from rest_framework.decorators import action
-from rest_framework.decorators import link
+from rest_framework import status, viewsets
+from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -117,7 +110,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         Gets the configuration metadata for an Alba backend
         :param albabackend: ALBA backend to retrieve metadata for
         """
-        return AlbaController.get_config_metadata.delay(albabackend.guid)
+        return AlbaController.get_arakoon_config.delay(albabackend.guid)
 
     @link()
     @log()

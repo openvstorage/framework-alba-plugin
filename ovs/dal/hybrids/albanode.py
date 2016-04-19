@@ -65,7 +65,8 @@ class AlbaNode(DataObject):
             asd_ids = []
             for backend in AlbaBackendList.get_albabackends():
                 # All backends of this node
-                config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}-abm/config'.format(backend.name)
+                backend_name = backend.abm_services[0].service.name if backend.abm_services else backend.name + '-abm'
+                config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(backend_name)
                 osds = AlbaCLI.run('list-all-osds', config=config, as_json=True)
                 for osd in osds:
                     node_id = osd.get('node_id')
