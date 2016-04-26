@@ -96,7 +96,9 @@ define([
                     replication: replication
                 });
             });
-            return presets;
+            return presets.sort(function(preset1, preset2) {
+                return preset1.name < preset2.name ? -1 : 1;
+            });
         });
 
         // Functions
