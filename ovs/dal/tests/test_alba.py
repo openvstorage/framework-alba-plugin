@@ -68,6 +68,10 @@ class Alba(TestCase):
         Clean up the unittest
         """
         fakesleep.monkey_restore()
+        PersistentFactory.store = DummyPersistentStore()
+        PersistentFactory.store.clean()
+        VolatileFactory.store = DummyVolatileStore()
+        VolatileFactory.store.clean()
 
     def test_asd_statistics(self):
         """
@@ -151,10 +155,3 @@ class Alba(TestCase):
         statistics = asd._statistics(AlbaASD._dynamics[4])
         expected_1['timestamp'] = base_time + 5
         self.assertDictEqual(statistics, expected_1, 'The second statistics should be as expected: {0} vs {1}'.format(statistics, expected_1))
-
-
-if __name__ == '__main__':
-    import unittest
-    suite = unittest.TestLoader().loadTestsFromTestCase(Alba)
-    result = not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful()
-    sys.exit(result)
