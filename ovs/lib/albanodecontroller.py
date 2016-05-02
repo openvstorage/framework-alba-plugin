@@ -34,15 +34,13 @@ from ovs.lib.disk import DiskController
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.lib.helpers.decorators import ensure_single
 
-logger = LogHandler.get('lib', name='albanode')
-
 
 class AlbaNodeController(object):
     """
     Contains all BLL related to ALBA nodes
     """
-
     NR_OF_AGENTS_ETCD_TEMPLATE = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
+    _logger = LogHandler.get('lib', name='albanode')
 
     @staticmethod
     @celery.task(name='albanode.register')
@@ -67,7 +65,7 @@ class AlbaNodeController(object):
         if data['_success'] is False and data['_error'] == 'Invalid credentials':
             raise RuntimeError('Invalid credentials')
         if data['node_id'] != node_id:
-            logger.error('Unexpected node_id: {0} vs {1}'.format(data['node_id'], node_id))
+            AlbaNodeController._logger.error('Unexpected node_id: {0} vs {1}'.format(data['node_id'], node_id))
             raise RuntimeError('Unexpected node identifier')
         node.node_id = node_id
         node.type = 'ASD'
@@ -101,9 +99,9 @@ class AlbaNodeController(object):
         failures = {}
         added_disks = []
         for disk in disks:
-            logger.debug('Initializing disk {0} at node {1}'.format(disk, node.ip))
+            AlbaNodeController._logger.debug('Initializing disk {0} at node {1}'.format(disk, node.ip))
             if disk not in available_disks or available_disks[disk]['available'] is False:
-                logger.exception('Disk {0} not available on node {1}'.format(disk, node.ip))
+                AlbaNodeController._logger.exception('Disk {0} not available on node {1}'.format(disk, node.ip))
                 failures[disk] = 'Disk unavailable'
             else:
                 result = node.client.add_disk(disk)
@@ -143,14 +141,14 @@ class AlbaNodeController(object):
         """
         node = AlbaNode(node_guid)
         alba_backend = AlbaBackend(alba_backend_guid)
-        logger.debug('Removing disk {0} at node {1}'.format(disk, node.ip))
+        AlbaNodeController._logger.debug('Removing disk {0} at node {1}'.format(disk, node.ip))
         nodedown = False
         disk_info = None
         try:
             disks = node.client.get_disks(as_list=False, reraise=True)
             disk_info = disks.get(disk)
         except requests.ConnectionError:
-            logger.warning('Alba HTTP Client connection failed on node {0} for disk {1}'.format(node.ip, disk))
+            AlbaNodeController._logger.warning('Alba HTTP Client connection failed on node {0} for disk {1}'.format(node.ip, disk))
             nodedown = True
             for d in node.all_disks:
                 if d['name'] == disk:
@@ -158,7 +156,7 @@ class AlbaNodeController(object):
                     break
 
         if disk_info is None or not isinstance(disk_info, dict):
-            logger.exception('Disk {0} not available for removal on node {1}'.format(disk, node.ip))
+            AlbaNodeController._logger.exception('Disk {0} not available for removal on node {1}'.format(disk, node.ip))
             raise RuntimeError('Could not find disk with name {0}'.format(disk))
 
         disk_asd_id = disk_info.get('asd_id')
@@ -184,7 +182,7 @@ class AlbaNodeController(object):
         else:
             # Forcefully remove disk -> decommission-osd
             # no safety checks, don't call HTTP client
-            logger.warning('Alba decommission osd {0}'.format(disk_asd_id))
+            AlbaNodeController._logger.warning('Alba decommission osd {0}'.format(disk_asd_id))
             AlbaController.remove_units(alba_backend_guid, [disk_asd_id], absorb_exception=True)
 
         if len(asds) == 1:
@@ -211,10 +209,10 @@ class AlbaNodeController(object):
         :rtype: bool
         """
         node = AlbaNode(node_guid)
-        logger.debug('Restarting disk {0} at node {1}'.format(disk, node.ip))
+        AlbaNodeController._logger.debug('Restarting disk {0} at node {1}'.format(disk, node.ip))
         disks = node.client.get_disks(as_list=False)
         if disk not in disks:
-            logger.exception('Disk {0} not available for restart on node {1}'.format(disk, node.ip))
+            AlbaNodeController._logger.exception('Disk {0} not available for restart on node {1}'.format(disk, node.ip))
             raise RuntimeError('Could not find disk')
         result = node.client.restart_disk(disk)
         if result['_success'] is False:
@@ -301,25 +299,25 @@ class AlbaNodeController(object):
                                             'backend': alba_backend.backend}
 
         for name, values in maintenance_agents_map.iteritems():
-            logger.info('Checking backend: {0}'.format(name))
+            AlbaNodeController._logger.info('Checking backend: {0}'.format(name))
             to_process = values['required'] - values['actual']
 
             if to_process == 0:
-                logger.info('No action required for: {0}'.format(name))
+                AlbaNodeController._logger.info('No action required for: {0}'.format(name))
             elif to_process >= 0:
-                logger.info('Adding {0} maintenance agent(s) for {1}'.format(to_process, name))
+                AlbaNodeController._logger.info('Adding {0} maintenance agent(s) for {1}'.format(to_process, name))
                 for _ in xrange(to_process):
                     unique_hash = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(32))
                     node = _get_node_load(name)['low_load_node']
-                    logger.info('Service to add: ' + service_template_key.format(name, unique_hash))
+                    AlbaNodeController._logger.info('Service to add: ' + service_template_key.format(name, unique_hash))
                     if node and node.client:
                         node.client.add_maintenance_service(service_template_key.format(name, unique_hash),
                                                             values['backend'].alba_backend.guid,
                                                             AlbaController.get_abm_service_name(values['backend']))
-                        logger.info('Service added')
+                        AlbaNodeController._logger.info('Service added')
             else:
                 to_process = abs(to_process)
-                logger.info('Removing {0} maintenance agent(s) for {1}'.format(to_process, name))
+                AlbaNodeController._logger.info('Removing {0} maintenance agent(s) for {1}'.format(to_process, name))
                 for _ in xrange(to_process):
                     node = _get_node_load(name)['high_load_node']
                     services = node.client.list_maintenance_services().keys()

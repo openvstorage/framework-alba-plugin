@@ -20,8 +20,6 @@ import json
 from subprocess import check_output, CalledProcessError
 from ovs.log.logHandler import LogHandler
 
-logger = LogHandler.get('extensions', name='albacli')
-
 
 class AlbaCLI(object):
     """
@@ -34,6 +32,7 @@ class AlbaCLI(object):
         """
         Executes a command on ALBA
         """
+        logger = LogHandler.get('extensions', name='albacli')
         debug_log = []
         try:
             cmd = 'export LD_LIBRARY_PATH=/usr/lib/alba; '

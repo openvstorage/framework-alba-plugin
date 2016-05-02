@@ -39,7 +39,7 @@ class AlbaCLI(object):
         return AlbaCLI.run_results[command]
 
 
-class AlbaCLIModule:
+class AlbaCLIModule(object):
     """
     Mocks the AlbaCLI module
     """
@@ -133,7 +133,7 @@ class ASDManagerClient(object):
         return ASDManagerClient.results.get('restart_services')
 
 
-class ASDManagerModule:
+class ASDManagerModule(object):
     """
     Mocks the ASDManagerClient module
     """

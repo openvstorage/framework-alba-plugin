@@ -15,19 +15,17 @@
 """
 Generic ALBA CLI module
 """
-import time
 import base64
 import inspect
 import requests
 import time
 from ovs.log.logHandler import LogHandler
 
-logger = LogHandler.get('extensions', name='asdmanagerclient')
-
 
 class ASDManagerClient(object):
     """ ASD Manager Client """
     def __init__(self, node):
+        self._logger = LogHandler.get('extensions', name='asdmanagerclient')
         self.node = node
         self.timeout = 20
         self._log_min_duration = 1
@@ -44,7 +42,7 @@ class ASDManagerClient(object):
                             timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
-            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
         return data
 
     def get_disks(self, as_list=True, reraise=False):
@@ -63,9 +61,9 @@ class ASDManagerClient(object):
                                 timeout=self.timeout).json()
             duration = time.time() - start
             if duration > self._log_min_duration:
-                logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+                self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
         except requests.ConnectionError as ex:
-            logger.error('Could not load data: {0}'.format(ex))
+            self._logger.error('Could not load data: {0}'.format(ex))
             if reraise is True:
                 raise ex
             return disks
@@ -93,7 +91,7 @@ class ASDManagerClient(object):
                             timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
-            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
 
         for key in data.keys():
             if key.startswith('_'):
@@ -113,7 +111,7 @@ class ASDManagerClient(object):
                              timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
-            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
         return data
 
     def remove_disk(self, disk):
@@ -129,7 +127,7 @@ class ASDManagerClient(object):
                              timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
-            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
         return data
 
     def restart_disk(self, disk):
@@ -145,7 +143,7 @@ class ASDManagerClient(object):
                              timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
-            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
         return data
 
     def get_update_information(self):
@@ -161,7 +159,7 @@ class ASDManagerClient(object):
                             timeout=120).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
-            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
 
         for key in data.keys():
             if key.startswith('_'):
@@ -182,7 +180,7 @@ class ASDManagerClient(object):
                              timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
-            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
         return data
 
     def restart_services(self):
@@ -198,7 +196,7 @@ class ASDManagerClient(object):
                              timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
-            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
         return data
 
     def _refresh(self):
@@ -209,6 +207,8 @@ class ASDManagerClient(object):
         """
         Add service to asd manager
         :param name: name
+        :param abm_name:
+        :param alba_backend_guid:
         :return: result
         """
         self._refresh()
@@ -222,7 +222,7 @@ class ASDManagerClient(object):
         print data
         duration = time.time() - start
         if duration > self._log_min_duration:
-            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
         return data
 
     def remove_maintenance_service(self, name):
@@ -239,7 +239,7 @@ class ASDManagerClient(object):
                              timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
-            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
         return data
 
     def list_maintenance_services(self):
@@ -255,5 +255,5 @@ class ASDManagerClient(object):
                             timeout=self.timeout).json()
         duration = time.time() - start
         if duration > self._log_min_duration:
-            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
         return data

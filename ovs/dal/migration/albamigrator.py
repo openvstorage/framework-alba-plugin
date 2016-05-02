@@ -37,7 +37,7 @@ class ALBAMigrator(object):
         """
         Migrates from any version to any version, running all migrations required
         If previous_version is for example 0 and this script is at
-        verison 3 it will execute two steps:
+        version 3 it will execute two steps:
           - 1 > 2
           - 2 > 3
         @param previous_version: The previous version from which to start the migration.
