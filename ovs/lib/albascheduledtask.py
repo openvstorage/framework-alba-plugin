@@ -33,14 +33,16 @@ class AlbaScheduledTaskController(object):
     executed at certain intervals and should be self-containing
     """
 
-    job_schedule_x_months = 3
-    job_schedule_x_months_key = '/ovs/alba/backends/job_schedule_x_months'
-    if not EtcdConfiguration.exists(job_schedule_x_months_key):
-        EtcdConfiguration.set(job_schedule_x_months_key, job_schedule_x_months)
+    verification_schedule = 3
+    verification_schedule_key = '/ovs/alba/backends/verification_schedule'
+    if EtcdConfiguration.exists(verification_schedule_key):
+        verification_schedule = EtcdConfiguration.get(verification_schedule_key)
+    else:
+        EtcdConfiguration.set(verification_schedule_key, verification_schedule)
 
     @staticmethod
     @celery.task(name='alba.scheduled.verify_namespaces',
-                 schedule=crontab(0, 0, month_of_year='*/{0}'.format(job_schedule_x_months)))
+                 schedule=crontab(0, 0, month_of_year='*/{0}'.format(verification_schedule)))
     @ensure_single(task_name='alba.scheduled.verify_namespaces')
     def verify_namespaces():
         """
@@ -48,12 +50,12 @@ class AlbaScheduledTaskController(object):
         """
         logger.info('verify namespace task scheduling started')
 
-        job_factor = 10
-        job_factor_key = '/ovs/alba/backends/job_factor'
-        if EtcdConfiguration.exists(job_factor_key):
-            job_factor = EtcdConfiguration.get(job_factor_key)
+        verification_factor = 10
+        verification_factor_key = '/ovs/alba/backends/verification_factor'
+        if EtcdConfiguration.exists(verification_factor_key):
+            verification_factor = EtcdConfiguration.get(verification_factor_key)
         else:
-            EtcdConfiguration.set(job_factor_key, job_factor)
+            EtcdConfiguration.set(verification_factor_key, verification_factor)
 
         for albabackend in AlbaBackendList.get_albabackends():
             backend_name = albabackend.abm_services[0].service.name if albabackend.abm_services else albabackend.name + '-abm'
@@ -61,6 +63,6 @@ class AlbaScheduledTaskController(object):
             namespaces = AlbaCLI.run('list-namespaces', config=config, as_json=True)
             for namespace in namespaces:
                 logger.info('verifying namespace: {0} scheduled ...'.format(namespace['name']))
-                AlbaCLI.run('verify-namespace {0} --factor={1}'.format(namespace['name'], job_factor))
+                AlbaCLI.run('verify-namespace {0} --factor={1}'.format(namespace['name'], verification_factor))
 
         logger.info('verify namespace task scheduling finished')

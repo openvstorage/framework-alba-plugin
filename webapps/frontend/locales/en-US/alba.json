@@ -44,7 +44,8 @@
         "inuselegend": "In use by other backends:",
         "ipaddress": "IP",
         "ips": "IP",
-        "legend": "Legend:",
+        "disklegend": "Disk legend:",
+        "asdlegend": "ASD legend:",
         "macaddress": "MAC",
         "model": "Model",
         "mountpoint": "Mtpt",
@@ -85,7 +86,9 @@
             "corruption": "Data corruption",
             "recenterrors": "Recent errors",
             "nodedown": "Node is unreachable",
-            "decommissioned": "ASD has been decommissioned"
+            "decommissioned": "Decommissioned",
+            "notmounted": "Disk is not mounted",
+            "unknown": "Unknown"
         },
         "stats": {
             "freespace": "Free space",
@@ -94,8 +97,7 @@
         },
         "states": {
             "osd": {
-                "uninitialized": "Uninitialized",
-                "initialized": "Initialized",
+                "initialized": "Unavailable",
                 "available": "Available",
                 "unavailable": "Unavailable",
                 "error": "Faulted",
@@ -103,13 +105,23 @@
                 "claimed": "Good"
             },
             "osdinfo": {
-                "uninitialized": "This is a raw block device that's not yet in use",
-                "initialized": "This ASD is running but not yet discovered",
                 "available": "This ASD is ready to be claimed/in use by the backend",
                 "unavailable": "This ASD is claimed/in use by another backend",
                 "error": "This ASD is in error state. Action is required",
                 "warning": "This ASD is in warning state. Action may be needed",
                 "claimed": "This ASD is in use by this backend"
+            },
+            "disk": {
+                "uninitialized": "Uninitialized",
+                "initialized": "Good",
+                "error": "Faulted",
+                "warning": "Warning"
+            },
+            "diskinfo": {
+                "uninitialized": "This is a raw block device that's not yet in use",
+                "initialized": "This block device is in use and ready for usage",
+                "error": "This block device is in error state. Action is required",
+                "warning": "This block device is in warning state. Action may be needed"
             }
         },
         "compressions": {
@@ -188,10 +200,10 @@
     "disks" : {
         "initialize": {
             "started": "Started",
-            "msgstarted": "The disk will be initialized",
+            "msgstarted": "The disk(s) will be initialized",
             "complete": "Initialized",
-            "success": "The disk is initialized",
-            "failed": "Failed initializing disk: __why__"
+            "success": "The disk(s) is/are initialized",
+            "failed": "Failed initializing disk(s): __why__"
         },
         "restart": {
             "started": "Started",
@@ -199,15 +211,6 @@
             "complete": "Restarted",
             "success": "The disk is restarted",
             "failed": "Failed restarting disk: __why__"
-        },
-        "initializeall": {
-            "warning": "Are you sure you want to initialize all uninitialized disks?",
-            "started": "Started",
-            "msgstarted": "The disks will be initialized",
-            "complete": "Initialized",
-            "somefailed": "Some disks could not be initialized: __which__",
-            "success": "The disks are initialized",
-            "failed": "Failed initializing disks: __why__"
         },
         "remove": {
             "impact" : {
@@ -224,20 +227,20 @@
             "failed": "Failed removing disk: __why__"
         },
         "claim": {
-            "warning": "Are you sure you want to claim the following disk? __what__ __info__",
+            "warning": "Are you sure you want to claim the following ASD(s)? __what__ __info__",
             "started": "Started",
-            "msgstarted": "The disk will be claimed",
+            "msgstarted": "The ASD(s) will be claimed",
             "complete": "Claimed",
-            "success": "The disk is claimed",
-            "failed": "Failed claiming disk: __why__"
+            "success": "The ASD(s) is/are claimed",
+            "failed": "Failed claiming ASD(s): __why__"
         },
         "claimall": {
-            "warning": "Are you sure you want to claim the following disks? __which__ __info__",
+            "warning": "Are you sure you want to claim the following ASD(s)? __which__ __info__",
             "started": "Started",
-            "msgstarted": "The disks will be claimed",
+            "msgstarted": "The ASD(s) will be claimed",
             "complete": "Claimed",
-            "success": "The disks are claimed",
-            "failed": "Failed claiming disks: __why__"
+            "success": "The ASD(s) is/are claimed",
+            "failed": "Failed claiming ASD(s): __why__"
         }
     },
     "icons": {
@@ -321,6 +324,13 @@
                 "accepttext": "I understand the risks, this disk can be removed.",
                 "loading": "Disk safety is being loaded.",
                 "nodedownwarning": "Disk is being removed while node is down!"
+            }
+        },
+        "initializedisk": {
+            "title": "Initialize Disk(s)",
+            "gather": {
+                "basicinfo": "Enter the amount of ASDs that need to be deployed on this/these disks). <b>This number cannot be changed afterwards.</b>",
+                "amount": "Amount"
             }
         }
     }

@@ -16,6 +16,7 @@
 AlbaBackend module
 """
 import time
+import requests
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.backend import Backend
 from ovs.dal.lists.albanodelist import AlbaNodeList
@@ -32,7 +33,7 @@ class AlbaBackend(DataObject):
     """
     __properties = [Property('alba_id', str, mandatory=False, doc='ALBA internal identifier')]
     __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic backend')]
-    __dynamics = [Dynamic('all_disks', list, 5),
+    __dynamics = [Dynamic('storage_stack', dict, 5),
                   Dynamic('statistics', dict, 5, locked=True),
                   Dynamic('ns_data', list, 60),
                   Dynamic('ns_statistics', dict, 60),
@@ -42,7 +43,7 @@ class AlbaBackend(DataObject):
                   Dynamic('metadata_information', dict, 60),
                   Dynamic('asd_statistics', dict, 5, locked=True)]
 
-    def _all_disks(self):
+    def _storage_stack(self):
         """
         Returns a live list of all disks known to this AlbaBackend
         """
@@ -50,97 +51,135 @@ class AlbaBackend(DataObject):
         from ovs.dal.lists.albabackendlist import AlbaBackendList
 
         if len(self.abm_services) == 0:
-            return []  # No ABM services yet, so backend not fully installed yet
+            return {}  # No ABM services yet, so backend not fully installed yet
 
         alba_backend_map = {}
-        for a_backend in AlbaBackendList.get_albabackends():
-            alba_backend_map[a_backend.alba_id] = a_backend
-        node_disk_map = {}
+        for alba_backend in AlbaBackendList.get_albabackends():
+            alba_backend_map[alba_backend.alba_id] = alba_backend
+
+        # Load information based on the model
+        storage_map = {}
         alba_nodes = AlbaNodeList.get_albanodes()
         for node in alba_nodes:
-            node_disk_map[node.node_id] = []
+            node_id = node.node_id
+            storage_map[node_id] = {}
+            for disk in node.disks:
+                disk_id = disk.name
+                storage_map[node_id][disk_id] = {'name': disk_id,
+                                                 'guid': disk.guid,
+                                                 'status': 'error',
+                                                 'status_detail': 'unknown',
+                                                 'asds': {}}
+                for asd in disk.asds:
+                    asd_id = asd.asd_id
+                    data = {'asd_id': asd_id,
+                            'guid': asd.guid,
+                            'status': 'error',
+                            'status_detail': 'unknown',
+                            'alba_backend_guid': asd.alba_backend_guid}
+                    storage_map[node_id][disk_id]['asds'][asd_id] = data
 
-        # Load OSDs
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
-        for found_osd in AlbaCLI.run('list-all-osds', config=config, as_json=True):
-            node_id = found_osd['node_id']
-            if node_id in node_disk_map:
-                node_disk_map[node_id].append({'osd': found_osd})
-
-        # Load all_disk information
-        def _load_disks(_node, _list):
-            for _disk in _node.all_disks:
-                found = False
-                for container in _list:
-                    if 'osd' in container and container['osd']['long_id'] == _disk.get('asd_id'):
-                        container['disk'] = _disk
-                        found = True
-                        break
-                if found is False:
-                    _list.append({'disk': _disk})
+        # Load information from node
+        def _load_live_info(_node, _node_data):
+            # Live disk information
+            try:
+                disk_data = _node.client.get_disks()
+            except (requests.ConnectionError, requests.Timeout):
+                for entry in _node_data.values():
+                    entry['status_detail'] = 'nodedown'
+                disk_data = {}
+            for _disk_id, disk_info in disk_data.iteritems():
+                if _disk_id in _node_data:
+                    entry = _node_data[_disk_id]
+                else:
+                    entry = {'name': _disk_id,
+                             'status': 'unknown',
+                             'status_detail': '',
+                             'asds': {}}
+                    _node_data[_disk_id] = entry
+                entry.update(disk_info)
+                if disk_info['state'] == 'ok':
+                    entry['status'] = 'uninitialized' if disk_info['available'] is True else 'initialized'
+                    entry['status_detail'] = ''
+                else:
+                    entry['status'] = disk_info['state']
+                    entry['status_detail'] = disk_info.get('state_detail', '')
+            # Live ASD information
+            try:
+                _asd_data = _node.client.get_asds()
+            except (requests.ConnectionError, requests.Timeout):
+                for disk_entry in _node_data.values():
+                    for entry in disk_entry['asds'].values():
+                        entry['status_detail'] = 'nodedown'
+                _asd_data = {}
+            for _disk_id, asds in _asd_data.iteritems():
+                if _disk_id not in _node_data:
+                    continue
+                for _asd_id, asd_info in asds.iteritems():
+                    entry = {'asd_id': _asd_id,
+                             'status': 'error' if asd_info['state'] == 'error' else 'initialized',
+                             'status_detail': asd_info.get('state_detail', ''),
+                             'state': asd_info['state'],
+                             'state_detail': asd_info.get('state_detail', '')}
+                    if _asd_id not in _node_data[_disk_id]['asds']:
+                        _node_data[_disk_id]['asds'][_asd_id] = entry
+                    else:
+                        _node_data[_disk_id]['asds'][_asd_id].update(entry)
         threads = []
         for node in alba_nodes:
-            thread = Thread(target=_load_disks, args=(node, node_disk_map[node.node_id]))
+            thread = Thread(target=_load_live_info, args=(node, storage_map[node.node_id]))
             thread.start()
             threads.append(thread)
         for thread in threads:
             thread.join()
 
-        # Make mapping between node IDs and the relevant OSDs and disks
+        # Load information from alba
         backend_interval_key = '/ovs/alba/backends/{0}/gui_error_interval'.format(self.guid)
         if EtcdConfiguration.exists(backend_interval_key):
             interval = EtcdConfiguration.get(backend_interval_key)
         else:
             interval = EtcdConfiguration.get('/ovs/alba/backends/global_gui_error_interval')
-        disks = []
-        for node in alba_nodes:
-            for info in node_disk_map[node.node_id]:
-                disk = info.get('disk')
-                if disk is None:
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
+        for found_osd in AlbaCLI.run('list-all-osds', config=config, as_json=True):
+            node_id = found_osd['node_id']
+            asd_id = found_osd['long_id']
+            for _disk in storage_map.get(node_id, {}).values():
+                asd_data = _disk['asds'].get(asd_id, {})
+                if 'state' not in asd_data:
                     continue
-                disk_status = 'uninitialized'
-                disk_status_detail = ''
-                disk_alba_backend_guid = ''
-                if disk['available'] is False:
-                    osd = info.get('osd')
-                    disk_alba_state = disk['state']['state']
-                    if disk_alba_state == 'ok':
-                        if osd is None:
-                            disk_status = 'initialized'
-                        elif osd['id'] is None:
-                            alba_id = osd['alba_id']
-                            if alba_id is None:
-                                disk_status = 'available'
-                            else:
-                                disk_status = 'unavailable'
-                                alba_backend = alba_backend_map.get(alba_id)
-                                if alba_backend is not None:
-                                    disk_alba_backend_guid = alba_backend.guid
+                if found_osd.get('decommissioned') is True:
+                    asd_data['status'] = 'unavailable'
+                    asd_data['status_detail'] = 'decommissioned'
+                    continue
+                state = asd_data['state']
+                if state == 'ok':
+                    if found_osd['id'] is None:
+                        alba_id = found_osd['alba_id']
+                        if alba_id is None:
+                            asd_data['status'] = 'available'
                         else:
-                            disk_alba_backend_guid = self.guid
-                            disk_status = 'warning'
-                            disk_status_detail = 'recenterrors'
-
-                            read = osd['read'] or [0]
-                            write = osd['write'] or [0]
-                            errors = osd['errors']
-                            if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + interval):
-                                disk_status = 'claimed'
-                                disk_status_detail = ''
-                    elif disk_alba_state == 'decommissioned':
-                        disk_status = 'unavailable'
-                        disk_status_detail = 'decommissioned'
+                            asd_data['status'] = 'unavailable'
+                            alba_backend = alba_backend_map.get(alba_id)
+                            if alba_backend is not None:
+                                asd_data['alba_backend_guid'] = alba_backend.guid
                     else:
-                        disk_status = 'error'
-                        disk_status_detail = disk['state']['detail']
-                        alba_backend = alba_backend_map.get(osd.get('alba_id'))
-                        if alba_backend is not None:
-                            disk_alba_backend_guid = alba_backend.guid
-                disk['status'] = disk_status
-                disk['status_detail'] = disk_status_detail
-                disk['alba_backend_guid'] = disk_alba_backend_guid
-                disks.append(disk)
-        return disks
+                        asd_data['alba_backend_guid'] = self.guid
+                        asd_data['status'] = 'warning'
+                        asd_data['status_detail'] = 'recenterrors'
+
+                        read = found_osd['read'] or [0]
+                        write = found_osd['write'] or [0]
+                        errors = found_osd['errors']
+                        if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + interval):
+                            asd_data['status'] = 'claimed'
+                            asd_data['status_detail'] = ''
+                else:
+                    asd_data['status'] = 'error'
+                    asd_data['status_detail'] = asd_data.get('state_detail', '')
+                    alba_backend = alba_backend_map.get(found_osd.get('alba_id'))
+                    if alba_backend is not None:
+                        asd_data['alba_backend_guid'] = alba_backend.guid
+        return storage_map
 
     def _statistics(self):
         """
@@ -200,28 +239,13 @@ class AlbaBackend(DataObject):
         for vpool in VPoolList.get_vpools():
             vdisk_dataset[vpool] = vpool.storagedriver_client.list_volumes()
 
-        # Load disk statistics
-        def _load_disks(_node, _dict):
-            for _asd in _node.all_disks:
-                if 'asd_id' in _asd and _asd['asd_id'] in asds and 'usage' in _asd:
-                    _dict['size'] += _asd['usage']['size']
-                    _dict['used'] += _asd['usage']['used']
-
+        # Collect global usage
         global_usage = {'size': 0,
                         'used': 0}
-        nodes = set()
-        asds = []
-        for asd in self.asds:
-            asds.append(asd.asd_id)
-            if asd.alba_node not in nodes:
-                nodes.add(asd.alba_node)
-        threads = []
-        for node in nodes:
-            thread = Thread(target=_load_disks, args=(node, global_usage))
-            thread.start()
-            threads.append(thread)
-        for thread in threads:
-            thread.join()
+        for stats in self.asd_statistics.values():
+            pass  # @TODO: We need a way to get these statistics from ALBA itself, since we cannot base it on disk information
+            # global_usage['size'] += stats['usage']['size']
+            # global_usage['used'] += stats['usage']['used']
 
         # Cross merge
         dataset = {'global': {'size': global_usage['size'],
@@ -258,13 +282,14 @@ class AlbaBackend(DataObject):
         if len(self.abm_services) == 0:
             return []  # No ABM services yet, so backend not fully installed yet
 
-        all_disks = self.all_disks
-        disks = {}
+        storage_stack = self.storage_stack
+        asds = {}
         for node in AlbaNodeList.get_albanodes():
-            disks[node.node_id] = 0
-            for disk in all_disks:
-                if disk['node_id'] == node.node_id and disk['status'] in ['claimed', 'warning']:
-                    disks[node.node_id] += 1
+            asds[node.node_id] = 0
+            for disk in storage_stack[node.node_id].values():
+                for asd_info in disk['asds'].values():
+                    if asd_info['status'] in ['claimed', 'warning']:
+                        asds[node.node_id] += 1
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
         presets = AlbaCLI.run('list-presets', config=config, as_json=True)
         preset_dict = {}
@@ -280,7 +305,7 @@ class AlbaBackend(DataObject):
             active_policy = None
             for policy in preset['policies']:
                 is_available = False
-                available_disks = sum(min(disks[node], policy[3]) for node in disks)
+                available_disks = sum(min(asds[node], policy[3]) for node in asds)
                 if available_disks >= policy[2]:
                     if active_policy is None:
                         active_policy = policy
@@ -346,12 +371,12 @@ class AlbaBackend(DataObject):
         statistics = {}
         if len(self.abm_services) == 0:
             return statistics  # No ABM services yet, so backend not fully installed yet
-
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
         if len(self.asds) == 0:
             return statistics
+
         asd_ids = [asd.asd_id for asd in self.asds]
         try:
+            config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
             raw_statistics = AlbaCLI.run('asd-multistatistics', long_id=','.join(asd_ids), config=config, as_json=True)
         except RuntimeError:
             return statistics

@@ -13,10 +13,10 @@
 // limitations under the License.
 /*global define */
 define([
-    'jquery', 'knockout',
-    'ovs/generic', 'ovs/api',
+    'jquery', 'knockout', 'durandal/app',
+    'ovs/generic', 'ovs/api', 'ovs/shared',
     '../containers/backend'
-], function($, ko, generic, api, Backend) {
+], function($, ko, app, generic, api, shared, Backend) {
     "use strict";
     return function(guid) {
         var self = this;
@@ -24,6 +24,8 @@ define([
         // Handles
         self.loadHandle    = undefined;
         self.actionsHandle = undefined;
+        self.rawData       = undefined;
+        self.shared        = shared;
 
         // External dependencies
         self.vPools  = undefined;
@@ -169,6 +171,7 @@ define([
                 } else {
                     self.usage([]);
                 }
+                self.rawData = data;
                 self.loaded(true);
                 self.loading(false);
             }
@@ -183,7 +186,7 @@ define([
                     self.loadHandle = api.get('alba/backends/' + self.guid(), { queryparams: { contents: (loadDynamics ? '_dynamics,' : '') + '_relations' } })
                         .done(function(data) {
                             self.fillData(data);
-                            deferred.resolve(data);
+                            deferred.resolve();
                         })
                         .fail(deferred.reject)
                         .always(function() {
@@ -192,6 +195,70 @@ define([
                 } else {
                     deferred.reject();
                 }
+            }).promise();
+        };
+
+        self.claimOSDs = function(asdsToClaim) {
+            return $.Deferred(function(deferred) {
+                var asdIDs = [], asdData = {}, allAsds = [];
+                $.each(asdsToClaim, function(diskGuid, asds) {
+                    $.each(asds, function(index, asd) {
+                        allAsds.push(asd);
+                        asdIDs.push(asd.asdID());
+                        asdData[asd.asdID()] = diskGuid;
+                        asd.processing(true);
+                    });
+                });
+                app.showMessage(
+                    $.t('alba:disks.claim.warning', { what: '<ul><li>' + asdIDs.join('</li><li>') + '</li></ul>', info: '' }).trim(),
+                    $.t('ovs:generic.areyousure'),
+                    [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
+                )
+                    .done(function(answer) {
+                        if (answer === $.t('ovs:generic.yes')) {
+                            generic.alertInfo(
+                                $.t('alba:disks.claim.started'),
+                                $.t('alba:disks.claim.msgstarted')
+                            );
+                            api.post('alba/backends/' + self.guid() + '/add_units', {
+                                data: { asds: asdData }
+                            })
+                                .then(self.shared.tasks.wait)
+                                .done(function() {
+                                    generic.alertSuccess(
+                                        $.t('alba:disks.claim.complete'),
+                                        $.t('alba:disks.claim.success')
+                                    );
+                                    $.each(allAsds, function(index, asd) {
+                                        asd.ignoreNext(true);
+                                        asd.status('claimed');
+                                        asd.processing(false);
+                                    });
+                                    deferred.resolve();
+                                })
+                                .fail(function(error) {
+                                    generic.alertError(
+                                        $.t('ovs:generic.error'),
+                                        $.t('alba:disks.claim.failed', { why: error })
+                                    );
+                                    $.each(allAsds, function(index, asd) {
+                                        asd.processing(false);
+                                    });
+                                    deferred.reject();
+                                });
+                        } else {
+                            $.each(allAsds, function(index, asd) {
+                                asd.processing(false);
+                            });
+                            deferred.reject();
+                        }
+                    })
+                    .fail(function() {
+                        $.each(allAsds, function(index, asd) {
+                            asd.processing(false);
+                        });
+                        deferred.reject();
+                    });
             }).promise();
         };
     };

@@ -76,6 +76,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
             node_list._executed = True
             node_list._guids = [node.guid]
             node_list._objects = {node.guid: node}
+            node_list._data = {node.guid: {'guid': node.guid, 'data': node._data}}
             return node_list
 
         nodes = {}
@@ -100,6 +101,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         node_list._executed = True
         node_list._guids = nodes.keys()
         node_list._objects = nodes
+        node_list._data = dict([(node.guid, {'guid': node.guid, 'data': node._data}) for node in nodes.values()])
         return node_list
 
     @log()
@@ -140,15 +142,38 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaNode)
-    def remove_disk(self, albanode, disk, alba_backend_guid, safety):
+    def remove_disk(self, albanode, disk):
         """
         Removes a disk
         :param albanode: ALBA node to remove a disk from
         :param disk: Disk to remove
-        :param alba_backend_guid: Guid of the ALBA backend
+        """
+        return AlbaNodeController.remove_disk.delay(albanode.guid, disk)
+
+    @action()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaNode)
+    def reset_asd(self, albanode, asd_id, safety):
+        """
+        Removes and re-add an ASD
+        :param albanode: ALBA node to remove a disk from
+        :param asd_id: ASDID to be resetted
         :param safety: Safety to maintain
         """
-        return AlbaNodeController.remove_disk.delay(alba_backend_guid, albanode.guid, disk, safety)
+        return AlbaNodeController.reset_asd.delay(albanode.guid, asd_id, safety)
+
+    @action()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaNode)
+    def restart_asd(self, albanode, asd_id):
+        """
+        Restarts an ASD process
+        :param albanode: The node on which the ASD runs
+        :param asd_id: The ASD to restart
+        """
+        return AlbaNodeController.restart_asd.delay(albanode.guid, asd_id)
 
     @action()
     @required_roles(['read', 'write', 'manage'])

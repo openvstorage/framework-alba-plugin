@@ -16,10 +16,11 @@ define([
     'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/backend', '../containers/backendtype', '../containers/albabackend',
-    '../containers/albanode', '../containers/albaosd', '../containers/storagerouter', '../containers/vpool',
+    '../containers/albanode', '../containers/albaosd', '../containers/albadisk',
+    '../containers/storagerouter', '../containers/vpool',
     '../wizards/addpreset/index'
 ], function($, app, ko, router, dialog, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend,
-            Node, OSD, StorageRouter, VPool, AddPresetWizard) {
+            Node, OSD, Disk, StorageRouter, VPool, AddPresetWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -91,17 +92,19 @@ define([
             if (self.albaBackend() !== undefined) {
                 $.each(self.registeredNodes(), function (index, node) {
                     $.each(node.disks(), function (jndex, disk) {
-                        if (disk.albaBackendGuid() === self.albaBackend().guid()) {
-                            if (disk.status() === 'claimed') {
-                                states.claimed += 1;
+                        $.each(disk.asds(), function(kndex, asd) {
+                            if (asd.albaBackendGuid() === self.albaBackend().guid()) {
+                                if (asd.status() === 'claimed') {
+                                    states.claimed += 1;
+                                }
+                                if (asd.status() === 'error') {
+                                    states.failure += 1;
+                                }
+                                if (asd.status() === 'warning') {
+                                    states.warning += 1;
+                                }
                             }
-                            if (disk.status() === 'error') {
-                                states.failure += 1;
-                            }
-                            if (disk.status() === 'warning') {
-                                states.warning += 1;
-                            }
-                        }
+                        });
                     });
                 });
             }
@@ -155,10 +158,7 @@ define([
                     })
                     .then(function(albaBackend) {
                         return albaBackend.load(!self.initialRun)
-                            .then(function(data) {
-                                albaBackend.getAvailableActions();
-                                return data;
-                            });
+                            .then(albaBackend.getAvailableActions);
                     })
                     .done(deferred.resolve)
                     .fail(deferred.reject);
@@ -235,7 +235,7 @@ define([
                                 generic.crossFiller(
                                     nodeIDs, oArray,
                                     function(nodeID) {
-                                        var node = new Node(nodeID, self);
+                                        var node = new Node(nodeID, self.albaBackend(), self);
                                         node.disksLoading(true);
                                         return node;
                                     }, 'nodeID'
@@ -270,146 +270,61 @@ define([
                 }
             }).promise();
         };
-        self.loadOSDs = function(data) {
-            if (!data.hasOwnProperty('all_disks')) {
+        self.loadOSDs = function() {
+            var data = self.albaBackend().rawData;
+            if (data === undefined || !data.hasOwnProperty('storage_stack')) {
                 return;
             }
-            var diskNames = [], disks = {}, changes = data.all_disks.length !== self.disks().length;
-            $.each(data.all_disks, function (index, disk) {
-                diskNames.push(disk.name);
-                disks[disk.name] = disk;
+            var diskNames = [], disks = {}, changes = data.storage_stack.length !== self.disks().length,
+                diskNode = {}, nodeDisks = {};
+            $.each(data.storage_stack, function (nodeId, disksData) {
+                $.each(disksData, function(index, disk) {
+                    diskNames.push(disk.name);
+                    disks[disk.name] = disk;
+                    diskNode[disk.name] = nodeId;
+                });
             });
             generic.crossFiller(
                 diskNames, self.disks,
                 function (name) {
-                    return new OSD(name, self.albaBackend().guid());
+                    return new Disk(name);
                 }, 'name'
             );
             $.each(self.disks(), function (index, disk) {
                 if ($.inArray(disk.name(), diskNames) !== -1) {
                     disk.fillData(disks[disk.name()]);
                 }
+                var nodeId = diskNode[disk.name()];
+                if (!nodeDisks.hasOwnProperty(nodeId)) {
+                    nodeDisks[nodeId] = [];
+                }
+                nodeDisks[nodeId].push(disk);
             });
             if (changes) {
                 self.disks.sort(function (a, b) {
                     return a.name() < b.name() ? -1 : 1;
                 });
-            }
-        };
-        self.link = function() {
-            var diskNames = [], nodeDisks = {};
-            $.each(self.registeredNodes(), function(index, node) {
-                nodeDisks[node.nodeID()] = {
-                    node: node,
-                    disks: node.disks(),
-                    names: node.diskNames(),
-                    changed: false
-                };
-            });
-            $.each(self.disks(), function (index, disk) {
-                diskNames.push(disk.name());
-                if (disk.node === undefined) {
-                    $.each(nodeDisks, function(nodeID, nodeInfo) {
-                        if (disk.nodeID() === nodeID && !nodeInfo.names.contains(disk.name())) {
-                            disk.node = nodeInfo.node;
-                            nodeInfo.disks.push(disk);
-                            nodeInfo.names.push(disk.name());
-                            nodeInfo.changed = true;
-                        }
-                    });
-                }
-            });
-            $.each(nodeDisks, function(nodeID, nodeInfo) {
-                $.each(nodeInfo.disks, function(index, disk) {
-                    if (!diskNames.contains(disk.name())) {
-                        nodeInfo.disks.remove(disk);
-                        nodeInfo.names.remove(disk.name());
-                        nodeInfo.changed = true;
+                $.each(self.registeredNodes(), function(index, node) {
+                    if (!nodeDisks.hasOwnProperty(node.nodeID())) {
+                        node.disks([]);
+                    } else {
+                        node.disks(nodeDisks[node.nodeID()]);
                     }
-                });
-                if (nodeInfo.changed === true) {
-                    nodeInfo.disks.sort(function (a, b) {
+                    node.disks.sort(function (a, b) {
                         return a.name() < b.name() ? -1 : 1;
                     });
-                    nodeInfo.node.disks(nodeInfo.disks);
-                }
-                nodeInfo.node.disksLoading(self.initialRun);
-            });
+                    node.disksLoading(self.initialRun);
+                    $.each(node.disks(), function(index, disk) {
+                        disk.node = node;
+                        $.each(disk.asds(), function(_, asd) {
+                            asd.node = node;
+                            asd.parentABGuid(self.albaBackend().guid());
+                        })
+                    })
+                })
+            }
         };
-        self.claimOSD = function(osds, disk, nodeID) {
-            return $.Deferred(function(deferred) {
-                app.showMessage(
-                    $.t('alba:disks.claim.warning', { what: '<ul><li>' + disk + '</li></ul>', info: '' }).trim(),
-                    $.t('ovs:generic.areyousure'),
-                    [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
-                )
-                    .done(function(answer) {
-                        if (answer === $.t('ovs:generic.yes')) {
-                            generic.alertSuccess(
-                                $.t('alba:disks.claim.started'),
-                                $.t('alba:disks.claim.msgstarted')
-                            );
-                            api.post('alba/backends/' + self.albaBackend().guid() + '/add_units', {
-                                data: { asds: osds }
-                            })
-                                .then(self.shared.tasks.wait)
-                                .done(function() {
-                                    generic.alertSuccess(
-                                        $.t('alba:disks.claim.complete'),
-                                        $.t('alba:disks.claim.success')
-                                    );
-                                    deferred.resolve();
-                                })
-                                .fail(function(error) {
-                                    generic.alertError(
-                                        $.t('ovs:generic.error'),
-                                        $.t('alba:disks.claim.failed', { why: error })
-                                    );
-                                    deferred.reject();
-                                });
-                        } else {
-                            deferred.reject();
-                        }
-                    });
-            }).promise();
-        };
-        self.claimAll = function(osds, disks) {
-            return $.Deferred(function(deferred) {
-                app.showMessage(
-                    $.t('alba:disks.claimall.warning', { which: '<ul><li>' + disks.join('</li><li>') + '</li></ul>', info: '' }).trim(),
-                    $.t('ovs:generic.areyousure'),
-                    [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
-                )
-                    .done(function(answer) {
-                        if (answer === $.t('ovs:generic.yes')) {
-                            generic.alertSuccess(
-                                $.t('alba:disks.claimall.started'),
-                                $.t('alba:disks.claimall.msgstarted')
-                            );
-                            api.post('alba/backends/' + self.albaBackend().guid() + '/add_units', {
-                                data: { asds: osds }
-                            })
-                                .then(self.shared.tasks.wait)
-                                .done(function() {
-                                    generic.alertSuccess(
-                                        $.t('alba:disks.claimall.complete'),
-                                        $.t('alba:disks.claimall.success')
-                                    );
-                                    deferred.resolve();
-                                })
-                                .fail(function(error) {
-                                    generic.alertError(
-                                        $.t('ovs:generic.error'),
-                                        $.t('alba:disks.claimall.failed', { why: error })
-                                    );
-                                    deferred.reject();
-                                });
-                        } else {
-                            deferred.reject();
-                        }
-                    });
-            }).promise();
-        };
+
         self.removeBackend = function() {
             return $.Deferred(function(deferred) {
                 if (self.albaBackend() === undefined || !self.albaBackend().availableActions().contains('REMOVE')) {
@@ -510,9 +425,8 @@ define([
             self.refresher.init(function() {
                 self.loadVPools();
                 return self.load()
-                    .then(self.loadOSDs)
                     .then(self.fetchNodes)
-                    .then(self.link)
+                    .then(self.loadOSDs)
                     .then(function() {
                         if (self.initialRun === true) {
                             self.initialRun = false;

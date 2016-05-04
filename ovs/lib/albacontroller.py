@@ -26,7 +26,7 @@ from celery.schedules import crontab
 from ovs.celery_run import celery
 from ovs.dal.hybrids.albaasd import AlbaASD
 from ovs.dal.hybrids.albabackend import AlbaBackend
-from ovs.dal.hybrids.albanode import AlbaNode
+from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.j_abmservice import ABMService
 from ovs.dal.hybrids.j_nsmservice import NSMService
@@ -36,7 +36,7 @@ from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
-from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonClusterMetadata, ArakoonInstaller
+from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.packages.package import PackageManager
@@ -98,14 +98,16 @@ class AlbaController(object):
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
-        for asd_id, node_guid in asds.iteritems():
+        disks = {}
+        for asd_id, disk_guid in asds.iteritems():
+            if disk_guid not in disks:
+                disks[disk_guid] = AlbaDisk(disk_guid)
             AlbaCLI.run('claim-osd', config=config, long_id=asd_id, as_json=True)
             asd = AlbaASD()
             asd.asd_id = asd_id
-            asd.alba_node = AlbaNode(node_guid)
+            asd.alba_disk = disks[disk_guid]
             asd.alba_backend = alba_backend
             asd.save()
-            asd.alba_node.invalidate_dynamics()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
 
@@ -912,7 +914,12 @@ class AlbaController(object):
         :rtype: dict
         """
         alba_backend = AlbaBackend(alba_backend_guid)
-        error_disks = [disk['asd_id'] for disk in alba_backend.all_disks if 'asd_id' in disk and 'status' in disk and disk['status'] == 'error']
+        error_disks = []
+        for disks in alba_backend.storage_stack.values():
+            for disk in disks.values():
+                for asd_id, asd in disk['asds'].iteritems():
+                    if asd['status'] == 'error':
+                        error_disks.append(asd_id)
         extra_parameters = ['--include-decommissioning-as-dead']
         for asd in alba_backend.asds:
             if asd.asd_id in removal_asd_ids or asd.asd_id in error_disks:

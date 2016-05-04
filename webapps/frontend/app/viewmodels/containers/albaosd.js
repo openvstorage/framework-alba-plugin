@@ -18,18 +18,19 @@ define([
     '../containers/albabackend'
 ], function(ko, generic, AlbaBackend) {
     "use strict";
-    return function(name, albaBackendGuid) {
+    return function(id) {
         var self = this;
 
         // External injected
         self.node = undefined;
+        self.disk = undefined;
 
         // Observables
         self.ignoreNext      = ko.observable(false);
         self.loaded          = ko.observable(false);
-        self.name            = ko.observable(name);
         self.nodeID          = ko.observable();
-        self.asdID           = ko.observable();
+        self.guid            = ko.observable();
+        self.asdID           = ko.observable(id);
         self.usage           = ko.observable();
         self.status          = ko.observable();
         self.statusDetail    = ko.observable();
@@ -39,12 +40,18 @@ define([
         self.processing      = ko.observable(false);
         self.albaBackend     = ko.observable();
         self.albaBackendGuid = ko.observable();
-        self.parentABGuid    = ko.observable(albaBackendGuid);
+        self.parentABGuid    = ko.observable();
         self.highlighted     = ko.observable(false);
 
         // Computed
         self.isLocal = ko.computed(function() {
-            return self.albaBackendGuid() === undefined || (self.parentABGuid() !== undefined && self.parentABGuid() === self.albaBackendGuid());
+            return self.albaBackendGuid() === undefined || self.parentABGuid() === self.albaBackendGuid();
+        });
+        self.locked = ko.computed(function() {
+            return ['nodedown', 'unknown'].contains(self.statusDetail()) || !self.isLocal();
+        });
+        self.marked = ko.computed(function() {
+            return (self.status() === 'unavailable' || (!self.isLocal() && (self.status() === 'warning' || self.status() === 'error'))) && self.albaBackend() !== undefined;
         });
 
         // Functions
@@ -54,13 +61,18 @@ define([
             } else {
                 self.status(data.status);
                 self.nodeID(data.node_id);
+                generic.trySet(self.guid, data, 'guid');
                 generic.trySet(self.statusDetail, data, 'status_detail');
-                generic.trySet(self.albaBackendGuid, data, 'alba_backend_guid');
                 generic.trySet(self.asdID, data, 'asd_id');
                 generic.trySet(self.usage, data, 'usage');
                 generic.trySet(self.device, data, 'device');
                 generic.trySet(self.mountpoint, data, 'mountpoint');
                 generic.trySet(self.port, data, 'port');
+                if (data.hasOwnProperty('alba_backend_guid') && data.alba_backend_guid !== null) {
+                    self.albaBackendGuid(data.alba_backend_guid);
+                } else {
+                    self.albaBackendGuid(undefined);
+                }
                 if (self.status() === 'unavailable' || self.status() === 'error' || self.status() === 'warning') {
                     self.loadAlbaBackend();
                 }
@@ -68,41 +80,19 @@ define([
 
             self.loaded(true);
         };
-        self.initialize = function() {
-            self.processing(true);
-            self.node.initializeNode(self.name())
-                .done(function() {
-                    self.ignoreNext(true);
-                    self.status('initialized');
-                })
-                .always(function() {
-                    self.processing(false);
-                });
+
+        self.claim = function() {
+            var data = {};
+            data[self.disk.guid()] = [self];
+            self.node.claimOSDs(data)
         };
         self.remove = function() {
-            self.processing(true);
             self.node.removeOSD(self);
         };
-        self.claim = function() {
-            var osds = {};
-            osds[self.asdID()] = self.node.guid();
-            self.processing(true);
-            self.node.claimOSD(osds, self.name(), self.node.nodeID())
-                .done(function() {
-                    self.ignoreNext(true);
-                    self.status('claimed');
-                })
-                .always(function() {
-                    self.processing(false);
-                });
-        };
         self.restart = function() {
-            self.processing(true);
-            self.node.restartOSD(self.name())
-                .always(function() {
-                    self.processing(false);
-                });
+            self.node.restartOSD(self);
         };
+
         self.loadAlbaBackend = function() {
             if (self.node !== undefined && self.node.parent.hasOwnProperty('otherAlbaBackendsCache')) {
                 var cache = self.node.parent.otherAlbaBackendsCache(), ab;
