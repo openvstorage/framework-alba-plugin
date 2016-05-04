@@ -42,7 +42,11 @@ class ASDManagerClient(object):
                   'timeout': timeout}
         if data is not None:
             kwargs['data'] = data
-        data = method(**kwargs).json()
+        response = method(**kwargs)
+        try:
+            data = response.json()
+        except:
+            raise RuntimeError(response.content)
         internal_duration = data['_duration']
         if clean is True:
             def _clean(_dict):
@@ -190,7 +194,7 @@ class ASDManagerClient(object):
         Retrieve configured maintenance services from asd manager
         :return: dict of services
         """
-        return self._call(requests.get, 'maintenance')
+        return self._call(requests.get, 'maintenance')['services']
 
     def _refresh(self):
         self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
