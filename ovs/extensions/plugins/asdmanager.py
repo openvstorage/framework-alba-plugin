@@ -13,12 +13,11 @@
 # limitations under the License.
 
 """
-Generic ALBA CLI module
+Generic module for calling the ASD-Manager
 """
 import base64
 import inspect
 import requests
-import time
 from ovs.log.logHandler import LogHandler
 
 
@@ -30,141 +29,128 @@ class ASDManagerClient(object):
         self.timeout = 20
         self._log_min_duration = 1
 
+    def _call(self, method, url, data=None, timeout=None, clean=False):
+        if timeout is None:
+            timeout = self.timeout
+        self._refresh()
+        start = time.time()
+        kwargs = {'url': '{0}/{1}'.format(self._base_url, url),
+                  'headers': self._base_headers,
+                  'verify': False,
+                  'timeout': timeout}
+        if data is not None:
+            kwargs['data'] = data
+        response = method(**kwargs)
+        try:
+            data = response.json()
+        except:
+            raise RuntimeError(response.content)
+        internal_duration = data['_duration']
+        if clean is True:
+            def _clean(_dict):
+                for _key in _dict.keys():
+                    if _key.startswith('_'):
+                        del _dict[_key]
+                    elif isinstance(_dict[_key], dict):
+                        _clean(_dict[_key])
+            _clean(data)
+        duration = time.time() - start
+        if True or duration > self._log_min_duration:
+            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.stack()[1][3], duration, internal_duration))
+        return data
+
     def get_metadata(self):
         """
         Gets metadata from the node
         """
-        self._refresh()
-        start = time.time()
-        data = requests.get('{0}/'.format(self._base_url),
-                            headers=self._base_headers,
-                            verify=False,
-                            timeout=self.timeout).json()
-        duration = time.time() - start
-        if duration > self._log_min_duration:
-            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
-        return data
+        return self._call(requests.get, '')
 
-    def get_disks(self, as_list=True, reraise=False):
+    def get_disks(self):
         """
         Gets the node's disk states
-        :param as_list: Return a list if True else dictionary
-        :param reraise: Raise exception if True and error occurs
         """
-        self._refresh()
-        disks = [] if as_list is True else {}
-        start = time.time()
-        try:
-            data = requests.get('{0}/disks'.format(self._base_url),
-                                headers=self._base_headers,
-                                verify=False,
-                                timeout=self.timeout).json()
-            duration = time.time() - start
-            if duration > self._log_min_duration:
-                self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
-        except requests.ConnectionError as ex:
-            self._logger.error('Could not load data: {0}'.format(ex))
-            if reraise is True:
-                raise ex
-            return disks
-        for disk in data.keys():
-            if not disk.startswith('_'):
-                for key in data[disk].keys():
-                    if key.startswith('_'):
-                        del data[disk][key]
-                if as_list is True:
-                    disks.append(data[disk])
-                else:
-                    disks[disk] = data[disk]
-        return disks
+        return self._call(requests.get, 'disks', clean=True)
 
-    def get_disk(self, disk):
+    def get_disk(self, disk_id):
         """
         Gets one of the node's disk's state
-        :param disk: Guid of the disk
+        :param disk_id: Identifier of the disk
+        :type disk_id: str
         """
-        self._refresh()
-        start = time.time()
-        data = requests.get('{0}/disks/{1}'.format(self._base_url, disk),
-                            headers=self._base_headers,
-                            verify=False,
-                            timeout=self.timeout).json()
-        duration = time.time() - start
-        if duration > self._log_min_duration:
-            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
+        return self._call(requests.get, 'disks/{0}'.format(disk_id), clean=True)
 
-        for key in data.keys():
-            if key.startswith('_'):
-                del data[key]
-        return data
-
-    def add_disk(self, disk):
+    def add_disk(self, disk_id):
         """
         Adds a disk
-        :param disk: Guid of the disk
+        :param disk_id: Identifier of the disk
+        :type disk_id: str
         """
-        self._refresh()
-        start = time.time()
-        data = requests.post('{0}/disks/{1}/add'.format(self._base_url, disk),
-                             headers=self._base_headers,
-                             verify=False,
-                             timeout=self.timeout).json()
-        duration = time.time() - start
-        if duration > self._log_min_duration:
-            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
-        return data
+        return self._call(requests.post, 'disks/{0}/add'.format(disk_id))
 
-    def remove_disk(self, disk):
+    def remove_disk(self, disk_id):
         """
         Removes a disk
-        :param disk: Guid of the disk
+        :param disk_id: Identifier of the disk
+        :type disk_id: str
         """
-        self._refresh()
-        start = time.time()
-        data = requests.post('{0}/disks/{1}/delete'.format(self._base_url, disk),
-                             headers=self._base_headers,
-                             verify=False,
-                             timeout=self.timeout).json()
-        duration = time.time() - start
-        if duration > self._log_min_duration:
-            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
-        return data
+        return self._call(requests.post, 'disks/{0}/delete'.format(disk_id))
 
-    def restart_disk(self, disk):
+    def restart_disk(self, disk_id):
         """
         Restarts a disk
-        :param disk: Guid of the disk
+        :param disk_id: Identifier of the disk
+        :type disk_id: str
         """
-        self._refresh()
-        start = time.time()
-        data = requests.post('{0}/disks/{1}/restart'.format(self._base_url, disk),
-                             headers=self._base_headers,
-                             verify=False,
-                             timeout=self.timeout).json()
-        duration = time.time() - start
-        if duration > self._log_min_duration:
-            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
-        return data
+        return self._call(requests.post, 'disks/{0}/restart'.format(disk_id))
+
+    def get_asds(self):
+        """
+        Loads all asds (grouped by disk)
+        """
+        return self._call(requests.get, 'asds', clean=True)
+
+    def get_asds_for_disk(self, disk_id):
+        """
+        Loads all asds from a given disk
+        :param disk_id: The disk identifier for which to load the asds
+        :type disk_id: str
+        """
+        return self._call(requests.get, 'disks/{0}/asds'.format(disk_id), clean=True)
+
+    def add_asd(self, disk_id):
+        """
+        Adds an ASD to a disk
+        :param disk_id: Identifier of the disk
+        :type disk_id: str
+        """
+        return self._call(requests.post, 'disks/{0}/asds'.format(disk_id))
+
+    def restart_asd(self, disk_id, asd_id):
+        """
+        Restarts an ASD
+        :param disk_id: Disk identifier
+        :type disk_id: str
+        :param asd_id: AsdID from the ASD to be restarted
+        :type asd_id: str
+        """
+        return self._call(requests.post, 'disks/{0}/asds/{1}/restart'.format(disk_id, asd_id))
+
+    def delete_asd(self, disk_id, asd_id):
+        """
+        Deletes an ASD from a Disk
+        :param disk_id: Disk identifier
+        :type disk_id: str
+        :param asd_id: AsdID from the ASD to be removed
+        :type asd_id: str
+        """
+        return self._call(requests.post, 'disks/{0}/asds/{1}/delete'.format(disk_id, asd_id))
 
     def get_update_information(self):
         """
         Checks whether update for openvstorage-sdm package is available
         :return: Latest available version and services which require a restart
         """
-        self._refresh()
-        start = time.time()
-        data = requests.get('{0}/update/information'.format(self._base_url),
-                            headers=self._base_headers,
-                            verify=False,
-                            timeout=120).json()
-        duration = time.time() - start
-        if duration > self._log_min_duration:
-            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
-
-        for key in data.keys():
-            if key.startswith('_'):
-                del data[key]
-        return data
+        return self._call(requests.get, 'update/information', timeout=120, clean=True)
 
     def execute_update(self, status):
         """
@@ -172,58 +158,26 @@ class ASDManagerClient(object):
         :param status: Status of update
         :return: None
         """
-        self._refresh()
-        start = time.time()
-        data = requests.post('{0}/update/execute/{1}'.format(self._base_url, status),
-                             headers=self._base_headers,
-                             verify=False,
-                             timeout=self.timeout).json()
-        duration = time.time() - start
-        if duration > self._log_min_duration:
-            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
-        return data
+        return self._call(requests.post, 'update/execute/{0}'.format(status))
 
     def restart_services(self):
         """
         Restart the alba-asd-<ID> services
         :return: None
         """
-        self._refresh()
-        start = time.time()
-        data = requests.post('{0}/update/restart_services'.format(self._base_url),
-                             headers=self._base_headers,
-                             verify=False,
-                             timeout=self.timeout).json()
-        duration = time.time() - start
-        if duration > self._log_min_duration:
-            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
-        return data
-
-    def _refresh(self):
-        self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
-        self._base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}
+        return self._call(requests.post, 'update/restart_services')
 
     def add_maintenance_service(self, name, alba_backend_guid, abm_name):
         """
         Add service to asd manager
-        :param name: name
-        :param abm_name:
-        :param alba_backend_guid:
+        :param name: Name of the service
+        :param alba_backend_guid: The guid of the AlbaBackend
+        :param abm_name: The name of the ABM
         :return: result
         """
-        self._refresh()
-        start = time.time()
-        data = requests.post('{0}/maintenance/{1}/add'.format(self._base_url, name),
-                             headers=self._base_headers,
-                             data={'alba_backend_guid': alba_backend_guid,
-                                   'abm_name': abm_name},
-                             verify=False,
-                             timeout=self.timeout).json()
-        print data
-        duration = time.time() - start
-        if duration > self._log_min_duration:
-            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
-        return data
+        return self._call(requests.post, 'maintenance/{0}/add'.format(name),
+                          data={'alba_backend_guid': alba_backend_guid,
+                                'abm_name': abm_name})
 
     def remove_maintenance_service(self, name):
         """
@@ -231,29 +185,15 @@ class ASDManagerClient(object):
         :param name: name
         :return: result
         """
-        self._refresh()
-        start = time.time()
-        data = requests.post('{0}/maintenance/{1}/remove'.format(self._base_url, name),
-                             headers=self._base_headers,
-                             verify=False,
-                             timeout=self.timeout).json()
-        duration = time.time() - start
-        if duration > self._log_min_duration:
-            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
-        return data
+        return self._call(requests.post, 'maintenance/{0}/remove'.format(name))
 
     def list_maintenance_services(self):
         """
         Retrieve configured maintenance services from asd manager
         :return: dict of services
         """
-        self._refresh()
-        start = time.time()
-        data = requests.get('{0}/maintenance'.format(self._base_url),
-                            headers=self._base_headers,
-                            verify=False,
-                            timeout=self.timeout).json()
-        duration = time.time() - start
-        if duration > self._log_min_duration:
-            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.currentframe().f_code.co_name, duration, data['_duration']))
-        return data
+        return self._call(requests.get, 'maintenance')['services']
+
+    def _refresh(self):
+        self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
+        self._base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}

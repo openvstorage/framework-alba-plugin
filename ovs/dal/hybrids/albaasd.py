@@ -13,12 +13,12 @@
 # limitations under the License.
 
 """
-AlbaBackend module
+AlbaASD module
 """
 import time
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.albabackend import AlbaBackend
-from ovs.dal.hybrids.albanode import AlbaNode
+from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.extensions.storage.volatilefactory import VolatileFactory
 
@@ -29,7 +29,7 @@ class AlbaASD(DataObject):
     """
     __properties = [Property('asd_id', str, doc='ASD identifier')]
     __relations = [Relation('alba_backend', AlbaBackend, 'asds', doc='The AlbaBackend that claimed the ASD'),
-                   Relation('alba_node', AlbaNode, 'asds', doc='The AlbaNode to which the ASD belongs')]
+                   Relation('alba_disk', AlbaDisk, 'asds', doc='The AlbaDisk to which the ASD belongs')]
     __dynamics = [Dynamic('name', str, 3600),
                   Dynamic('ip', str, 300),
                   Dynamic('port', int, 300),

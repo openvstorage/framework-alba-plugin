@@ -15,15 +15,17 @@
 define([
     'jquery', 'knockout', 'durandal/app', 'plugins/dialog',
     'ovs/generic', 'ovs/api', 'ovs/shared',
-    '../containers/albaosd', '../wizards/addalbanode/index', '../wizards/removeosd/index'
-], function($, ko, app, dialog, generic, api, shared, OSD, AddAlbaNodeWizard, RemoveOSDWizard) {
+    '../containers/albaosd', '../wizards/addalbanode/index', '../wizards/removeosd/index',
+    '../wizards/initializedisk/index'
+], function($, ko, app, dialog, generic, api, shared, OSD, AddAlbaNodeWizard, RemoveOSDWizard, InitializeDiskWizard) {
     "use strict";
-    return function(nodeID, parent) {
+    return function(nodeID, albaBackend, parent) {
         var self = this;
 
         // Variables
-        self.shared  = shared;
-        self.parent = parent;
+        self.shared      = shared;
+        self.albaBackend = albaBackend;
+        self.parent      = parent;
 
         // External dependencies
         self.storageRouter = ko.observable();
@@ -43,7 +45,6 @@ define([
         self.disksLoading      = ko.observable(true);
 
         // Computed
-        self.diskRows         = ko.splitRows(3, self.disks);
         self.canInitializeAll = ko.computed(function() {
             var hasUninitialized = false;
             $.each(self.disks(), function(index, disk) {
@@ -57,8 +58,13 @@ define([
         self.canClaimAll      = ko.computed(function() {
             var hasUnclaimed = false;
             $.each(self.disks(), function(index, disk) {
-                if (disk.status() === 'available' && disk.processing() === false) {
-                    hasUnclaimed = true;
+                $.each(disk.asds(), function(jndex, asd) {
+                    if (asd.status() === 'available' && asd.processing() === false) {
+                        hasUnclaimed = true;
+                        return false;
+                    }
+                });
+                if (hasUnclaimed) {
                     return false;
                 }
             });
@@ -89,52 +95,54 @@ define([
                 node: self
             }));
         };
-        self.initializeNode = function(disk) {
+
+        self.initializeDisk = function(disk) {
+            dialog.show(new InitializeDiskWizard({
+                modal: true,
+                disks: [disk],
+                node: self
+            }));
+        };
+        self.removeDisk = function(disk) {
+            disk.processing(true);
             return $.Deferred(function(deferred) {
                 generic.alertSuccess(
-                    $.t('alba:disks.initialize.started'),
-                    $.t('alba:disks.initialize.msgstarted')
+                    $.t('alba:disks.remove.started'),
+                    $.t('alba:disks.remove.msgstarted')
                 );
-                api.post('alba/nodes/' + self.guid() + '/initialize_disks', {
-                    data: { disks: [disk] }
+                api.post('alba/nodes/' + self.guid() + '/remove_disk', {
+                    data: { disk: disk.name() }
                 })
                     .then(self.shared.tasks.wait)
-                    .done(function(failures) {
-                        if (generic.keys(failures).length > 0) {
-                            var error = '';
-                            $.each(failures, function(disk, message) {
-                                error = message;
-                            });
-                            generic.alertError(
-                                $.t('ovs:generic.error'),
-                                $.t('alba:disks.initialize.failed', { why: error })
-                            );
-                            deferred.reject();
-                        } else {
-                            generic.alertSuccess(
-                                $.t('alba:disks.initialize.complete'),
-                                $.t('alba:disks.initialize.success')
-                            );
-                            deferred.resolve();
-                        }
+                    .done(function() {
+                        generic.alertSuccess(
+                            $.t('alba:disks.remove.complete'),
+                            $.t('alba:disks.remove.success')
+                        );
+                        deferred.resolve();
+                        disk.ignoreNext(true);
+                        disk.status('uninitialized');
+                        disk.processing(false);
                     })
                     .fail(function(error) {
                         generic.alertError(
                             $.t('ovs:generic.error'),
-                            $.t('alba:disks.initialize.failed', { why: error })
+                            $.t('alba:disks.remove.failed', { why: error })
                         );
                         deferred.reject();
+                        disk.processing(false);
                     });
             }).promise();
         };
-        self.restartOSD = function(disk) {
+        self.restartDisk = function(disk) {
+            disk.processing(true);
             return $.Deferred(function(deferred) {
                 generic.alertSuccess(
                     $.t('alba:disks.restart.started'),
                     $.t('alba:disks.restart.msgstarted')
                 );
                 api.post('alba/nodes/' + self.guid() + '/restart_disk', {
-                    data: { disk: disk }
+                    data: { disk: disk.name() }
                 })
                     .then(self.shared.tasks.wait)
                     .done(function() {
@@ -143,6 +151,7 @@ define([
                             $.t('alba:disks.restart.success')
                         );
                         deferred.resolve();
+                        disk.processing(false);
                     })
                     .fail(function(error) {
                         generic.alertError(
@@ -150,117 +159,76 @@ define([
                             $.t('alba:disks.restart.failed', { why: error })
                         );
                         deferred.reject();
+                        disk.processing(false);
                     });
             }).promise();
         };
-        self.removeOSD = function(osd) {
+        self.claimOSDs = self.albaBackend.claimOSDs;
+        self.removeOSD = function(asd) {
             dialog.show(new RemoveOSDWizard({
                 modal: true,
-                albaOSD: osd,
+                albaBackend: self.albaBackend,
                 albaNode: self,
-                albaBackend: self.parent.albaBackend()
+                albaOSD: asd
             }));
         };
-        self.claimOSD = self.parent.claimOSD;
         self.initializeAll = function() {
-            return $.Deferred(function(deferred) {
-                app.showMessage(
-                    $.t('alba:disks.initializeall.warning'),
-                    $.t('ovs:generic.areyousure'),
-                    [$.t('ovs:generic.no'), $.t('ovs:generic.yes')]
-                )
-                    .done(function(answer) {
-                        if (answer === $.t('ovs:generic.yes')) {
-                            generic.alertSuccess(
-                                $.t('alba:disks.initializeall.started'),
-                                $.t('alba:disks.initializeall.msgstarted')
-                            );
-                            var diskNames = [];
-                            $.each(self.disks(), function(index, disk) {
-                                if (disk.status() === 'uninitialized' && disk.processing() === false) {
-                                    disk.processing(true);
-                                    diskNames.push(disk.name());
-                                }
-                            });
-                            api.post('alba/nodes/' + self.guid() + '/initialize_disks', {
-                                data: { disks: diskNames }
-                            })
-                                .then(self.shared.tasks.wait)
-                                .done(function(failures) {
-                                    if (generic.keys(failures).length > 0) {
-                                        var errors = [];
-                                        $.each(failures, function(disk, message) {
-                                            errors.push(disk + ': ' + message);
-                                        });
-                                        generic.alertInfo(
-                                            $.t('alba:disks.initializeall.complete'),
-                                            $.t('alba:disks.initializeall.somefailed', { which: '<ul><li>' + errors.join('</li><li>') + '</li></ul>' })
-                                        );
-                                        deferred.resolve();
-                                    } else {
-                                        $.each(self.disks(), function(index, disk) {
-                                            if ($.inArray(disk.name(), diskNames) !== -1) {
-                                                disk.ignoreNext(true);
-                                                if (disk.status() === 'uninitialized') {
-                                                    disk.status('initialized');
-                                                }
-                                            }
-                                        });
-                                        generic.alertSuccess(
-                                            $.t('alba:disks.initializeall.complete'),
-                                            $.t('alba:disks.initializeall.success')
-                                        );
-                                        deferred.resolve();
-                                    }
-                                })
-                                .fail(function(error) {
-                                    generic.alertError(
-                                        $.t('ovs:generic.error'),
-                                        $.t('alba:disks.initializeall.failed', { why: error })
-                                    );
-                                    deferred.reject();
-                                })
-                                .always(function() {
-                                    $.each(self.disks(), function(index, disk) {
-                                        if ($.inArray(disk.name(), diskNames) !== -1) {
-                                            disk.processing(false);
-                                        }
-                                    });
-                                });
-                        } else {
-                            deferred.reject();
-                        }
-                    });
-            }).promise();
+            var disks = [];
+            $.each(self.disks(), function(index, disk) {
+                if (disk.status() === 'uninitialized') {
+                    disks.push(disk);
+                }
+            });
+            dialog.show(new InitializeDiskWizard({
+                modal: true,
+                disks: disks,
+                node: self
+            }));
         };
         self.claimAll = function() {
-            return $.Deferred(function(deferred) {
-                var osds = {}, disks = [];
-                $.each(self.disks(), function(index, disk) {
-                    if (disk.status() === 'available' && disk.processing() === false) {
-                        disk.processing(true);
-                        disks.push(disk.name());
-                        osds[disk.asdID()] = disk.node.guid();
+            var asds = {};
+            $.each(self.disks(), function(index, disk) {
+                asds[disk.guid()] = [];
+                if (disk.processing()) {
+                    return true;
+                }
+                $.each(disk.asds(), function (jndex, asd) {
+                    if (asd.status() !== 'available' || asd.processing()) {
+                        return true;
                     }
+                    asds[disk.guid()].push(asd);
                 });
-                self.parent.claimAll(osds, disks)
+            });
+            return self.albaBackend.claimOSDs(asds);
+        };
+        self.restartOSD = function(asd) {
+            asd.processing(true);
+            return $.Deferred(function(deferred) {
+                generic.alertSuccess(
+                    $.t('alba:disks.restart.started'),
+                    $.t('alba:disks.restart.msgstarted')
+                );
+                api.post('alba/nodes/' + self.guid() + '/restart_asd', {
+                    data: { asd_id: asd.asdID() }
+                })
+                    .then(self.shared.tasks.wait)
                     .done(function() {
-                        $.each(self.disks(), function(index, disk) {
-                            if ($.inArray(disk.name(), disks) !== -1) {
-                                disk.ignoreNext(true);
-                                if (disk.status() === 'available') {
-                                    disk.status('claimed');
-                                }
-                            }
-                        });
+                        generic.alertSuccess(
+                            $.t('alba:disks.restart.complete'),
+                            $.t('alba:disks.restart.success')
+                        );
+                        deferred.resolve();
+
+                    })
+                    .fail(function(error) {
+                        generic.alertError(
+                            $.t('ovs:generic.error'),
+                            $.t('alba:disks.restart.failed', { why: error })
+                        );
+                        deferred.reject();
                     })
                     .always(function() {
-                        $.each(self.disks(), function(index, disk) {
-                            if ($.inArray(disk.name(), disks) !== -1) {
-                                disk.processing(false);
-                            }
-                        });
-                        deferred.resolve();
+                        asd.processing(false);
                     });
             }).promise();
         };

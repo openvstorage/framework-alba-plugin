@@ -41,25 +41,18 @@ limitations under the License.
                 <tbody data-dummy="dummy">
                     <tr data-part="table-entry">
                         <td>
-                            <span data-bind="lazyloader: { item: backend, loadedObservable: 'loaded', undefinedLoading: true }">
-                                <a data-part="lazy-entry"
-                                   data-bind="text: item().name,
-                                              attr: { href: $root.shared.routing.loadHash('backend-alba-detail', { guid: item().guid }) }"></a>
-                            </span>
+                            <a data-bind="text: name, attr: { href: $root.shared.routing.loadHash('backend-alba-detail', { guid: backendGuid() }) }"></a>
                         </td>
                         <td>
-                            <span data-bind="visible: !$root.nodeLoaded()"><i class="fa fa-spin" data-i18n="[html]ovs:icons.loading"></i></span>
-                            <span data-bind="visible: $root.nodeLoaded()">
-                                <span class="label label-success pointer"
-                                      data-bind="tooltip: 'alba:generic.states.osdinfo.claimed',
-                                                 text: $root.ASDStates()[guid()].claimed"></span>&nbsp;
-                                <span class="label label-warning pointer"
-                                      data-bind="tooltip: 'alba:generic.states.osdinfo.warning',
-                                                 text: $root.ASDStates()[guid()].warning"></span>&nbsp;
-                                <span class="label label-danger pointer"
-                                      data-bind="tooltip: 'alba:generic.states.osdinfo.error',
-                                                 text: $root.ASDStates()[guid()].failure"></span>
-                            </span>
+                            <span class="label label-success pointer"
+                                  data-bind="tooltip: 'alba:generic.states.osdinfo.claimed',
+                                             text: $root.ASDStates()[guid()].claimed"></span>&nbsp;
+                            <span class="label label-warning pointer"
+                                  data-bind="tooltip: 'alba:generic.states.osdinfo.warning',
+                                             text: $root.ASDStates()[guid()].warning"></span>&nbsp;
+                            <span class="label label-danger pointer"
+                                  data-bind="tooltip: 'alba:generic.states.osdinfo.error',
+                                             text: $root.ASDStates()[guid()].failure"></span>
                         </td>
                     </tr>
                 </tbody>

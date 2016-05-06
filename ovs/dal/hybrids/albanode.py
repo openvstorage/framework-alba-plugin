@@ -35,8 +35,7 @@ class AlbaNode(DataObject):
                     Property('password', str, doc='Password of the AlbaNode'),
                     Property('type', ['ASD', 'SUPERMICRO'], default='ASD', doc='The type of the AlbaNode')]
     __relations = [Relation('storagerouter', StorageRouter, 'alba_nodes', mandatory=False, doc='StorageRouter hosting the AlbaNode')]
-    __dynamics = [Dynamic('ips', list, 3600),
-                  Dynamic('all_disks', list, 5)]
+    __dynamics = [Dynamic('ips', list, 3600)]
 
     def __init__(self, *args, **kwargs):
         """
@@ -52,38 +51,3 @@ class AlbaNode(DataObject):
         Returns the IPs of the node
         """
         return EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/network|ips'.format(self.node_id))
-
-    def _all_disks(self):
-        """
-        Returns a live list of all disks on this node
-        """
-        try:
-            disks = self.client.get_disks(reraise=True)
-        except (requests.ConnectionError, requests.Timeout):
-            from ovs.dal.lists.albabackendlist import AlbaBackendList
-            disks = []
-            asd_ids = []
-            for backend in AlbaBackendList.get_albabackends():
-                # All backends of this node
-                backend_name = backend.abm_services[0].service.name if backend.abm_services else backend.name + '-abm'
-                config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(backend_name)
-                osds = AlbaCLI.run('list-all-osds', config=config, as_json=True)
-                for osd in osds:
-                    node_id = osd.get('node_id')
-                    asd_id = osd.get('long_id')
-                    decommissioned = osd.get('decommissioned')
-                    if node_id == self.node_id and asd_id not in asd_ids and decommissioned is False:
-                        asd_ids.append(asd_id)
-                        disks.append({'asd_id': asd_id,
-                                      'node_id': osd.get('node_id'),
-                                      'port': osd.get('port'),
-                                      'ips': osd.get('ips'),
-                                      'available': False,
-                                      'state': {'state': 'error', 'detail': 'nodedown'},
-                                      'log_level': 'info',
-                                      'device': asd_id,
-                                      'home': asd_id,
-                                      'mountpoint': asd_id,
-                                      'name': asd_id,
-                                      'usage': {'available': 0, 'size': 0, 'used': 0}})
-        return disks

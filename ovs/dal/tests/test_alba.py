@@ -84,6 +84,7 @@ class Alba(TestCase):
         from ovs.extensions.plugins.asdmanager import ASDManagerClient
         from ovs.dal.hybrids.albaasd import AlbaASD
         from ovs.dal.hybrids.albanode import AlbaNode
+        from ovs.dal.hybrids.albadisk import AlbaDisk
         from ovs.dal.hybrids.albabackend import AlbaBackend
         from ovs.dal.hybrids.backend import Backend
         from ovs.dal.hybrids.backendtype import BackendType
@@ -121,10 +122,14 @@ class Alba(TestCase):
         alba_node.password = 'bar'
         alba_node.node_id = 'foobar'
         alba_node.save()
+        alba_disk = AlbaDisk()
+        alba_disk.name = 'foo'
+        alba_disk.alba_node = alba_node
+        alba_disk.save()
         asd = AlbaASD()
         asd.asd_id = 'foo'
         asd.alba_backend = alba_backend
-        asd.alba_node = alba_node
+        asd.alba_disk = alba_disk
         asd.save()
         service_type = ServiceType()
         service_type.name = 'AlbaManager'

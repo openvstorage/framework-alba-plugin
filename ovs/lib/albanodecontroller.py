@@ -22,7 +22,7 @@ import string
 import sys
 from ovs.celery_run import celery
 from ovs.dal.hybrids.albanode import AlbaNode
-from ovs.dal.hybrids.albabackend import AlbaBackend
+from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
@@ -41,6 +41,8 @@ class AlbaNodeController(object):
     """
     NR_OF_AGENTS_ETCD_TEMPLATE = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
     _logger = LogHandler.get('lib', name='albanode')
+    ASD_CONFIG_DIR = '/ovs/alba/asds/{0}'
+    ASD_CONFIG = '{0}/config'.format(ASD_CONFIG_DIR)
 
     @staticmethod
     @celery.task(name='albanode.register')
@@ -91,28 +93,42 @@ class AlbaNodeController(object):
         :param disks: Disks to initialize
         :type disks: list
 
-        :return: Disk objects which failed to initialize
-        :rtype: list
+        :return: Dict of all failures with as key the Diskname, and as value the error
+        :rtype: dict
         """
         node = AlbaNode(node_guid)
-        available_disks = dict((disk['name'], disk) for disk in node.all_disks)
+        try:
+            available_disks = node.client.get_disks()
+        except (requests.ConnectionError, requests.Timeout):
+            AlbaNodeController._logger.exception('Could not connect to node {0} to validate disks'.format(node.guid))
+            raise
         failures = {}
         added_disks = []
-        for disk in disks:
-            AlbaNodeController._logger.debug('Initializing disk {0} at node {1}'.format(disk, node.ip))
-            if disk not in available_disks or available_disks[disk]['available'] is False:
-                AlbaNodeController._logger.exception('Disk {0} not available on node {1}'.format(disk, node.ip))
-                failures[disk] = 'Disk unavailable'
+        for disk_id, amount in disks.iteritems():
+            AlbaNodeController._logger.debug('Initializing disk {0} at node {1}'.format(disk_id, node.ip))
+            if disk_id not in available_disks or available_disks[disk_id]['available'] is False:
+                AlbaNodeController._logger.exception('Disk {0} not available on node {1}'.format(disk_id, node.ip))
+                failures[disk_id] = 'Disk unavailable'
             else:
-                result = node.client.add_disk(disk)
+                disk = AlbaDisk()
+                disk.name = disk_id
+                disk.alba_node = node
+                disk.save()
+                result = node.client.add_disk(disk_id)
                 if result['_success'] is False:
-                    failures[disk] = result['_error']
+                    failures[disk_id] = result['_error']
+                    disk.delete()
                 else:
-                    added_disks.append(result)
+                    device = result['device']
+                    for _ in xrange(amount):
+                        result = node.client.add_asd(disk_id)
+                        if result['_success'] is False:
+                            failures[disk_id] = result['_error']
+                    added_disks.append(device)
         if node.storagerouter is not None:
             DiskController.sync_with_reality(node.storagerouter_guid)
             for disk in node.storagerouter.disks:
-                if disk.path in [result['device'] for result in added_disks]:
+                if disk.path in added_disks:
                     partition = disk.partitions[0]
                     partition.roles.append(DiskPartition.ROLES.BACKEND)
                     partition.save()
@@ -121,17 +137,60 @@ class AlbaNodeController(object):
     @staticmethod
     @celery.task(name='albanode.remove_disk')
     @ensure_single(task_name='albanode.remove_disk', mode='CHAINED')
-    def remove_disk(alba_backend_guid, node_guid, disk, expected_safety):
+    def remove_disk(node_guid, disk):
         """
         Removes a disk
-        :param alba_backend_guid: Guid of the ALBA backend
-        :type alba_backend_guid: str
-
         :param node_guid: Guid of the node to remove a disk from
         :type node_guid: str
 
         :param disk: Disk name to remove
         :type disk: str
+
+        :return: None
+        """
+        node = AlbaNode(node_guid)
+        offline_node = False
+        try:
+            if disk not in node.client.get_disks():
+                raise RuntimeError('Disk {0} not available on node {1}'.format(disk, node.guid))
+        except (requests.ConnectionError, requests.Timeout):
+            AlbaNodeController._logger.warning('Could not connect to node {0} to validate disks'.format(node.guid))
+            offline_node = True
+        node_id = node.node_id
+        asds = {}
+        for backend in AlbaBackendList.get_albabackends():
+            storage_stack = backend.storage_stack
+            if node_id in storage_stack and disk in storage_stack[node_id]:
+                asds.update(storage_stack[node_id][disk]['asds'])
+        for asd_info in asds.values():
+            if (offline_node is False and asd_info['status'] != 'available') or (offline_node is True and asd_info['status_detail'] == 'nodedown'):
+                AlbaNodeController._logger.error('Disk {0} has still non-available ASDs on node {1}'.format(disk, node.ip))
+                raise RuntimeError('Disk {0} has still some non-available ASDs'.format(disk))
+        if offline_node is False:
+            result = node.client.remove_disk(disk)
+            if result['_success'] is False:
+                raise RuntimeError('Error removing disk {0}: {1}'.format(disk, result['_error']))
+        for model_disk in node.disks:
+            if model_disk.name == disk:
+                for asd in model_disk.asds:
+                    asd.delete()
+                model_disk.delete()
+        node.invalidate_dynamics()
+        if node.storagerouter is not None:
+            DiskController.sync_with_reality(node.storagerouter_guid)
+
+    @staticmethod
+    @celery.task(name='albanode.remove_asd')
+    @ensure_single(task_name='albanode.remove_asd', mode='CHAINED')
+    def remove_asd(node_guid, asd_id, expected_safety):
+        """
+        Removes an ASD
+
+        :param node_guid: Guid of the node to remove a disk from
+        :type node_guid: str
+
+        :param asd_id: ASD to remove
+        :type asd_id: str
 
         :param expected_safety: Expected safety after having removed the disk
         :type expected_safety: dict
@@ -140,59 +199,115 @@ class AlbaNodeController(object):
         :rtype: bool
         """
         node = AlbaNode(node_guid)
-        alba_backend = AlbaBackend(alba_backend_guid)
-        AlbaNodeController._logger.debug('Removing disk {0} at node {1}'.format(disk, node.ip))
-        nodedown = False
-        disk_info = None
-        try:
-            disks = node.client.get_disks(as_list=False, reraise=True)
-            disk_info = disks.get(disk)
-        except requests.ConnectionError:
-            AlbaNodeController._logger.warning('Alba HTTP Client connection failed on node {0} for disk {1}'.format(node.ip, disk))
-            nodedown = True
-            for d in node.all_disks:
-                if d['name'] == disk:
-                    disk_info = d
+        AlbaNodeController._logger.debug('Removing ASD {0} at node {1}'.format(asd_id, node.ip))
+        model_asd = None
+        for disk in node.disks:
+            for asd in disk.asds:
+                if asd.asd_id == asd_id:
+                    model_asd = asd
                     break
+            if model_asd is not None:
+                break
+        if model_asd is None:
+            raise RuntimeError('Could not locate asd {0} in the model'.format(asd_id))
+        alba_backend = model_asd.alba_backend
 
-        if disk_info is None or not isinstance(disk_info, dict):
-            AlbaNodeController._logger.exception('Disk {0} not available for removal on node {1}'.format(disk, node.ip))
-            raise RuntimeError('Could not find disk with name {0}'.format(disk))
+        asds = {}
+        try:
+            asds = node.client.get_asds()
+        except (requests.ConnectionError, requests.Timeout):
+            AlbaNodeController._logger.warning('Could not connect to node {0} to validate asd'.format(node.guid))
+        disk_id = None
+        for _disk_id in asds:
+            if asd_id in asds[_disk_id]:
+                disk_id = _disk_id
+                break
 
-        disk_asd_id = disk_info.get('asd_id')
-        disk_available = disk_info.get('available')
-        if disk_asd_id is None or disk_available is None:
-            raise RuntimeError('Failed to retrieve information about disk with name {0}'.format(disk))
-
-        asds = [asd for asd in alba_backend.asds if asd.asd_id == disk_asd_id]
-        if len(asds) > 1:
-            raise RuntimeError('Multiple ASDs with ID {0}'.format(disk_asd_id))
-
-        if disk_available is True or nodedown is False:
-            final_safety = AlbaController.calculate_safety(alba_backend_guid, [disk_asd_id])
+        AlbaController.remove_units(alba_backend.guid, [asd_id], absorb_exception=True)
+        if disk_id is not None:
+            final_safety = AlbaController.calculate_safety(alba_backend.guid, [asd_id])
             safety_lost = final_safety['lost']
             safety_crit = final_safety['critical']
             if (safety_crit != 0 or safety_lost != 0) and (safety_crit != expected_safety['critical'] or safety_lost != expected_safety['lost']):
-                raise RuntimeError('Cannot remove disk {0} as the current safety is not as expected ({1} vs {2})'.format(disk, final_safety, expected_safety))
+                raise RuntimeError('Cannot remove ASD {0} as the current safety is not as expected ({1} vs {2})'.format(asd_id, final_safety, expected_safety))
 
-            AlbaController.remove_units(alba_backend_guid, [disk_asd_id])
-            result = node.client.remove_disk(disk)
+            result = node.client.delete_asd(disk_id, asd_id)
             if result['_success'] is False:
-                raise RuntimeError('Error removing disk: {0}'.format(result['_error']))
+                raise RuntimeError('Error removing ASD: {0}'.format(result['_error']))
         else:
-            # Forcefully remove disk -> decommission-osd
-            # no safety checks, don't call HTTP client
-            AlbaNodeController._logger.warning('Alba decommission osd {0}'.format(disk_asd_id))
-            AlbaController.remove_units(alba_backend_guid, [disk_asd_id], absorb_exception=True)
+            AlbaNodeController._logger.warning('Alba decommission osd {0} without safety validations (node down)'.format(asd_id))
+        if EtcdConfiguration.exists(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True):
+            EtcdConfiguration.delete(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True)
+            EtcdConfiguration.delete_dir(AlbaNodeController.ASD_CONFIG_DIR.format(asd_id))
 
-        if len(asds) == 1:
-            asds[0].delete()
-        node.invalidate_dynamics()
+        model_asd.delete()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
         if node.storagerouter is not None:
             DiskController.sync_with_reality(node.storagerouter_guid)
-        return True
+
+        return disk_id
+
+    @staticmethod
+    @celery.task(name='albanode.reset_asd')
+    def reset_asd(node_guid, asd_id, expected_safety):
+        """
+        Removes and readds an ASD to a Disk
+
+        :param node_guid: Guid of the node to remove a disk from
+        :type node_guid: str
+
+        :param asd_id: ASD to remove
+        :type asd_id: str
+
+        :param expected_safety: Expected safety after having removed the disk
+        :type expected_safety: dict
+
+        :return: None
+        """
+        node = AlbaNode(node_guid)
+        disk_id = AlbaNodeController.remove_asd(node_guid, asd_id, expected_safety)
+        try:
+            result = node.client.add_asd(disk_id)
+            if result['_success'] is False:
+                AlbaNodeController._logger.error('Error resetting ASD: {0}'.format(result['_error']))
+                raise RuntimeError(result['_error'])
+        except (requests.ConnectionError, requests.Timeout):
+            AlbaNodeController._logger.warning('Could not connect to node {0} to (re)configure ASD'.format(node.guid))
+
+    @staticmethod
+    @celery.task(name='albanode.restart_asd')
+    def restart_asd(node_guid, asd_id):
+        """
+        Restarts an ASD on a given Node
+        :param node_guid: Guid of the node to remove a disk from
+        :type node_guid: str
+
+        :param asd_id: ASD to remove
+        :type asd_id: str
+
+        :return: None
+        """
+        node = AlbaNode(node_guid)
+        try:
+            asds = node.client.get_asds()
+        except (requests.ConnectionError, requests.Timeout):
+            AlbaNodeController._logger.warning('Could not connect to node {0} to validate asd'.format(node.guid))
+            raise
+
+        disk_id = None
+        for _disk_id in asds:
+            if asd_id in asds[_disk_id]:
+                disk_id = _disk_id
+                break
+        if disk_id is None:
+            AlbaNodeController._logger.error('Could not locate ASD {0} on node {1}'.format(asd_id, node_guid))
+            raise RuntimeError('Could not locate ASD {0} on node {1}'.format(asd_id, node_guid))
+
+        result = node.client.restart_asd(disk_id, asd_id)
+        if result['_success'] is False:
+            AlbaNodeController._logger.error('Error restarting ASD: {0}'.format(result['_error']))
+            raise RuntimeError(result['_error'])
 
     @staticmethod
     @celery.task(name='albanode.restart_disk')
@@ -205,25 +320,24 @@ class AlbaNodeController(object):
         :param disk: Disk name to be restarted
         :type disk: str
 
-        :return: True
-        :rtype: bool
+        :return: None
         """
         node = AlbaNode(node_guid)
         AlbaNodeController._logger.debug('Restarting disk {0} at node {1}'.format(disk, node.ip))
-        disks = node.client.get_disks(as_list=False)
-        if disk not in disks:
-            AlbaNodeController._logger.exception('Disk {0} not available for restart on node {1}'.format(disk, node.ip))
-            raise RuntimeError('Could not find disk')
+        try:
+            disks = node.client.get_disks()
+            if disk not in disks:
+                AlbaNodeController._logger.exception('Disk {0} not available for restart on node {1}'.format(disk, node.ip))
+                raise RuntimeError('Could not find disk')
+        except (requests.ConnectionError, requests.Timeout):
+            AlbaNodeController._logger.warning('Could not connect to node {0} to validate disk'.format(node.guid))
+            raise
+
         result = node.client.restart_disk(disk)
         if result['_success'] is False:
             raise RuntimeError('Error restarting disk: {0}'.format(result['_error']))
-        alba_backends = []
-        for asd in node.asds:
-            if asd.alba_backend not in alba_backends:
-                alba_backends.append(asd.alba_backend)
-        for backend in alba_backends:
+        for backend in AlbaBackendList.get_albabackends():
             backend.invalidate_dynamics()
-        return True
 
     @staticmethod
     @add_hooks('setup', ['firstnode', 'extranode'])
@@ -259,7 +373,7 @@ class AlbaNodeController(object):
         Add / remove as necessary
         :return: None
         """
-        service_template_key = 'ovs-alba-maintenance_{0}-{1}'
+        service_template_key = 'alba-maintenance_{0}-{1}'
         maintenance_agents_map = {}
         asd_nodes = AlbaNodeList.get_albanodes()
         nr_of_storage_nodes = len(asd_nodes)
@@ -307,7 +421,7 @@ class AlbaNodeController(object):
             elif to_process >= 0:
                 AlbaNodeController._logger.info('Adding {0} maintenance agent(s) for {1}'.format(to_process, name))
                 for _ in xrange(to_process):
-                    unique_hash = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(32))
+                    unique_hash = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(16))
                     node = _get_node_load(name)['low_load_node']
                     AlbaNodeController._logger.info('Service to add: ' + service_template_key.format(name, unique_hash))
                     if node and node.client:

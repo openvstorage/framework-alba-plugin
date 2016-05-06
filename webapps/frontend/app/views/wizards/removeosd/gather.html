@@ -17,7 +17,7 @@ limitations under the License.
     <form role="form form-horizontal" class="form-horizontal">
         <p>
             <span data-i18n="alba:wizards.removeosd.gather.warning"></span>
-            <ul><li><span data-bind="text: data.albaOSD().name()"></span></li></ul>
+            <ul><li><span data-bind="text: data.albaOSD().asdID()"></span></li></ul>
         </p>
         <div data-bind="visible: data.albaOSD().statusDetail() === 'nodedown' ">
             <span data-i18n="ovs:removeosd.gather.nodedownwarning"></span>

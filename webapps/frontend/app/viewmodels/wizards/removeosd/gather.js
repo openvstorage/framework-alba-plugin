@@ -33,22 +33,20 @@ define([
 
         // Functions
         self.finish = function() {
+            self.data.albaOSD().processing(true);
             return $.Deferred(function(deferred) {
                 generic.alertSuccess(
                     $.t('alba:disks.remove.started'),
                     $.t('alba:disks.remove.msgstarted')
                 );
-                api.post('alba/nodes/' + self.data.albaNode().guid() + '/remove_disk', {
+                api.post('alba/nodes/' + self.data.albaNode().guid() + '/reset_asd', {
                     data: {
-                        disk: self.data.albaOSD().name(),
-                        alba_backend_guid: self.data.albaBackend().guid(),
+                        asd_id: self.data.albaOSD().asdID(),
                         safety: self.data.safety()
                     }
                 })
                     .then(self.shared.tasks.wait)
                     .done(function() {
-                        self.data.albaOSD().ignoreNext(true);
-                        self.data.albaOSD().status('uninitialized');
                         generic.alertSuccess(
                             $.t('alba:disks.remove.complete'),
                             $.t('alba:disks.remove.success')
