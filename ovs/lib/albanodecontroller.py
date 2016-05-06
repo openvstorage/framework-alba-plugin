@@ -91,7 +91,7 @@ class AlbaNodeController(object):
         :type node_guid: str
 
         :param disks: Disks to initialize
-        :type disks: list
+        :type disks: dict
 
         :return: Dict of all failures with as key the Diskname, and as value the error
         :rtype: dict

@@ -15,6 +15,7 @@
 """
 Generic module for calling the ASD-Manager
 """
+import time
 import base64
 import inspect
 import requests
