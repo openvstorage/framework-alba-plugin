@@ -1,4 +1,3 @@
-#!/usr/bin/env python2
 # Copyright 2016 iNuron NV
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,18 +15,25 @@
 """
 Basic test module
 """
-import sys
 import time
-from unittest import TestCase
-from ovs.dal.tests.alba_mockups import AlbaCLIModule, ASDManagerModule
-from ovs.extensions.storage.persistent.dummystore import DummyPersistentStore
-from ovs.extensions.storage.volatile.dummystore import DummyVolatileStore
+import unittest
+from ovs.dal.hybrids.albaasd import AlbaASD
+from ovs.dal.hybrids.albabackend import AlbaBackend
+from ovs.dal.hybrids.albadisk import AlbaDisk
+from ovs.dal.hybrids.albanode import AlbaNode
+from ovs.dal.hybrids.backend import Backend
+from ovs.dal.hybrids.backendtype import BackendType
+from ovs.dal.hybrids.j_abmservice import ABMService
+from ovs.dal.hybrids.service import Service
+from ovs.dal.hybrids.servicetype import ServiceType
+from ovs.extensions.generic import fakesleep
+from ovs.extensions.plugins.albacli import AlbaCLI
+from ovs.extensions.plugins.asdmanager import ASDManagerClient
 from ovs.extensions.storage.persistentfactory import PersistentFactory
 from ovs.extensions.storage.volatilefactory import VolatileFactory
-from ovs.extensions.generic import fakesleep
 
 
-class Alba(TestCase):
+class Alba(unittest.TestCase):
     """
     The basic unittestsuite will test all basic functionality of the DAL framework
     It will also try accessing all dynamic properties of all hybrids making sure
@@ -41,26 +47,18 @@ class Alba(TestCase):
         Sets up the unittest, mocking a certain set of 3rd party libraries and extensions.
         This makes sure the unittests can be executed without those libraries installed
         """
-        # Replace mocked classes
-        sys.modules['ovs.extensions.plugins.albacli'] = AlbaCLIModule
-        sys.modules['ovs.extensions.plugins.asdmanager'] = ASDManagerModule
-
-        PersistentFactory.store = DummyPersistentStore()
-        PersistentFactory.store.clean()
-        VolatileFactory.store = DummyVolatileStore()
-        VolatileFactory.store.clean()
-
+        cls.volatile = VolatileFactory.get_client()
+        cls.volatile.clean()
+        cls.persistent = PersistentFactory.get_client()
+        cls.persistent.clean()
         fakesleep.monkey_patch()
 
-    @classmethod
-    def setUp(cls):
+    def setUp(self):
         """
         (Re)Sets the stores on every test
         """
-        PersistentFactory.store = DummyPersistentStore()
-        PersistentFactory.store.clean()
-        VolatileFactory.store = DummyVolatileStore()
-        VolatileFactory.store.clean()
+        self.volatile.clean()
+        self.persistent.clean()
 
     @classmethod
     def tearDownClass(cls):
@@ -68,10 +66,10 @@ class Alba(TestCase):
         Clean up the unittest
         """
         fakesleep.monkey_restore()
-        PersistentFactory.store = DummyPersistentStore()
-        PersistentFactory.store.clean()
-        VolatileFactory.store = DummyVolatileStore()
-        VolatileFactory.store.clean()
+        cls.volatile = VolatileFactory.get_client()
+        cls.volatile.clean()
+        cls.persistent = PersistentFactory.get_client()
+        cls.persistent.clean()
 
     def test_asd_statistics(self):
         """
@@ -80,17 +78,6 @@ class Alba(TestCase):
         * Collapse certain keys
         * Calculate correct per-second, average, total, min and max values
         """
-        from ovs.extensions.plugins.albacli import AlbaCLI
-        from ovs.extensions.plugins.asdmanager import ASDManagerClient
-        from ovs.dal.hybrids.albaasd import AlbaASD
-        from ovs.dal.hybrids.albanode import AlbaNode
-        from ovs.dal.hybrids.albadisk import AlbaDisk
-        from ovs.dal.hybrids.albabackend import AlbaBackend
-        from ovs.dal.hybrids.backend import Backend
-        from ovs.dal.hybrids.backendtype import BackendType
-        from ovs.dal.hybrids.j_abmservice import ABMService
-        from ovs.dal.hybrids.service import Service
-        from ovs.dal.hybrids.servicetype import ServiceType
         expected_0 = {'statistics': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
                       'range': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
                       'range_entries': {'max': 0, 'n_ps': 0, 'min': 0, 'avg': 0, 'n': 0},
@@ -143,20 +130,22 @@ class Alba(TestCase):
         abm_service.service = service
         abm_service.alba_backend = alba_backend
         abm_service.save()
-        ASDManagerClient.results['get_disks'] = []
-        AlbaCLI.run_results['asd-multistatistics'] = {'foo': {'success': True,
-                                                              'result': {'Apply': {'n': 1, 'avg': 5, 'min': 5, 'max': 5},
-                                                                         'MultiGet': {'n': 2, 'avg': 10, 'min': 5, 'max': 10},
-                                                                         'MultiGet2': {'n': 3, 'avg': 15, 'min': 1, 'max': 5}}}}
+
+        asdmanager_client = ASDManagerClient('')
+        asdmanager_client._results['get_disks'] = []
+        AlbaCLI._run_results['asd-multistatistics'] = {'foo': {'success': True,
+                                                               'result': {'Apply': {'n': 1, 'avg': 5, 'min': 5, 'max': 5},
+                                                                          'MultiGet': {'n': 2, 'avg': 10, 'min': 5, 'max': 10},
+                                                                          'MultiGet2': {'n': 3, 'avg': 15, 'min': 1, 'max': 5}}}}
         statistics = asd._statistics(AlbaASD._dynamics[4])
         expected_0['timestamp'] = base_time
         self.assertDictEqual(statistics, expected_0, 'The first statistics should be as expected: {0} vs {1}'.format(statistics, expected_0))
         time.sleep(5)
-        ASDManagerClient.results['get_disks'] = []
-        AlbaCLI.run_results['asd-multistatistics'] = {'foo': {'success': True,
-                                                              'result': {'Apply': {'n': 1, 'avg': 5, 'min': 5, 'max': 5},
-                                                                         'MultiGet': {'n': 5, 'avg': 10, 'min': 5, 'max': 10},
-                                                                         'MultiGet2': {'n': 5, 'avg': 15, 'min': 1, 'max': 5}}}}
+        asdmanager_client._results['get_disks'] = []
+        AlbaCLI._run_results['asd-multistatistics'] = {'foo': {'success': True,
+                                                               'result': {'Apply': {'n': 1, 'avg': 5, 'min': 5, 'max': 5},
+                                                                          'MultiGet': {'n': 5, 'avg': 10, 'min': 5, 'max': 10},
+                                                                          'MultiGet2': {'n': 5, 'avg': 15, 'min': 1, 'max': 5}}}}
         statistics = asd._statistics(AlbaASD._dynamics[4])
         expected_1['timestamp'] = base_time + 5
         self.assertDictEqual(statistics, expected_1, 'The second statistics should be as expected: {0} vs {1}'.format(statistics, expected_1))

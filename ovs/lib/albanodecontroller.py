@@ -237,8 +237,7 @@ class AlbaNodeController(object):
         else:
             AlbaNodeController._logger.warning('Alba decommission osd {0} without safety validations (node down)'.format(asd_id))
         if EtcdConfiguration.exists(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True):
-            EtcdConfiguration.delete(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True)
-            EtcdConfiguration.delete_dir(AlbaNodeController.ASD_CONFIG_DIR.format(asd_id))
+            EtcdConfiguration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(asd_id), raw=True)
 
         model_asd.delete()
         alba_backend.invalidate_dynamics()
