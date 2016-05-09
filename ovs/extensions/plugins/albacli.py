@@ -15,18 +15,18 @@
 """
 Generic ALBA CLI module
 """
-import time
 import json
-from subprocess import check_output, CalledProcessError
+import time
+import unittest
 from ovs.log.logHandler import LogHandler
-
-logger = LogHandler.get('extensions', name='albacli')
+from subprocess import check_output, CalledProcessError
 
 
 class AlbaCLI(object):
     """
     Wrapper for 'alba' command line interface
     """
+    _run_results = {}
 
     @staticmethod
     def run(command, config=None, host=None, long_id=None, asd_port=None, node_id=None, extra_params=None,
@@ -34,6 +34,11 @@ class AlbaCLI(object):
         """
         Executes a command on ALBA
         """
+        logger = LogHandler.get('extensions', name='albacli')
+        if hasattr(unittest, 'running_tests') and getattr(unittest, 'running_tests') is True:  # For unit tests we do not want to execute the actual command
+            logger.debug('Running command {0} in unittest mode'.format(command))
+            return AlbaCLI._run_results[command]
+
         debug_log = []
         try:
             cmd = 'export LD_LIBRARY_PATH=/usr/lib/alba; '
@@ -61,6 +66,7 @@ class AlbaCLI(object):
             if debug is False:
                 cmd += ' 2> /dev/null'
             debug_log.append('Command: {0}'.format(cmd))
+
             start = time.time()
             if client is None:
                 try:

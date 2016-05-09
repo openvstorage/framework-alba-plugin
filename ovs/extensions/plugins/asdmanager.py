@@ -19,19 +19,28 @@ import time
 import base64
 import inspect
 import requests
+import unittest
 from ovs.log.logHandler import LogHandler
-
-logger = LogHandler.get('extensions', name='asdmanagerclient')
 
 
 class ASDManagerClient(object):
-    """ ASD Manager Client """
+    """
+    ASD Manager Client
+    """
     def __init__(self, node):
+        self._logger = LogHandler.get('extensions', name='asdmanagerclient')
         self.node = node
         self.timeout = 20
+        self._results = {}
+        self._unittest_mode = hasattr(unittest, 'running_tests') and getattr(unittest, 'running_tests') is True
         self._log_min_duration = 1
 
     def _call(self, method, url, data=None, timeout=None, clean=False):
+        if self._unittest_mode is True:
+            curframe = inspect.currentframe()
+            calframe = inspect.getouterframes(curframe, 2)
+            return self._results.get(calframe[1][3])
+
         if timeout is None:
             timeout = self.timeout
         self._refresh()
@@ -58,7 +67,7 @@ class ASDManagerClient(object):
             _clean(data)
         duration = time.time() - start
         if True or duration > self._log_min_duration:
-            logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.stack()[1][3], duration, internal_duration))
+            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.stack()[1][3], duration, internal_duration))
         return data
 
     def get_metadata(self):

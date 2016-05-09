@@ -24,15 +24,13 @@ from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.lib.helpers.decorators import ensure_single
 from ovs.log.logHandler import LogHandler
 
-logger = LogHandler.get('lib', name='scheduled tasks')
-
 
 class AlbaScheduledTaskController(object):
     """
     This controller contains all scheduled task code. These tasks can be
     executed at certain intervals and should be self-containing
     """
-
+    _logger = LogHandler.get('lib', name='scheduled tasks')
     verification_schedule = 3
     verification_schedule_key = '/ovs/alba/backends/verification_schedule'
     if EtcdConfiguration.exists(verification_schedule_key):
@@ -48,7 +46,7 @@ class AlbaScheduledTaskController(object):
         """
         Verify namespaces for all backends
         """
-        logger.info('verify namespace task scheduling started')
+        AlbaScheduledTaskController._logger.info('verify namespace task scheduling started')
 
         verification_factor = 10
         verification_factor_key = '/ovs/alba/backends/verification_factor'
@@ -62,7 +60,7 @@ class AlbaScheduledTaskController(object):
             config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(backend_name)
             namespaces = AlbaCLI.run('list-namespaces', config=config, as_json=True)
             for namespace in namespaces:
-                logger.info('verifying namespace: {0} scheduled ...'.format(namespace['name']))
+                AlbaScheduledTaskController._logger.info('verifying namespace: {0} scheduled ...'.format(namespace['name']))
                 AlbaCLI.run('verify-namespace {0} --factor={1}'.format(namespace['name'], verification_factor))
 
-        logger.info('verify namespace task scheduling finished')
+        AlbaScheduledTaskController._logger.info('verify namespace task scheduling finished')

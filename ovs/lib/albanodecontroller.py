@@ -34,15 +34,13 @@ from ovs.lib.disk import DiskController
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.lib.helpers.decorators import ensure_single
 
-logger = LogHandler.get('lib', name='albanode')
-
 
 class AlbaNodeController(object):
     """
     Contains all BLL related to ALBA nodes
     """
-
     NR_OF_AGENTS_ETCD_TEMPLATE = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
+    _logger = LogHandler.get('lib', name='albanode')
     ASD_CONFIG_DIR = '/ovs/alba/asds/{0}'
     ASD_CONFIG = '{0}/config'.format(ASD_CONFIG_DIR)
 
@@ -69,7 +67,7 @@ class AlbaNodeController(object):
         if data['_success'] is False and data['_error'] == 'Invalid credentials':
             raise RuntimeError('Invalid credentials')
         if data['node_id'] != node_id:
-            logger.error('Unexpected node_id: {0} vs {1}'.format(data['node_id'], node_id))
+            AlbaNodeController._logger.error('Unexpected node_id: {0} vs {1}'.format(data['node_id'], node_id))
             raise RuntimeError('Unexpected node identifier')
         node.node_id = node_id
         node.type = 'ASD'
@@ -93,7 +91,7 @@ class AlbaNodeController(object):
         :type node_guid: str
 
         :param disks: Disks to initialize
-        :type disks: list
+        :type disks: dict
 
         :return: Dict of all failures with as key the Diskname, and as value the error
         :rtype: dict
@@ -102,14 +100,14 @@ class AlbaNodeController(object):
         try:
             available_disks = node.client.get_disks()
         except (requests.ConnectionError, requests.Timeout):
-            logger.exception('Could not connect to node {0} to validate disks'.format(node.guid))
+            AlbaNodeController._logger.exception('Could not connect to node {0} to validate disks'.format(node.guid))
             raise
         failures = {}
         added_disks = []
         for disk_id, amount in disks.iteritems():
-            logger.debug('Initializing disk {0} at node {1}'.format(disk_id, node.ip))
+            AlbaNodeController._logger.debug('Initializing disk {0} at node {1}'.format(disk_id, node.ip))
             if disk_id not in available_disks or available_disks[disk_id]['available'] is False:
-                logger.exception('Disk {0} not available on node {1}'.format(disk_id, node.ip))
+                AlbaNodeController._logger.exception('Disk {0} not available on node {1}'.format(disk_id, node.ip))
                 failures[disk_id] = 'Disk unavailable'
             else:
                 disk = AlbaDisk()
@@ -156,7 +154,7 @@ class AlbaNodeController(object):
             if disk not in node.client.get_disks():
                 raise RuntimeError('Disk {0} not available on node {1}'.format(disk, node.guid))
         except (requests.ConnectionError, requests.Timeout):
-            logger.warning('Could not connect to node {0} to validate disks'.format(node.guid))
+            AlbaNodeController._logger.warning('Could not connect to node {0} to validate disks'.format(node.guid))
             offline_node = True
         node_id = node.node_id
         asds = {}
@@ -166,7 +164,7 @@ class AlbaNodeController(object):
                 asds.update(storage_stack[node_id][disk]['asds'])
         for asd_info in asds.values():
             if (offline_node is False and asd_info['status'] != 'available') or (offline_node is True and asd_info['status_detail'] == 'nodedown'):
-                logger.error('Disk {0} has still non-available ASDs on node {1}'.format(disk, node.ip))
+                AlbaNodeController._logger.error('Disk {0} has still non-available ASDs on node {1}'.format(disk, node.ip))
                 raise RuntimeError('Disk {0} has still some non-available ASDs'.format(disk))
         if offline_node is False:
             result = node.client.remove_disk(disk)
@@ -201,7 +199,7 @@ class AlbaNodeController(object):
         :rtype: bool
         """
         node = AlbaNode(node_guid)
-        logger.debug('Removing ASD {0} at node {1}'.format(asd_id, node.ip))
+        AlbaNodeController._logger.debug('Removing ASD {0} at node {1}'.format(asd_id, node.ip))
         model_asd = None
         for disk in node.disks:
             for asd in disk.asds:
@@ -218,7 +216,7 @@ class AlbaNodeController(object):
         try:
             asds = node.client.get_asds()
         except (requests.ConnectionError, requests.Timeout):
-            logger.warning('Could not connect to node {0} to validate asd'.format(node.guid))
+            AlbaNodeController._logger.warning('Could not connect to node {0} to validate asd'.format(node.guid))
         disk_id = None
         for _disk_id in asds:
             if asd_id in asds[_disk_id]:
@@ -237,10 +235,9 @@ class AlbaNodeController(object):
             if result['_success'] is False:
                 raise RuntimeError('Error removing ASD: {0}'.format(result['_error']))
         else:
-            logger.warning('Alba decommission osd {0} without safety validations (node down)'.format(asd_id))
+            AlbaNodeController._logger.warning('Alba decommission osd {0} without safety validations (node down)'.format(asd_id))
         if EtcdConfiguration.exists(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True):
-            EtcdConfiguration.delete(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True)
-            EtcdConfiguration.delete_dir(AlbaNodeController.ASD_CONFIG_DIR.format(asd_id))
+            EtcdConfiguration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(asd_id), raw=True)
 
         model_asd.delete()
         alba_backend.invalidate_dynamics()
@@ -272,10 +269,10 @@ class AlbaNodeController(object):
         try:
             result = node.client.add_asd(disk_id)
             if result['_success'] is False:
-                logger.error('Error resetting ASD: {0}'.format(result['_error']))
+                AlbaNodeController._logger.error('Error resetting ASD: {0}'.format(result['_error']))
                 raise RuntimeError(result['_error'])
         except (requests.ConnectionError, requests.Timeout):
-            logger.warning('Could not connect to node {0} to (re)configure ASD'.format(node.guid))
+            AlbaNodeController._logger.warning('Could not connect to node {0} to (re)configure ASD'.format(node.guid))
 
     @staticmethod
     @celery.task(name='albanode.restart_asd')
@@ -294,7 +291,7 @@ class AlbaNodeController(object):
         try:
             asds = node.client.get_asds()
         except (requests.ConnectionError, requests.Timeout):
-            logger.warning('Could not connect to node {0} to validate asd'.format(node.guid))
+            AlbaNodeController._logger.warning('Could not connect to node {0} to validate asd'.format(node.guid))
             raise
 
         disk_id = None
@@ -303,12 +300,12 @@ class AlbaNodeController(object):
                 disk_id = _disk_id
                 break
         if disk_id is None:
-            logger.error('Could not locate ASD {0} on node {1}'.format(asd_id, node_guid))
+            AlbaNodeController._logger.error('Could not locate ASD {0} on node {1}'.format(asd_id, node_guid))
             raise RuntimeError('Could not locate ASD {0} on node {1}'.format(asd_id, node_guid))
 
         result = node.client.restart_asd(disk_id, asd_id)
         if result['_success'] is False:
-            logger.error('Error restarting ASD: {0}'.format(result['_error']))
+            AlbaNodeController._logger.error('Error restarting ASD: {0}'.format(result['_error']))
             raise RuntimeError(result['_error'])
 
     @staticmethod
@@ -325,14 +322,14 @@ class AlbaNodeController(object):
         :return: None
         """
         node = AlbaNode(node_guid)
-        logger.debug('Restarting disk {0} at node {1}'.format(disk, node.ip))
+        AlbaNodeController._logger.debug('Restarting disk {0} at node {1}'.format(disk, node.ip))
         try:
             disks = node.client.get_disks()
             if disk not in disks:
-                logger.exception('Disk {0} not available for restart on node {1}'.format(disk, node.ip))
+                AlbaNodeController._logger.exception('Disk {0} not available for restart on node {1}'.format(disk, node.ip))
                 raise RuntimeError('Could not find disk')
         except (requests.ConnectionError, requests.Timeout):
-            logger.warning('Could not connect to node {0} to validate disk'.format(node.guid))
+            AlbaNodeController._logger.warning('Could not connect to node {0} to validate disk'.format(node.guid))
             raise
 
         result = node.client.restart_disk(disk)
@@ -414,25 +411,25 @@ class AlbaNodeController(object):
                                             'backend': alba_backend.backend}
 
         for name, values in maintenance_agents_map.iteritems():
-            logger.info('Checking backend: {0}'.format(name))
+            AlbaNodeController._logger.info('Checking backend: {0}'.format(name))
             to_process = values['required'] - values['actual']
 
             if to_process == 0:
-                logger.info('No action required for: {0}'.format(name))
+                AlbaNodeController._logger.info('No action required for: {0}'.format(name))
             elif to_process >= 0:
-                logger.info('Adding {0} maintenance agent(s) for {1}'.format(to_process, name))
+                AlbaNodeController._logger.info('Adding {0} maintenance agent(s) for {1}'.format(to_process, name))
                 for _ in xrange(to_process):
                     unique_hash = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(16))
                     node = _get_node_load(name)['low_load_node']
-                    logger.info('Service to add: ' + service_template_key.format(name, unique_hash))
+                    AlbaNodeController._logger.info('Service to add: ' + service_template_key.format(name, unique_hash))
                     if node and node.client:
                         node.client.add_maintenance_service(service_template_key.format(name, unique_hash),
                                                             values['backend'].alba_backend.guid,
                                                             AlbaController.get_abm_service_name(values['backend']))
-                        logger.info('Service added')
+                        AlbaNodeController._logger.info('Service added')
             else:
                 to_process = abs(to_process)
-                logger.info('Removing {0} maintenance agent(s) for {1}'.format(to_process, name))
+                AlbaNodeController._logger.info('Removing {0} maintenance agent(s) for {1}'.format(to_process, name))
                 for _ in xrange(to_process):
                     node = _get_node_load(name)['high_load_node']
                     services = node.client.list_maintenance_services()

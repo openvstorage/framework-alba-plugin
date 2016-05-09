@@ -17,7 +17,6 @@ Alba migration module
 """
 
 from ovs.log.logHandler import LogHandler
-logger = LogHandler.get('extensions', name='albamigration')
 
 
 class AlbaMigrator(object):
@@ -43,7 +42,7 @@ class AlbaMigrator(object):
         :param master_ips: IP addresses of the MASTER nodes
         :param extra_ips: IP addresses of the EXTRA nodes
         """
-
+        logger = LogHandler.get('extensions', name='albamigration')
         working_version = previous_version
 
         # Version 1 introduced:
