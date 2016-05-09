@@ -35,6 +35,10 @@ class AlbaCLI(object):
         Executes a command on ALBA
         """
         logger = LogHandler.get('extensions', name='albacli')
+        if hasattr(unittest, 'running_tests') and getattr(unittest, 'running_tests') is True:  # For unit tests we do not want to execute the actual command
+            logger.debug('Running command {0} in unittest mode'.format(command))
+            return AlbaCLI._run_results[command]
+
         debug_log = []
         try:
             cmd = 'export LD_LIBRARY_PATH=/usr/lib/alba; '
@@ -62,8 +66,6 @@ class AlbaCLI(object):
             if debug is False:
                 cmd += ' 2> /dev/null'
             debug_log.append('Command: {0}'.format(cmd))
-            if hasattr(unittest, 'running_tests') and getattr(unittest, 'running_tests') is True:  # For unit tests we do not want to execute the actual command
-                return AlbaCLI._run_results[command]
 
             start = time.time()
             if client is None:
