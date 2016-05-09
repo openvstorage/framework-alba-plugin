@@ -389,17 +389,16 @@ class AlbaNodeController(object):
             for asd_node in asd_nodes:
                 actual_nr_of_agents = 0
                 maint_services = asd_node.client.list_maintenance_services()
-                if maint_services:
-                    for filename in maint_services.keys():
-                        if service_template_key.format(backend_name, '') in filename:
-                            actual_nr_of_agents += 1
-                    if actual_nr_of_agents > highest_load:
-                        agent_load['high_load_node'] = asd_node
-                        highest_load = actual_nr_of_agents
-                    if actual_nr_of_agents < lowest_load:
-                        agent_load['low_load_node'] = asd_node
-                        lowest_load = actual_nr_of_agents
-                    agent_load['total_load'] += actual_nr_of_agents
+                for service_name in maint_services:
+                    if service_template_key.format(backend_name, '') in service_name:
+                        actual_nr_of_agents += 1
+                if actual_nr_of_agents > highest_load:
+                    agent_load['high_load_node'] = asd_node
+                    highest_load = actual_nr_of_agents
+                if actual_nr_of_agents < lowest_load:
+                    agent_load['low_load_node'] = asd_node
+                    lowest_load = actual_nr_of_agents
+                agent_load['total_load'] += actual_nr_of_agents
 
             return agent_load
 
@@ -436,9 +435,9 @@ class AlbaNodeController(object):
                 logger.info('Removing {0} maintenance agent(s) for {1}'.format(to_process, name))
                 for _ in xrange(to_process):
                     node = _get_node_load(name)['high_load_node']
-                    services = node.client.list_maintenance_services().keys()
+                    services = node.client.list_maintenance_services()
                     if services and node and node.client:
                         for service in services:
-                            if 'ovs-alba-maintenance_' + name in service:
+                            if 'alba-maintenance_' + name in service:
                                 node.client.remove_maintenance_service(service)
                                 break
