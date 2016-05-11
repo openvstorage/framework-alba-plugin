@@ -96,7 +96,7 @@ class ASDManagerClient(object):
         :param disk_id: Identifier of the disk
         :type disk_id: str
         """
-        return self._call(requests.post, 'disks/{0}/add'.format(disk_id))
+        return self._call(requests.post, 'disks/{0}/add'.format(disk_id), timeout=60)
 
     def remove_disk(self, disk_id):
         """
@@ -104,7 +104,7 @@ class ASDManagerClient(object):
         :param disk_id: Identifier of the disk
         :type disk_id: str
         """
-        return self._call(requests.post, 'disks/{0}/delete'.format(disk_id))
+        return self._call(requests.post, 'disks/{0}/delete'.format(disk_id), timeout=60)
 
     def restart_disk(self, disk_id):
         """
@@ -112,7 +112,7 @@ class ASDManagerClient(object):
         :param disk_id: Identifier of the disk
         :type disk_id: str
         """
-        return self._call(requests.post, 'disks/{0}/restart'.format(disk_id))
+        return self._call(requests.post, 'disks/{0}/restart'.format(disk_id), timeout=60)
 
     def get_asds(self):
         """
@@ -134,7 +134,7 @@ class ASDManagerClient(object):
         :param disk_id: Identifier of the disk
         :type disk_id: str
         """
-        return self._call(requests.post, 'disks/{0}/asds'.format(disk_id))
+        return self._call(requests.post, 'disks/{0}/asds'.format(disk_id), timeout=30)
 
     def restart_asd(self, disk_id, asd_id):
         """
@@ -144,7 +144,7 @@ class ASDManagerClient(object):
         :param asd_id: AsdID from the ASD to be restarted
         :type asd_id: str
         """
-        return self._call(requests.post, 'disks/{0}/asds/{1}/restart'.format(disk_id, asd_id))
+        return self._call(requests.post, 'disks/{0}/asds/{1}/restart'.format(disk_id, asd_id), timeout=30)
 
     def delete_asd(self, disk_id, asd_id):
         """
@@ -154,7 +154,7 @@ class ASDManagerClient(object):
         :param asd_id: AsdID from the ASD to be removed
         :type asd_id: str
         """
-        return self._call(requests.post, 'disks/{0}/asds/{1}/delete'.format(disk_id, asd_id))
+        return self._call(requests.post, 'disks/{0}/asds/{1}/delete'.format(disk_id, asd_id), timeout=30)
 
     def get_update_information(self):
         """
