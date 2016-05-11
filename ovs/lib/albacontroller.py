@@ -58,7 +58,7 @@ class AlbaController(object):
     ETCD_ALBA_BACKEND_KEY = '/ovs/alba/backends/{0}'
     ETCD_MAINTENANCE_KEY = ETCD_ALBA_BACKEND_KEY + '/maintenance'
     ETCD_NR_OF_AGENTS_KEY = ETCD_MAINTENANCE_KEY + '/nr_of_agents'
-    ETCD_DEFAULT_NSM_HOSTS_KEY = '/ovs/alba/backends/default_nsm_hosts'
+    ETCD_DEFAULT_NSM_HOSTS_KEY = ETCD_ALBA_BACKEND_KEY.format('default_nsm_hosts')
 
     _logger = LogHandler.get('lib', name='alba')
 
