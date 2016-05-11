@@ -58,6 +58,7 @@ class AlbaController(object):
     ETCD_ALBA_BACKEND_KEY = '/ovs/alba/backends/{0}'
     ETCD_MAINTENANCE_KEY = ETCD_ALBA_BACKEND_KEY + '/maintenance'
     ETCD_NR_OF_AGENTS_KEY = ETCD_MAINTENANCE_KEY + '/nr_of_agents'
+    ETCD_DEFAULT_NSM_HOSTS_KEY = '/ovs/alba/backends/default_nsm_hosts'
 
     _logger = LogHandler.get('lib', name='alba')
 
@@ -270,8 +271,11 @@ class AlbaController(object):
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
         alba_backend.alba_id = AlbaCLI.run('get-alba-id', config=config, as_json=True, attempts=5)['id']
         alba_backend.save()
+        if not EtcdConfiguration.exists(AlbaController.ETCD_DEFAULT_NSM_HOSTS_KEY):
+            EtcdConfiguration.set(AlbaController.ETCD_DEFAULT_NSM_HOSTS_KEY, 1)
+        nsms = max(1, EtcdConfiguration.get(AlbaController.ETCD_DEFAULT_NSM_HOSTS_KEY))
         try:
-            AlbaController.nsm_checkup(backend_guid=alba_backend.guid)
+            AlbaController.nsm_checkup(backend_guid=alba_backend.guid, min_nsms=nsms)
         except Exception as ex:
             AlbaController._logger.exception('Failed NSM checkup during add cluster for backend {0}. {1}'.format(alba_backend.guid, ex))
             AlbaController.remove_cluster(alba_backend_guid=alba_backend.guid)
@@ -700,7 +704,7 @@ class AlbaController(object):
     @staticmethod
     @celery.task(name='alba.nsm_checkup', schedule=crontab(minute='45', hour='*'))
     @ensure_single(task_name='alba.nsm_checkup', mode='CHAINED')
-    def nsm_checkup(allow_offline=False, backend_guid=None):
+    def nsm_checkup(allow_offline=False, backend_guid=None, min_nsms=None):
         """
         Validates the current NSM setup/configuration and takes actions where required.
         Assumptions:
@@ -712,6 +716,9 @@ class AlbaController(object):
 
         :param backend_guid: Run for a specific backend
         :type backend_guid: str
+
+        :param min_nsms: Minimum amount of NSM hosts that need to be provided
+        :type min_nsms: int
 
         :return: None
         """
@@ -814,16 +821,23 @@ class AlbaController(object):
                                                           ip=candidate_sr.ip)
                                 AlbaController._logger.debug('Node added')
 
-                # Load
-                if min(nsm_loads.values()) < maxload:
+                # Load and minimum nsm hosts
+                load_ok = min(nsm_loads.values()) < maxload
+                amount_nsms = 0 if min_nsms is None else min_nsms - len(nsm_loads)
+                if load_ok:
                     AlbaController._logger.debug('NSM load OK')
                 else:
-                    maxnumber = max(nsm_loads.keys()) + 1
+                    amount_nsms = min(1, amount_nsms)
+                if amount_nsms == 0:
+                    AlbaController._logger.debug('Enough NSM hosts')
+                base_number = max(nsm_loads.keys()) + 1
+                for number in xrange(base_number, base_number + amount_nsms):
                     if nsm_metadata.internal is False:
                         AlbaController._logger.debug('Externally managed NSM arakoon cluster needs to be expanded')
                         metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM)
                         if metadata is None:
                             AlbaController._logger.warning('Cannot claim additional NSM clusters, because no clusters are available')
+                            break
                         else:
                             client = None
                             masters = StorageRouterList.get_masters()
@@ -841,16 +855,16 @@ class AlbaController(object):
                                                           storagerouter=None,
                                                           junction_type=NSMService,
                                                           backend=alba_backend,
-                                                          number=maxnumber)
+                                                          number=number)
                             AlbaController.register_nsm(abm_name=abm_service_name,
                                                         nsm_name=metadata.cluster_id,
                                                         ip=client.ip)
                     else:
-                        AlbaController._logger.debug('NSM overloaded, adding new NSM')
+                        AlbaController._logger.debug('Adding new NSM')
                         # One of the NSM nodes is overloaded. This means the complete NSM is considered overloaded
                         # Figure out which StorageRouters are the least occupied
                         loads = sorted(nsm_storagerouter.values())[:safety]
-                        nsm_name = '{0}-nsm_{1}'.format(alba_backend.name, maxnumber)
+                        nsm_name = '{0}-nsm_{1}'.format(alba_backend.name, number)
                         storagerouters = []
                         for storagerouter in nsm_storagerouter:
                             if nsm_storagerouter[storagerouter] in loads:
@@ -860,6 +874,7 @@ class AlbaController(object):
                         # Creating a new NSM cluster
                         first_ip = None
                         for storagerouter in storagerouters:
+                            nsm_storagerouter[storagerouter] += 1
                             storagerouter.invalidate_dynamics(['partition_config'])
                             partition = DiskPartition(storagerouter.partition_config[DiskPartition.ROLES.DB][0])
                             if first_ip is None:
@@ -885,14 +900,14 @@ class AlbaController(object):
                                                           storagerouter=storagerouter,
                                                           junction_type=NSMService,
                                                           backend=alba_backend,
-                                                          number=maxnumber)
+                                                          number=number)
                         for storagerouter in storagerouters:
                             client = SSHClient(storagerouter, username='root')
                             ArakoonInstaller.start(nsm_name, client)
                         AlbaController.register_nsm(abm_name=abm_service_name,
                                                     nsm_name=nsm_name,
                                                     ip=storagerouters[0].ip)
-                        AlbaController._logger.debug('New NSM ({0}) added'.format(maxnumber))
+                        AlbaController._logger.debug('New NSM ({0}) added'.format(number))
             except Exception as ex:
                 AlbaController._logger.error('NSM Checkup failed for backend {0}. {1}'.format(alba_backend.name, ex))
                 failed_backends.append(alba_backend.name)
