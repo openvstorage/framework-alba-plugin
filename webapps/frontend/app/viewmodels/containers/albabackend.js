@@ -136,12 +136,12 @@ define([
                 var stats = data.ns_statistics;
                 self.totalSize(stats.global.size);
                 if (self.vPools !== undefined) {
-                    var usage, freespace, unknown, overhead, vpools = [], total = 0;
+                    var usage, freespace, unknown, overhead, vpools = [];
                     freespace = stats.global.size - stats.global.used;
                     unknown = stats.unknown.storage;
+                    overhead = stats.overhead;
                     $.each(self.vPools(), function (index, vpool) {
                         if (stats.vpools.hasOwnProperty(vpool.guid())) {
-                            total += stats.vpools[vpool.guid()].storage;
                             vpools.push({
                                 name: $.t('ovs:generic.vpool') + ': ' + vpool.name(),
                                 value: stats.vpools[vpool.guid()].storage,
@@ -149,7 +149,6 @@ define([
                             });
                         }
                     });
-                    overhead = Math.max(stats.global.used - total, 0);
                     usage = [
                         {
                             name: $.t('alba:generic.stats.freespace'),
