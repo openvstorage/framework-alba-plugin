@@ -39,6 +39,8 @@ class AlbaBackendList(object):
         """
         backends = DataList(AlbaBackend, {'type': DataList.where_operator.AND,
                                           'items': [('alba_id', DataList.operator.EQUALS, alba_id)]})
+        if len(backends) > 1:
+            raise RuntimeError('Multiple ALBA Backends found with alba_id {0}'.format(alba_id))
         if len(backends) == 1:
             return backends[0]
         return None

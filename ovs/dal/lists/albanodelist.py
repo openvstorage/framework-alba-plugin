@@ -40,6 +40,8 @@ class AlbaNodeList(object):
         """
         nodes = DataList(AlbaNode, {'type': DataList.where_operator.AND,
                                     'items': [('ip', DataList.operator.EQUALS, ip)]})
+        if len(nodes) > 1:
+            raise RuntimeError('Multiple ALBA Nodes found with ip {0}'.format(ip))
         if len(nodes) == 1:
             return nodes[0]
         return None
@@ -52,6 +54,8 @@ class AlbaNodeList(object):
         """
         nodes = DataList(AlbaNode, {'type': DataList.where_operator.AND,
                                     'items': [('node_id', DataList.operator.EQUALS, node_id)]})
+        if len(nodes) > 1:
+            raise RuntimeError('Multiple ALBA Nodes found with node_id {0}'.format(node_id))
         if len(nodes) == 1:
             return nodes[0]
         return None

@@ -53,12 +53,14 @@ class AlbaBackend(DataObject):
         if len(self.abm_services) == 0:
             return {}  # No ABM services yet, so backend not fully installed yet
 
+        storage_map = {}
+        asd_map = {}
+
         alba_backend_map = {}
         for alba_backend in AlbaBackendList.get_albabackends():
             alba_backend_map[alba_backend.alba_id] = alba_backend
 
         # Load information based on the model
-        storage_map = {}
         alba_nodes = AlbaNodeList.get_albanodes()
         for node in alba_nodes:
             node_id = node.node_id
@@ -77,6 +79,7 @@ class AlbaBackend(DataObject):
                             'status': 'error',
                             'status_detail': 'unknown',
                             'alba_backend_guid': asd.alba_backend_guid}
+                    asd_map[asd_id] = data
                     storage_map[node_id][disk_id]['asds'][asd_id] = data
 
         # Load information from node
@@ -123,6 +126,7 @@ class AlbaBackend(DataObject):
                              'state_detail': asd_info.get('state_detail', '')}
                     if _asd_id not in _node_data[_disk_id]['asds']:
                         _node_data[_disk_id]['asds'][_asd_id] = entry
+                        asd_map[_asd_id] = entry
                     else:
                         _node_data[_disk_id]['asds'][_asd_id].update(entry)
         threads = []
@@ -132,6 +136,13 @@ class AlbaBackend(DataObject):
             threads.append(thread)
         for thread in threads:
             thread.join()
+
+        # Mix in usage information
+        for asd_id, stats in self.asd_statistics.iteritems():
+            if asd_id in asd_map:
+                asd_map[asd_id]['usage'] = {'size': int(stats['capacity']),
+                                            'used': int(stats['disk_usage']),
+                                            'available': int(stats['capacity'] - stats['disk_usage'])}
 
         # Load information from alba
         backend_interval_key = '/ovs/alba/backends/{0}/gui_error_interval'.format(self.guid)
@@ -243,14 +254,14 @@ class AlbaBackend(DataObject):
         global_usage = {'size': 0,
                         'used': 0}
         for stats in self.asd_statistics.values():
-            pass  # @TODO: We need a way to get these statistics from ALBA itself, since we cannot base it on disk information
-            # global_usage['size'] += stats['usage']['size']
-            # global_usage['used'] += stats['usage']['used']
+            global_usage['size'] += stats['capacity']
+            global_usage['used'] += stats['disk_usage']
 
         # Cross merge
         dataset = {'global': {'size': global_usage['size'],
                               'used': global_usage['used']},
                    'vpools': {},
+                   'overhead': 0,
                    'unknown': {'storage': 0,
                                'logical': 0}}
         for vpool in vdisk_dataset:
@@ -273,6 +284,7 @@ class AlbaBackend(DataObject):
         for namespace in alba_dataset:
             dataset['unknown']['storage'] += alba_dataset[namespace]['storage']
             dataset['unknown']['logical'] += alba_dataset[namespace]['logical']
+        dataset['overhead'] = max(0, dataset['global']['used'] - dataset['unknown']['storage'] - sum(usage['storage'] for usage in dataset['vpools'].values()))
         return dataset
 
     def _presets(self):

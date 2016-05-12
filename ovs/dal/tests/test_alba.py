@@ -137,7 +137,7 @@ class Alba(unittest.TestCase):
                                                                'result': {'Apply': {'n': 1, 'avg': 5, 'min': 5, 'max': 5},
                                                                           'MultiGet': {'n': 2, 'avg': 10, 'min': 5, 'max': 10},
                                                                           'MultiGet2': {'n': 3, 'avg': 15, 'min': 1, 'max': 5}}}}
-        statistics = asd._statistics(AlbaASD._dynamics[4])
+        statistics = asd._statistics(AlbaASD._dynamics[0])
         expected_0['timestamp'] = base_time
         self.assertDictEqual(statistics, expected_0, 'The first statistics should be as expected: {0} vs {1}'.format(statistics, expected_0))
         time.sleep(5)
@@ -146,6 +146,6 @@ class Alba(unittest.TestCase):
                                                                'result': {'Apply': {'n': 1, 'avg': 5, 'min': 5, 'max': 5},
                                                                           'MultiGet': {'n': 5, 'avg': 10, 'min': 5, 'max': 10},
                                                                           'MultiGet2': {'n': 5, 'avg': 15, 'min': 1, 'max': 5}}}}
-        statistics = asd._statistics(AlbaASD._dynamics[4])
+        statistics = asd._statistics(AlbaASD._dynamics[0])
         expected_1['timestamp'] = base_time + 5
         self.assertDictEqual(statistics, expected_1, 'The second statistics should be as expected: {0} vs {1}'.format(statistics, expected_1))

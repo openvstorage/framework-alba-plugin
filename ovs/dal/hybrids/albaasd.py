@@ -30,41 +30,7 @@ class AlbaASD(DataObject):
     __properties = [Property('asd_id', str, doc='ASD identifier')]
     __relations = [Relation('alba_backend', AlbaBackend, 'asds', doc='The AlbaBackend that claimed the ASD'),
                    Relation('alba_disk', AlbaDisk, 'asds', doc='The AlbaDisk to which the ASD belongs')]
-    __dynamics = [Dynamic('name', str, 3600),
-                  Dynamic('ip', str, 300),
-                  Dynamic('port', int, 300),
-                  Dynamic('info', dict, 5),
-                  Dynamic('statistics', dict, 5, locked=True)]
-
-    def _name(self):
-        """
-        Returns the name based on the asd_id
-        """
-        return self.info['name'] if self.info is not None else None
-
-    def _ip(self):
-        """
-        ASD ip address
-        """
-        if self.info is not None:
-            ips = self.info.get('ips')
-            if ips:
-                return ips[0]
-        return self.alba_node.ip
-
-    def _port(self):
-        """
-        ASD port number
-        """
-        return self.info['port'] if self.info is not None else None
-
-    def _info(self):
-        """
-        Returns the ASD information from its node
-        """
-        for disk in self.alba_node.all_disks:
-            if 'asd_id' in disk and disk['asd_id'] == self.asd_id:
-                return disk
+    __dynamics = [Dynamic('statistics', dict, 5, locked=True)]
 
     def _statistics(self, dynamic):
         """
