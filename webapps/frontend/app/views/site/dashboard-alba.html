@@ -31,27 +31,31 @@ but WITHOUT ANY WARRANTY of any kind.
     <div class="panel-body">
         <div data-bind="lazylist: {
                             displaymode: 'table', items: albaBackends,
-                            loadedObservable: 'loaded', colspan: 2
+                            loadedObservable: 'loaded', colspan: 4
                         }" >
             <table data-dummy="dummy">
                 <thead data-part="head">
                     <tr>
                         <th data-i18n="ovs:generic.name"></th>
-                        <th data-i18n="alba:generic.osds" style="width: 100px;"></th>
+                        <th data-i18n="alba:generic.osds" colspan="3" style="width: 100px;"></th>
                     </tr>
                 </thead>
                 <tbody data-dummy="dummy">
                     <tr data-part="table-entry">
                         <td>
-                            <a data-bind="text: name, attr: { href: $root.shared.routing.loadHash('backend-alba-detail', { guid: backendGuid() }) }"></a>
+                            <a data-bind="text: name, maxLength: 20, attr: { href: $root.shared.routing.loadHash('backend-alba-detail', { guid: backendGuid() }) }"></a>
                         </td>
-                        <td>
+                        <td style="padding-left: 0; padding-right: 0; width: 35px;">
                             <span class="label label-success pointer"
                                   data-bind="tooltip: 'alba:generic.states.osdinfo.claimed',
-                                             text: $root.ASDStates()[guid()].claimed"></span>&nbsp;
+                                             text: $root.ASDStates()[guid()].claimed"></span>
+                        </td>
+                        <td style="padding-left: 0; padding-right: 0; width: 35px;">
                             <span class="label label-warning pointer"
                                   data-bind="tooltip: 'alba:generic.states.osdinfo.warning',
-                                             text: $root.ASDStates()[guid()].warning"></span>&nbsp;
+                                             text: $root.ASDStates()[guid()].warning"></span>
+                        </td>
+                        <td style="padding-left: 0; padding-right: 0; width: 35px;">
                             <span class="label label-danger pointer"
                                   data-bind="tooltip: 'alba:generic.states.osdinfo.error',
                                              text: $root.ASDStates()[guid()].failure"></span>

@@ -155,9 +155,9 @@
         }
     },
     "dashboard": {
-        "title": "Open vStorage Backends",
-        "helptitle": "Help - OVS Backends",
-        "helpcontent": "This panel displays the state of all Open vStorage Backends managed by this cluster. It shows how many ASDs are in use by the backend, grouped by their state."
+        "title": "Open vStorage Global Backends",
+        "helptitle": "Help - OVS Global Backends",
+        "helpcontent": "This panel displays the state of the Open vStorage Global Backends. It shows how many ASDs are in use by the backend, grouped by their state."
     },
     "nodes": {
         "nodes": "ASD nodes",
