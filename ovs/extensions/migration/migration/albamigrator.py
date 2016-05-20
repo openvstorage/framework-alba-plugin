@@ -18,7 +18,7 @@
 Alba migration module
 """
 
-from ovs.log.logHandler import LogHandler
+from ovs.log.log_handler import LogHandler
 
 
 class AlbaMigrator(object):

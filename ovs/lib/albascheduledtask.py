@@ -24,7 +24,7 @@ from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.lib.helpers.decorators import ensure_single
-from ovs.log.logHandler import LogHandler
+from ovs.log.log_handler import LogHandler
 
 
 class AlbaScheduledTaskController(object):

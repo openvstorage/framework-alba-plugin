@@ -30,7 +30,7 @@ from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
-from ovs.log.logHandler import LogHandler
+from ovs.log.log_handler import LogHandler
 from ovs.lib.albacontroller import AlbaController
 from ovs.lib.disk import DiskController
 from ovs.lib.helpers.decorators import add_hooks
