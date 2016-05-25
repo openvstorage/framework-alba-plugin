@@ -22,7 +22,7 @@ import base64
 import inspect
 import requests
 import unittest
-from ovs.log.logHandler import LogHandler
+from ovs.log.log_handler import LogHandler
 
 
 class ASDManagerClient(object):

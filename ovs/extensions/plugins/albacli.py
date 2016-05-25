@@ -20,7 +20,7 @@ Generic ALBA CLI module
 import json
 import time
 import unittest
-from ovs.log.logHandler import LogHandler
+from ovs.log.log_handler import LogHandler
 from subprocess import check_output, CalledProcessError
 
 

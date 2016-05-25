@@ -45,7 +45,7 @@ from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.extensions.services.service import ServiceManager
 from ovs.lib.helpers.decorators import add_hooks, ensure_single
-from ovs.log.logHandler import LogHandler
+from ovs.log.log_handler import LogHandler
 
 
 class AlbaController(object):
