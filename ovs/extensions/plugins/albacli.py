@@ -17,9 +17,9 @@
 """
 Generic ALBA CLI module
 """
+import os
 import json
 import time
-import unittest
 from ovs.log.log_handler import LogHandler
 from subprocess import check_output, CalledProcessError
 
@@ -37,7 +37,7 @@ class AlbaCLI(object):
         Executes a command on ALBA
         """
         logger = LogHandler.get('extensions', name='albacli')
-        if hasattr(unittest, 'running_tests') and getattr(unittest, 'running_tests') is True:  # For unit tests we do not want to execute the actual command
+        if os.environ.get('RUNNING_UNITTESTS') == 'True':  # For unit tests we do not want to execute the actual command
             logger.debug('Running command {0} in unittest mode'.format(command))
             return AlbaCLI._run_results[command]
 

@@ -17,11 +17,11 @@
 """
 Generic module for calling the ASD-Manager
 """
+import os
 import time
 import base64
 import inspect
 import requests
-import unittest
 from ovs.log.log_handler import LogHandler
 
 
@@ -34,7 +34,7 @@ class ASDManagerClient(object):
         self.node = node
         self.timeout = 20
         self._results = {}
-        self._unittest_mode = hasattr(unittest, 'running_tests') and getattr(unittest, 'running_tests') is True
+        self._unittest_mode = os.environ.get('RUNNING_UNITTESTS') == 'True'
         self._log_min_duration = 1
 
     def _call(self, method, url, data=None, timeout=None, clean=False):
