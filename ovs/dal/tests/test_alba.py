@@ -19,7 +19,7 @@ Basic test module
 """
 import time
 import unittest
-from ovs.dal.hybrids.albaasd import AlbaASD
+from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.albanode import AlbaNode
@@ -115,11 +115,12 @@ class Alba(unittest.TestCase):
         alba_disk.name = 'foo'
         alba_disk.alba_node = alba_node
         alba_disk.save()
-        asd = AlbaASD()
-        asd.asd_id = 'foo'
-        asd.alba_backend = alba_backend
-        asd.alba_disk = alba_disk
-        asd.save()
+        osd = AlbaOSD()
+        osd.osd_id = 'foo'
+        osd.osd_type = AlbaOSD.OSD_TYPES.ASD
+        osd.alba_backend = alba_backend
+        osd.alba_disk = alba_disk
+        osd.save()
         service_type = ServiceType()
         service_type.name = 'AlbaManager'
         service_type.save()
@@ -139,7 +140,7 @@ class Alba(unittest.TestCase):
                                                                'result': {'Apply': {'n': 1, 'avg': 5, 'min': 5, 'max': 5},
                                                                           'MultiGet': {'n': 2, 'avg': 10, 'min': 5, 'max': 10},
                                                                           'MultiGet2': {'n': 3, 'avg': 15, 'min': 1, 'max': 5}}}}
-        statistics = asd._statistics(AlbaASD._dynamics[0])
+        statistics = osd._statistics(AlbaOSD._dynamics[0])
         expected_0['timestamp'] = base_time
         self.assertDictEqual(statistics, expected_0, 'The first statistics should be as expected: {0} vs {1}'.format(statistics, expected_0))
         time.sleep(5)
@@ -148,6 +149,6 @@ class Alba(unittest.TestCase):
                                                                'result': {'Apply': {'n': 1, 'avg': 5, 'min': 5, 'max': 5},
                                                                           'MultiGet': {'n': 5, 'avg': 10, 'min': 5, 'max': 10},
                                                                           'MultiGet2': {'n': 5, 'avg': 15, 'min': 1, 'max': 5}}}}
-        statistics = asd._statistics(AlbaASD._dynamics[0])
+        statistics = osd._statistics(AlbaOSD._dynamics[0])
         expected_1['timestamp'] = base_time + 5
         self.assertDictEqual(statistics, expected_1, 'The second statistics should be as expected: {0} vs {1}'.format(statistics, expected_1))

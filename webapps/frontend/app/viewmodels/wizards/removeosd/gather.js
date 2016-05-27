@@ -38,26 +38,26 @@ define([
             self.data.albaOSD().processing(true);
             return $.Deferred(function(deferred) {
                 generic.alertSuccess(
-                    $.t('alba:disks.remove.started'),
-                    $.t('alba:disks.remove.msgstarted')
+                    $.t('alba:wizards.removeosd.started'),
+                    $.t('alba:wizards.removeosd.msgstarted')
                 );
                 api.post('alba/nodes/' + self.data.albaNode().guid() + '/reset_asd', {
                     data: {
-                        asd_id: self.data.albaOSD().asdID(),
+                        asd_id: self.data.albaOSD().osdID(),
                         safety: self.data.safety()
                     }
                 })
                     .then(self.shared.tasks.wait)
                     .done(function() {
                         generic.alertSuccess(
-                            $.t('alba:disks.remove.complete'),
-                            $.t('alba:disks.remove.success')
+                            $.t('alba:wizards.removeosd.complete'),
+                            $.t('alba:wizards.removeosd.success')
                         );
                     })
                     .fail(function(error) {
                         generic.alertError(
                             $.t('ovs:generic.error'),
-                            $.t('alba:disks.remove.failed', { why: error })
+                            $.t('alba:wizards.removeosd.failed', { why: error })
                         );
                     })
                     .always(function() {
@@ -71,7 +71,7 @@ define([
         self.activate = function() {
             self.refresher.init(function() {
                 api.get('alba/backends/' + self.data.albaBackend().guid() + '/calculate_safety', {
-                    queryparams: { asd_id: self.data.albaOSD().asdID() }
+                    queryparams: { asd_id: self.data.albaOSD().osdID() }
                 })
                     .then(self.shared.tasks.wait)
                     .done(function(safety) {

@@ -199,14 +199,14 @@ define([
             }).promise();
         };
 
-        self.claimOSDs = function(asdsToClaim) {
+        self.claimOSDs = function(osdsToClaim) {
             return $.Deferred(function(deferred) {
                 var asdIDs = [], asdData = {}, allAsds = [];
-                $.each(asdsToClaim, function(diskGuid, asds) {
+                $.each(osdsToClaim, function(diskGuid, asds) {
                     $.each(asds, function(index, asd) {
                         allAsds.push(asd);
-                        asdIDs.push(asd.asdID());
-                        asdData[asd.asdID()] = diskGuid;
+                        asdIDs.push(asd.osdID());
+                        asdData[asd.osdID()] = diskGuid;
                         asd.processing(true);
                     });
                 });
@@ -222,7 +222,7 @@ define([
                                 $.t('alba:disks.claim.msgstarted')
                             );
                             api.post('alba/backends/' + self.guid() + '/add_units', {
-                                data: { asds: asdData }
+                                data: { osds: asdData }
                             })
                                 .then(self.shared.tasks.wait)
                                 .done(function() {

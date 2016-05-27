@@ -174,8 +174,8 @@ class AlbaNodeController(object):
                 raise RuntimeError('Error removing disk {0}: {1}'.format(disk, result['_error']))
         for model_disk in node.disks:
             if model_disk.name == disk:
-                for asd in model_disk.asds:
-                    asd.delete()
+                for osd in model_disk.osds:
+                    osd.delete()
                 model_disk.delete()
         node.invalidate_dynamics()
         if node.storagerouter is not None:
@@ -202,17 +202,17 @@ class AlbaNodeController(object):
         """
         node = AlbaNode(node_guid)
         AlbaNodeController._logger.debug('Removing ASD {0} at node {1}'.format(asd_id, node.ip))
-        model_asd = None
+        model_osd = None
         for disk in node.disks:
-            for asd in disk.asds:
-                if asd.asd_id == asd_id:
-                    model_asd = asd
+            for asd in disk.osds:
+                if asd.osd_id == asd_id:
+                    model_osd = asd
                     break
-            if model_asd is not None:
+            if model_osd is not None:
                 break
-        if model_asd is None:
+        if model_osd is None:
             raise RuntimeError('Could not locate asd {0} in the model'.format(asd_id))
-        alba_backend = model_asd.alba_backend
+        alba_backend = model_osd.alba_backend
 
         asds = {}
         try:
@@ -241,7 +241,7 @@ class AlbaNodeController(object):
         if EtcdConfiguration.exists(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True):
             EtcdConfiguration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(asd_id), raw=True)
 
-        model_asd.delete()
+        model_osd.delete()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
         if node.storagerouter is not None:

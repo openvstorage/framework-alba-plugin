@@ -69,6 +69,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         serializer = FullSerializer(AlbaBackend, instance=AlbaBackend(), data=request.DATA, allow_passwords=True)
         if serializer.is_valid():
             alba_backend = serializer.object
+            alba_backend.alba_backend_type = AlbaBackend.ALBA_BACKEND_TYPES.LOCAL
             alba_backend.save()
             alba_backend.backend.status = 'INSTALLING'
             alba_backend.backend.save()
@@ -94,13 +95,16 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaBackend)
-    def add_units(self, albabackend, asds):
+    def add_units(self, albabackend, osds):
         """
         Add storage units to the backend and register with alba nsm
-        :param albabackend:     albabackend to add unit to
-        :param asds:         list of ASD ids
+        :param albabackend: ALBA backend to add units to
+        :type albabackend: AlbaBackend
+
+        :param osds: List of OSD ids
+        :type osds: list
         """
-        return AlbaController.add_units.s(albabackend.guid, asds).apply_async(queue='ovs_masters')
+        return AlbaController.add_units.s(albabackend.guid, osds).apply_async(queue='ovs_masters')
 
     @link()
     @log()
@@ -124,7 +128,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :param albabackend: ALBA backend to retrieve available actions for
         """
         actions = []
-        if len(albabackend.asds) == 0:
+        if len(albabackend.osds) == 0:
             actions.append('REMOVE')
         return Response(actions, status=status.HTTP_200_OK)
 

@@ -26,7 +26,7 @@ import tempfile
 import time
 from celery.schedules import crontab
 from ovs.celery_run import celery
-from ovs.dal.hybrids.albaasd import AlbaASD
+from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.diskpartition import DiskPartition
@@ -88,42 +88,43 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.add_units')
-    def add_units(alba_backend_guid, asds):
+    def add_units(alba_backend_guid, osds):
         """
         Adds storage units to an Alba backend
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
 
-        :param asds: ASDs to add to the ALBA backend
-        :type asds: dict
+        :param osds: ASDs to add to the ALBA backend
+        :type osds: dict
 
         :return: None
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
         disks = {}
-        for asd_id, disk_guid in asds.iteritems():
+        for osd_id, disk_guid in osds.iteritems():
             if disk_guid not in disks:
                 disks[disk_guid] = AlbaDisk(disk_guid)
-            AlbaCLI.run('claim-osd', config=config, long_id=asd_id, as_json=True)
-            asd = AlbaASD()
-            asd.asd_id = asd_id
-            asd.alba_disk = disks[disk_guid]
-            asd.alba_backend = alba_backend
-            asd.save()
+            AlbaCLI.run('claim-osd', config=config, long_id=osd_id, as_json=True)
+            osd = AlbaOSD()
+            osd.osd_id = osd_id
+            osd.osd_type = AlbaOSD.OSD_TYPES.ASD
+            osd.alba_disk = disks[disk_guid]
+            osd.alba_backend = alba_backend
+            osd.save()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
 
     @staticmethod
     @celery.task(name='alba.remove_units')
-    def remove_units(alba_backend_guid, asd_ids, absorb_exception=False):
+    def remove_units(alba_backend_guid, osd_ids, absorb_exception=False):
         """
         Removes storage units from an Alba backend
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
 
-        :param asd_ids: IDs of the ASDs
-        :type asd_ids: list
+        :param osd_ids: IDs of the ASDs
+        :type osd_ids: list
 
         :param absorb_exception: Ignore potential errors
         :type absorb_exception: bool
@@ -133,8 +134,8 @@ class AlbaController(object):
         try:
             alba_backend = AlbaBackend(alba_backend_guid)
             config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
-            for asd_id in asd_ids:
-                AlbaCLI.run('decommission-osd', config=config, long_id=asd_id)
+            for osd_id in osd_ids:
+                AlbaCLI.run('decommission-osd', config=config, long_id=osd_id)
         except:
             if absorb_exception is False:
                 raise
@@ -307,7 +308,7 @@ class AlbaController(object):
         from ovs.lib.albanodecontroller import AlbaNodeController
 
         albabackend = AlbaBackend(alba_backend_guid)
-        if len(albabackend.asds) > 0:
+        if len(albabackend.osds) > 0:
             raise RuntimeError('A backend with claimed OSDs cannot be removed')
 
         # openvstorage nodes
@@ -691,12 +692,10 @@ class AlbaController(object):
         storage_router = StorageRouterList.get_by_ip(cluster_ip)
         from ovs.lib.albanodecontroller import AlbaNodeController
         for alba_node in storage_router.alba_nodes:
-            for asd in alba_node.asds:
-                alba_backend_guid = asd.alba_backend.guid
-                node_guid = asd.alba_node.guid
-                disk = asd.name
-                expected_safety = {}
-                AlbaNodeController.remove_disk(alba_backend_guid, node_guid, disk, expected_safety)
+            for disk in alba_node.disks:
+                for osd in disk.osds:
+                    AlbaNodeController.remove_asd(node_guid=osd.alba_node.guid, asd_id=osd.osd_id, expected_safety={})
+                AlbaNodeController.remove_disk(node_guid=osd.alba_node.guid, disk=osd.name)
             alba_node.delete()
         for service in storage_router.services:
             if service.abm_service is not None:
@@ -938,9 +937,9 @@ class AlbaController(object):
                     if asd['status'] == 'error':
                         error_disks.append(asd_id)
         extra_parameters = ['--include-decommissioning-as-dead']
-        for asd in alba_backend.asds:
-            if asd.asd_id in removal_asd_ids or asd.asd_id in error_disks:
-                extra_parameters.append('--long-id {0}'.format(asd.asd_id))
+        for osd in alba_backend.osds:
+            if osd.osd_id in removal_asd_ids or osd.osd_id in error_disks:
+                extra_parameters.append('--long-id {0}'.format(osd.osd_id))
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
         safety_data = AlbaCLI.run('get-disk-safety', config=config, extra_params=extra_parameters, as_json=True)
         result = {'good': 0,

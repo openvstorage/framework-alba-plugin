@@ -50,7 +50,7 @@ define([
             }
             $.each(self.disks(), function(backendGuid, disks) {
                 $.each(disks(), function(index, disk) {
-                    $.each(disk.asds(), function (jndex, asd) {
+                    $.each(disk.osds(), function (jndex, asd) {
                         if (asd.albaBackendGuid() === backendGuid) {
                             if (asd.status() === 'claimed' || asd.status() === 'unavailable') {
                                 states[backendGuid].claimed += 1;

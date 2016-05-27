@@ -16,11 +16,11 @@ Open vStorage is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY of any kind.
 -->
 <div>
-    <form role="form form-horizontal" class="form-horizontal">
-        <p>
-            <span data-i18n="alba:wizards.removeosd.gather.warning"></span>
-            <ul><li><span data-bind="text: data.albaOSD().asdID()"></span></li></ul>
-        </p>
+    <form class="form-horizontal">
+        <span data-i18n="alba:wizards.removeosd.gather.warning"></span>
+        <ul>
+            <li><span data-bind="text: data.albaOSD().osdID()"></span></li>
+        </ul>
         <div data-bind="visible: data.albaOSD().statusDetail() === 'nodedown' ">
             <span data-i18n="ovs:removeosd.gather.nodedownwarning"></span>
         </div>
@@ -42,7 +42,7 @@ but WITHOUT ANY WARRANTY of any kind.
             <span class="fa fa-spin" style="margin-right: 10px;" data-i18n="[html]ovs:icons.loading"></span>
             <span data-i18n="alba:wizards.removeosd.gather.loading"></span>
         </div>
-        <div class="form-group" data-bind="visible: data.shouldConfirm"style="margin-bottom: -10px;">
+        <div class="form-group" data-bind="visible: data.shouldConfirm" style="margin-bottom: -10px;">
             <div class="col-lg-7">
                 <input type="checkbox" id="accept" style="margin-top: 9px; margin-left: 15px;" data-bind="checked: data.confirmed">
                 <label for="accept" class="help-block" data-i18n="alba:wizards.removeosd.gather.accepttext" style="padding-left: 10px; display: inline-block;"></label>

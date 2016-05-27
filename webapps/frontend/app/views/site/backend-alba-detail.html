@@ -300,9 +300,9 @@ but WITHOUT ANY WARRANTY of any kind.
                                                                 <!-- /ko -->
                                                             </ul>
                                                         </div>
-                                                        <!-- ko foreach: asds -->
+                                                        <!-- ko foreach: osds -->
                                                             <div class="btn-group" role="group"
-                                                                 data-bind="attr: { 'data-status': status(), 'id': asdID(), 'data-local': isLocal(), 'data-statusdetail': statusDetail() }">
+                                                                 data-bind="attr: { 'data-status': status(), 'id': osdID(), 'data-local': isLocal(), 'data-statusdetail': statusDetail() }">
                                                                 <button type="button" class="btn btn-small dropdown-toggle" data-toggle="dropdown"
                                                                         style="width: 57px; position: relative; text-align: left;"
                                                                         data-bind="css: {
@@ -373,11 +373,11 @@ but WITHOUT ANY WARRANTY of any kind.
                                                                             </a>
                                                                         </li>
                                                                     <!-- /ko -->
-                                                                    <!-- ko if: asdID() !== undefined -->
+                                                                    <!-- ko if: osdID() !== undefined -->
                                                                         <li>
                                                                             <a>
                                                                                 <span data-i18n="alba:generic.asdid"></span>:
-                                                                                <span data-bind="shortText: asdID(), maxLength: 23, middle: true"></span>
+                                                                                <span data-bind="shortText: osdID(), maxLength: 23, middle: true"></span>
                                                                             </a>
                                                                         </li>
                                                                     <!-- /ko -->
@@ -429,11 +429,12 @@ but WITHOUT ANY WARRANTY of any kind.
                 </table>
                 <div>
                     <span class="pull-right">
+                        <span class="fa" data-i18n="[html]ovs:icons.vdisks"></span>
                         <span data-i18n="alba:generic.disklegend" style="margin-right: 10px;"></span>
                         <span class="label pointer" data-i18n="alba:generic.states.disk.uninitialized"
                               data-bind="tooltip: 'alba:generic.states.diskinfo.uninitialized'"
                               style="background-color: #FFF; border: 1px solid #CCC; color: #333;"></span>
-                        <span class="label label-info pointer" data-i18n="alba:generic.states.disk.initialized"
+                        <span class="label label-success pointer" data-i18n="alba:generic.states.disk.initialized"
                               data-bind="tooltip: 'alba:generic.states.diskinfo.initialized'"></span>
                         <span class="label label-warning pointer" data-i18n="alba:generic.states.disk.warning"
                               data-bind="tooltip: 'alba:generic.states.diskinfo.warning'"></span>
@@ -444,6 +445,7 @@ but WITHOUT ANY WARRANTY of any kind.
                 <div style="clear: both;"></div>
                 <div style="margin-top: 7px;">
                     <span class="pull-right">
+                        <span class="fa" data-i18n="[html]ovs:icons.archive"></span>
                         <span data-i18n="alba:generic.asdlegend" style="margin-right: 10px;"></span>
                         <span class="label pointer" data-i18n="alba:generic.states.osd.unavailable"
                               data-bind="tooltip: 'alba:generic.states.osdinfo.unavailable'"

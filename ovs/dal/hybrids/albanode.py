@@ -35,7 +35,7 @@ class AlbaNode(DataObject):
                     Property('node_id', str, doc='Alba node_id identifier'),
                     Property('username', str, doc='Username of the AlbaNode'),
                     Property('password', str, doc='Password of the AlbaNode'),
-                    Property('type', ['ASD', 'SUPERMICRO'], default='ASD', doc='The type of the AlbaNode')]
+                    Property('type', ['ASD'], default='ASD', doc='The type of the AlbaNode')]
     __relations = [Relation('storagerouter', StorageRouter, 'alba_nodes', mandatory=False, doc='StorageRouter hosting the AlbaNode')]
     __dynamics = [Dynamic('ips', list, 3600)]
 

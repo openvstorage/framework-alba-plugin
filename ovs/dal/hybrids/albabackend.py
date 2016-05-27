@@ -33,7 +33,10 @@ class AlbaBackend(DataObject):
     """
     The AlbaBackend provides ALBA specific information
     """
-    __properties = [Property('alba_id', str, mandatory=False, doc='ALBA internal identifier')]
+    ALBA_BACKEND_TYPES = DataObject.enumerator('Alba_backend_type', ['GLOBAL', 'LOCAL'])
+
+    __properties = [Property('alba_id', str, mandatory=False, doc='ALBA internal identifier'),
+                    Property('alba_backend_type', ALBA_BACKEND_TYPES.keys(), doc='ALBA backends can be LOCAL or GLOBAL')]
     __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic backend')]
     __dynamics = [Dynamic('storage_stack', dict, 5),
                   Dynamic('statistics', dict, 5, locked=True),
@@ -74,15 +77,15 @@ class AlbaBackend(DataObject):
                                                  'status': 'error',
                                                  'status_detail': 'unknown',
                                                  'asds': {}}
-                for asd in disk.asds:
-                    asd_id = asd.asd_id
-                    data = {'asd_id': asd_id,
-                            'guid': asd.guid,
+                for osd in disk.osds:
+                    osd_id = osd.osd_id
+                    data = {'asd_id': osd_id,
+                            'guid': osd.guid,
                             'status': 'error',
                             'status_detail': 'unknown',
-                            'alba_backend_guid': asd.alba_backend_guid}
-                    asd_map[asd_id] = data
-                    storage_map[node_id][disk_id]['asds'][asd_id] = data
+                            'alba_backend_guid': osd.alba_backend_guid}
+                    asd_map[osd_id] = data
+                    storage_map[node_id][disk_id]['asds'][osd_id] = data
 
         # Load information from node
         def _load_live_info(_node, _node_data):
@@ -206,7 +209,7 @@ class AlbaBackend(DataObject):
                                'avg': [],
                                'max': [],
                                'min': []}
-        for asd in self.asds:
+        for asd in self.osds:
             asd_stats = asd.statistics
             if not asd_stats:
                 continue
@@ -385,10 +388,10 @@ class AlbaBackend(DataObject):
         statistics = {}
         if len(self.abm_services) == 0:
             return statistics  # No ABM services yet, so backend not fully installed yet
-        if len(self.asds) == 0:
+        if len(self.osds) == 0:
             return statistics
 
-        asd_ids = [asd.asd_id for asd in self.asds]
+        asd_ids = [asd.osd_id for asd in self.osds]
         try:
             config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
             raw_statistics = AlbaCLI.run('asd-multistatistics', long_id=','.join(asd_ids), config=config, as_json=True)

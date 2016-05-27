@@ -17,12 +17,12 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
-    '../containers/backend', '../containers/backendtype', '../containers/albabackend',
-    '../containers/albanode', '../containers/albaosd', '../containers/albadisk',
-    '../containers/storagerouter', '../containers/vpool',
+    '../containers/backend', '../containers/backendtype', '../containers/albabackend', '../containers/albanode', '../containers/albadisk', '../containers/storagerouter', '../containers/vpool',
     '../wizards/addpreset/index'
-], function($, app, ko, router, dialog, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend,
-            Node, OSD, Disk, StorageRouter, VPool, AddPresetWizard) {
+], function($, app, ko, router, dialog,
+            shared, generic, Refresher, api,
+            Backend, BackendType, AlbaBackend, Node, Disk, StorageRouter, VPool,
+            AddPresetWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -94,7 +94,7 @@ define([
             if (self.albaBackend() !== undefined) {
                 $.each(self.registeredNodes(), function (index, node) {
                     $.each(node.disks(), function (jndex, disk) {
-                        $.each(disk.asds(), function(kndex, asd) {
+                        $.each(disk.osds(), function(kndex, asd) {
                             if (asd.albaBackendGuid() === self.albaBackend().guid()) {
                                 if (asd.status() === 'claimed') {
                                     states.claimed += 1;
@@ -318,7 +318,7 @@ define([
                     node.disksLoading(self.initialRun);
                     $.each(node.disks(), function(index, disk) {
                         disk.node = node;
-                        $.each(disk.asds(), function(_, asd) {
+                        $.each(disk.osds(), function(_, asd) {
                             asd.node = node;
                             asd.parentABGuid(self.albaBackend().guid());
                         })
