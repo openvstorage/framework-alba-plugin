@@ -161,7 +161,7 @@ class AlbaNodeController(object):
         node_id = node.node_id
         asds = {}
         for backend in AlbaBackendList.get_albabackends():
-            storage_stack = backend.storage_stack
+            storage_stack = backend.storage_stack['local']
             if node_id in storage_stack and disk in storage_stack[node_id]:
                 asds.update(storage_stack[node_id][disk]['asds'])
         for asd_info in asds.values():

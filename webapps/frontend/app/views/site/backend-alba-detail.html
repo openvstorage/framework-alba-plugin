@@ -36,7 +36,7 @@ but WITHOUT ANY WARRANTY of any kind.
                         data-bind="click: $root.removeBackend,
                                    style: { color: albaBackend() === undefined || !albaBackend().availableActions().contains('REMOVE') ? 'lightgrey' : '#428bca' },
                                    tooltip: albaBackend() === undefined || !albaBackend().availableActions().contains('REMOVE') ? 'alba:generic.asdsremaining' : 'alba:generic.deletebackend',
-                                   enable: $root.shared.user.roles().contains('manage')">
+                                   enable: $root.shared.user.roles().contains('manage') && backend() !== undefined && backend().status() === 'running'">
                     <span class="fa" data-i18n="[html]ovs:icons.delete"></span>
                 </button>
             </li>
@@ -70,6 +70,12 @@ but WITHOUT ANY WARRANTY of any kind.
                                 </td>
                             </tr>
                             <tr style="height: 1px;">
+                                <td style="width: 15%;" data-i18n="alba:generic.scaling"></td>
+                                <td style="width: 20%;" data-bind="translate: 'alba:alba_backend_scalings.' + scaling()"></td>
+                                <td style="width: 15%;" data-i18n="alba:generic.getss"></td>
+                                <td style="width: 15%;"><span data-bind="text: readIOps"></span></td>
+                            </tr>
+                            <tr style="height: 1px;">
                                 <td style="width: 15%;" data-i18n="ovs:generic.status"></td>
                                 <td style="width: 20%;">
                                     <div data-bind="status: {
@@ -84,10 +90,9 @@ but WITHOUT ANY WARRANTY of any kind.
                                                     }, tooltip: 'ovs:generic.states.backend.' + $root.backend().status()"
                                          style="width: 14px; height: 14px;"></div>
                                 </td>
-                                <td style="width: 15%;" data-i18n="alba:generic.getss"></td>
-                                <td style="width: 15%;"><span data-bind="text: readIOps"></span></td>
+                                <td colspan="2">&nbsp;</td>
                             </tr>
-                            <tr style="height: 1px;">
+                            <tr>
                                 <td style="width: 15%; vertical-align: top;" data-i18n="alba:generic.nrofdevices"></td>
                                 <td style="width: 20%; padding-bottom: 2px; vertical-align: top;">
                                     <span class="label label-success pointer"
@@ -100,10 +105,8 @@ but WITHOUT ANY WARRANTY of any kind.
                                           data-bind="tooltip: 'alba:generic.states.osdinfo.error',
                                                      text: $root.ASDStates().failure"></span>
                                 </td>
-                                <td></td>
-                                <td></td>
+                                <td colspan="4">&nbsp;</td>
                             </tr>
-                            <tr><td colspan="3">&nbsp;</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -117,9 +120,17 @@ but WITHOUT ANY WARRANTY of any kind.
     </div>
     <div data-bind="if: showActions()">
         <ul class="nav nav-tabs">
-            <li class="active" data-bind="tooltip: 'alba:generic.nodes', visible: $root.shared.user.roles().contains('manage')">
+            <li data-bind="tooltip: 'alba:generic.nodes',
+                           visible: $root.shared.user.roles().contains('manage') && albaBackend().scaling() !== 'GLOBAL',
+                           css: { active: albaBackend().scaling() !== 'GLOBAL' }">
                 <a href="#nodes" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>
             </li>
+            <li data-bind="tooltip: 'alba:generic.backends',
+                           visible: $root.shared.user.roles().contains('manage') && albaBackend().scaling() !== 'LOCAL',
+                           css: { active: albaBackend().scaling() === 'GLOBAL' }">
+                <a href="#backends" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>
+            </li>
+
             <li data-bind="tooltip: 'alba:generic.presets'">
                 <a href="#presets" data-toggle="tab">
                     <span class="fa fa-flip-vertical hand" data-i18n="[html]alba:icons.presets"></span>
@@ -127,7 +138,18 @@ but WITHOUT ANY WARRANTY of any kind.
             </li>
         </ul>
         <div class="tab-content">
-            <div class="tab-pane active" id="nodes" style="padding: 15px;" data-bind="visible: $root.shared.user.roles().contains('manage')">
+            <div class="tab-pane" id="backends" style="padding: 15px;" data-bind="visible: $root.shared.user.roles().contains('manage'),
+                                                                                  css: { active: albaBackend().scaling() === 'GLOBAL' }">
+                <h4 class="pull-left" data-i18n="alba:generic.backends"></h4>
+                <button class="btn btn-default pull-right" id="buttonLinkBackend"
+                        data-bind="click: linkBackend"
+                        style="margin-top: 5px; margin-bottom: 10px;">
+                    <span class="fa" data-i18n="[html]ovs:icons.link"></span>&nbsp;
+                    <span data-i18n="alba:detail.link_backend"></span>
+                </button>
+            </div>
+            <div class="tab-pane" id="nodes" style="padding: 15px;" data-bind="visible: $root.shared.user.roles().contains('manage'),
+                                                                    css: { active: albaBackend().scaling() !== 'GLOBAL' }">
                 <h4 class="pull-left" data-i18n="alba:nodes.nodes"></h4>
                 <button class="btn btn-default pull-right" id="buttonRefreshSDM"
                         data-bind="click: refresh"

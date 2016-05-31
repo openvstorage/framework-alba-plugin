@@ -15,6 +15,10 @@
         " Open vStorage is distributed in the hope that it will be useful,",
         " but WITHOUT ANY WARRANTY of any kind."
     ],
+    "alba_backend_scalings": {
+        "LOCAL": "Local Backend",
+        "GLOBAL": "Global Backend"
+    },
     "generic": {
         "actions": "Available actions:",
         "add": "Add",
@@ -22,6 +26,7 @@
         "addpreset": "Add preset",
         "asdid": "ASD ID",
         "asdsremaining": "There are still ASDs in use",
+        "backends": "Backends",
         "bay": "Bay",
         "capacity": "Capacity",
         "chassis": "Chassis",
@@ -68,6 +73,7 @@
         "remove": "Remove",
         "restart": "Restart",
         "safety": "Safety",
+        "scaling": "Scaling",
         "serial": "Serial",
         "statusdetail": "Status detail",
         "statistics": "Statistics",
@@ -144,6 +150,7 @@
         }
     },
     "detail": {
+        "link_backend": "Link Backend",
         "title": "Open vStorage Backend",
         "delete": {
             "warning": "You are about to delete this Backend, are you sure?",
@@ -314,6 +321,28 @@
                 "success": "The preset was updated successfully",
                 "failed": "Error during preset update: __why__"
             }
+        },
+        "link_backend": {
+            "alba_backend": "Backend:",
+            "alba_preset": "Preset:",
+            "alba_preset_unavailable": "The selected preset is not usable. To be able to make use of this vPool, please add a suitable policy or claim more ASDs for this backend",
+            "basic_info": "Select the Backend to link to this Global Backend",
+            "choose_backend": "A Backend needs to be selected",
+            "choose_preset": "A preset needs to be selected",
+            "client_id": "Client ID:",
+            "client_secret": "Client Secret:",
+            "error_msg": "Failed to link Backends: __error__",
+            "host": "Host (FQDN/IP):",
+            "invalid_alba_info": "Invalid connection info or credentials",
+            "no_backends": "No backends found",
+            "port": "Port:",
+            "secret_key": "Secret Key:",
+            "started": "Started",
+            "started_msg": "Linking __global_backend__ to __backend_to_link__",
+            "success": "Success",
+            "success_msg": "Successfully linked __global_backend__ to __backend_to_link__",
+            "title": "Link Backend",
+            "use_local": "Link Local Backend:"
         },
         "removeosd": {
             "complete": "Removed",

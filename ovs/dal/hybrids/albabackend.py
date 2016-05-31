@@ -33,10 +33,10 @@ class AlbaBackend(DataObject):
     """
     The AlbaBackend provides ALBA specific information
     """
-    ALBA_BACKEND_TYPES = DataObject.enumerator('Alba_backend_type', ['GLOBAL', 'LOCAL'])
+    SCALINGS = DataObject.enumerator('Scalings', ['GLOBAL', 'LOCAL'])
 
     __properties = [Property('alba_id', str, mandatory=False, doc='ALBA internal identifier'),
-                    Property('alba_backend_type', ALBA_BACKEND_TYPES.keys(), doc='ALBA backends can be LOCAL or GLOBAL')]
+                    Property('scaling', SCALINGS.keys(), doc='Scaling for an ALBA backend can be LOCAL or GLOBAL')]
     __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic backend')]
     __dynamics = [Dynamic('storage_stack', dict, 5),
                   Dynamic('statistics', dict, 5, locked=True),
@@ -55,10 +55,12 @@ class AlbaBackend(DataObject):
         from ovs.dal.lists.albanodelist import AlbaNodeList
         from ovs.dal.lists.albabackendlist import AlbaBackendList
 
-        if len(self.abm_services) == 0:
-            return {}  # No ABM services yet, so backend not fully installed yet
+        storage_map = {'local': {},
+                       'global': {}}
 
-        storage_map = {}
+        if len(self.abm_services) == 0:
+            return storage_map  # No ABM services yet, so backend not fully installed yet
+
         asd_map = {}
 
         alba_backend_map = {}
@@ -69,14 +71,14 @@ class AlbaBackend(DataObject):
         alba_nodes = AlbaNodeList.get_albanodes()
         for node in alba_nodes:
             node_id = node.node_id
-            storage_map[node_id] = {}
+            storage_map['local'][node_id] = {}
             for disk in node.disks:
                 disk_id = disk.name
-                storage_map[node_id][disk_id] = {'name': disk_id,
-                                                 'guid': disk.guid,
-                                                 'status': 'error',
-                                                 'status_detail': 'unknown',
-                                                 'asds': {}}
+                storage_map['local'][node_id][disk_id] = {'name': disk_id,
+                                                          'guid': disk.guid,
+                                                          'status': 'error',
+                                                          'status_detail': 'unknown',
+                                                          'asds': {}}
                 for osd in disk.osds:
                     osd_id = osd.osd_id
                     data = {'asd_id': osd_id,
@@ -85,7 +87,7 @@ class AlbaBackend(DataObject):
                             'status_detail': 'unknown',
                             'alba_backend_guid': osd.alba_backend_guid}
                     asd_map[osd_id] = data
-                    storage_map[node_id][disk_id]['asds'][osd_id] = data
+                    storage_map['local'][node_id][disk_id]['asds'][osd_id] = data
 
         # Load information from node
         def _load_live_info(_node, _node_data):
@@ -136,7 +138,7 @@ class AlbaBackend(DataObject):
                         _node_data[_disk_id]['asds'][_asd_id].update(entry)
         threads = []
         for node in alba_nodes:
-            thread = Thread(target=_load_live_info, args=(node, storage_map[node.node_id]))
+            thread = Thread(target=_load_live_info, args=(node, storage_map['local'][node.node_id]))
             thread.start()
             threads.append(thread)
         for thread in threads:
@@ -159,7 +161,7 @@ class AlbaBackend(DataObject):
         for found_osd in AlbaCLI.run('list-all-osds', config=config, as_json=True):
             node_id = found_osd['node_id']
             asd_id = found_osd['long_id']
-            for _disk in storage_map.get(node_id, {}).values():
+            for _disk in storage_map['local'].get(node_id, {}).values():
                 asd_data = _disk['asds'].get(asd_id, {})
                 if 'state' not in asd_data:
                     continue
@@ -299,7 +301,7 @@ class AlbaBackend(DataObject):
         if len(self.abm_services) == 0:
             return []  # No ABM services yet, so backend not fully installed yet
 
-        storage_stack = self.storage_stack
+        storage_stack = self.storage_stack['local']
         asds = {}
         for node in AlbaNodeList.get_albanodes():
             asds[node.node_id] = 0

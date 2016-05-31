@@ -44,6 +44,7 @@ define([
         self.name                = ko.observable();
         self.presets             = ko.observableArray([]);
         self.readIOps            = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.scaling             = ko.observable();
         self.totalSize           = ko.observable();
         self.usage               = ko.observable([]);
         self.writeIOps           = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
@@ -122,6 +123,7 @@ define([
         };
         self.fillData = function(data) {
             self.name(data.name);
+            self.scaling(data.scaling);
             generic.trySet(self.presets, data, 'presets');
             if (self.backendGuid() !== data.backend_guid) {
                 self.backendGuid(data.backend_guid);

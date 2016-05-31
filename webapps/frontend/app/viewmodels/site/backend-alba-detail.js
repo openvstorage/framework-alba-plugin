@@ -18,11 +18,11 @@ define([
     'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/backend', '../containers/backendtype', '../containers/albabackend', '../containers/albanode', '../containers/albadisk', '../containers/storagerouter', '../containers/vpool',
-    '../wizards/addpreset/index'
+    '../wizards/addpreset/index', '../wizards/linkbackend/index'
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
             Backend, BackendType, AlbaBackend, Node, Disk, StorageRouter, VPool,
-            AddPresetWizard) {
+            AddPresetWizard, LinkBackend) {
     "use strict";
     return function() {
         var self = this;
@@ -39,16 +39,16 @@ define([
         self.initialRun         = true;
 
         // Observables
-        self.backend                = ko.observable();
         self.albaBackend            = ko.observable();
-        self.rNodesLoading          = ko.observable(true);
-        self.dNodesLoading          = ko.observable(false);
-        self.registeredNodes        = ko.observableArray([]);
-        self.registeredNodesNodeIDs = ko.observableArray([]);
+        self.backend                = ko.observable();
         self.discoveredNodes        = ko.observableArray([]);
         self.disks                  = ko.observableArray([]);
-        self.vPools                 = ko.observableArray([]);
+        self.dNodesLoading          = ko.observable(false);
         self.otherAlbaBackendsCache = ko.observable({});
+        self.registeredNodes        = ko.observableArray([]);
+        self.registeredNodesNodeIDs = ko.observableArray([]);
+        self.rNodesLoading          = ko.observable(true);
+        self.vPools                 = ko.observableArray([]);
 
         // Computed
         self.filteredDiscoveredNodes = ko.computed(function() {
@@ -124,6 +124,12 @@ define([
             self.dNodesLoading(true);
             self.fetchNodes(true);
         };
+        self.linkBackend = function() {
+            dialog.show(new LinkBackend (
+                { modal: true,
+                  albaBackend: self.albaBackend() }
+            ));
+        };
         self.load = function() {
             return $.Deferred(function (deferred) {
                 var backend = self.backend(), backendType;
@@ -147,6 +153,7 @@ define([
                                     self.initializing = true;
                                     api.post('alba/backends', {
                                         data: {
+                                            scaling: 'LOCAL',
                                             backend_guid: self.backend().guid()
                                         }
                                     })
@@ -277,9 +284,9 @@ define([
             if (data === undefined || !data.hasOwnProperty('storage_stack')) {
                 return;
             }
-            var diskNames = [], disks = {}, changes = data.storage_stack.length !== self.disks().length,
+            var diskNames = [], disks = {}, changes = data.storage_stack.local.length !== self.disks().length,
                 diskNode = {}, nodeDisks = {};
-            $.each(data.storage_stack, function (nodeId, disksData) {
+            $.each(data.storage_stack.local, function (nodeId, disksData) {
                 $.each(disksData, function(index, disk) {
                     diskNames.push(disk.name);
                     disks[disk.name] = disk;
@@ -326,7 +333,6 @@ define([
                 })
             }
         };
-
         self.removeBackend = function() {
             return $.Deferred(function(deferred) {
                 if (self.albaBackend() === undefined || !self.albaBackend().availableActions().contains('REMOVE')) {
@@ -410,7 +416,6 @@ define([
                 editPreset: false
             }));
         };
-
         self.editPreset = function(data) {
             dialog.show(new AddPresetWizard({
                 modal: true,

@@ -883,7 +883,7 @@ class AlbaController(object):
                                                                              cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                                              ip=storagerouter.ip,
                                                                              base_dir=partition.folder,
-                                                                             plugins=AlbaController.NSM_PLUGIN,
+                                                                             plugins=[AlbaController.NSM_PLUGIN],
                                                                              claim=True)
                                 first_ip = storagerouter.ip
                             else:
@@ -917,28 +917,28 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.calculate_safety')
-    def calculate_safety(alba_backend_guid, removal_asd_ids):
+    def calculate_safety(alba_backend_guid, removal_osd_ids):
         """
         Calculates/loads the safety when a certain set of disks are removed
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
 
-        :param removal_asd_ids: ASDs to take into account for safety calculation
-        :type removal_asd_ids: list
+        :param removal_osd_ids: ASDs to take into account for safety calculation
+        :type removal_osd_ids: list
 
         :return: Amount of good, critical and lost ASDs
         :rtype: dict
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         error_disks = []
-        for disks in alba_backend.storage_stack.values():
+        for disks in alba_backend.storage_stack['local'].values():
             for disk in disks.values():
                 for asd_id, asd in disk['asds'].iteritems():
                     if asd['status'] == 'error':
                         error_disks.append(asd_id)
         extra_parameters = ['--include-decommissioning-as-dead']
         for osd in alba_backend.osds:
-            if osd.osd_id in removal_asd_ids or osd.osd_id in error_disks:
+            if osd.osd_id in removal_osd_ids or osd.osd_id in error_disks:
                 extra_parameters.append('--long-id {0}'.format(osd.osd_id))
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
         safety_data = AlbaCLI.run('get-disk-safety', config=config, extra_params=extra_parameters, as_json=True)
@@ -1307,6 +1307,19 @@ class AlbaController(object):
                 if ServiceManager.get_service_status(service_name, client=client) is True:
                     ServiceManager.stop_service(service_name, client=client)
                 ServiceManager.remove_service(service_name, client=client)
+
+    @staticmethod
+    @celery.task(name='alba.link_alba_backends')
+    def link_alba_backends(alba_backend_guid, metadata):
+        """
+        Link a GLOBAL ALBA Backend to a LOCAL or another GLOBAL ALBA Backend
+        :param alba_backend_guid: ALBA backend guid to link another ALBA Backend to
+        :type alba_backend_guid: str
+
+        :param metadata: Metadata about the linked ALBA Backend
+        :type metadata: dict
+        """
+        pass
 
 
 if __name__ == '__main__':

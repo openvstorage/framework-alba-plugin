@@ -126,7 +126,7 @@ define([
                             allDisks[backend.guid()] = ko.observableArray([]);
                         }
                         var diskNames = [], disks = {};
-                        $.each(backend.rawData.storage_stack, function (nodeId, disksData) {
+                        $.each(backend.rawData.storage_stack.local, function (nodeId, disksData) {
                             $.each(disksData, function (jndex, disk) {
                                 diskNames.push(disk.name);
                                 disks[disk.name] = disk;

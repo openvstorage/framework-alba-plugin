@@ -69,7 +69,6 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         serializer = FullSerializer(AlbaBackend, instance=AlbaBackend(), data=request.DATA, allow_passwords=True)
         if serializer.is_valid():
             alba_backend = serializer.object
-            alba_backend.alba_backend_type = AlbaBackend.ALBA_BACKEND_TYPES.LOCAL
             alba_backend.save()
             alba_backend.backend.status = 'INSTALLING'
             alba_backend.backend.save()
@@ -187,3 +186,19 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :param asd_id: ID of the ASD to calculate safety off
         """
         return AlbaController.calculate_safety.delay(albabackend.guid, [asd_id])
+
+    @action()
+    @log()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaBackend)
+    def link_alba_backends(self, albabackend, metadata):
+        """
+        Link a GLOBAL ALBA Backend to a LOCAL or another GLOBAL ALBA Backend
+        :param albabackend: ALBA backend to link another ALBA Backend to
+        :type albabackend: AlbaBackend
+
+        :param metadata: Metadata about the linked ALBA Backend
+        :type metadata: dict
+        """
+        return AlbaController.link_alba_backends.s(albabackend.guid, metadata).apply_async(queue='ovs_masters')
