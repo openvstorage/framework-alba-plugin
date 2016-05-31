@@ -20,15 +20,15 @@ define(['knockout'], function(ko){
         hostRegex = /^((((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))|((([a-z0-9]+[\.\-])*[a-z0-9]+\.)+[a-z]{2,4}))$/;
     singleton = function() {
         var wizardData = {
-            albaBackend:           ko.observable(),
-            albaBackends:          ko.observableArray([]),
-            albaPreset:            ko.observable(),
-            clientId:              ko.observable('').extend({removeWhiteSpaces: null}),
-            clientSecret:          ko.observable('').extend({removeWhiteSpaces: null}),
-            host:                  ko.observable('').extend({regex: hostRegex}),
-            localHost:             ko.observable(true),
-            port:                  ko.observable(80).extend({numeric: {min: 1, max: 65536}}),
-            thisGlobalAlbaBackend: ko.observable()
+            albaBackend:  ko.observable(),
+            albaBackends: ko.observableArray([]),
+            albaPreset:   ko.observable(),
+            clientId:     ko.observable('').extend({removeWhiteSpaces: null}),
+            clientSecret: ko.observable('').extend({removeWhiteSpaces: null}),
+            host:         ko.observable('').extend({regex: hostRegex}),
+            localHost:    ko.observable(true),
+            port:         ko.observable(80).extend({numeric: {min: 1, max: 65536}}),
+            target:       ko.observable()
         }, resetAlbaBackends = function() {
             wizardData.albaBackends([]);
             wizardData.albaBackend(undefined);

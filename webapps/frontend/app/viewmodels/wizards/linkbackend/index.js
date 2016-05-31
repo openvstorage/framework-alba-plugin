@@ -29,7 +29,7 @@ define([
         // Setup
         self.title(generic.tryGet(options, 'title', $.t('alba:wizards.link_backend.title')));
         self.modal(generic.tryGet(options, 'modal', false));
-        self.data.thisGlobalAlbaBackend(generic.tryGet(options, 'albaBackend', undefined));
+        self.data.target(generic.tryGet(options, 'albaBackend', undefined));
         self.steps([new Gather()]);
         self.activateStep();
 

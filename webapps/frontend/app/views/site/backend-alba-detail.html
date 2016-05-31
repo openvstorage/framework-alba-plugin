@@ -138,11 +138,14 @@ but WITHOUT ANY WARRANTY of any kind.
             </li>
         </ul>
         <div class="tab-content">
-            <div class="tab-pane" id="backends" style="padding: 15px;" data-bind="visible: $root.shared.user.roles().contains('manage'),
-                                                                                  css: { active: albaBackend().scaling() === 'GLOBAL' }">
+            <div class="tab-pane" id="backends" style="padding: 15px;"
+                 data-bind="visible: $root.shared.user.roles().contains('manage'),
+                            css: { active: albaBackend().scaling() === 'GLOBAL' }">
                 <h4 class="pull-left" data-i18n="alba:generic.backends"></h4>
                 <button class="btn btn-default pull-right" id="buttonLinkBackend"
-                        data-bind="click: linkBackend"
+                        data-bind="click: linkBackend,
+                                   style: { color: albaBackend().successfullyLoaded() === true ? 'black' : 'lightgrey' },
+                                   tooltip: albaBackend().successfullyLoaded() === true ? '' : 'alba:wizards.link_backend.linked_backend_guids_failure'"
                         style="margin-top: 5px; margin-bottom: 10px;">
                     <span class="fa" data-i18n="[html]ovs:icons.link"></span>&nbsp;
                     <span data-i18n="alba:detail.link_backend"></span>

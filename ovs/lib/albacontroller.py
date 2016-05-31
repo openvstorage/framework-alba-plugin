@@ -45,6 +45,7 @@ from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.extensions.services.service import ServiceManager
 from ovs.lib.helpers.decorators import add_hooks, ensure_single
+from ovs.lib.helpers.toolbox import Toolbox
 from ovs.log.log_handler import LogHandler
 
 
@@ -1319,7 +1320,21 @@ class AlbaController(object):
         :param metadata: Metadata about the linked ALBA Backend
         :type metadata: dict
         """
-        pass
+        Toolbox.verify_required_params(required_params={'backend_connection_info': (dict, {'host': (str, Toolbox.regex_ip, False),
+                                                                                           'port': (int, {'min': 1, 'max': 65535}),
+                                                                                           'username': (str, None, False),
+                                                                                           'password': (str, None, False)}),
+                                                        'backend_info': (dict, {'linked_guid': (str, Toolbox.regex_guid),
+                                                                                'linked_name': (str, Toolbox.regex_vpool),
+                                                                                'linked_preset': (str, Toolbox.regex_preset),
+                                                                                'linked_alba_id': (str, Toolbox.regex_guid)})},
+                                       actual_params=metadata)
+        alba_osd = AlbaOSD()
+        alba_osd.osd_id = metadata['backend_info']['linked_alba_id']
+        alba_osd.osd_type = AlbaOSD.OSD_TYPES.ALBA_BACKEND
+        alba_osd.metadata = metadata
+        alba_osd.alba_backend = AlbaBackend(alba_backend_guid)
+        alba_osd.save()
 
 
 if __name__ == '__main__':

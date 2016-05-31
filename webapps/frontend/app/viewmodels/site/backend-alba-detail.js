@@ -22,7 +22,7 @@ define([
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
             Backend, BackendType, AlbaBackend, Node, Disk, StorageRouter, VPool,
-            AddPresetWizard, LinkBackend) {
+            AddPresetWizard, LinkBackendWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -125,7 +125,10 @@ define([
             self.fetchNodes(true);
         };
         self.linkBackend = function() {
-            dialog.show(new LinkBackend (
+            if (self.albaBackend().successfullyLoaded() === false) {
+                return;
+            }
+            dialog.show(new LinkBackendWizard (
                 { modal: true,
                   albaBackend: self.albaBackend() }
             ));

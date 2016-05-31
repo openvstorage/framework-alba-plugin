@@ -81,22 +81,25 @@ define([
                         password: self.data.clientSecret()
                     },
                     backend_info: {
-                        'guid': self.data.albaBackend() !== undefined ? self.data.albaBackend().guid() : undefined,
-                        'preset_name': self.data.albaPreset() !== undefined ? self.data.albaPreset().name : undefined
+                        linked_guid: self.data.albaBackend().guid(),
+                        linked_name: self.data.albaBackend().name(),
+                        linked_preset: self.data.albaPreset().name,
+                        linked_alba_id: self.data.albaBackend().albaId()
                     }
                 };
                 generic.alertInfo(
                     $.t('alba:wizards.link_backend.started'),
-                    $.t('alba:wizards.link_backend.started_msg', {global_backend: self.data.thisGlobalAlbaBackend().name(),
+                    $.t('alba:wizards.link_backend.started_msg', {global_backend: self.data.target().name(),
                                                                   backend_to_link: self.data.albaBackend().name()})
                 );
-                api.post('alba/backends/' + self.data.thisGlobalAlbaBackend().guid() + '/link_alba_backends', {data: {metadata: postData}})
+                deferred.resolve();
+                api.post('alba/backends/' + self.data.target().guid() + '/link_alba_backends', {data: {metadata: postData}})
                     .then(self.shared.tasks.wait)
                     .done(function() {
                         generic.alertSuccess(
                             $.t('alba:wizards.link_backend.success'),
-                            $.t('alba:wizards.link_backend.success_msg', {global_backend: self.data.thisGlobalAlbaBackend().name(),
-                                                                         backend_to_link: self.data.albaBackend().name()})
+                            $.t('alba:wizards.link_backend.success_msg', {global_backend: self.data.target().name(),
+                                                                          backend_to_link: self.data.albaBackend().name()})
                         );
                     })
                     .fail(function(error) {
@@ -105,7 +108,6 @@ define([
                             $.t('alba:wizards.link_backend.error_msg', {error: error})
                         );
                     })
-                    .always(deferred.resolve);
             }).promise();
         };
         self.loadAlbaBackends = function() {
@@ -131,20 +133,18 @@ define([
                     .done(function(data) {
                         var available_backends = [], calls = [];
                         $.each(data.data, function (index, item) {
-                            if (item.available === true) {
+                            if (item.available === true && item.linked_guid !== self.data.target().guid()) {
                                 calls.push(
                                     api.get(relay + 'alba/backends/' + item.linked_guid + '/', { queryparams: getData })
                                         .then(function(data) {
-                                            if (data.available === true && data.guid !== self.data.thisGlobalAlbaBackend().guid()) {
-                                                $.each(data.asd_statistics, function(key, value) {  // As soon as we enter loop, we know at least 1 ASD is linked to this backend
-                                                    available_backends.push(data);
-                                                    self.albaPresetMap()[data.guid] = {};
-                                                    $.each(data.presets, function (_, preset) {
-                                                        self.albaPresetMap()[data.guid][preset.name] = preset.is_available;
-                                                    });
-                                                    return false;
+                                            $.each(data.asd_statistics, function(key, value) {  // As soon as we enter loop, we know at least 1 ASD is linked to this backend
+                                                available_backends.push(data);
+                                                self.albaPresetMap()[data.guid] = {};
+                                                $.each(data.presets, function (_, preset) {
+                                                    self.albaPresetMap()[data.guid][preset.name] = preset.is_available;
                                                 });
-                                            }
+                                                return false;
+                                            });
                                         })
                                 );
                             }

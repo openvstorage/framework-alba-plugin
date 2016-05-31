@@ -334,6 +334,7 @@
             "error_msg": "Failed to link Backends: __error__",
             "host": "Host (FQDN/IP):",
             "invalid_alba_info": "Invalid connection info or credentials",
+            "linked_backend_guids_failure": "Information about 1 or more previously linked ALBA Backends could not be loaded. To be able to continue, please investigate and fix the issue.",
             "no_backends": "No backends found",
             "port": "Port:",
             "secret_key": "Secret Key:",

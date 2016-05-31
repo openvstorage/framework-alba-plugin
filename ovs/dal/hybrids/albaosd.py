@@ -32,7 +32,8 @@ class AlbaOSD(DataObject):
     OSD_TYPES = DataObject.enumerator('Osd_type', ['ASD', 'ALBA_BACKEND'])
 
     __properties = [Property('osd_id', str, doc='OSD identifier'),
-                    Property('osd_type', OSD_TYPES.keys(), doc='Type of OSD (ASD, ALBA_BACKEND)')]
+                    Property('osd_type', OSD_TYPES.keys(), doc='Type of OSD (ASD, ALBA_BACKEND)'),
+                    Property('metadata', dict, mandatory=False, doc='Additional information about this OSD, such as connection information (if OSD is an ALBA backend')]
     __relations = [Relation('alba_backend', AlbaBackend, 'osds', doc='The AlbaBackend that claimed the OSD'),
                    Relation('alba_disk', AlbaDisk, 'osds', mandatory=False, doc='The AlbaDisk to which the OSD belongs')]
     __dynamics = [Dynamic('statistics', dict, 5, locked=True)]

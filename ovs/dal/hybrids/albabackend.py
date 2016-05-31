@@ -19,24 +19,27 @@ AlbaBackend module
 """
 import time
 import requests
+import threading
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.backend import Backend
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.vpoollist import VPoolList
 from ovs.dal.structures import Property, Relation, Dynamic
+from ovs.extensions.api.client import OVSClient
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
 from ovs.extensions.plugins.albacli import AlbaCLI
-from threading import Thread
+from ovs.log.log_handler import LogHandler
 
 
 class AlbaBackend(DataObject):
     """
     The AlbaBackend provides ALBA specific information
     """
-    SCALINGS = DataObject.enumerator('Scalings', ['GLOBAL', 'LOCAL'])
+    SCALINGS = DataObject.enumerator('Scaling', ['GLOBAL', 'LOCAL'])
 
+    _logger = LogHandler.get('dal', 'albabackend', False)
     __properties = [Property('alba_id', str, mandatory=False, doc='ALBA internal identifier'),
-                    Property('scaling', SCALINGS.keys(), doc='Scaling for an ALBA backend can be LOCAL or GLOBAL')]
+                    Property('scaling', SCALINGS.keys(), doc='Scaling for an ALBA backend can be {0}'.format(' or '.join(SCALINGS.keys())))]
     __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic backend')]
     __dynamics = [Dynamic('storage_stack', dict, 5),
                   Dynamic('statistics', dict, 5, locked=True),
@@ -46,7 +49,8 @@ class AlbaBackend(DataObject):
                   Dynamic('available', bool, 60),
                   Dynamic('name', str, 3600),
                   Dynamic('metadata_information', dict, 60),
-                  Dynamic('asd_statistics', dict, 5, locked=True)]
+                  Dynamic('asd_statistics', dict, 5, locked=True),
+                  Dynamic('linked_backend_guids', set, 30)]
 
     def _storage_stack(self):
         """
@@ -138,7 +142,7 @@ class AlbaBackend(DataObject):
                         _node_data[_disk_id]['asds'][_asd_id].update(entry)
         threads = []
         for node in alba_nodes:
-            thread = Thread(target=_load_live_info, args=(node, storage_map['local'][node.node_id]))
+            thread = threading.Thread(target=_load_live_info, args=(node, storage_map['local'][node.node_id]))
             thread.start()
             threads.append(thread)
         for thread in threads:
@@ -403,3 +407,45 @@ class AlbaBackend(DataObject):
             if stats['success'] is True:
                 statistics[asd_id] = stats['result']
         return statistics
+
+    def _linked_backend_guids(self):
+        """
+        Returns a list (recursively) of all ALBA backends linked to this ALBA backend based on the linked AlbaOSDs
+        :return: List of ALBA Backend guids
+        :rtype: list
+        """
+        # Import here to prevent from circular references
+        from ovs.dal.hybrids.albaosd import AlbaOSD
+
+        def _load_backend_info():
+            client = OVSClient(ip=connection_info['host'],
+                               port=connection_info['port'],
+                               credentials=(connection_info['username'], connection_info['password']))
+            with lock:
+                try:
+                    guids.update(client.get('/alba/backends/{0}/'.format(alba_backend_guid))['linked_backend_guids'])
+                except Exception as ex:
+                    AlbaBackend._logger.exception('Collecting remote ALBA backend information failed with error: {0}'.format(ex))
+                    exceptions.append(ex)
+
+        lock = threading.Lock()
+        guids = {self.guid}
+        threads = []
+        exceptions = []
+        for osd in self.osds:
+            if osd.osd_type == AlbaOSD.OSD_TYPES.ALBA_BACKEND and osd.metadata is not None:  # In this case osd.osd_id is a guid of an ALBA Backend
+                connection_info = osd.metadata['backend_connection_info']
+                alba_backend_guid = osd.metadata['backend_info']['linked_guid']
+                if connection_info['host'] == '':
+                    guids.update(AlbaBackend(alba_backend_guid).linked_backend_guids)
+                else:
+                    thread = threading.Thread(target=_load_backend_info)
+                    thread.start()
+                    threads.append(thread)
+        for thread in threads:
+            thread.join()
+
+        if len(exceptions) > 0:
+            raise RuntimeError(exceptions[0])
+
+        return guids
