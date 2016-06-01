@@ -37,7 +37,7 @@ define([
             var valid = true, reasons = [], fields = [];
             if (self.validStorageRouterFound() === false) {
                 valid = false;
-                reasons.push($.t('ovs:wizards.add_backend.gather.missing_arakoon'));
+                reasons.push($.t('alba:wizards.add_backend.gather.missing_arakoon'));
             }
             if (self.storageRoutersChecked() !== true) {
                 valid = false;
