@@ -23,6 +23,9 @@ define(['jquery'], function($) {
         routePatches: [],
         dashboards: [
             'dashboard-alba'
-        ]
+        ],
+        wizards: {
+            addbackend: 'alba'
+        }
     };
 });

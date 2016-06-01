@@ -33,7 +33,6 @@ define([
         self.guard              = { authenticated: true };
         self.refresher          = new Refresher();
         self.widgets            = [];
-        self.initializing       = false;
         self.nodesHandle        = {};
         self.storageRouterCache = {};
         self.initialRun         = true;
@@ -138,39 +137,21 @@ define([
                 var backend = self.backend(), backendType;
                 backend.load()
                     .then(function(backendData) {
-                        return $.Deferred(function(subDeferred) {
-                            if (backend.backendType() === undefined) {
-                                backendType = new BackendType(backend.backendTypeGuid());
-                                backendType.load();
-                                backend.backendType(backendType);
+                        if (backend.backendType() === undefined) {
+                            backendType = new BackendType(backend.backendTypeGuid());
+                            backendType.load();
+                            backend.backendType(backendType);
+                        }
+                        if (backendData.hasOwnProperty('alba_backend_guid') && backendData.alba_backend_guid !== null) {
+                            if (self.albaBackend() === undefined) {
+                                var albaBackend = new AlbaBackend(backendData.alba_backend_guid);
+                                albaBackend.vPools = self.vPools;
+                                self.albaBackend(albaBackend);
                             }
-                            if (backendData.hasOwnProperty('alba_backend_guid') && backendData.alba_backend_guid !== null) {
-                                if (self.albaBackend() === undefined) {
-                                    var albaBackend = new AlbaBackend(backendData.alba_backend_guid);
-                                    albaBackend.vPools = self.vPools;
-                                    self.albaBackend(albaBackend);
-                                }
-                                subDeferred.resolve(self.albaBackend());
-                            } else {
-                                if (!self.initializing) {
-                                    self.initializing = true;
-                                    api.post('alba/backends', {
-                                        data: {
-                                            scaling: 'LOCAL',
-                                            backend_guid: self.backend().guid()
-                                        }
-                                    })
-                                        .fail(function() {
-                                            self.initializing = false;
-                                        });
-                                }
-                                subDeferred.reject();
-                            }
-                        }).promise();
-                    })
-                    .then(function(albaBackend) {
-                        return albaBackend.load(!self.initialRun)
-                            .then(albaBackend.getAvailableActions);
+                            return self.albaBackend().load(!self.initialRun)
+                                .then(self.albaBackend().getAvailableActions);
+                        }
+                        deferred.reject();
                     })
                     .done(deferred.resolve)
                     .fail(deferred.reject);

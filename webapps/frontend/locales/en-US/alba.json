@@ -86,6 +86,10 @@
         "utilizationcpu": "Utilization (CPU)",
         "warnings": "Warnings",
         "wayreplication": "-way replication:",
+        "scalings": {
+            "local": "Local",
+            "global": "Global"
+        },
         "statusdetails": {
             "missing": "Disk is missing",
             "ioerror": "I/O errors",
@@ -282,6 +286,14 @@
             "success": "Node added",
             "title": "Add node",
             "username": "Username:"
+        },
+        "add_backend": {
+            "gather": {
+                "scaling": "Scaling:",
+                "missing_arakoon": "A partition with DB role should be defined",
+                "role_check": "Role check:",
+                "unable_to_determine_roles": "Failed to determine all required roles"
+            }
         },
         "addpreset": {
             "title": "Add preset",
