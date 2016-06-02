@@ -17,17 +17,19 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
-    '../containers/backend', '../containers/backendtype', '../containers/albabackend', '../containers/albanode', '../containers/albadisk', '../containers/storagerouter', '../containers/vpool',
+    '../containers/albabackend', '../containers/albadisk', '../containers/albanode', '../containers/backend',
+    '../containers/backendtype', '../containers/domain', '../containers/storagerouter', '../containers/vpool',
     '../wizards/addpreset/index', '../wizards/linkbackend/index'
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
-            Backend, BackendType, AlbaBackend, Node, Disk, StorageRouter, VPool,
+            AlbaBackend, Disk, Node, Backend, BackendType, Domain, StorageRouter, VPool,
             AddPresetWizard, LinkBackendWizard) {
     "use strict";
     return function() {
         var self = this;
 
         // Variables
+        self.domainCache        = {};
         self.shared             = shared;
         self.generic            = generic;
         self.guard              = { authenticated: true };
@@ -36,8 +38,11 @@ define([
         self.nodesHandle        = {};
         self.storageRouterCache = {};
         self.initialRun         = true;
+        self.loadDomainsHandle  = undefined;
 
         // Observables
+        self.domains                = ko.observableArray([]);
+        self.domainsLoaded          = ko.observable(false);
         self.albaBackend            = ko.observable();
         self.backend                = ko.observable();
         self.discoveredNodes        = ko.observableArray([]);
@@ -50,6 +55,16 @@ define([
         self.vPools                 = ko.observableArray([]);
 
         // Computed
+        self.domainGuids = ko.computed(function() {
+            var guids = [], backend = self.backend();
+            if (backend === undefined) {
+                return guids;
+            }
+            $.each(self.domains(), function(index, domain) {
+                guids.push(domain.guid());
+            });
+            return guids;
+        });
         self.filteredDiscoveredNodes = ko.computed(function() {
             var nodes = [];
             $.each(self.discoveredNodes(), function(index, node) {
@@ -317,6 +332,42 @@ define([
                 })
             }
         };
+        self.loadDomains = function() {
+            return $.Deferred(function(deferred) {
+                if (generic.xhrCompleted(self.loadDomainsHandle)) {
+                    self.loadDomainsHandle = api.get('domains', {
+                        queryparams: { sort: 'name', contents: '' }
+                    })
+                        .done(function(data) {
+                            var guids = [], ddata = {};
+                            $.each(data.data, function(index, item) {
+                                guids.push(item.guid);
+                                ddata[item.guid] = item;
+                            });
+                            generic.crossFiller(
+                                guids, self.domains,
+                                function(guid) {
+                                    return new Domain(guid);
+                                }, 'guid'
+                            );
+                            $.each(self.domains(), function(index, domain) {
+                                if (ddata.hasOwnProperty(domain.guid())) {
+                                    domain.fillData(ddata[domain.guid()]);
+                                }
+                                self.domainCache[domain.guid()] = domain;
+                            });
+                            self.domains.sort(function(dom1, dom2) {
+                                return dom1.name() < dom2.name() ? -1 : 1;
+                            });
+                            self.domainsLoaded(true);
+                            deferred.resolve();
+                        })
+                        .fail(deferred.reject);
+                } else {
+                    deferred.reject();
+                }
+            }).promise();
+        };
         self.removeBackend = function() {
             return $.Deferred(function(deferred) {
                 if (self.albaBackend() === undefined || !self.albaBackend().availableActions().contains('REMOVE')) {
@@ -415,6 +466,7 @@ define([
             self.backend(new Backend(guid));
             self.refresher.init(function() {
                 self.loadVPools();
+                self.loadDomains();
                 return self.load()
                     .then(self.fetchNodes)
                     .then(self.loadOSDs)

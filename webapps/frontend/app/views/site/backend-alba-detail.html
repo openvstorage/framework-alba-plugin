@@ -32,6 +32,14 @@ but WITHOUT ANY WARRANTY of any kind.
             </li>
             <li class="actions">
                 <span data-i18n="ovs:generic.actions"></span>:
+                <button type="button" class="btn btn-mini btn-default hand" style="color: #428bca;" id="buttonEdit"
+                        data-bind="click: function() { if (backend().edit()) { backend().save(); } else { backend().edit(true); } },
+                                   enable: backend().loaded() && $root.shared.user.roles().contains('manage'),
+                                   tooltip: 'ovs:backends.edit.edit'">
+                    <span class="hand fa" data-bind="visible: backend().edit() && !backend().saving()" data-i18n="[html]ovs:icons.save"></span>
+                    <span class="hand fa fa-spin" data-bind="visible: backend().edit() && backend().saving()" data-i18n="[html]ovs:icons.loading"></span>
+                    <span class="hand fa" data-bind="visible: !backend().edit()" data-i18n="[html]ovs:icons.edit"></span>
+                </button>
                 <button type="button" class="btn btn-mini btn-default" id="removeBackend"
                         data-bind="click: $root.removeBackend,
                                    style: { color: albaBackend() === undefined || !albaBackend().availableActions().contains('REMOVE') ? 'lightgrey' : '#428bca' },
@@ -93,8 +101,8 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <td colspan="2">&nbsp;</td>
                             </tr>
                             <tr>
-                                <td style="width: 15%; vertical-align: top;" data-i18n="alba:generic.nrofdevices"></td>
-                                <td style="width: 20%; padding-bottom: 2px; vertical-align: top;">
+                                <td style="width: 15%;" data-i18n="alba:generic.nrofdevices"></td>
+                                <td style="width: 20%;">
                                     <span class="label label-success pointer"
                                           data-bind="tooltip: 'alba:generic.states.osdinfo.claimed',
                                                      text: $root.ASDStates().claimed"></span>&nbsp;
@@ -104,6 +112,18 @@ but WITHOUT ANY WARRANTY of any kind.
                                     <span class="label label-danger pointer"
                                           data-bind="tooltip: 'alba:generic.states.osdinfo.error',
                                                      text: $root.ASDStates().failure"></span>
+                                </td>
+                                <td colspan="4">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="width: 15%; vertical-align: top;" data-i18n="ovs:generic.domains"></td>
+                                <td style="width: 20%; padding-bottom: 2px; vertical-align: top;">
+                                    <span data-bind="dropdown: {
+                                                         items: $root.domainGuids, target: $root.backend().domainGuids,
+                                                         text: function(guid) {
+                                                             return $root.domainCache[guid].name();
+                                                         }, enabled: $root.backend().edit, small: true, emptyisloading: false
+                                                     }"></span>
                                 </td>
                                 <td colspan="4">&nbsp;</td>
                             </tr>

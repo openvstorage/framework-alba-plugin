@@ -90,6 +90,7 @@ define([
                             });
                     });
             }
+            self.scaling('local');
         };
     };
 });
