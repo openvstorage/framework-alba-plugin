@@ -103,6 +103,7 @@ class Alba(unittest.TestCase):
         backend.save()
         alba_backend = AlbaBackend()
         alba_backend.backend = backend
+        alba_backend.scaling = AlbaBackend.SCALINGS.LOCAL
         alba_backend.save()
         alba_node = AlbaNode()
         alba_node.ip = '127.0.0.1'
