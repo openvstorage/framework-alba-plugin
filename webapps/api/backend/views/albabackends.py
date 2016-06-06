@@ -201,4 +201,22 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :param metadata: Metadata about the linked ALBA Backend
         :type metadata: dict
         """
-        return AlbaController.link_alba_backends.s(albabackend.guid, metadata).apply_async(queue='ovs_masters')
+        return AlbaController.link_alba_backends.s(alba_backend_guid=albabackend.guid,
+                                                   metadata=metadata).apply_async(queue='ovs_masters')
+
+    @action()
+    @log()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaBackend)
+    def unlink_alba_backends(self, albabackend, linked_guid):
+        """
+        Unlink a LOCAL or GLOBAL ALBA Backend from a GLOBAL ALBA Backend
+        :param albabackend: ALBA backend to unlink another LOCAL or GLOBAL ALBA Backend from
+        :type albabackend: AlbaBackend
+
+        :param linked_guid: Guid of the GLOBAL or LOCAL ALBA Backend which will be unlinked (Can be a local or a remote ALBA Backend)
+        :type linked_guid: str
+        """
+        return AlbaController.unlink_alba_backends.s(target_guid=albabackend.guid,
+                                                     linked_guid=linked_guid).apply_async(queue='ovs_masters')

@@ -46,7 +46,7 @@ define([
                 fields.push('clientsecret');
                 fields.push('host');
             }
-            if (self.data.albaBackend() === undefined) {
+            if (self.data.albaBackend() === undefined && albaBackendLoading()) {
                 valid = false;
                 reasons.push($.t('alba:wizards.link_backend.choose_backend'));
                 fields.push('backend');
@@ -137,14 +137,25 @@ define([
                                 calls.push(
                                     api.get(relay + 'alba/backends/' + item.linked_guid + '/', { queryparams: getData })
                                         .then(function(data) {
-                                            $.each(data.asd_statistics, function(key, value) {  // As soon as we enter loop, we know at least 1 ASD is linked to this backend
-                                                available_backends.push(data);
-                                                self.albaPresetMap()[data.guid] = {};
-                                                $.each(data.presets, function (_, preset) {
-                                                    self.albaPresetMap()[data.guid][preset.name] = preset.is_available;
-                                                });
-                                                return false;
+                                            var alreadyLinked = false;
+                                            $.each(data.linked_backend_guids, function(index, guid) {
+                                                if (self.data.target().linkedBackendGuids().contains(guid)) {
+                                                    alreadyLinked = true;
+                                                    return false;
+                                                }
                                             });
+                                            if (alreadyLinked === false) {
+                                                $.each(data.local_summary.devices, function(key, value) {
+                                                    if (value > 0) {
+                                                        available_backends.push(data);
+                                                        self.albaPresetMap()[data.guid] = {};
+                                                        $.each(data.presets, function (_, preset) {
+                                                            self.albaPresetMap()[data.guid][preset.name] = preset.is_available;
+                                                        });
+                                                        return false;
+                                                    }
+                                                });
+                                            }
                                         })
                                 );
                             }

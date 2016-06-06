@@ -53,13 +53,14 @@ but WITHOUT ANY WARRANTY of any kind.
         <div class="form-group" data-bind="css: { 'has-error': canContinue().fields.contains('backend') }">
             <label class="col-lg-3 control-label" data-i18n="alba:wizards.link_backend.alba_backend"></label>
             <div class="col-lg-7">
-                <!-- ko if: data.albaBackends() === undefined || data.albaBackends().length === 0 -->
-                    <i data-i18n="[html]alba:wizards.link_backend.no_backends"
-                       style="display: inline-block; margin-top: 7px;"></i>
+                <!-- ko if: data.albaBackends() === undefined || $root.albaBackendLoading() === true -->
+                    <span class="fa fa-spin" style="margin-top: 8px;" data-i18n="[html]ovs:icons.loading"></span>
                 <!-- /ko -->
-                <!-- ko if: data.albaBackends() !== undefined && data.albaBackends().length > 0 -->
-                    <span class="fa fa-spin" style="margin-top: 8px;" data-i18n="[html]ovs:icons.loading" data-bind="visible: data.albaBackend() === undefined"></span>
-                    <span data-bind="visible: data.albaBackend() !== undefined,
+                <!-- ko if: data.albaBackends() !== undefined && $root.albaBackendLoading() === false -->
+                    <i data-i18n="[html]alba:wizards.link_backend.no_backends"
+                       data-bind="visible: data.albaBackends().length === 0"
+                       style="display: inline-block; margin-top: 7px;"></i>
+                    <span data-bind="visible: data.albaBackend() !== undefined && data.albaBackends().length > 0,
                                      dropdown: {
                                          key: 'guid', keyisfunction: false,
                                          items: data.albaBackends, target: data.albaBackend,
@@ -70,14 +71,14 @@ but WITHOUT ANY WARRANTY of any kind.
                                          }
                                      }">
                     </span>
+                    <button class="btn btn-default"  style="margin-left: 10px;"
+                            data-bind="click: loadAlbaBackends, style: {
+                                           'margin-top': (data.albaBackends() !== undefined && data.albaBackends().length > 0 ? '-26px' : '')
+                                       }, enable: !albaBackendLoading()">
+                        <span class="fa fa-" data-bind="css: { 'fa-spin': albaBackendLoading() }" data-i18n="[html]ovs:icons.load"></span>
+                        <span style="padding-left: 8px;" data-i18n="ovs:generic.reload"></span>
+                    </button>
                 <!-- /ko -->
-                <button class="btn btn-default"  style="margin-left: 10px;"
-                        data-bind="click: loadAlbaBackends, style: {
-                                       'margin-top': (data.albaBackends() !== undefined && data.albaBackends().length > 0 ? '-26px' : '')
-                                   }, enable: !albaBackendLoading()">
-                    <span class="fa fa-" data-bind="css: { 'fa-spin': albaBackendLoading() }" data-i18n="[html]ovs:icons.load"></span>
-                    <span style="padding-left: 8px;" data-i18n="ovs:generic.reload"></span>
-                </button>
             </div>
         </div>
         <div class="form-group" data-bind="visible: data.albaBackend() !== undefined, css: { 'has-error': canContinue().fields.contains('preset') }">

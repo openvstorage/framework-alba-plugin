@@ -27,20 +27,16 @@ define([
         self.data = data;
 
         // Setup
-        self.title(generic.tryGet(options, 'title', $.t('alba:wizards.link_backend.title')));
+        self.title(generic.tryGet(options, 'title', $.t('alba:wizards.unlink_backend.title')));
         self.modal(generic.tryGet(options, 'modal', false));
         self.data.target(generic.tryGet(options, 'target'));
+        self.data.linkedOSDInfo(generic.tryGet(options, 'linkedOSDInfo'));
         self.steps([new Gather()]);
         self.activateStep();
 
         // Cleaning data
-        data.albaBackend(undefined);
-        data.albaBackends([]);
-        data.albaPreset(undefined);
-        data.clientId('');
-        data.clientSecret('');
-        data.host('');
-        data.localHost(true);
-        data.port(80);
+        data.confirmed(false);
+        data.loaded(false);
+        data.safety({});
     };
 });

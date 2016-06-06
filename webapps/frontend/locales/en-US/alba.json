@@ -1,95 +1,90 @@
 {
-    "license": [
-        "  Copyright 2016 iNuron NV",
-        " This file is part of Open vStorage Open Source Edition (OSE),",
-        " as available from",
-        "",
-        "     http://www.openvstorage.org and",
-        "     http://www.openvstorage.com.",
-        "",
-        " This file is free software; you can redistribute it and/or modify it",
-        " under the terms of the GNU Affero General Public License v3 (GNU AGPLv3)",
-        " as published by the Free Software Foundation, in version 3 as it comes",
-        " in the LICENSE.txt file of the Open vStorage OSE distribution.",
-        "",
-        " Open vStorage is distributed in the hope that it will be useful,",
-        " but WITHOUT ANY WARRANTY of any kind."
-    ],
-    "alba_backend_scalings": {
-        "LOCAL": "Local Backend",
-        "GLOBAL": "Global Backend"
-    },
     "generic": {
-        "actions": "Available actions:",
-        "add": "Add",
         "addpolicy": "Add policy",
         "addpreset": "Add preset",
         "asdid": "ASD ID",
+        "asdlegend": "ASD legend:",
         "asdsremaining": "There are still ASDs in use",
         "backends": "Backends",
-        "bay": "Bay",
-        "capacity": "Capacity",
-        "chassis": "Chassis",
         "claim": "Claim",
         "claimall": "Claim all available disks",
-        "connection": "Connection",
-        "degc": "&deg;C",
+        "compressions": {
+            "bz2": "BZip2",
+            "none": "No compression",
+            "snappy": "Snappy"
+        },
         "deletebackend": "Delete this backend",
         "details": "Details",
-        "devices": "Devices",
+        "disklegend": "Disk legend:",
         "disksloading": "Disks are being loaded...",
-        "failurezone": "Failure zone",
-        "firmware": "Firmware",
-        "freespace": "Free",
+        "encryptions": {
+            "aes-cbc-256": "aes-cbc-256",
+            "none": "No encryption"
+        },
         "getss": "Gets/s",
-        "id": "Chassis ID",
+        "health": "Health",
         "initialize": "Initialize",
         "initializeall": "Initialize all uninitialized disks",
-        "interface": "Interface",
-        "inuse": "*",
         "inuselegend": "In use by other backends:",
-        "ipaddress": "IP",
-        "ips": "IP",
-        "disklegend": "Disk legend:",
-        "asdlegend": "ASD legend:",
-        "macaddress": "MAC",
-        "model": "Model",
         "mountpoint": "Mtpt",
-        "nics": "NICs",
         "node": "Node / Storage Router",
         "nodeid": "Node ID",
         "nodes": "ASD Nodes",
         "nodisks": "No disks available",
-        "nolicense": "Open vStorage Backend is unlicensed. It will be impossible to claim disks which will cause the backend to be unavailable. Please request a Community License to start using this backend.",
-        "nrofdevices": "# Devices",
-        "nrofdisks": "# Disks",
         "osds": "ASDs",
-        "policies": "Policies",
-        "port": "Port",
         "presets": "Presets",
         "putss": "Puts/s",
         "refresh": "Refresh",
         "register": "Add node",
         "remove": "Remove",
         "restart": "Restart",
-        "safety": "Safety",
         "scaling": "Scaling",
-        "serial": "Serial",
-        "statusdetail": "Status detail",
-        "statistics": "Statistics",
-        "temperaturecpu": "Temperature (CPU)",
-        "totalgets": "Total gets",
-        "totalputs": "Total puts",
-        "unclaim": "Unclaim",
-        "unclaimeddevices": "Unclaimed Kinetic devices",
-        "unknown": "Unknown/external",
-        "utilizationcpu": "Utilization (CPU)",
-        "warnings": "Warnings",
-        "wayreplication": "-way replication:",
         "scalings": {
             "local": "Local",
             "global": "Global"
         },
+        "states": {
+            "disk": {
+                "error": "Faulted",
+                "initialized": "Good",
+                "uninitialized": "Uninitialized",
+                "warning": "Warning"
+            },
+            "diskinfo": {
+                "error": "This block device is in error state. Action is required",
+                "initialized": "This block device is in use and ready for usage",
+                "uninitialized": "This is a raw block device that's not yet in use",
+                "warning": "This block device is in warning state. Action may be needed"
+            },
+            "osd": {
+                "available": "Available",
+                "claimed": "Good",
+                "error": "Faulted",
+                "initialized": "Unavailable",
+                "unavailable": "Unavailable",
+                "warning": "Warning"
+            },
+            "osdinfo": {
+                "global": {
+                    "claimed": "All ASDs linked to this Backend are fully functional",
+                    "error": "1 or more ASDs linked to this Backend is in error state. Action is required",
+                    "warning": "1 or more ASDs linked to this Backend is in warning state. Action may be needed"
+                },
+                "local": {
+                    "available": "This ASD is ready to be claimed/in use by the backend",
+                    "claimed": "This ASD is in use by this backend",
+                    "error": "This ASD is in error state. Action is required",
+                    "unavailable": "This ASD is claimed/in use by another backend",
+                    "warning": "This ASD is in warning state. Action may be needed"
+                }
+            }
+        },
+        "stats": {
+            "freespace": "Free space",
+            "overhead": "Internal metadata",
+            "unknown": "Unknown sources"
+        },
+        "statusdetail": "Status detail",
         "statusdetails": {
             "missing": "Disk is missing",
             "ioerror": "I/O errors",
@@ -101,113 +96,38 @@
             "notmounted": "Disk is not mounted",
             "unknown": "Unknown"
         },
-        "stats": {
-            "freespace": "Free space",
-            "overhead": "Internal metadata",
-            "unknown": "Unknown sources"
-        },
-        "states": {
-            "osd": {
-                "initialized": "Unavailable",
-                "available": "Available",
-                "unavailable": "Unavailable",
-                "error": "Faulted",
-                "warning": "Warning",
-                "claimed": "Good"
-            },
-            "osdinfo": {
-                "available": "This ASD is ready to be claimed/in use by the backend",
-                "unavailable": "This ASD is claimed/in use by another backend",
-                "error": "This ASD is in error state. Action is required",
-                "warning": "This ASD is in warning state. Action may be needed",
-                "claimed": "This ASD is in use by this backend"
-            },
-            "disk": {
-                "uninitialized": "Uninitialized",
-                "initialized": "Good",
-                "error": "Faulted",
-                "warning": "Warning"
-            },
-            "diskinfo": {
-                "uninitialized": "This is a raw block device that's not yet in use",
-                "initialized": "This block device is in use and ready for usage",
-                "error": "This block device is in error state. Action is required",
-                "warning": "This block device is in warning state. Action may be needed"
-            }
-        },
-        "compressions": {
-            "snappy": "Snappy",
-            "bz2": "BZip2",
-            "none": "No compression"
-        },
-        "encryptions": {
-            "aes-cbc-256": "aes-cbc-256",
-            "none": "No encryption"
-        }
-    },
-    "licensing": {
-        "component": "Open vStorage Backend",
-        "metadata": {
-            "namespaces": "Namespaces",
-            "nodes": "Nodes",
-            "osds": "ASDs"
-        }
-    },
-    "detail": {
-        "link_backend": "Link Backend",
-        "title": "Open vStorage Backend",
-        "delete": {
-            "warning": "You are about to delete this Backend, are you sure?",
-            "started": "Deleting",
-            "msgstarted": "The backend is being deleted",
-            "complete": "Deleted",
-            "success": "The backend is deleted",
-            "failed": "The backend could not be deleted: __why__"
-        }
+        "statistics": "Statistics",
+        "unknown": "Unknown/external",
+        "wayreplication": "-way replication:"
     },
     "dashboard": {
         "title": "Open vStorage Global Backends",
         "helptitle": "Help - OVS Global Backends",
         "helpcontent": "This panel displays the state of the Open vStorage Global Backends. It shows how many ASDs are in use by the backend, grouped by their state."
     },
-    "nodes": {
-        "nodes": "ASD nodes",
-        "register": "Claim node"
-    },
-    "presets": {
+    "detail": {
+        "actions": "Actions",
+        "health": "Health",
+        "link_backend": "Link Backend",
         "name": "Name",
-        "cantdelete": "The preset is in use or is default",
-        "compression": "Compression",
-        "editpreset": "Edit preset",
-        "encryption": "Encryption",
-        "legend": "Preset/policy legend:",
-        "inuse": "In use",
-        "available": "Available",
-        "unavailable": "Unavailable",
-        "policyinfo": "Policies displayed in bold will be used when writing new data",
-        "policies": {
-            "title": "Policies",
-            "helptitle": "Policies - Help",
-            "helpcontent": "Each available policy (e.g. (5, 4, 8, 3)) consists out of 4 numbers:<ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 4)</li><li><b>c</b>: The minimum numbers of fragments to write (e.g. 8)</li><li><b>x</b>: The maximum number of fragments per storage node (e.g. 3)</li></ul>For example, (5, 4, 8, 3) means each object will be split in 9 fragments (5 data and 4 parity) which will be stored across all available disks. The object can be written as soon as 8 fragments can be written. However, no more than 3 fragments will end up within a single storage node. In case this policy can not be met, the policy will be unavailable. If no policies are available, the backend can not be used.",
-            "shorthelpcontent": "Parameter information: <ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 4)</li><li><b>c</b>: The minimum numbers of fragments to write (e.g. 8)</li><li><b>x</b>: The maximum number of fragments per storage node (e.g. 3)</li><li>Requirements: k <= c <= (k + m)</li></ul>"
-        },
+        "preset": "Preset",
+        "scaling": "Scaling",
+        "status": "Status",
+        "title": "Open vStorage Backend",
+        "used": "Used",
         "delete": {
-            "warning": "Are you sure you want to delete preset \"__what__\"?",
-            "started": "Deleting",
-            "msgstarted": "The preset is being deleted",
             "complete": "Deleted",
-            "success": "The preset was deleted",
-            "failed": "Could not delete this preset: __why__"
+            "failed": "The backend could not be deleted: __why__",
+            "msgstarted": "The backend is being deleted",
+            "started": "Deleting",
+            "success": "The backend is deleted",
+            "warning": "You are about to delete this Backend, are you sure?"
+        },
+        "errors": {
+            "backend_deleted": "This Backend has been deleted",
+            "not_allowed": "The credentials stored in this ALBA Backend's metadata are not allowed to retrieve this information",
+            "unknown": "Something went wrong retrieving information about this Backend"
         }
-    },
-    "packages": {
-        "alba": "OpenvStorage Backend",
-        "arakoon": "Arakoon",
-        "openvstorage-backend": "OpenvStorage Backend",
-        "openvstorage-sdm": "Storage Device Manager"
-    },
-    "downtime": {
-        "backend": "Backend"
     },
     "disks" : {
         "initialize": {
@@ -255,6 +175,9 @@
             "failed": "Failed claiming ASD(s): __why__"
         }
     },
+    "downtime": {
+        "backend": "Backend"
+    },
     "icons": {
         "devices": "&#xf0a0;",
         "nics": "&#xf0ec;",
@@ -270,6 +193,34 @@
         "presets": "&#xf126;",
         "up": "&#xf077;",
         "down": "&#xf078;"
+    },
+    "presets": {
+        "available": "Available",
+        "cantdelete": "The preset is in use or is default",
+        "compression": "Compression",
+        "delete": {
+            "complete": "Deleted",
+            "failed": "Could not delete this preset: __why__",
+            "msgstarted": "The preset is being deleted",
+            "started": "Deleting",
+            "success": "The preset was deleted",
+            "warning": "Are you sure you want to delete preset \"__what__\"?"
+        },
+        "editpreset": "Edit preset",
+        "encryption": "Encryption",
+        "inuse": "In use",
+        "legend": "Preset/policy legend:",
+        "name": "Name",
+        "policies": {
+            "helpcontent_backend": "Each available policy (e.g. (5, 4, 8, 3)) consists out of 4 numbers:<ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 4)</li><li><b>c</b>: The minimum numbers of fragments to write (e.g. 8)</li><li><b>x</b>: The maximum number of fragments per backend (e.g. 3)</li></ul>For example, (5, 4, 8, 3) means each object will be split in 9 fragments (5 data and 4 parity) which will be stored across all available disks. The object can be written as soon as 8 fragments can be written. However, no more than 3 fragments will end up within a single storage node. In case this policy can not be met, the policy will be unavailable. If no policies are available, the backend can not be used.",
+            "helpcontent_storage": "Each available policy (e.g. (5, 4, 8, 3)) consists out of 4 numbers:<ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 4)</li><li><b>c</b>: The minimum numbers of fragments to write (e.g. 8)</li><li><b>x</b>: The maximum number of fragments per storage node (e.g. 3)</li></ul>For example, (5, 4, 8, 3) means each object will be split in 9 fragments (5 data and 4 parity) which will be stored across all available disks. The object can be written as soon as 8 fragments can be written. However, no more than 3 fragments will end up within a single storage node. In case this policy can not be met, the policy will be unavailable. If no policies are available, the backend can not be used.",
+            "helptitle": "Policies - Help",
+            "shorthelpcontent_backend": "Parameter information: <ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 4)</li><li><b>c</b>: The minimum number of fragments to write (e.g. 8)</li><li><b>x</b>: The maximum number of fragments per backend (e.g. 3)</li><li>Requirements: k <= c <= (k + m)</li></ul>",
+            "shorthelpcontent_storage": "Parameter information: <ul><li><b>k</b>: The amount of data fragments (e.g. 5)</li><li><b>m</b>: The amount of parity fragments (e.g. 4)</li><li><b>c</b>: The minimum number of fragments to write (e.g. 8)</li><li><b>x</b>: The maximum number of fragments per storage node (e.g. 3)</li><li>Requirements: k <= c <= (k + m)</li></ul>",
+            "title": "Policies"
+        },
+        "policyinfo": "Policies displayed in bold will be used when writing new data",
+        "unavailable": "Unavailable"
     },
     "wizards": {
         "addalbanode": {
@@ -334,6 +285,13 @@
                 "failed": "Error during preset update: __why__"
             }
         },
+        "initializedisk": {
+            "title": "Initialize Disk(s)",
+            "gather": {
+                "basicinfo": "Enter the amount of ASDs that need to be deployed on this/these disks). <b>This number cannot be changed afterwards.</b>",
+                "amount": "Amount"
+            }
+        },
         "link_backend": {
             "alba_backend": "Backend:",
             "alba_preset": "Preset:",
@@ -374,12 +332,19 @@
                 "nodedownwarning": "Disk is being removed while node is down!"
             }
         },
-        "initializedisk": {
-            "title": "Initialize Disk(s)",
-            "gather": {
-                "basicinfo": "Enter the amount of ASDs that need to be deployed on this/these disks). <b>This number cannot be changed afterwards.</b>",
-                "amount": "Amount"
-            }
+        "unlink_backend": {
+            "accepttext": "I understand the risks, this Backend can be removed.",
+            "alert": "Attention:",
+            "basic_info": "Are you sure you want to remove ",
+            "calculating_safety": "Calculating safety...",
+            "critical": "The removal of this Backend brings data at risk. Loosing one more disk will cause data loss.",
+            "error_msg": "Failed to unlink Backends: __error__",
+            "lost": "The removal of this Backend will cause data loss.",
+            "started": "Started",
+            "started_msg": "Unlinking __backend_to_unlink__ from __global_backend__",
+            "success": "Success",
+            "success_msg": "Successfully unlinked __backend_to_unlink__ from __global_backend__",
+            "title": "Unlink Backend"
         }
     }
 }

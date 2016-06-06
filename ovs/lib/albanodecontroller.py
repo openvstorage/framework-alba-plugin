@@ -161,9 +161,9 @@ class AlbaNodeController(object):
         node_id = node.node_id
         asds = {}
         for backend in AlbaBackendList.get_albabackends():
-            storage_stack = backend.storage_stack['local']
-            if node_id in storage_stack and disk in storage_stack[node_id]:
-                asds.update(storage_stack[node_id][disk]['asds'])
+            local_stack = backend.local_stack
+            if node_id in local_stack and disk in local_stack[node_id]:
+                asds.update(local_stack[node_id][disk]['asds'])
         for asd_info in asds.values():
             if (offline_node is False and asd_info['status'] != 'available') or (offline_node is True and asd_info['status_detail'] == 'nodedown'):
                 AlbaNodeController._logger.error('Disk {0} has still non-available ASDs on node {1}'.format(disk, node.ip))

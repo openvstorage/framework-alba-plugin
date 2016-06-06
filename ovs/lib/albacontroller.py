@@ -932,7 +932,7 @@ class AlbaController(object):
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         error_disks = []
-        for disks in alba_backend.storage_stack['local'].values():
+        for disks in alba_backend.local_stack.values():
             for disk in disks.values():
                 for asd_id, asd in disk['asds'].iteritems():
                     if asd['status'] == 'error':
@@ -1329,12 +1329,33 @@ class AlbaController(object):
                                                                                 'linked_preset': (str, Toolbox.regex_preset),
                                                                                 'linked_alba_id': (str, Toolbox.regex_guid)})},
                                        actual_params=metadata)
+        alba_backend = AlbaBackend(alba_backend_guid)
         alba_osd = AlbaOSD()
         alba_osd.osd_id = metadata['backend_info']['linked_alba_id']
         alba_osd.osd_type = AlbaOSD.OSD_TYPES.ALBA_BACKEND
         alba_osd.metadata = metadata
-        alba_osd.alba_backend = AlbaBackend(alba_backend_guid)
+        alba_osd.alba_backend = alba_backend
         alba_osd.save()
+        alba_backend.invalidate_dynamics(['local_summary', 'remote_stack', 'linked_backend_guids'])
+
+    @staticmethod
+    @celery.task(name='alba.unlink_alba_backends')
+    def unlink_alba_backends(target_guid, linked_guid):
+        """
+        Unlink a LOCAL or GLOBAL ALBA Backend from a GLOBAL ALBA Backend
+        :param target_guid: Guid of the GLOBAL ALBA Backend from which a link will be removed
+        :type target_guid: str
+
+        :param linked_guid: Guid of the GLOBAL or LOCAL ALBA Backend which will be unlinked (Can be a local or a remote ALBA Backend)
+        :type linked_guid: str
+        """
+        alba_backend = AlbaBackend(target_guid)
+        for osd in alba_backend.osds:
+            if osd.metadata is not None and osd.metadata['backend_info']['linked_guid'] == linked_guid:
+                osd.delete()
+                break
+        alba_backend.save()
+        alba_backend.invalidate_dynamics(['local_summary', 'remote_stack', 'linked_backend_guids'])
 
 
 if __name__ == '__main__':

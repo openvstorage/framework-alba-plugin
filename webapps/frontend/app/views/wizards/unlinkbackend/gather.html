@@ -1,0 +1,51 @@
+<!--
+Copyright (C) 2016 iNuron NV
+
+This file is part of Open vStorage Open Source Edition (OSE),
+as available from
+
+      http://www.openvstorage.org and
+      http://www.openvstorage.com.
+
+This file is free software; you can redistribute it and/or modify it
+under the terms of the GNU Affero General Public License v3 (GNU AGPLv3)
+as published by the Free Software Foundation, in version 3 as it comes
+in the LICENSE.txt file of the Open vStorage OSE distribution.
+
+Open vStorage is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY of any kind.
+-->
+<div>
+    <form class="form-horizontal">
+        <p>
+            <span data-i18n="alba:wizards.unlink_backend.basic_info"></span>
+            <span data-bind="text: data.linkedOSDInfo().scaling"></span>
+            <span data-bind="text: data.linkedOSDInfo().name"></span>?
+        </p>
+        <div data-bind="visible: data.shouldConfirm,
+                        css: {
+                            'alert-warning': data.safety().critical !== undefined && data.safety().critical > 0 && data.safety().lost === 0,
+                            'alert-danger': data.safety().lost !== undefined && data.safety().lost > 0
+                        }" class="alert" style="margin-top: 20px;">
+            <span data-i18n="alba:wizards.unlink_backend.alert"></span>
+            <ul>
+                <li data-bind="visible: data.safety().critical !== undefined && data.safety().critical > 0">
+                    <span data-i18n="alba:wizards.unlink_backend.critical"></span>
+                </li>
+                <li data-bind="visible: data.safety().lost !== undefined && data.safety().lost > 0">
+                    <span data-i18n="alba:wizards.unlink_backend.lost"></span>
+                </li>
+            </ul>
+        </div>
+        <div data-bind="visible: !data.loaded()" class="alert alert-info" style="margin-top: 20px;">
+            <span class="fa fa-spin" style="margin-right: 10px;" data-i18n="[html]ovs:icons.loading"></span>
+            <span data-i18n="alba:wizards.unlink_backend.calculating_safety"></span>
+        </div>
+        <div class="form-group" data-bind="visible: data.shouldConfirm" style="margin-bottom: -10px;">
+            <div class="col-lg-7">
+                <input type="checkbox" id="accept" style="margin-top: 9px; margin-left: 15px;" data-bind="checked: data.confirmed">
+                <label for="accept" class="help-block" data-i18n="alba:wizards.unlink_backend.accepttext" style="padding-left: 10px; display: inline-block;"></label>
+            </div>
+        </div>
+    </form>
+</div>

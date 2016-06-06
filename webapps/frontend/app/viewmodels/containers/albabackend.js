@@ -39,15 +39,15 @@ define([
         self.backendGuid         = ko.observable();
         self.color               = ko.observable();
         self.guid                = ko.observable(guid);
-        self.linkedBackendGuids  = ko.observableArray([]);
+        self.linkedBackendGuids  = ko.observableArray();
         self.loaded              = ko.observable(false);
         self.loading             = ko.observable(false);
+        self.localSummary        = ko.observable();
         self.metadataInformation = ko.observable();
         self.name                = ko.observable();
         self.presets             = ko.observableArray([]);
         self.readIOps            = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
         self.scaling             = ko.observable();
-        self.successfullyLoaded  = ko.observable(true);
         self.totalSize           = ko.observable();
         self.usage               = ko.observable([]);
         self.writeIOps           = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
@@ -129,6 +129,7 @@ define([
             self.albaId(data.alba_id);
             self.scaling(data.scaling);
             generic.trySet(self.presets, data, 'presets');
+            generic.trySet(self.localSummary, data, 'local_summary');
             if (self.backendGuid() !== data.backend_guid) {
                 self.backendGuid(data.backend_guid);
                 self.backend(new Backend(data.backend_guid));
@@ -181,10 +182,10 @@ define([
                 } else {
                     self.usage([]);
                 }
-                self.rawData = data;
-                self.loaded(true);
-                self.loading(false);
             }
+            self.rawData = data;
+            self.loaded(true);
+            self.loading(false);
         };
         self.load = function(loadDynamics) {
             if (loadDynamics === undefined) {
@@ -195,12 +196,10 @@ define([
                 if (generic.xhrCompleted(self.loadHandle)) {
                     self.loadHandle = api.get('alba/backends/' + self.guid(), { queryparams: { contents: (loadDynamics ? '_dynamics,' : '') + '_relations' } })
                         .done(function(data) {
-                            self.successfullyLoaded(true);
                             self.fillData(data);
                             deferred.resolve();
                         })
                         .fail(function() {
-                            self.successfullyLoaded(false);
                             deferred.reject();
                         })
                         .always(function() {

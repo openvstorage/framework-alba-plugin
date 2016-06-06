@@ -19,11 +19,11 @@ define([
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/albabackend', '../containers/albadisk', '../containers/albanode', '../containers/backend',
     '../containers/backendtype', '../containers/domain', '../containers/storagerouter', '../containers/vpool',
-    '../wizards/addpreset/index', '../wizards/linkbackend/index'
+    '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index'
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
             AlbaBackend, Disk, Node, Backend, BackendType, Domain, StorageRouter, VPool,
-            AddPresetWizard, LinkBackendWizard) {
+            AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -37,7 +37,6 @@ define([
         self.widgets            = [];
         self.nodesHandle        = {};
         self.storageRouterCache = {};
-        self.initialRun         = true;
         self.loadDomainsHandle  = undefined;
 
         // Observables
@@ -48,6 +47,9 @@ define([
         self.discoveredNodes        = ko.observableArray([]);
         self.disks                  = ko.observableArray([]);
         self.dNodesLoading          = ko.observable(false);
+        self.initialRun             = ko.observable(true);
+        self.localSummary           = ko.observable();
+        self.remoteStack            = ko.observableArray([]);
         self.otherAlbaBackendsCache = ko.observable({});
         self.registeredNodes        = ko.observableArray([]);
         self.registeredNodesNodeIDs = ko.observableArray([]);
@@ -99,53 +101,30 @@ define([
             });
             return albaBackends;
         });
-        self.ASDStates = ko.computed(function() {
-            var states = {
-                claimed: 0,
-                warning: 0,
-                failure: 0
-            };
-            if (self.albaBackend() !== undefined) {
-                $.each(self.registeredNodes(), function (index, node) {
-                    $.each(node.disks(), function (jndex, disk) {
-                        $.each(disk.osds(), function(kndex, asd) {
-                            if (asd.albaBackendGuid() === self.albaBackend().guid()) {
-                                if (asd.status() === 'claimed') {
-                                    states.claimed += 1;
-                                }
-                                if (asd.status() === 'error') {
-                                    states.failure += 1;
-                                }
-                                if (asd.status() === 'warning') {
-                                    states.warning += 1;
-                                }
-                            }
-                        });
-                    });
-                });
-            }
-            return states;
-        });
         self.showDetails = ko.computed(function() {
             return self.albaBackend() !== undefined && self.backend() !== undefined;
         });
         self.showActions = ko.computed(function() {
             return self.showDetails() && !['installing', 'new'].contains(self.backend().status());
         });
+        self.albaBackendStatus = ko.computed(function() {
+            var status = 'green';
+            $.each(self.remoteStack(), function(_, remoteStack) {
+                if (remoteStack.error === 'unknown') {
+                    status = 'red';
+                    return false;
+                } else if (remoteStack.error === 'not_allowed') {
+                    status = 'orange';
+                    return true;
+                }
+            });
+            return status;
+        });
 
         // Functions
         self.refresh = function() {
             self.dNodesLoading(true);
             self.fetchNodes(true);
-        };
-        self.linkBackend = function() {
-            if (self.albaBackend().successfullyLoaded() === false) {
-                return;
-            }
-            dialog.show(new LinkBackendWizard (
-                { modal: true,
-                  albaBackend: self.albaBackend() }
-            ));
         };
         self.load = function() {
             return $.Deferred(function (deferred) {
@@ -163,7 +142,7 @@ define([
                                 albaBackend.vPools = self.vPools;
                                 self.albaBackend(albaBackend);
                             }
-                            return self.albaBackend().load(!self.initialRun)
+                            return self.albaBackend().load(!self.initialRun())
                                 .then(self.albaBackend().getAvailableActions);
                         }
                         deferred.reject();
@@ -203,7 +182,7 @@ define([
                                 }, 'guid'
                             );
                             $.each(self.vPools(), function (index, vpool) {
-                                if ($.inArray(vpool.guid(), guids) !== -1) {
+                                if (guids.contains(vpool.guid())) {
                                     vpool.fillData(vpdata[vpool.guid()]);
                                 }
                             });
@@ -249,7 +228,7 @@ define([
                                     }, 'nodeID'
                                 );
                                 $.each(oArray(), function (index, node) {
-                                    if ($.inArray(node.nodeID(), nodeIDs) !== -1) {
+                                    if (nodeIDs.contains(node.nodeID())) {
                                         node.fillData(nodes[node.nodeID()]);
                                         var sr, storageRouterGuid = node.storageRouterGuid();
                                         if (storageRouterGuid && (node.storageRouter() === undefined || node.storageRouter().guid() !== storageRouterGuid)) {
@@ -278,14 +257,30 @@ define([
                 }
             }).promise();
         };
-        self.loadOSDs = function() {
+        self.loadBackendOSDs = function() {
             var data = self.albaBackend().rawData;
-            if (data === undefined || !data.hasOwnProperty('storage_stack')) {
+            if (data === undefined || !data.hasOwnProperty('remote_stack') || !data.hasOwnProperty('local_summary')) {
                 return;
             }
-            var diskNames = [], disks = {}, changes = data.storage_stack.local.length !== self.disks().length,
+            self.localSummary(data.local_summary);
+            var remoteStacks = [];
+            $.each(data.remote_stack, function(key, value) {
+                value.alba_backend_guid = key;
+                remoteStacks.push(value);
+            });
+            self.remoteStack(remoteStacks);
+            self.remoteStack.sort(function(stack1, stack2) {
+                return stack1.name < stack2.name ? -1 : 1;
+            });
+        };
+        self.loadASDOSDs = function() {
+            var data = self.albaBackend().rawData;
+            if (data === undefined || !data.hasOwnProperty('local_stack')) {
+                return;
+            }
+            var diskNames = [], disks = {}, changes = data.local_stack.length !== self.disks().length,
                 diskNode = {}, nodeDisks = {};
-            $.each(data.storage_stack.local, function (nodeId, disksData) {
+            $.each(data.local_stack, function (nodeId, disksData) {
                 $.each(disksData, function(index, disk) {
                     diskNames.push(disk.name);
                     disks[disk.name] = disk;
@@ -299,7 +294,7 @@ define([
                 }, 'name'
             );
             $.each(self.disks(), function (index, disk) {
-                if ($.inArray(disk.name(), diskNames) !== -1) {
+                if (diskNames.contains(disk.name())) {
                     disk.fillData(disks[disk.name()]);
                 }
                 var nodeId = diskNode[disk.name()];
@@ -321,7 +316,7 @@ define([
                     node.disks.sort(function (a, b) {
                         return a.name() < b.name() ? -1 : 1;
                     });
-                    node.disksLoading(self.initialRun);
+                    node.disksLoading(self.initialRun());
                     $.each(node.disks(), function(index, disk) {
                         disk.node = node;
                         $.each(disk.osds(), function(_, asd) {
@@ -460,6 +455,22 @@ define([
                 editPreset: true
             }));
         };
+        self.linkBackend = function() {
+            if (self.albaBackend().linkedBackendGuids() === undefined || self.albaBackend().linkedBackendGuids() === null) {
+                return;
+            }
+            dialog.show(new LinkBackendWizard (
+                { modal: true,
+                  target: self.albaBackend() }
+            ));
+        };
+        self.unlinkBackend = function(info) {
+            dialog.show(new UnlinkBackendWizard (
+                { modal: true,
+                  target: self.albaBackend(),
+                  linkedOSDInfo: info }
+            ));
+        };
 
         // Durandal
         self.activate = function(mode, guid) {
@@ -469,10 +480,11 @@ define([
                 self.loadDomains();
                 return self.load()
                     .then(self.fetchNodes)
-                    .then(self.loadOSDs)
+                    .then(self.loadASDOSDs)
+                    .then(self.loadBackendOSDs)
                     .then(function() {
-                        if (self.initialRun === true) {
-                            self.initialRun = false;
+                        if (self.initialRun() === true) {
+                            self.initialRun(false);
                             self.refresher.skipPause = true;
                         }
                     })
