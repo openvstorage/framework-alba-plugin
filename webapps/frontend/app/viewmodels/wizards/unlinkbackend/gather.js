@@ -39,8 +39,10 @@ define([
             return $.Deferred(function(deferred) {
                 generic.alertInfo(
                     $.t('alba:wizards.unlink_backend.started'),
-                    $.t('alba:wizards.unlink_backend.started_msg', {global_backend: self.data.target().name(),
-                                                                    backend_to_unlink: self.data.linkedOSDInfo().name})
+                    $.t('alba:wizards.unlink_backend.started_msg', {
+                        global_backend: self.data.target().name(),
+                        backend_to_unlink: self.data.linkedOSDInfo().name
+                    })
                 );
                 deferred.resolve();
                 api.post('alba/backends/' + self.data.target().guid() + '/unlink_alba_backends', {data: {linked_guid: self.data.linkedOSDInfo().alba_backend_guid}})
@@ -48,8 +50,10 @@ define([
                     .done(function() {
                         generic.alertSuccess(
                             $.t('alba:wizards.unlink_backend.success'),
-                            $.t('alba:wizards.unlink_backend.success_msg', {global_backend: self.data.target().name(),
-                                                                            backend_to_unlink: self.data.linkedOSDInfo().name})
+                            $.t('alba:wizards.unlink_backend.success_msg', {
+                                global_backend: self.data.target().name(),
+                                backend_to_unlink: self.data.linkedOSDInfo().name
+                            })
                         );
                     })
                     .fail(function(error) {

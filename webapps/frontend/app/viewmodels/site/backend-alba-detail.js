@@ -460,15 +460,19 @@ define([
                 return;
             }
             dialog.show(new LinkBackendWizard (
-                { modal: true,
-                  target: self.albaBackend() }
+                {
+                    modal: true,
+                    target: self.albaBackend()
+                }
             ));
         };
         self.unlinkBackend = function(info) {
             dialog.show(new UnlinkBackendWizard (
-                { modal: true,
-                  target: self.albaBackend(),
-                  linkedOSDInfo: info }
+                { 
+                    modal: true,
+                    target: self.albaBackend(),
+                    linkedOSDInfo: info
+                }
             ));
         };
 

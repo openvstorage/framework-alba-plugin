@@ -89,8 +89,10 @@ define([
                 };
                 generic.alertInfo(
                     $.t('alba:wizards.link_backend.started'),
-                    $.t('alba:wizards.link_backend.started_msg', {global_backend: self.data.target().name(),
-                                                                  backend_to_link: self.data.albaBackend().name()})
+                    $.t('alba:wizards.link_backend.started_msg', {
+                        global_backend: self.data.target().name(),
+                        backend_to_link: self.data.albaBackend().name()
+                    })
                 );
                 deferred.resolve();
                 api.post('alba/backends/' + self.data.target().guid() + '/link_alba_backends', {data: {metadata: postData}})
@@ -98,8 +100,10 @@ define([
                     .done(function() {
                         generic.alertSuccess(
                             $.t('alba:wizards.link_backend.success'),
-                            $.t('alba:wizards.link_backend.success_msg', {global_backend: self.data.target().name(),
-                                                                          backend_to_link: self.data.albaBackend().name()})
+                            $.t('alba:wizards.link_backend.success_msg', {
+                                global_backend: self.data.target().name(),
+                                backend_to_link: self.data.albaBackend().name()
+                            })
                         );
                     })
                     .fail(function(error) {

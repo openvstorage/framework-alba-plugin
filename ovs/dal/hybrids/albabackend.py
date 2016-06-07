@@ -19,7 +19,7 @@ AlbaBackend module
 """
 import time
 import requests
-import threading
+from threading import Lock, Thread
 from ovs.dal.dataobject import DataObject
 from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.backend import Backend
@@ -142,7 +142,7 @@ class AlbaBackend(DataObject):
                         _node_data[_disk_id]['asds'][_asd_id].update(entry)
         threads = []
         for node in alba_nodes:
-            thread = threading.Thread(target=_load_live_info, args=(node, storage_map[node.node_id]))
+            thread = Thread(target=_load_live_info, args=(node, storage_map[node.node_id]))
             thread.start()
             threads.append(thread)
         for thread in threads:
@@ -425,19 +425,21 @@ class AlbaBackend(DataObject):
                                port=_connection_info['port'],
                                credentials=(_connection_info['username'], _connection_info['password']),
                                version=3)
-            with lock:
-                try:
-                    guids.update(client.get('/alba/backends/{0}/'.format(_alba_backend_guid))['linked_backend_guids'])
-                except NotFoundException:
-                    pass  # ALBA Backend has been deleted, we don't care we can't find the linked guids
-                except ForbiddenException as fe:
-                    AlbaBackend._logger.exception('Collecting remote ALBA backend information failed due to permission issues. {0}'.format(fe))
-                    _exceptions.append('not_allowed')
-                except Exception as ex:
-                    AlbaBackend._logger.exception('Collecting remote ALBA backend information failed with error: {0}'.format(ex))
-                    _exceptions.append('unknown')
 
-        lock = threading.Lock()
+            try:
+                new_guids = client.get('/alba/backends/{0}/'.format(_alba_backend_guid))['linked_backend_guids']
+                with lock:
+                    guids.update(new_guids)
+            except NotFoundException:
+                pass  # ALBA Backend has been deleted, we don't care we can't find the linked guids
+            except ForbiddenException as fe:
+                AlbaBackend._logger.exception('Collecting remote ALBA backend information failed due to permission issues. {0}'.format(fe))
+                _exceptions.append('not_allowed')
+            except Exception as ex:
+                AlbaBackend._logger.exception('Collecting remote ALBA backend information failed with error: {0}'.format(ex))
+                _exceptions.append('unknown')
+
+        lock = Lock()
         guids = {self.guid}
         threads = []
         exceptions = []
@@ -451,7 +453,7 @@ class AlbaBackend(DataObject):
                     except ObjectNotFoundException:
                         pass
                 else:
-                    thread = threading.Thread(target=_load_backend_info, args=(connection_info, alba_backend_guid, exceptions))
+                    thread = Thread(target=_load_backend_info, args=(connection_info, alba_backend_guid, exceptions))
                     thread.start()
                     threads.append(thread)
         for thread in threads:
@@ -476,20 +478,20 @@ class AlbaBackend(DataObject):
                                credentials=(_connection_info['username'], _connection_info['password']),
                                version=3)
 
-            with lock:
-                try:
-                    info = client.get('/alba/backends/{0}/'.format(_alba_backend_guid))
+            try:
+                info = client.get('/alba/backends/{0}/'.format(_alba_backend_guid))
+                with lock:
                     return_value[_alba_backend_guid].update(info['local_summary'])
-                except NotFoundException:
-                    return_value[_alba_backend_guid]['error'] = 'backend_deleted'
-                except ForbiddenException:
-                    return_value[_alba_backend_guid]['error'] = 'not_allowed'
-                except Exception as ex:
-                    return_value[_alba_backend_guid]['error'] = 'unknown'
-                    AlbaBackend._logger.exception('Collecting remote ALBA backend information failed with error: {0}'.format(ex))
+            except NotFoundException:
+                return_value[_alba_backend_guid]['error'] = 'backend_deleted'
+            except ForbiddenException:
+                return_value[_alba_backend_guid]['error'] = 'not_allowed'
+            except Exception as ex:
+                return_value[_alba_backend_guid]['error'] = 'unknown'
+                AlbaBackend._logger.exception('Collecting remote ALBA backend information failed with error: {0}'.format(ex))
 
         # Retrieve local summaries of all related OSDs of type ALBA_BACKEND
-        lock = threading.Lock()
+        lock = Lock()
         threads = []
         return_value = {}
         for osd in self.osds:
@@ -508,7 +510,7 @@ class AlbaBackend(DataObject):
                     except ObjectNotFoundException:
                         return_value[alba_backend_guid]['error'] = 'backend_deleted'
                 else:
-                    thread = threading.Thread(target=_load_backend_info, args=(connection_info, alba_backend_guid))
+                    thread = Thread(target=_load_backend_info, args=(connection_info, alba_backend_guid))
                     thread.start()
                     threads.append(thread)
 
