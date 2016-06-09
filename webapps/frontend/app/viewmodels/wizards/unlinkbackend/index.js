@@ -31,7 +31,7 @@ define([
         self.modal(generic.tryGet(options, 'modal', false));
         self.data.target(generic.tryGet(options, 'target'));
         self.data.linkedOSDInfo(generic.tryGet(options, 'linkedOSDInfo'));
-        self.steps([new Gather()]);
+        self.steps([new Gather(self)]);
         self.activateStep();
 
         // Cleaning data

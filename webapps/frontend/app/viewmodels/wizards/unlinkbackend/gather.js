@@ -20,7 +20,7 @@ define([
     './data'
 ], function($, ko, api, shared, generic, Refresher, data) {
     "use strict";
-    return function() {
+    return function(parent) {
         var self = this;
 
         // Variables
@@ -84,9 +84,12 @@ define([
             }, 5000);
             self.refresher.run();
             self.refresher.start();
-        };
-        self.deactivate = function() {
-            self.refresher.stop();
+            parent.closing.always(function() {
+                self.refresher.stop();
+            });
+            parent.finishing.always(function() {
+                self.refresher.stop();
+            });
         };
     };
 });
