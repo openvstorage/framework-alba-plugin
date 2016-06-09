@@ -19,6 +19,7 @@ define(['knockout'], function(ko){
     var singleton = function() {
         var data = {
             confirmed:     ko.observable(false),
+            failedToLoad:  ko.observable(false),
             linkedOSDInfo: ko.observable(),
             loaded:        ko.observable(false),
             safety:        ko.observable({}),

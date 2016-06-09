@@ -36,6 +36,7 @@ define([
 
         // Cleaning data
         data.confirmed(false);
+        data.failedToLoad(false);
         data.loaded(false);
         data.safety({});
     };

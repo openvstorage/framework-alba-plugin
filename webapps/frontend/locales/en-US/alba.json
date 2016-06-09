@@ -339,6 +339,7 @@
             "calculating_safety": "Calculating safety...",
             "critical": "The removal of this Backend brings data at risk. Loosing one more disk will cause data loss.",
             "error_msg": "Failed to unlink Backends: __error__",
+            "failed_to_calculate_safety": "Failed to calculate the safety",
             "lost": "The removal of this Backend will cause data loss.",
             "started": "Started",
             "started_msg": "Unlinking __backend_to_unlink__ from __global_backend__",

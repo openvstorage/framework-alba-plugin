@@ -60,9 +60,9 @@ class AlbaScheduledTaskController(object):
         for albabackend in AlbaBackendList.get_albabackends():
             backend_name = albabackend.abm_services[0].service.name if albabackend.abm_services else albabackend.name + '-abm'
             config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(backend_name)
-            namespaces = AlbaCLI.run('list-namespaces', config=config, as_json=True)
+            namespaces = AlbaCLI.run(command='list-namespaces', config=config, extra_params=['--to-json'])
             for namespace in namespaces:
                 AlbaScheduledTaskController._logger.info('verifying namespace: {0} scheduled ...'.format(namespace['name']))
-                AlbaCLI.run('verify-namespace {0} --factor={1}'.format(namespace['name'], verification_factor))
+                AlbaCLI.run(command='verify-namespace', factor=verification_factor, extra_params=[namespace['name'], '{0}_{1}'.format(albabackend.name, namespace['name'])])
 
         AlbaScheduledTaskController._logger.info('verify namespace task scheduling finished')

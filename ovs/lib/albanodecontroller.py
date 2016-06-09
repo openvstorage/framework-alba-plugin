@@ -237,7 +237,7 @@ class AlbaNodeController(object):
             if result['_success'] is False:
                 raise RuntimeError('Error removing ASD: {0}'.format(result['_error']))
         else:
-            AlbaNodeController._logger.warning('Alba decommission osd {0} without safety validations (node down)'.format(asd_id))
+            AlbaNodeController._logger.warning('Alba purge osd {0} without safety validations (node down)'.format(asd_id))
         if EtcdConfiguration.exists(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True):
             EtcdConfiguration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(asd_id), raw=True)
 

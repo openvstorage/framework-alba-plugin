@@ -102,9 +102,6 @@ but WITHOUT ANY WARRANTY of any kind.
             </div>
         </div>
     </form>
-    <div class="alert alert-warning" data-bind="visible: !isPresetAvailable()" style="margin-top: 20px;">
-        <span data-i18n="alba:wizards.link_backend.alba_preset_unavailable"></span>
-    </div>
     <div class="alert alert-danger" data-bind="visible: !canContinue().value" style="margin-bottom: -10px;">
         <p data-bind="visible: canContinue().reasons.length === 0"><span data-i18n="ovs:generic.errorsfound"></span></p>
         <p data-bind="visible: canContinue().reasons.length > 0"><span data-i18n="ovs:generic.followingerrorsfound"></span></p>

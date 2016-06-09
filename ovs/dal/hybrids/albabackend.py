@@ -21,7 +21,6 @@ import time
 import requests
 from threading import Lock, Thread
 from ovs.dal.dataobject import DataObject
-from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.backend import Backend
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.vpoollist import VPoolList
@@ -162,7 +161,7 @@ class AlbaBackend(DataObject):
         else:
             interval = EtcdConfiguration.get('/ovs/alba/backends/global_gui_error_interval')
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
-        for found_osd in AlbaCLI.run('list-all-osds', config=config, as_json=True):
+        for found_osd in AlbaCLI.run(command='list-all-osds', config=config, extra_params=['--to-json']):
             node_id = found_osd['node_id']
             asd_id = found_osd['long_id']
             for _disk in storage_map.get(node_id, {}).values():
@@ -243,7 +242,7 @@ class AlbaBackend(DataObject):
             return []  # No ABM services yet, so backend not fully installed yet
 
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
-        return AlbaCLI.run('show-namespaces', config=config, extra_params=['--max=-1'], as_json=True)[1]
+        return AlbaCLI.run(command='show-namespaces', config=config, max=-1, extra_params=['--to-json'])[1]
 
     def _ns_statistics(self):
         """
@@ -306,14 +305,15 @@ class AlbaBackend(DataObject):
             return []  # No ABM services yet, so backend not fully installed yet
 
         asds = {}
-        for node in AlbaNodeList.get_albanodes():
-            asds[node.node_id] = 0
-            for disk in self.local_stack[node.node_id].values():
-                for asd_info in disk['asds'].values():
-                    if asd_info['status'] in ['claimed', 'warning']:
-                        asds[node.node_id] += 1
+        if self.scaling != AlbaBackend.SCALINGS.GLOBAL:
+            for node in AlbaNodeList.get_albanodes():
+                asds[node.node_id] = 0
+                for disk in self.local_stack[node.node_id].values():
+                    for asd_info in disk['asds'].values():
+                        if asd_info['status'] in ['claimed', 'warning']:
+                            asds[node.node_id] += 1
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
-        presets = AlbaCLI.run('list-presets', config=config, as_json=True)
+        presets = AlbaCLI.run(command='list-presets', config=config, extra_params=['--to-json'])
         preset_dict = {}
         for preset in presets:
             preset_dict[preset['name']] = preset
@@ -327,7 +327,11 @@ class AlbaBackend(DataObject):
             active_policy = None
             for policy in preset['policies']:
                 is_available = False
-                available_disks = sum(min(asds[node], policy[3]) for node in asds)
+                available_disks = 0
+                if self.scaling != AlbaBackend.SCALINGS.GLOBAL:
+                    available_disks += sum(min(asds[node], policy[3]) for node in asds)
+                if self.scaling != AlbaBackend.SCALINGS.LOCAL:
+                    available_disks += sum(self.local_summary['devices'].values())
                 if available_disks >= policy[2]:
                     if active_policy is None:
                         active_policy = policy
@@ -402,7 +406,7 @@ class AlbaBackend(DataObject):
 
         try:
             config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
-            raw_statistics = AlbaCLI.run('asd-multistatistics', long_id=','.join(asd_ids), config=config, as_json=True)
+            raw_statistics = AlbaCLI.run(command='asd-multistatistics', long_id=','.join(asd_ids), config=config, extra_params=['--to-json'])
         except RuntimeError:
             return statistics
         for asd_id, stats in raw_statistics.iteritems():
@@ -447,15 +451,9 @@ class AlbaBackend(DataObject):
             if osd.osd_type == AlbaOSD.OSD_TYPES.ALBA_BACKEND and osd.metadata is not None:
                 connection_info = osd.metadata['backend_connection_info']
                 alba_backend_guid = osd.metadata['backend_info']['linked_guid']
-                if connection_info['host'] == '':
-                    try:
-                        guids.update(AlbaBackend(alba_backend_guid).linked_backend_guids)
-                    except ObjectNotFoundException:
-                        pass
-                else:
-                    thread = Thread(target=_load_backend_info, args=(connection_info, alba_backend_guid, exceptions))
-                    thread.start()
-                    threads.append(thread)
+                thread = Thread(target=_load_backend_info, args=(connection_info, alba_backend_guid, exceptions))
+                thread.start()
+                threads.append(thread)
         for thread in threads:
             thread.join()
 
@@ -504,15 +502,9 @@ class AlbaBackend(DataObject):
                                                    'preset': backend_info['linked_preset'],
                                                    'osd_id': backend_info['linked_alba_id'],
                                                    'remote_host': connection_info['host']}
-                if connection_info['host'] == '':
-                    try:
-                        return_value[alba_backend_guid].update(AlbaBackend(alba_backend_guid).local_summary)
-                    except ObjectNotFoundException:
-                        return_value[alba_backend_guid]['error'] = 'backend_deleted'
-                else:
-                    thread = Thread(target=_load_backend_info, args=(connection_info, alba_backend_guid))
-                    thread.start()
-                    threads.append(thread)
+                thread = Thread(target=_load_backend_info, args=(connection_info, alba_backend_guid))
+                thread.start()
+                threads.append(thread)
 
         for thread in threads:
             thread.join()

@@ -37,27 +37,6 @@ define([
         self.loadAlbaBackendsHandle = undefined;
 
         // Computed
-        self.canContinue = ko.computed(function() {
-            var valid = true, reasons = [], fields = [];
-            if (self.invalidAlbaInfo()) {
-                valid = false;
-                reasons.push($.t('alba:wizards.link_backend.invalid_alba_info'));
-                fields.push('clientid');
-                fields.push('clientsecret');
-                fields.push('host');
-            }
-            if (self.data.albaBackend() === undefined && albaBackendLoading()) {
-                valid = false;
-                reasons.push($.t('alba:wizards.link_backend.choose_backend'));
-                fields.push('backend');
-            }
-            if (self.data.albaBackend() !== undefined && self.data.albaPreset() === undefined) {
-                valid = false;
-                reasons.push($.t('alba:wizards.link_backend.choose_preset'));
-                fields.push('preset');
-            }
-            return { value: valid, reasons: reasons, fields: fields };
-        });
         self.isPresetAvailable = ko.computed(function() {
             var presetAvailable = true;
             if (self.data.albaBackend() !== undefined && self.data.albaPreset() !== undefined) {
@@ -68,6 +47,32 @@ define([
                 }
             }
             return presetAvailable;
+        });
+        self.canContinue = ko.computed(function() {
+            var valid = true, reasons = [], fields = [];
+            if (self.invalidAlbaInfo()) {
+                valid = false;
+                reasons.push($.t('alba:wizards.link_backend.invalid_alba_info'));
+                fields.push('clientid');
+                fields.push('clientsecret');
+                fields.push('host');
+            }
+            if (self.data.albaBackend() === undefined && self.albaBackendLoading()) {
+                valid = false;
+                reasons.push($.t('alba:wizards.link_backend.choose_backend'));
+                fields.push('backend');
+            }
+            if (self.data.albaBackend() !== undefined && self.data.albaPreset() === undefined) {
+                valid = false;
+                reasons.push($.t('alba:wizards.link_backend.choose_preset'));
+                fields.push('preset');
+            }
+            if (!self.isPresetAvailable()) {
+                valid = false;
+                reasons.push($.t('alba:wizards.link_backend.alba_preset_unavailable'));
+                fields.push('preset');
+            }
+            return { value: valid, reasons: reasons, fields: fields };
         });
 
         // Functions

@@ -17,13 +17,11 @@
 """
 AlbaNode module
 """
-import requests
 from ovs.dal.dataobject import DataObject
-from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.dal.hybrids.storagerouter import StorageRouter
+from ovs.dal.structures import Dynamic, Property, Relation
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
 from ovs.extensions.plugins.asdmanager import ASDManagerClient
-from ovs.extensions.plugins.albacli import AlbaCLI
 
 
 class AlbaNode(DataObject):

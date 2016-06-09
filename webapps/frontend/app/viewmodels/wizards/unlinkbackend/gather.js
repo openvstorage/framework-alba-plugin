@@ -30,7 +30,7 @@ define([
 
         // Computed
         self.canContinue = ko.computed(function() {
-            var valid = (!self.data.shouldConfirm() || self.data.confirmed()) && self.data.loaded();
+            var valid = (!self.data.shouldConfirm() || self.data.confirmed()) && self.data.loaded() && !self.data.failedToLoad();
             return { value: valid, reasons: [], fields: [] };
         });
 
@@ -74,11 +74,19 @@ define([
                     .then(self.shared.tasks.wait)
                     .done(function(safety) {
                         self.data.safety(safety);
+                    })
+                    .fail(function() {
+                        self.data.failedToLoad(true);
+                    })
+                    .always(function() {
                         self.data.loaded(true);
                     });
             }, 5000);
             self.refresher.run();
             self.refresher.start();
+        };
+        self.deactivate = function() {
+            self.refresher.stop();
         };
     };
 });
