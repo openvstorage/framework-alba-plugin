@@ -179,20 +179,21 @@
         "backend": "Backend"
     },
     "icons": {
-        "devices": "&#xf0a0;",
-        "nics": "&#xf0ec;",
-        "registernode": "&#xf067;",
-        "nodes": "&#xf233;",
-        "initialize": "&#xf21e;",
         "claim": "&#xf140;",
-        "discover": "&#xf002;",
-        "inuse": "&#xf15b;",
-        "notinuse": "&#xf016;",
-        "expand": "&#xf196;",
         "collapse": "&#xf147;",
+        "devices": "&#xf0a0;",
+        "discover": "&#xf002;",
+        "down": "&#xf078;",
+        "expand": "&#xf196;",
+        "external_link": "&#xf08e;",
+        "initialize": "&#xf21e;",
+        "inuse": "&#xf15b;",
+        "nics": "&#xf0ec;",
+        "nodes": "&#xf233;",
+        "notinuse": "&#xf016;",
         "presets": "&#xf126;",
-        "up": "&#xf077;",
-        "down": "&#xf078;"
+        "registernode": "&#xf067;",
+        "up": "&#xf077;"
     },
     "presets": {
         "available": "Available",

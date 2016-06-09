@@ -201,12 +201,15 @@ but WITHOUT ANY WARRANTY of any kind.
                                     <!-- ko if: error !== '' -->
                                         <a data-bind="text: name"></a>
                                     <!-- /ko -->
-                                    <!-- ko if: error === '' && remote_host === '' -->
+                                    <!-- ko if: error === '' && local_ip === true -->
                                         <a data-bind="text: name, attr: { href: $root.shared.routing.loadHash('backend-alba-detail', { guid: backend_guid }) }"></a>
                                     <!-- /ko -->
-                                    <!-- ko if: error === '' && remote_host !== '' -->
+                                    <!-- ko if: error === '' && local_ip === false -->
                                         <a data-bind="text: name,
                                                       attr: { href: 'https://' + remote_host + '/#full/ovs-backend/' + backend_guid,
+                                                              target: '_blank'}"></a>
+                                        <a class="hand fa fa-fw" data-i18n="[html]alba:icons.external_link"
+                                           data-bind="attr: { href: 'https://' + remote_host + '/#full/ovs-backend/' + backend_guid,
                                                               target: '_blank'}"></a>
                                     <!-- /ko -->
                                 </td>

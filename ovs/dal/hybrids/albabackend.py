@@ -23,6 +23,7 @@ from threading import Lock, Thread
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.backend import Backend
 from ovs.dal.lists.albanodelist import AlbaNodeList
+from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.dal.lists.vpoollist import VPoolList
 from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.extensions.api.client import ForbiddenException, NotFoundException, OVSClient
@@ -492,16 +493,19 @@ class AlbaBackend(DataObject):
         lock = Lock()
         threads = []
         return_value = {}
+        cluster_ips = [sr.ip for sr in StorageRouterList.get_storagerouters()]
         for osd in self.osds:
             if osd.osd_type == AlbaOSD.OSD_TYPES.ALBA_BACKEND and osd.metadata is not None:
                 backend_info = osd.metadata['backend_info']
                 connection_info = osd.metadata['backend_connection_info']
+                connection_host = connection_info['host']
                 alba_backend_guid = backend_info['linked_guid']
                 return_value[alba_backend_guid] = {'name': backend_info['linked_name'],
                                                    'error': '',
                                                    'preset': backend_info['linked_preset'],
                                                    'osd_id': backend_info['linked_alba_id'],
-                                                   'remote_host': connection_info['host']}
+                                                   'local_ip': connection_host in cluster_ips,
+                                                   'remote_host': connection_host}
                 thread = Thread(target=_load_backend_info, args=(connection_info, alba_backend_guid))
                 thread.start()
                 threads.append(thread)
