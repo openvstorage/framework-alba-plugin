@@ -57,11 +57,11 @@ define([
                     customgroups.push(item);
                 }
                 customgroups.sort(function(group1, group2) {
-                    return group1.name < group2.name ? -1 : 1;
+                    return group1.name.toLowerCase() < group2.name.toLowerCase() ? -1 : 1;
                 });
             });
             if (customgroups.length > 0) {
-                defaultgroups.push({'name': '-----------------', 'disabled': true,  'translate': false});
+                defaultgroups.push({'name': '----------------', 'disabled': true,  'translate': false});
             }
             $.each(customgroups, function(_, item) {
                 defaultgroups.push(item);
@@ -72,7 +72,7 @@ define([
             if (self.domainBackendMap().hasOwnProperty(self.selectedGroup().name)) {
                 var groupedBackends = self.domainBackendMap()[self.selectedGroup().name]();
                 groupedBackends.sort(function(backend1, backend2) {
-                    return backend1.name() < backend2.name() ? -1: 1;
+                    return backend1.name().toLowerCase() < backend2.name().toLowerCase() ? -1: 1;
                 });
                 return groupedBackends;
             }

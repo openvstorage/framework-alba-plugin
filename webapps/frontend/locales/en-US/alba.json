@@ -101,8 +101,8 @@
         "wayreplication": "-way replication:"
     },
     "dashboard": {
-        "title": "Open vStorage Backends",
-        "helptitle": "Help - OVS Backends",
+        "title": "Backends",
+        "helptitle": "Help - Backends",
         "helpcontent": "This panel displays the state of the Open vStorage Backends. It shows how many OSDs are in use by the backend, grouped by their state."
     },
     "dashboard_scalings": {

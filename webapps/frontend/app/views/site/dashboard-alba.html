@@ -29,12 +29,14 @@ but WITHOUT ANY WARRANTY of any kind.
         </div>
     </div>
     <div class="panel-body">
-        <span data-bind="dropdown: {
-                             items: $root.availableGroups, target: $root.selectedGroup,
-                             text: function(item) {
-                                 return item.translate === true ? $.t('alba:dashboard_scalings.' + item.name) : item.name;
-                             }, small: true
-                        }"></span>
+        <div style="float: right;">
+            <span data-bind="dropdown: {
+                     items: $root.availableGroups, target: $root.selectedGroup,
+                     text: function(item) {
+                         return item.translate === true ? $.t('alba:dashboard_scalings.' + item.name) : item.name;
+                     }, small: true}">
+            </span>
+        </div>
         <div data-bind="lazylist: {
                             displaymode: 'table', items: groupedAlbaBackends,
                             loadedObservable: 'loaded', colspan: 4

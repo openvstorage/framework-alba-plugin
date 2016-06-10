@@ -42,15 +42,16 @@ class AlbaCLI(object):
 
         debug = kwargs.pop('debug') if 'debug' in kwargs else False
         client = kwargs.pop('client') if 'client' in kwargs else None
+        to_json = kwargs.pop('to_json') if 'to_json' in kwargs else False
         extra_params = kwargs.pop('extra_params') if 'extra_params' in kwargs else []
-        to_json = '--to-json' in extra_params
         debug_log = []
         try:
             cmd = 'export LD_LIBRARY_PATH=/usr/lib/alba; '
             cmd += '/usr/bin/alba {0}'.format(command)
             for key, value in kwargs.iteritems():
                 cmd += ' --{0}={1}'.format(key.replace('_', '-'), value)
-
+            if to_json is True:
+                cmd += ' --to-json'
             for extra_param in extra_params:
                 cmd += ' {0}'.format(extra_param)
 
@@ -66,7 +67,7 @@ class AlbaCLI(object):
                     if to_json is True:
                         output = json.loads(ex.output)
                         raise RuntimeError(output.get('error', {}).get('message'))
-                    output = ex.output
+                    raise
             else:
                 if debug:
                     output, stderr = client.run(cmd, debug=True)

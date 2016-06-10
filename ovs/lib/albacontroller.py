@@ -116,7 +116,7 @@ class AlbaController(object):
             if disk_guid is not None and disk_guid not in disks:
                 disks[disk_guid] = AlbaDisk(disk_guid)
                 alba_disk = disks.get(disk_guid)
-            AlbaCLI.run(command='claim-osd', config=config, long_id=osd_id, extra_params=['--to-json'])
+            AlbaCLI.run(command='claim-osd', config=config, long_id=osd_id, to_json=True)
             osd = AlbaOSD()
             osd.osd_id = osd_id
             osd.osd_type = AlbaOSD.OSD_TYPES.ALBA_BACKEND if alba_disk is None else AlbaOSD.OSD_TYPES.ASD
@@ -147,7 +147,7 @@ class AlbaController(object):
             alba_backend = AlbaBackend(alba_backend_guid)
             config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
             for osd_id in osd_ids:
-                AlbaCLI.run(command='purge-osd', config=config, long_id=osd_id, extra_params=['--to-json'])
+                AlbaCLI.run(command='purge-osd', config=config, long_id=osd_id, to_json=True)
         except:
             if absorb_exception is False:
                 raise
@@ -204,7 +204,7 @@ class AlbaController(object):
         with open(temp_config_file, 'wb') as data_file:
             data_file.write(json.dumps(preset))
             data_file.flush()
-            AlbaCLI.run(command='create-preset', config=config, extra_params=['--to-json', name, '<', data_file.name])
+            AlbaCLI.run(command='create-preset', config=config, to_json=True, extra_params=[name, '<', data_file.name])
             alba_backend.invalidate_dynamics()
         for filename in [temp_key_file, temp_config_file]:
             if filename and os.path.exists(filename) and os.path.isfile(filename):
@@ -226,7 +226,7 @@ class AlbaController(object):
         alba_backend = AlbaBackend(alba_backend_guid)
         AlbaController._logger.debug('Deleting preset {0}'.format(name))
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
-        AlbaCLI.run(command='delete-preset', config=config, extra_params=['--to-json', name])
+        AlbaCLI.run(command='delete-preset', config=config, to_json=True, extra_params=[name])
         alba_backend.invalidate_dynamics()
 
     @staticmethod
@@ -256,7 +256,7 @@ class AlbaController(object):
         with open(temp_config_file, 'wb') as data_file:
             data_file.write(json.dumps(preset))
             data_file.flush()
-            AlbaCLI.run(command='update-preset', config=config, extra_params=['--to-json', name, '<', data_file.name])
+            AlbaCLI.run(command='update-preset', config=config, to_json=True, extra_params=[name, '<', data_file.name])
             alba_backend.invalidate_dynamics()
         for filename in [temp_key_file, temp_config_file]:
             if filename and os.path.exists(filename) and os.path.isfile(filename):
@@ -284,7 +284,7 @@ class AlbaController(object):
 
         alba_backend = AlbaBackend(alba_backend_guid)
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
-        alba_backend.alba_id = AlbaCLI.run(command='get-alba-id', config=config, extra_params=['--to-json'], attempts=5)['id']
+        alba_backend.alba_id = AlbaCLI.run(command='get-alba-id', config=config, to_json=True, attempts=5)['id']
         alba_backend.save()
         if not EtcdConfiguration.exists(AlbaController.ETCD_DEFAULT_NSM_HOSTS_KEY):
             EtcdConfiguration.set(AlbaController.ETCD_DEFAULT_NSM_HOSTS_KEY, 1)
@@ -950,12 +950,12 @@ class AlbaController(object):
                 for asd_id, asd in disk['asds'].iteritems():
                     if asd['status'] == 'error':
                         error_disks.append(asd_id)
-        extra_parameters = ['--include-decommissioning-as-dead', '--to-json']
+        extra_parameters = ['--include-decommissioning-as-dead']
         for osd in alba_backend.osds:
             if osd.osd_id in removal_osd_ids or osd.osd_id in error_disks:
                 extra_parameters.append('--long-id {0}'.format(osd.osd_id))
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
-        safety_data = AlbaCLI.run(command='get-disk-safety', config=config, extra_params=extra_parameters)
+        safety_data = AlbaCLI.run(command='get-disk-safety', config=config, to_json=True, extra_params=extra_parameters)
         result = {'good': 0,
                   'critical': 0,
                   'lost': 0}
@@ -985,7 +985,7 @@ class AlbaController(object):
         if service_capacity == 0:
             return float('inf')
         config = ArakoonInstaller.ETCD_CONFIG_PATH.format(nsm_service.alba_backend.abm_services[0].service.name)
-        hosts_data = AlbaCLI.run(command='list-nsm-hosts', config=config, extra_params=['--to-json'])
+        hosts_data = AlbaCLI.run(command='list-nsm-hosts', config=config, to_json=True)
         host = [host for host in hosts_data if host['id'] == nsm_service.service.name][0]
         usage = host['namespaces_count']
         return round(usage / service_capacity * 100.0, 5)
@@ -1364,7 +1364,7 @@ class AlbaController(object):
         added = False
         claimed = False
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=AlbaBackend(alba_backend_guid).backend))
-        all_osds = AlbaCLI.run(command='list-all-osds', config=config, extra_params=['--to-json'])
+        all_osds = AlbaCLI.run(command='list-all-osds', config=config, to_json=True)
         linked_alba_id = metadata['backend_info']['linked_alba_id']
         for osd in all_osds:
             if osd.get('long_id') == linked_alba_id:
@@ -1399,8 +1399,8 @@ class AlbaController(object):
                             prefix=alba_backend_guid,
                             preset=metadata['backend_info']['linked_preset'],
                             node_id=metadata['backend_info']['linked_guid'],
-                            extra_params=['--to-json'],
-                            alba_osd_config_url='file://{0}'.format(remote_arakoon_config))['long_id']
+                            to_json=True,
+                            alba_osd_config_url='file://{0}'.format(remote_arakoon_config))
             finally:
                 os.remove(remote_arakoon_config)
 

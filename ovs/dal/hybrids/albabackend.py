@@ -162,7 +162,7 @@ class AlbaBackend(DataObject):
         else:
             interval = EtcdConfiguration.get('/ovs/alba/backends/global_gui_error_interval')
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
-        for found_osd in AlbaCLI.run(command='list-all-osds', config=config, extra_params=['--to-json']):
+        for found_osd in AlbaCLI.run(command='list-all-osds', config=config, to_json=True):
             node_id = found_osd['node_id']
             asd_id = found_osd['long_id']
             for _disk in storage_map.get(node_id, {}).values():
@@ -243,7 +243,7 @@ class AlbaBackend(DataObject):
             return []  # No ABM services yet, so backend not fully installed yet
 
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
-        return AlbaCLI.run(command='show-namespaces', config=config, max=-1, extra_params=['--to-json'])[1]
+        return AlbaCLI.run(command='show-namespaces', config=config, max=-1, to_json=True)[1]
 
     def _ns_statistics(self):
         """
@@ -314,7 +314,7 @@ class AlbaBackend(DataObject):
                         if asd_info['status'] in ['claimed', 'warning']:
                             asds[node.node_id] += 1
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
-        presets = AlbaCLI.run(command='list-presets', config=config, extra_params=['--to-json'])
+        presets = AlbaCLI.run(command='list-presets', config=config, to_json=True)
         preset_dict = {}
         for preset in presets:
             preset_dict[preset['name']] = preset
@@ -407,7 +407,7 @@ class AlbaBackend(DataObject):
 
         try:
             config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
-            raw_statistics = AlbaCLI.run(command='asd-multistatistics', long_id=','.join(asd_ids), config=config, extra_params=['--to-json'])
+            raw_statistics = AlbaCLI.run(command='asd-multistatistics', long_id=','.join(asd_ids), config=config, to_json=True)
         except RuntimeError:
             return statistics
         for asd_id, stats in raw_statistics.iteritems():
