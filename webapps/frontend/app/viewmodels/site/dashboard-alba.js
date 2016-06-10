@@ -204,6 +204,7 @@ define([
             $.each(self.widgets, function(index, item) {
                 item.deactivate();
             });
+            self.selectedGroup = ko.observable({'name': 'GLOBAL', 'disabled': false, 'translate': true});
             self.refresher.stop();
         };
     };
