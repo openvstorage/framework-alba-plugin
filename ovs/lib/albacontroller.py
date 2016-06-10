@@ -374,6 +374,8 @@ class AlbaController(object):
 
         AlbaController._logger.debug('Deleting ALBA backend from model')
         backend = albabackend.backend
+        for junction in list(backend.domains):
+            junction.delete()
         albabackend.delete()
         backend.delete()
 

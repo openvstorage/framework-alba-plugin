@@ -101,9 +101,13 @@
         "wayreplication": "-way replication:"
     },
     "dashboard": {
-        "title": "Open vStorage Global Backends",
-        "helptitle": "Help - OVS Global Backends",
-        "helpcontent": "This panel displays the state of the Open vStorage Global Backends. It shows how many ASDs are in use by the backend, grouped by their state."
+        "title": "Open vStorage Backends",
+        "helptitle": "Help - OVS Backends",
+        "helpcontent": "This panel displays the state of the Open vStorage Backends. It shows how many OSDs are in use by the backend, grouped by their state."
+    },
+    "dashboard_scalings": {
+        "GLOBAL": "Global Backends",
+        "LOCAL": "Local Backends"
     },
     "detail": {
         "actions": "Actions",
