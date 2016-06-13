@@ -19,23 +19,30 @@ AlbaBackend module
 """
 import time
 import requests
+from threading import Lock, Thread
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.backend import Backend
 from ovs.dal.lists.albanodelist import AlbaNodeList
+from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.dal.lists.vpoollist import VPoolList
 from ovs.dal.structures import Property, Relation, Dynamic
+from ovs.extensions.api.client import ForbiddenException, NotFoundException, OVSClient
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
 from ovs.extensions.plugins.albacli import AlbaCLI
-from threading import Thread
+from ovs.log.log_handler import LogHandler
 
 
 class AlbaBackend(DataObject):
     """
     The AlbaBackend provides ALBA specific information
     """
-    __properties = [Property('alba_id', str, mandatory=False, doc='ALBA internal identifier')]
+    SCALINGS = DataObject.enumerator('Scaling', ['GLOBAL', 'LOCAL'])
+
+    _logger = LogHandler.get('dal', 'albabackend', False)
+    __properties = [Property('alba_id', str, mandatory=False, doc='ALBA internal identifier'),
+                    Property('scaling', SCALINGS.keys(), doc='Scaling for an ALBA backend can be {0}'.format(' or '.join(SCALINGS.keys())))]
     __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic backend')]
-    __dynamics = [Dynamic('storage_stack', dict, 5),
+    __dynamics = [Dynamic('local_stack', dict, 5),
                   Dynamic('statistics', dict, 5, locked=True),
                   Dynamic('ns_data', list, 60),
                   Dynamic('ns_statistics', dict, 60),
@@ -43,9 +50,12 @@ class AlbaBackend(DataObject):
                   Dynamic('available', bool, 60),
                   Dynamic('name', str, 3600),
                   Dynamic('metadata_information', dict, 60),
-                  Dynamic('asd_statistics', dict, 5, locked=True)]
+                  Dynamic('asd_statistics', dict, 5, locked=True),
+                  Dynamic('linked_backend_guids', set, 30),
+                  Dynamic('remote_stack', dict, 60),
+                  Dynamic('local_summary', dict, 10)]
 
-    def _storage_stack(self):
+    def _local_stack(self):
         """
         Returns a live list of all disks known to this AlbaBackend
         """
@@ -55,14 +65,13 @@ class AlbaBackend(DataObject):
         if len(self.abm_services) == 0:
             return {}  # No ABM services yet, so backend not fully installed yet
 
-        storage_map = {}
-        asd_map = {}
-
         alba_backend_map = {}
         for alba_backend in AlbaBackendList.get_albabackends():
             alba_backend_map[alba_backend.alba_id] = alba_backend
 
         # Load information based on the model
+        asd_map = {}
+        storage_map = {}
         alba_nodes = AlbaNodeList.get_albanodes()
         for node in alba_nodes:
             node_id = node.node_id
@@ -74,15 +83,15 @@ class AlbaBackend(DataObject):
                                                  'status': 'error',
                                                  'status_detail': 'unknown',
                                                  'asds': {}}
-                for asd in disk.asds:
-                    asd_id = asd.asd_id
-                    data = {'asd_id': asd_id,
-                            'guid': asd.guid,
+                for osd in disk.osds:
+                    osd_id = osd.osd_id
+                    data = {'asd_id': osd_id,
+                            'guid': osd.guid,
                             'status': 'error',
                             'status_detail': 'unknown',
-                            'alba_backend_guid': asd.alba_backend_guid}
-                    asd_map[asd_id] = data
-                    storage_map[node_id][disk_id]['asds'][asd_id] = data
+                            'alba_backend_guid': osd.alba_backend_guid}
+                    asd_map[osd_id] = data
+                    storage_map[node_id][disk_id]['asds'][osd_id] = data
 
         # Load information from node
         def _load_live_info(_node, _node_data):
@@ -153,7 +162,7 @@ class AlbaBackend(DataObject):
         else:
             interval = EtcdConfiguration.get('/ovs/alba/backends/global_gui_error_interval')
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
-        for found_osd in AlbaCLI.run('list-all-osds', config=config, as_json=True):
+        for found_osd in AlbaCLI.run(command='list-all-osds', config=config, to_json=True):
             node_id = found_osd['node_id']
             asd_id = found_osd['long_id']
             for _disk in storage_map.get(node_id, {}).values():
@@ -206,7 +215,7 @@ class AlbaBackend(DataObject):
                                'avg': [],
                                'max': [],
                                'min': []}
-        for asd in self.asds:
+        for asd in self.osds:
             asd_stats = asd.statistics
             if not asd_stats:
                 continue
@@ -234,7 +243,7 @@ class AlbaBackend(DataObject):
             return []  # No ABM services yet, so backend not fully installed yet
 
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
-        return AlbaCLI.run('show-namespaces', config=config, extra_params=['--max=-1'], as_json=True)[1]
+        return AlbaCLI.run(command='show-namespaces', config=config, max=-1, to_json=True)[1]
 
     def _ns_statistics(self):
         """
@@ -296,16 +305,16 @@ class AlbaBackend(DataObject):
         if len(self.abm_services) == 0:
             return []  # No ABM services yet, so backend not fully installed yet
 
-        storage_stack = self.storage_stack
         asds = {}
-        for node in AlbaNodeList.get_albanodes():
-            asds[node.node_id] = 0
-            for disk in storage_stack[node.node_id].values():
-                for asd_info in disk['asds'].values():
-                    if asd_info['status'] in ['claimed', 'warning']:
-                        asds[node.node_id] += 1
+        if self.scaling != AlbaBackend.SCALINGS.GLOBAL:
+            for node in AlbaNodeList.get_albanodes():
+                asds[node.node_id] = 0
+                for disk in self.local_stack[node.node_id].values():
+                    for asd_info in disk['asds'].values():
+                        if asd_info['status'] in ['claimed', 'warning']:
+                            asds[node.node_id] += 1
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
-        presets = AlbaCLI.run('list-presets', config=config, as_json=True)
+        presets = AlbaCLI.run(command='list-presets', config=config, to_json=True)
         preset_dict = {}
         for preset in presets:
             preset_dict[preset['name']] = preset
@@ -319,7 +328,11 @@ class AlbaBackend(DataObject):
             active_policy = None
             for policy in preset['policies']:
                 is_available = False
-                available_disks = sum(min(asds[node], policy[3]) for node in asds)
+                available_disks = 0
+                if self.scaling != AlbaBackend.SCALINGS.GLOBAL:
+                    available_disks += sum(min(asds[node], policy[3]) for node in asds)
+                if self.scaling != AlbaBackend.SCALINGS.LOCAL:
+                    available_disks += sum(self.local_summary['devices'].values())
                 if available_disks >= policy[2]:
                     if active_policy is None:
                         active_policy = policy
@@ -382,19 +395,175 @@ class AlbaBackend(DataObject):
         """
         Loads statistics from all it's asds in one call
         """
+        from ovs.dal.hybrids.albaosd import AlbaOSD
+
         statistics = {}
         if len(self.abm_services) == 0:
             return statistics  # No ABM services yet, so backend not fully installed yet
-        if len(self.asds) == 0:
+
+        asd_ids = [osd.osd_id for osd in self.osds if osd.osd_type == AlbaOSD.OSD_TYPES.ASD]
+        if len(asd_ids) == 0:
             return statistics
 
-        asd_ids = [asd.asd_id for asd in self.asds]
         try:
             config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
-            raw_statistics = AlbaCLI.run('asd-multistatistics', long_id=','.join(asd_ids), config=config, as_json=True)
+            raw_statistics = AlbaCLI.run(command='asd-multistatistics', long_id=','.join(asd_ids), config=config, to_json=True)
         except RuntimeError:
             return statistics
         for asd_id, stats in raw_statistics.iteritems():
             if stats['success'] is True:
                 statistics[asd_id] = stats['result']
         return statistics
+
+    def _linked_backend_guids(self):
+        """
+        Returns a list (recursively) of all ALBA backends linked to this ALBA backend based on the linked AlbaOSDs
+        :return: List of ALBA Backend guids
+        :rtype: set
+        """
+        # Import here to prevent from circular references
+        from ovs.dal.hybrids.albaosd import AlbaOSD
+
+        def _load_backend_info(_connection_info, _alba_backend_guid, _exceptions):
+            # '_exceptions' must be an immutable object to be usable outside the Thread functionality
+            client = OVSClient(ip=_connection_info['host'],
+                               port=_connection_info['port'],
+                               credentials=(_connection_info['username'], _connection_info['password']),
+                               version=3)
+
+            try:
+                new_guids = client.get('/alba/backends/{0}/'.format(_alba_backend_guid))['linked_backend_guids']
+                with lock:
+                    guids.update(new_guids)
+            except NotFoundException:
+                pass  # ALBA Backend has been deleted, we don't care we can't find the linked guids
+            except ForbiddenException as fe:
+                AlbaBackend._logger.exception('Collecting remote ALBA backend information failed due to permission issues. {0}'.format(fe))
+                _exceptions.append('not_allowed')
+            except Exception as ex:
+                AlbaBackend._logger.exception('Collecting remote ALBA backend information failed with error: {0}'.format(ex))
+                _exceptions.append('unknown')
+
+        lock = Lock()
+        guids = {self.guid}
+        threads = []
+        exceptions = []
+        for osd in self.osds:
+            if osd.osd_type == AlbaOSD.OSD_TYPES.ALBA_BACKEND and osd.metadata is not None:
+                connection_info = osd.metadata['backend_connection_info']
+                alba_backend_guid = osd.metadata['backend_info']['linked_guid']
+                thread = Thread(target=_load_backend_info, args=(connection_info, alba_backend_guid, exceptions))
+                thread.start()
+                threads.append(thread)
+        for thread in threads:
+            thread.join()
+
+        if len(exceptions) > 0:
+            return None  # This causes the 'Link Backend' button in the GUI to become disabled
+        return guids
+
+    def _remote_stack(self):
+        """
+        Live list of information about remote linked OSDs of type ALBA BACKEND
+        :return: Information about all linked OSDs
+        :rtype: dict
+        """
+        # Import here to prevent from circular references
+        from ovs.dal.hybrids.albaosd import AlbaOSD
+
+        def _load_backend_info(_connection_info, _alba_backend_guid):
+            client = OVSClient(ip=_connection_info['host'],
+                               port=_connection_info['port'],
+                               credentials=(_connection_info['username'], _connection_info['password']),
+                               version=3)
+
+            try:
+                info = client.get('/alba/backends/{0}/'.format(_alba_backend_guid))
+                with lock:
+                    return_value[_alba_backend_guid].update(info['local_summary'])
+            except NotFoundException:
+                return_value[_alba_backend_guid]['error'] = 'backend_deleted'
+            except ForbiddenException:
+                return_value[_alba_backend_guid]['error'] = 'not_allowed'
+            except Exception as ex:
+                return_value[_alba_backend_guid]['error'] = 'unknown'
+                AlbaBackend._logger.exception('Collecting remote ALBA backend information failed with error: {0}'.format(ex))
+
+        # Retrieve local summaries of all related OSDs of type ALBA_BACKEND
+        lock = Lock()
+        threads = []
+        return_value = {}
+        cluster_ips = [sr.ip for sr in StorageRouterList.get_storagerouters()]
+        for osd in self.osds:
+            if osd.osd_type == AlbaOSD.OSD_TYPES.ALBA_BACKEND and osd.metadata is not None:
+                backend_info = osd.metadata['backend_info']
+                connection_info = osd.metadata['backend_connection_info']
+                connection_host = connection_info['host']
+                alba_backend_guid = backend_info['linked_guid']
+                return_value[alba_backend_guid] = {'name': backend_info['linked_name'],
+                                                   'error': '',
+                                                   'preset': backend_info['linked_preset'],
+                                                   'osd_id': backend_info['linked_alba_id'],
+                                                   'local_ip': connection_host in cluster_ips,
+                                                   'remote_host': connection_host}
+                thread = Thread(target=_load_backend_info, args=(connection_info, alba_backend_guid))
+                thread.start()
+                threads.append(thread)
+
+        for thread in threads:
+            thread.join()
+        return return_value
+
+    def _local_summary(self):
+        """
+        A local summary for an ALBA Backend containing information used to show in the GLOBAL ALBA Backend detail page
+        :return: Information about used size, devices, name, scaling
+        :rtype: dict
+        """
+        usage_info = {'size': 0,
+                      'used': 0}
+        device_info = {'red': 0,
+                       'green': 0,
+                       'orange': 0}
+        return_value = {'name': self.name,
+                        'sizes': usage_info,
+                        'devices': device_info,
+                        'scaling': self.scaling,
+                        'backend_guid': self.backend.guid}
+
+        # Calculate device information
+        if self.scaling != AlbaBackend.SCALINGS.GLOBAL:
+            for node_values in self.local_stack.itervalues():
+                for disk_values in node_values.itervalues():
+                    for asd_info in disk_values.get('asds', {}).itervalues():
+                        if self.guid == asd_info.get('alba_backend_guid'):
+                            status = asd_info.get('status', 'unknown')
+                            if status == 'claimed':
+                                device_info['green'] += 1
+                            elif status == 'warning':
+                                device_info['orange'] += 1
+                            elif status == 'error':
+                                device_info['red'] += 1
+
+            # Calculate used and total size
+            for stats in self.asd_statistics.values():
+                usage_info['size'] += stats['capacity']
+                usage_info['used'] += stats['disk_usage']
+
+        if self.scaling != AlbaBackend.SCALINGS.LOCAL:
+            for backend_values in self.remote_stack.itervalues():
+                for key, value in backend_values.get('sizes', {}).iteritems():
+                    usage_info[key] += value
+
+                devices = backend_values.get('devices')
+                if devices is None:
+                    continue
+
+                if devices['red'] > 0:
+                    device_info['red'] += 1
+                elif devices['orange'] > 0:
+                    device_info['orange'] += 1
+                elif devices['green'] > 0:
+                    device_info['green'] += 1
+
+        return return_value

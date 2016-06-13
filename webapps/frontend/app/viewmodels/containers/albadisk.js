@@ -31,7 +31,7 @@ define([
         self.guid         = ko.observable();
         self.name         = ko.observable(name);
         self.nodeID       = ko.observable();
-        self.asds         = ko.observableArray([]);
+        self.osds         = ko.observableArray([]);
         self.usage        = ko.observable();
         self.status       = ko.observable();
         self.statusDetail = ko.observable();
@@ -43,8 +43,8 @@ define([
         // Computed
         self.canRemove = ko.computed(function() {
             var onlyAvailable = true;
-            $.each(self.asds(), function(index, asd) {
-                if (asd.status() !== 'available') {
+            $.each(self.osds(), function(index, osd) {
+                if (osd.status() !== 'available') {
                     onlyAvailable = false;
                     return false;
                 }
@@ -53,8 +53,8 @@ define([
         });
         self.canClaim = ko.computed(function() {
             var hasAvailable = false;
-            $.each(self.asds(), function(index, asd) {
-                if (asd.status() === 'available') {
+            $.each(self.osds(), function(index, osd) {
+                if (osd.status() === 'available') {
                     hasAvailable = true;
                     return false;
                 }
@@ -81,26 +81,26 @@ define([
                 if (!data.hasOwnProperty('asds')) {
                     return;
                 }
-                var asdIDs = [], asds = {};
-                $.each(data.asds, function (index, asd) {
-                    asdIDs.push(asd.asd_id);
-                    asds[asd.asd_id] = asd;
+                var osdIDs = [], osds = {};
+                $.each(data.asds, function (index, osd) {
+                    osdIDs.push(osd.asd_id);
+                    osds[osd.asd_id] = osd;
                 });
                 generic.crossFiller(
-                    asdIDs, self.asds,
+                    osdIDs, self.osds,
                     function (id) {
                         var osd = new OSD(id);
                         osd.disk = self;
                         return osd;
-                    }, 'asdID'
+                    }, 'osdID'
                 );
-                $.each(self.asds(), function (index, asd) {
-                    if ($.inArray(asd.asdID(), asdIDs) !== -1) {
-                        asd.fillData(asds[asd.asdID()]);
+                $.each(self.osds(), function (index, osd) {
+                    if (osdIDs.contains(osd.osdID())) {
+                        osd.fillData(osds[osd.osdID()]);
                     }
                 });
-                self.asds.sort(function (a, b) {
-                    return a.asdID() < b.asdID() ? -1 : 1;
+                self.osds.sort(function (a, b) {
+                    return a.osdID() < b.osdID() ? -1 : 1;
                 });
             }
 
@@ -117,14 +117,14 @@ define([
             return self.node.restartDisk(self);
         };
         self.claimOSDs = function() {
-            var asds = {};
-            asds[self.guid()] = [];
-            $.each(self.asds(), function (index, asd) {
-                if (asd.status() === 'available') {
-                    asds[self.guid()].push(asd);
+            var osds = {};
+            osds[self.guid()] = [];
+            $.each(self.osds(), function (index, osd) {
+                if (osd.status() === 'available') {
+                    osds[self.guid()].push(osd);
                 }
             });
-            return self.node.claimOSDs(asds);
+            return self.node.claimOSDs(osds);
         };
     };
 });

@@ -32,11 +32,19 @@ but WITHOUT ANY WARRANTY of any kind.
             </li>
             <li class="actions">
                 <span data-i18n="ovs:generic.actions"></span>:
+                <button type="button" class="btn btn-mini btn-default hand" style="color: #428bca;" id="buttonEdit"
+                        data-bind="click: function() { if (backend().edit()) { backend().save(); } else { backend().edit(true); } },
+                                   enable: backend().loaded() && $root.shared.user.roles().contains('manage'),
+                                   tooltip: 'ovs:backends.edit.edit'">
+                    <span class="hand fa" data-bind="visible: backend().edit() && !backend().saving()" data-i18n="[html]ovs:icons.save"></span>
+                    <span class="hand fa fa-spin" data-bind="visible: backend().edit() && backend().saving()" data-i18n="[html]ovs:icons.loading"></span>
+                    <span class="hand fa" data-bind="visible: !backend().edit()" data-i18n="[html]ovs:icons.edit"></span>
+                </button>
                 <button type="button" class="btn btn-mini btn-default" id="removeBackend"
                         data-bind="click: $root.removeBackend,
                                    style: { color: albaBackend() === undefined || !albaBackend().availableActions().contains('REMOVE') ? 'lightgrey' : '#428bca' },
                                    tooltip: albaBackend() === undefined || !albaBackend().availableActions().contains('REMOVE') ? 'alba:generic.asdsremaining' : 'alba:generic.deletebackend',
-                                   enable: $root.shared.user.roles().contains('manage')">
+                                   enable: $root.shared.user.roles().contains('manage') && backend() !== undefined && backend().status() === 'running'">
                     <span class="fa" data-i18n="[html]ovs:icons.delete"></span>
                 </button>
             </li>
@@ -70,40 +78,56 @@ but WITHOUT ANY WARRANTY of any kind.
                                 </td>
                             </tr>
                             <tr style="height: 1px;">
-                                <td style="width: 15%;" data-i18n="ovs:generic.status"></td>
-                                <td style="width: 20%;">
-                                    <div data-bind="status: {
-                                                        colors: {
-                                                            blue: $root.backend().status() == 'new',
-                                                            green: $root.backend().status() == 'running',
-                                                            orange: $root.backend().status() == 'installing',
-                                                            red: $root.backend().status() == 'failure',
-                                                            black: $root.backend().status() == 'stopped'
-                                                        },
-                                                        defaultColor: 'lightgrey'
-                                                    }, tooltip: 'ovs:generic.states.backend.' + $root.backend().status()"
-                                         style="width: 14px; height: 14px;"></div>
-                                </td>
+                                <td style="width: 15%;" data-i18n="alba:generic.scaling"></td>
+                                <td style="width: 20%;" data-bind="text: scaling()"></td>
                                 <td style="width: 15%;" data-i18n="alba:generic.getss"></td>
                                 <td style="width: 15%;"><span data-bind="text: readIOps"></span></td>
                             </tr>
                             <tr style="height: 1px;">
-                                <td style="width: 15%; vertical-align: top;" data-i18n="alba:generic.nrofdevices"></td>
-                                <td style="width: 20%; padding-bottom: 2px; vertical-align: top;">
-                                    <span class="label label-success pointer"
-                                          data-bind="tooltip: 'alba:generic.states.osdinfo.claimed',
-                                                     text: $root.ASDStates().claimed"></span>&nbsp;
-                                    <span class="label label-warning pointer"
-                                          data-bind="tooltip: 'alba:generic.states.osdinfo.warning',
-                                                     text: $root.ASDStates().warning"></span>&nbsp;
-                                    <span class="label label-danger pointer"
-                                          data-bind="tooltip: 'alba:generic.states.osdinfo.error',
-                                                     text: $root.ASDStates().failure"></span>
+                                <td style="width: 15%;" data-i18n="ovs:generic.status"></td>
+                                <td style="width: 20%;">
+                                    <div data-bind="status: {
+                                                        colors: {
+                                                            red: ($root.albaBackendStatus() === 'red' ? true : $root.backend().status() === 'failure'),
+                                                            blue: ($root.albaBackendStatus() === 'green' ? $root.backend().status() === 'new' : false),
+                                                            green: ($root.albaBackendStatus() === 'green' ? $root.backend().status() === 'running' : false),
+                                                            black: ($root.albaBackendStatus() === 'green' ? $root.backend().status() === 'stopped' : false),
+                                                            orange: ($root.albaBackendStatus() === 'orange' ? true : $root.backend().status() === 'installing')
+
+                                                        },
+                                                        defaultColor: 'lightgrey'
+                                                    }, tooltip: $root.albaBackendStatus() === 'green' ? 'ovs:generic.states.backend.' + $root.backend().status() : ''"
+                                         style="width: 14px; height: 14px;"></div>
                                 </td>
-                                <td></td>
-                                <td></td>
+                                <td colspan="2">&nbsp;</td>
                             </tr>
-                            <tr><td colspan="3">&nbsp;</td></tr>
+                            <tr>
+                                <td style="width: 15%;" data-i18n="alba:generic.health"></td>
+                                <td style="width: 20%;">
+                                    <span class="label label-success pointer"
+                                          data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + $root.localSummary().scaling.toLowerCase() + '.claimed'),
+                                                     text: ($root.localSummary() === undefined ? 0 : $root.localSummary().devices.green)"></span>&nbsp;
+                                    <span class="label label-warning pointer"
+                                          data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + $root.localSummary().scaling.toLowerCase() + '.warning'),
+                                                     text: ($root.localSummary() === undefined ? 0 : $root.localSummary().devices.orange)"></span>&nbsp;
+                                    <span class="label label-danger pointer"
+                                          data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + $root.localSummary().scaling.toLowerCase() + '.error'),
+                                                     text: ($root.localSummary() === undefined ? 0 : $root.localSummary().devices.red)"></span>
+                                </td>
+                                <td colspan="4">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="width: 15%; vertical-align: top;" data-i18n="ovs:generic.domains"></td>
+                                <td style="width: 20%; padding-bottom: 2px; vertical-align: top;" colspan="3">
+                                    <span data-bind="dropdown: {
+                                                         items: $root.domainGuids, target: $root.backend().domainGuids,
+                                                         text: function(guid) {
+                                                             return $root.domainCache[guid].name();
+                                                         }, enabled: $root.backend().edit, small: true, emptyisloading: false
+                                                     }"></span>
+                                </td>
+                                <td colspan="4">&nbsp;</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -117,9 +141,17 @@ but WITHOUT ANY WARRANTY of any kind.
     </div>
     <div data-bind="if: showActions()">
         <ul class="nav nav-tabs">
-            <li class="active" data-bind="tooltip: 'alba:generic.nodes', visible: $root.shared.user.roles().contains('manage')">
+            <li data-bind="tooltip: 'alba:generic.nodes',
+                           visible: $root.shared.user.roles().contains('manage') && albaBackend().scaling() !== 'GLOBAL',
+                           css: { active: albaBackend().scaling() !== 'GLOBAL' }">
                 <a href="#nodes" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>
             </li>
+            <li data-bind="tooltip: 'alba:generic.backends',
+                           visible: $root.shared.user.roles().contains('manage') && albaBackend().scaling() !== 'LOCAL',
+                           css: { active: albaBackend().scaling() === 'GLOBAL' }">
+                <a href="#backends" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>
+            </li>
+
             <li data-bind="tooltip: 'alba:generic.presets'">
                 <a href="#presets" data-toggle="tab">
                     <span class="fa fa-flip-vertical hand" data-i18n="[html]alba:icons.presets"></span>
@@ -127,8 +159,96 @@ but WITHOUT ANY WARRANTY of any kind.
             </li>
         </ul>
         <div class="tab-content">
-            <div class="tab-pane active" id="nodes" style="padding: 15px;" data-bind="visible: $root.shared.user.roles().contains('manage')">
-                <h4 class="pull-left" data-i18n="alba:nodes.nodes"></h4>
+            <div class="tab-pane" id="backends" style="padding: 15px;"
+                 data-bind="visible: $root.shared.user.roles().contains('manage'),
+                            css: { active: albaBackend().scaling() === 'GLOBAL' }">
+                <h4 class="pull-left" data-i18n="alba:generic.backends"></h4>
+                <button class="btn btn-default pull-right" id="buttonLinkBackend"
+                        data-bind="click: linkBackend,
+                                   style: { color: albaBackend().linkedBackendGuids() !== undefined && albaBackend().linkedBackendGuids() !== null ? 'black' : 'lightgrey' },
+                                   tooltip: albaBackend().linkedBackendGuids() !== undefined && albaBackend().linkedBackendGuids() !== null ? '' : 'alba:wizards.link_backend.linked_backend_guids_failure'"
+                        style="margin-top: 5px; margin-bottom: 10px;">
+                    <span class="fa" data-i18n="[html]ovs:icons.link"></span>&nbsp;
+                    <span data-i18n="alba:detail.link_backend"></span>
+                </button>
+                <table class="table table-striped table-hover" style="clear: both;" data-bind="visible: $root.initialRun() === false && $root.remoteStack().length > 0">
+                    <thead>
+                        <tr>
+                            <th data-i18n="alba:detail.status" style="width: 30px;"></th>
+                            <th data-i18n="alba:detail.name"></th>
+                            <th data-i18n="alba:detail.scaling" style="width: 100px;"></th>
+                            <th data-i18n="alba:detail.preset" style="width: 100px;"></th>
+                            <th data-i18n="alba:detail.health" style="width: 100px;"></th>
+                            <th data-i18n="alba:detail.used" style="width: 150px;"></th>
+                            <th data-i18n="alba:detail.actions" style="width: 50px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- ko foreach: remoteStack -->
+                            <tr>
+                                <td>
+                                    <div data-bind="status: {
+                                                        colors: {
+                                                            green: error === '',
+                                                            orange: error === 'not_allowed',
+                                                            red: error !== '' && error !== 'not_allowed',
+                                                        },
+                                                        defaultColor: 'green'
+                                                    }, tooltip: error === '' ? '' : $.t('alba:detail.errors.' + error)"
+                                     style="width: 14px; height: 14px;"></div>
+                                </td>
+                                <td>
+                                    <!-- ko if: error !== '' -->
+                                        <a data-bind="text: name"></a>
+                                    <!-- /ko -->
+                                    <!-- ko if: error === '' && local_ip === true -->
+                                        <a data-bind="text: name, attr: { href: $root.shared.routing.loadHash('backend-alba-detail', { guid: backend_guid }) }"></a>
+                                    <!-- /ko -->
+                                    <!-- ko if: error === '' && local_ip === false -->
+                                        <a data-bind="text: name,
+                                                      attr: { href: 'https://' + remote_host + '/#full/ovs-backend/' + backend_guid,
+                                                              target: '_blank'}"></a>
+                                        <a class="hand fa fa-fw" data-i18n="[html]alba:icons.external_link"
+                                           data-bind="attr: { href: 'https://' + remote_host + '/#full/ovs-backend/' + backend_guid,
+                                                              target: '_blank'}"></a>
+                                    <!-- /ko -->
+                                </td>
+                                <td data-bind="text: error === '' ? scaling : '-'"></td>
+                                <td data-bind="text: error === '' ? preset : '-'"></td>
+                                <td>
+                                    <span class="label label-success pointer"
+                                          data-bind="tooltip: error === '' ? $.t('alba:generic.states.osdinfo.' + scaling.toLowerCase() + '.claimed') : '',
+                                                     text: error === '' ? devices.green : 0"></span>&nbsp;
+                                    <span class="label label-warning pointer"
+                                          data-bind="tooltip: error === '' ? $.t('alba:generic.states.osdinfo.' + scaling.toLowerCase() + '.warning') : '',
+                                                     text: error === '' ? devices.orange : 0"></span>&nbsp;
+                                    <span class="label label-danger pointer"
+                                          data-bind="tooltip: error === '' ? $.t('alba:generic.states.osdinfo.' + scaling.toLowerCase() + '.error') : '',
+                                                     text: error === '' ? devices.red : 0"></span>
+                                </td>
+                                <td>
+                                    <!-- ko if: error === '' -->
+                                        <span data-bind="text: $root.formatBytes(sizes.used / sizes.size)"></span>&nbsp&nbsp(
+                                        <span data-bind="text: $root.formatPercentage(sizes.used / sizes.size)"></span>)
+                                    <!-- /ko -->
+                                    <!-- ko if: error !== '' -->
+                                        <span data-bind="text: '-'"></span>
+                                    <!-- /ko -->
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-mini btn-default pull-right" data-bind="click: $root.unlinkBackend">
+                                        <span class="fa" data-i18n="[html]ovs:icons.delete"></span>
+                                    </button>
+                                </td>
+                            </tr>
+                        <!-- /ko -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="tab-pane" id="nodes" style="padding: 15px;"
+                 data-bind="visible: $root.shared.user.roles().contains('manage'),
+                            css: { active: albaBackend().scaling() !== 'GLOBAL' }">
+                <h4 class="pull-left" data-i18n="alba:generic.nodes"></h4>
                 <button class="btn btn-default pull-right" id="buttonRefreshSDM"
                         data-bind="click: refresh"
                         style="margin-top: 5px; margin-bottom: 10px;">
@@ -300,9 +420,9 @@ but WITHOUT ANY WARRANTY of any kind.
                                                                 <!-- /ko -->
                                                             </ul>
                                                         </div>
-                                                        <!-- ko foreach: asds -->
+                                                        <!-- ko foreach: osds -->
                                                             <div class="btn-group" role="group"
-                                                                 data-bind="attr: { 'data-status': status(), 'id': asdID(), 'data-local': isLocal(), 'data-statusdetail': statusDetail() }">
+                                                                 data-bind="attr: { 'data-status': status(), 'id': osdID(), 'data-local': isLocal(), 'data-statusdetail': statusDetail() }">
                                                                 <button type="button" class="btn btn-small dropdown-toggle" data-toggle="dropdown"
                                                                         style="width: 57px; position: relative; text-align: left;"
                                                                         data-bind="css: {
@@ -373,11 +493,11 @@ but WITHOUT ANY WARRANTY of any kind.
                                                                             </a>
                                                                         </li>
                                                                     <!-- /ko -->
-                                                                    <!-- ko if: asdID() !== undefined -->
+                                                                    <!-- ko if: osdID() !== undefined -->
                                                                         <li>
                                                                             <a>
                                                                                 <span data-i18n="alba:generic.asdid"></span>:
-                                                                                <span data-bind="shortText: asdID(), maxLength: 23, middle: true"></span>
+                                                                                <span data-bind="shortText: osdID(), maxLength: 23, middle: true"></span>
                                                                             </a>
                                                                         </li>
                                                                     <!-- /ko -->
@@ -429,11 +549,12 @@ but WITHOUT ANY WARRANTY of any kind.
                 </table>
                 <div>
                     <span class="pull-right">
+                        <span class="fa" data-i18n="[html]ovs:icons.vdisks"></span>
                         <span data-i18n="alba:generic.disklegend" style="margin-right: 10px;"></span>
                         <span class="label pointer" data-i18n="alba:generic.states.disk.uninitialized"
                               data-bind="tooltip: 'alba:generic.states.diskinfo.uninitialized'"
                               style="background-color: #FFF; border: 1px solid #CCC; color: #333;"></span>
-                        <span class="label label-info pointer" data-i18n="alba:generic.states.disk.initialized"
+                        <span class="label label-success pointer" data-i18n="alba:generic.states.disk.initialized"
                               data-bind="tooltip: 'alba:generic.states.diskinfo.initialized'"></span>
                         <span class="label label-warning pointer" data-i18n="alba:generic.states.disk.warning"
                               data-bind="tooltip: 'alba:generic.states.diskinfo.warning'"></span>
@@ -444,18 +565,19 @@ but WITHOUT ANY WARRANTY of any kind.
                 <div style="clear: both;"></div>
                 <div style="margin-top: 7px;">
                     <span class="pull-right">
+                        <span class="fa" data-i18n="[html]ovs:icons.archive"></span>
                         <span data-i18n="alba:generic.asdlegend" style="margin-right: 10px;"></span>
                         <span class="label pointer" data-i18n="alba:generic.states.osd.unavailable"
-                              data-bind="tooltip: 'alba:generic.states.osdinfo.unavailable'"
+                              data-bind="tooltip: 'alba:generic.states.osdinfo.local.unavailable'"
                               style="background-color: #DDD; color: #333; opacity: .65;"></span>
                         <span class="label label-primary pointer" data-i18n="alba:generic.states.osd.available"
-                              data-bind="tooltip: 'alba:generic.states.osdinfo.available'"></span>
+                              data-bind="tooltip: 'alba:generic.states.osdinfo.local.available'"></span>
                         <span class="label label-success pointer" data-i18n="alba:generic.states.osd.claimed"
-                              data-bind="tooltip: 'alba:generic.states.osdinfo.claimed'"></span>
+                              data-bind="tooltip: 'alba:generic.states.osdinfo.local.claimed'"></span>
                         <span class="label label-warning pointer" data-i18n="alba:generic.states.osd.warning"
-                              data-bind="tooltip: 'alba:generic.states.osdinfo.warning'"></span>
+                              data-bind="tooltip: 'alba:generic.states.osdinfo.local.warning'"></span>
                         <span class="label label-danger pointer" data-i18n="alba:generic.states.osd.error"
-                              data-bind="tooltip: 'alba:generic.states.osdinfo.error'"></span>
+                              data-bind="tooltip: 'alba:generic.states.osdinfo.local.error'"></span>
                     </span>
                 </div>
                 <div style="clear: both;"></div>
@@ -494,7 +616,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <span data-i18n="alba:presets.policies.title"></span>
                                 <a data-bind="popover: {
                                                   title: 'alba:presets.policies.helptitle',
-                                                  content: 'alba:presets.policies.helpcontent'
+                                                  content: $root.localSummary() === undefined || $root.localSummary().scaling === 'LOCAL' ? 'alba:presets.policies.helpcontent_storage' : 'alba:presets.policies.helpcontent_backend'
                                               }" class="hand fa noline" data-i18n="[html]ovs:icons.help" role="button" tabindex="-1">
                                 </a>
                             </th>
@@ -510,7 +632,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                 </td>
                             </tr>
                         <!-- /ko -->
-                        <!-- ko if: loaded() == true && enhancedPresets().length === 0 -->
+                        <!-- ko if: loaded() === true && enhancedPresets().length === 0 -->
                             <tr>
                                 <td colspan="5">
                                     <i data-i18n="ovs:generic.noentries"></i>

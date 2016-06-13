@@ -15,7 +15,7 @@
 # but WITHOUT ANY WARRANTY of any kind.
 
 """
-AlbaASD module
+AlbaOSD module
 """
 import time
 from ovs.dal.dataobject import DataObject
@@ -25,13 +25,17 @@ from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.extensions.storage.volatilefactory import VolatileFactory
 
 
-class AlbaASD(DataObject):
+class AlbaOSD(DataObject):
     """
-    The AlbaASD represents a claimed ASD
+    The AlbaOSD represents a claimed ASD or an AlbaBackend
     """
-    __properties = [Property('asd_id', str, doc='ASD identifier')]
-    __relations = [Relation('alba_backend', AlbaBackend, 'asds', doc='The AlbaBackend that claimed the ASD'),
-                   Relation('alba_disk', AlbaDisk, 'asds', doc='The AlbaDisk to which the ASD belongs')]
+    OSD_TYPES = DataObject.enumerator('Osd_type', ['ASD', 'ALBA_BACKEND'])
+
+    __properties = [Property('osd_id', str, doc='OSD identifier'),
+                    Property('osd_type', OSD_TYPES.keys(), doc='Type of OSD (ASD, ALBA_BACKEND)'),
+                    Property('metadata', dict, mandatory=False, doc='Additional information about this OSD, such as connection information (if OSD is an ALBA backend')]
+    __relations = [Relation('alba_backend', AlbaBackend, 'osds', doc='The AlbaBackend that claimed the OSD'),
+                   Relation('alba_disk', AlbaDisk, 'osds', mandatory=False, doc='The AlbaDisk to which the OSD belongs')]
     __dynamics = [Dynamic('statistics', dict, 5, locked=True)]
 
     def _statistics(self, dynamic):
@@ -48,9 +52,9 @@ class AlbaASD(DataObject):
         previous_stats = volatile.get(prev_key, default={})
         try:
             all_statistics = self.alba_backend.asd_statistics
-            if self.asd_id not in all_statistics:
+            if self.osd_id not in all_statistics:
                 return {}
-            data = all_statistics[self.asd_id]
+            data = all_statistics[self.osd_id]
             statistics = {'timestamp': time.time()}
             delta = statistics['timestamp'] - previous_stats.get('timestamp', statistics['timestamp'])
             for key, sources in data_keys.iteritems():

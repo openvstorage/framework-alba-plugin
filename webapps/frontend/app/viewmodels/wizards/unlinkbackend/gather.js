@@ -16,66 +16,69 @@
 /*global define */
 define([
     'jquery', 'knockout',
-    'ovs/api', 'ovs/generic', 'ovs/shared', 'ovs/refresher', './data'
-], function($, ko, api, generic, shared, Refresher, data) {
+    'ovs/api', 'ovs/shared', 'ovs/generic', 'ovs/refresher',
+    './data'
+], function($, ko, api, shared, generic, Refresher, data) {
     "use strict";
     return function(parent) {
         var self = this;
 
         // Variables
-        self.shared    = shared;
-        self.refresher = new Refresher();
         self.data      = data;
+        self.refresher = new Refresher();
+        self.shared    = shared;
 
         // Computed
         self.canContinue = ko.computed(function() {
-            var valid = (!self.data.shouldConfirm() || self.data.confirmed()) && self.data.loaded();
+            var valid = (!self.data.shouldConfirm() || self.data.confirmed()) && self.data.loaded() && !self.data.failedToLoad();
             return { value: valid, reasons: [], fields: [] };
         });
 
         // Functions
         self.finish = function() {
-            self.data.albaOSD().processing(true);
             return $.Deferred(function(deferred) {
-                generic.alertSuccess(
-                    $.t('alba:wizards.removeosd.started'),
-                    $.t('alba:wizards.removeosd.msgstarted')
+                generic.alertInfo(
+                    $.t('alba:wizards.unlink_backend.started'),
+                    $.t('alba:wizards.unlink_backend.started_msg', {
+                        global_backend: self.data.target().name(),
+                        backend_to_unlink: self.data.linkedOSDInfo().name
+                    })
                 );
-                api.post('alba/nodes/' + self.data.albaNode().guid() + '/reset_asd', {
-                    data: {
-                        asd_id: self.data.albaOSD().osdID(),
-                        safety: self.data.safety()
-                    }
-                })
+                deferred.resolve();
+                api.post('alba/backends/' + self.data.target().guid() + '/unlink_alba_backends', {data: {linked_guid: self.data.linkedOSDInfo().alba_backend_guid}})
                     .then(self.shared.tasks.wait)
                     .done(function() {
                         generic.alertSuccess(
-                            $.t('alba:wizards.removeosd.complete'),
-                            $.t('alba:wizards.removeosd.success')
+                            $.t('alba:wizards.unlink_backend.success'),
+                            $.t('alba:wizards.unlink_backend.success_msg', {
+                                global_backend: self.data.target().name(),
+                                backend_to_unlink: self.data.linkedOSDInfo().name
+                            })
                         );
                     })
                     .fail(function(error) {
                         generic.alertError(
                             $.t('ovs:generic.error'),
-                            $.t('alba:wizards.removeosd.failed', { why: error })
+                            $.t('alba:wizards.unlink_backend.error_msg', {error: error})
                         );
                     })
-                    .always(function() {
-                        self.data.albaOSD().processing(false);
-                    });
-                deferred.resolve();
             }).promise();
         };
 
         // Durandal
         self.activate = function() {
             self.refresher.init(function() {
-                api.get('alba/backends/' + self.data.albaBackend().guid() + '/calculate_safety', {
-                    queryparams: { asd_id: self.data.albaOSD().osdID() }
+                api.get('alba/backends/' + self.data.target().guid() + '/calculate_safety', {
+                    queryparams: { asd_id: self.data.linkedOSDInfo().osd_id }
                 })
                     .then(self.shared.tasks.wait)
                     .done(function(safety) {
                         self.data.safety(safety);
+                    })
+                    .fail(function() {
+                        self.data.failedToLoad(true);
+                    })
+                    .always(function() {
                         self.data.loaded(true);
                     });
             }, 5000);
@@ -83,7 +86,6 @@ define([
             self.refresher.start();
             parent.closing.always(function() {
                 self.refresher.stop();
-                self.data.albaOSD().processing(false);
             });
             parent.finishing.always(function() {
                 self.refresher.stop();

@@ -17,13 +17,11 @@
 """
 AlbaNode module
 """
-import requests
 from ovs.dal.dataobject import DataObject
-from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.dal.hybrids.storagerouter import StorageRouter
+from ovs.dal.structures import Dynamic, Property, Relation
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
 from ovs.extensions.plugins.asdmanager import ASDManagerClient
-from ovs.extensions.plugins.albacli import AlbaCLI
 
 
 class AlbaNode(DataObject):
@@ -35,7 +33,7 @@ class AlbaNode(DataObject):
                     Property('node_id', str, doc='Alba node_id identifier'),
                     Property('username', str, doc='Username of the AlbaNode'),
                     Property('password', str, doc='Password of the AlbaNode'),
-                    Property('type', ['ASD', 'SUPERMICRO'], default='ASD', doc='The type of the AlbaNode')]
+                    Property('type', ['ASD'], default='ASD', doc='The type of the AlbaNode')]
     __relations = [Relation('storagerouter', StorageRouter, 'alba_nodes', mandatory=False, doc='StorageRouter hosting the AlbaNode')]
     __dynamics = [Dynamic('ips', list, 3600)]
 

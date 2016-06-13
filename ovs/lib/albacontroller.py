@@ -18,15 +18,17 @@
 AlbaController module
 """
 
-import json
 import os
+import json
+import time
 import random
 import requests
 import tempfile
-import time
 from celery.schedules import crontab
+from ConfigParser import RawConfigParser
+from StringIO import StringIO
 from ovs.celery_run import celery
-from ovs.dal.hybrids.albaasd import AlbaASD
+from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.diskpartition import DiskPartition
@@ -36,8 +38,10 @@ from ovs.dal.hybrids.service import Service as DalService
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
+from ovs.dal.lists.clientlist import ClientList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
+from ovs.extensions.api.client import OVSClient
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
@@ -45,6 +49,7 @@ from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.extensions.services.service import ServiceManager
 from ovs.lib.helpers.decorators import add_hooks, ensure_single
+from ovs.lib.helpers.toolbox import Toolbox
 from ovs.log.log_handler import LogHandler
 
 
@@ -88,42 +93,50 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.add_units')
-    def add_units(alba_backend_guid, asds):
+    def add_units(alba_backend_guid, osds, metadata=None):
         """
         Adds storage units to an Alba backend
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
 
-        :param asds: ASDs to add to the ALBA backend
-        :type asds: dict
+        :param osds: ASDs to add to the ALBA backend
+        :type osds: dict
+
+        :param metadata: Metadata to add to the OSD (connection information for remote backend, general backend information)
+        :type metadata: dict
 
         :return: None
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
         disks = {}
-        for asd_id, disk_guid in asds.iteritems():
-            if disk_guid not in disks:
+
+        for osd_id, disk_guid in osds.iteritems():
+            alba_disk = None
+            if disk_guid is not None and disk_guid not in disks:
                 disks[disk_guid] = AlbaDisk(disk_guid)
-            AlbaCLI.run('claim-osd', config=config, long_id=asd_id, as_json=True)
-            asd = AlbaASD()
-            asd.asd_id = asd_id
-            asd.alba_disk = disks[disk_guid]
-            asd.alba_backend = alba_backend
-            asd.save()
+                alba_disk = disks.get(disk_guid)
+            AlbaCLI.run(command='claim-osd', config=config, long_id=osd_id, to_json=True)
+            osd = AlbaOSD()
+            osd.osd_id = osd_id
+            osd.osd_type = AlbaOSD.OSD_TYPES.ALBA_BACKEND if alba_disk is None else AlbaOSD.OSD_TYPES.ASD
+            osd.metadata = metadata
+            osd.alba_disk = alba_disk
+            osd.alba_backend = alba_backend
+            osd.save()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
 
     @staticmethod
     @celery.task(name='alba.remove_units')
-    def remove_units(alba_backend_guid, asd_ids, absorb_exception=False):
+    def remove_units(alba_backend_guid, osd_ids, absorb_exception=False):
         """
         Removes storage units from an Alba backend
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
 
-        :param asd_ids: IDs of the ASDs
-        :type asd_ids: list
+        :param osd_ids: IDs of the ASDs
+        :type osd_ids: list
 
         :param absorb_exception: Ignore potential errors
         :type absorb_exception: bool
@@ -133,8 +146,8 @@ class AlbaController(object):
         try:
             alba_backend = AlbaBackend(alba_backend_guid)
             config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
-            for asd_id in asd_ids:
-                AlbaCLI.run('decommission-osd', config=config, long_id=asd_id)
+            for osd_id in osd_ids:
+                AlbaCLI.run(command='purge-osd', config=config, long_id=osd_id, to_json=True)
         except:
             if absorb_exception is False:
                 raise
@@ -191,7 +204,7 @@ class AlbaController(object):
         with open(temp_config_file, 'wb') as data_file:
             data_file.write(json.dumps(preset))
             data_file.flush()
-            AlbaCLI.run('create-preset', config=config, extra_params=[name, '<', data_file.name], as_json=True)
+            AlbaCLI.run(command='create-preset', config=config, to_json=True, extra_params=[name, '<', data_file.name])
             alba_backend.invalidate_dynamics()
         for filename in [temp_key_file, temp_config_file]:
             if filename and os.path.exists(filename) and os.path.isfile(filename):
@@ -213,7 +226,7 @@ class AlbaController(object):
         alba_backend = AlbaBackend(alba_backend_guid)
         AlbaController._logger.debug('Deleting preset {0}'.format(name))
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
-        AlbaCLI.run('delete-preset', config=config, extra_params=name, as_json=True)
+        AlbaCLI.run(command='delete-preset', config=config, to_json=True, extra_params=[name])
         alba_backend.invalidate_dynamics()
 
     @staticmethod
@@ -243,7 +256,7 @@ class AlbaController(object):
         with open(temp_config_file, 'wb') as data_file:
             data_file.write(json.dumps(preset))
             data_file.flush()
-            AlbaCLI.run('update-preset', config=config, extra_params=[name, '<', data_file.name], as_json=True)
+            AlbaCLI.run(command='update-preset', config=config, to_json=True, extra_params=[name, '<', data_file.name])
             alba_backend.invalidate_dynamics()
         for filename in [temp_key_file, temp_config_file]:
             if filename and os.path.exists(filename) and os.path.isfile(filename):
@@ -271,7 +284,7 @@ class AlbaController(object):
 
         alba_backend = AlbaBackend(alba_backend_guid)
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
-        alba_backend.alba_id = AlbaCLI.run('get-alba-id', config=config, as_json=True, attempts=5)['id']
+        alba_backend.alba_id = AlbaCLI.run(command='get-alba-id', config=config, to_json=True, attempts=5)['id']
         alba_backend.save()
         if not EtcdConfiguration.exists(AlbaController.ETCD_DEFAULT_NSM_HOSTS_KEY):
             EtcdConfiguration.set(AlbaController.ETCD_DEFAULT_NSM_HOSTS_KEY, 1)
@@ -307,7 +320,7 @@ class AlbaController(object):
         from ovs.lib.albanodecontroller import AlbaNodeController
 
         albabackend = AlbaBackend(alba_backend_guid)
-        if len(albabackend.asds) > 0:
+        if len(albabackend.osds) > 0:
             raise RuntimeError('A backend with claimed OSDs cannot be removed')
 
         # openvstorage nodes
@@ -361,6 +374,8 @@ class AlbaController(object):
 
         AlbaController._logger.debug('Deleting ALBA backend from model')
         backend = albabackend.backend
+        for junction in list(backend.domains):
+            junction.delete()
         albabackend.delete()
         backend.delete()
 
@@ -691,12 +706,10 @@ class AlbaController(object):
         storage_router = StorageRouterList.get_by_ip(cluster_ip)
         from ovs.lib.albanodecontroller import AlbaNodeController
         for alba_node in storage_router.alba_nodes:
-            for asd in alba_node.asds:
-                alba_backend_guid = asd.alba_backend.guid
-                node_guid = asd.alba_node.guid
-                disk = asd.name
-                expected_safety = {}
-                AlbaNodeController.remove_disk(alba_backend_guid, node_guid, disk, expected_safety)
+            for disk in alba_node.disks:
+                for osd in disk.osds:
+                    AlbaNodeController.remove_asd(node_guid=osd.alba_node.guid, asd_id=osd.osd_id, expected_safety={})
+                AlbaNodeController.remove_disk(node_guid=osd.alba_node.guid, disk=osd.name)
             alba_node.delete()
         for service in storage_router.services:
             if service.abm_service is not None:
@@ -884,7 +897,7 @@ class AlbaController(object):
                                                                              cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                                              ip=storagerouter.ip,
                                                                              base_dir=partition.folder,
-                                                                             plugins=AlbaController.NSM_PLUGIN,
+                                                                             plugins=[AlbaController.NSM_PLUGIN],
                                                                              claim=True)
                                 first_ip = storagerouter.ip
                             else:
@@ -918,31 +931,31 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.calculate_safety')
-    def calculate_safety(alba_backend_guid, removal_asd_ids):
+    def calculate_safety(alba_backend_guid, removal_osd_ids):
         """
         Calculates/loads the safety when a certain set of disks are removed
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
 
-        :param removal_asd_ids: ASDs to take into account for safety calculation
-        :type removal_asd_ids: list
+        :param removal_osd_ids: ASDs to take into account for safety calculation
+        :type removal_osd_ids: list
 
         :return: Amount of good, critical and lost ASDs
         :rtype: dict
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         error_disks = []
-        for disks in alba_backend.storage_stack.values():
+        for disks in alba_backend.local_stack.values():
             for disk in disks.values():
                 for asd_id, asd in disk['asds'].iteritems():
                     if asd['status'] == 'error':
                         error_disks.append(asd_id)
         extra_parameters = ['--include-decommissioning-as-dead']
-        for asd in alba_backend.asds:
-            if asd.asd_id in removal_asd_ids or asd.asd_id in error_disks:
-                extra_parameters.append('--long-id {0}'.format(asd.asd_id))
+        for osd in alba_backend.osds:
+            if osd.osd_id in removal_osd_ids or osd.osd_id in error_disks:
+                extra_parameters.append('--long-id {0}'.format(osd.osd_id))
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
-        safety_data = AlbaCLI.run('get-disk-safety', config=config, extra_params=extra_parameters, as_json=True)
+        safety_data = AlbaCLI.run(command='get-disk-safety', config=config, to_json=True, extra_params=extra_parameters)
         result = {'good': 0,
                   'critical': 0,
                   'lost': 0}
@@ -972,7 +985,7 @@ class AlbaController(object):
         if service_capacity == 0:
             return float('inf')
         config = ArakoonInstaller.ETCD_CONFIG_PATH.format(nsm_service.alba_backend.abm_services[0].service.name)
-        hosts_data = AlbaCLI.run('list-nsm-hosts', config=config, as_json=True)
+        hosts_data = AlbaCLI.run(command='list-nsm-hosts', config=config, to_json=True)
         host = [host for host in hosts_data if host['id'] == nsm_service.service.name][0]
         usage = host['namespaces_count']
         return round(usage / service_capacity * 100.0, 5)
@@ -996,7 +1009,7 @@ class AlbaController(object):
         abm_config_file = ArakoonInstaller.ETCD_CONFIG_PATH.format(abm_name)
         client = SSHClient(ip)
         if ArakoonInstaller.wait_for_cluster(nsm_name, client) and ArakoonInstaller.wait_for_cluster(abm_name, client):
-            AlbaCLI.run('add-nsm-host', config=abm_config_file, extra_params=nsm_config_file, client=client)
+            AlbaCLI.run(command='add-nsm-host', config=abm_config_file, extra_params=[nsm_config_file], client=client)
 
     @staticmethod
     def update_nsm(abm_name, nsm_name, ip):
@@ -1017,7 +1030,7 @@ class AlbaController(object):
         abm_config_file = ArakoonInstaller.ETCD_CONFIG_PATH.format(abm_name)
         client = SSHClient(ip)
         if ArakoonInstaller.wait_for_cluster(nsm_name, client) and ArakoonInstaller.wait_for_cluster(abm_name, client):
-            AlbaCLI.run('update-nsm-host', config=abm_config_file, extra_params=nsm_config_file, client=client)
+            AlbaCLI.run(command='update-nsm-host', config=abm_config_file, extra_params=[nsm_config_file], client=client)
 
     @staticmethod
     def _update_abm_client_config(abm_name, ip):
@@ -1037,7 +1050,7 @@ class AlbaController(object):
         # This will be up to 2 minutes
         # Reason for trying multiple times is because after a cluster has been shrunk or extended,
         # master might not be known, thus updating config might fail
-        AlbaCLI.run('update-abm-client-config', config=abm_config_file, attempts=8, client=client)
+        AlbaCLI.run(command='update-abm-client-config', config=abm_config_file, attempts=8, client=client)
 
     @staticmethod
     def _model_service(service_name, service_type, ports, storagerouter, junction_type, backend, number=None):
@@ -1308,6 +1321,117 @@ class AlbaController(object):
                 if ServiceManager.get_service_status(service_name, client=client) is True:
                     ServiceManager.stop_service(service_name, client=client)
                 ServiceManager.remove_service(service_name, client=client)
+
+    @staticmethod
+    @celery.task(name='alba.link_alba_backends')
+    def link_alba_backends(alba_backend_guid, metadata):
+        """
+        Link a GLOBAL ALBA Backend to a LOCAL or another GLOBAL ALBA Backend
+        :param alba_backend_guid: ALBA backend guid to link another ALBA Backend to
+        :type alba_backend_guid: str
+
+        :param metadata: Metadata about the linked ALBA Backend
+        :type metadata: dict
+        """
+        Toolbox.verify_required_params(required_params={'backend_connection_info': (dict, {'host': (str, Toolbox.regex_ip, False),
+                                                                                           'port': (int, {'min': 1, 'max': 65535}),
+                                                                                           'username': (str, None, False),
+                                                                                           'password': (str, None, False)}),
+                                                        'backend_info': (dict, {'linked_guid': (str, Toolbox.regex_guid),
+                                                                                'linked_name': (str, Toolbox.regex_vpool),
+                                                                                'linked_preset': (str, Toolbox.regex_preset),
+                                                                                'linked_alba_id': (str, Toolbox.regex_guid)})},
+                                       actual_params=metadata)
+
+        # Make sure connection information is always available
+        connection_info = metadata['backend_connection_info']
+        if connection_info['host'] == '':
+            clients = ClientList.get_by_types('INTERNAL', 'CLIENT_CREDENTIALS')
+            oauth_client = None
+            for current_client in clients:
+                if current_client.user.group.name == 'administrators':
+                    oauth_client = current_client
+                    break
+            if oauth_client is None:
+                raise RuntimeError('Could not find INTERNAL CLIENT_CREDENTIALS client in administrator group.')
+
+            connection_info['host'] = StorageRouterList.get_masters()[0].ip
+            connection_info['port'] = 443
+            connection_info['username'] = oauth_client.client_id
+            connection_info['password'] = oauth_client.client_secret
+
+        # Verify OSD has already been added
+        added = False
+        claimed = False
+        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=AlbaBackend(alba_backend_guid).backend))
+        all_osds = AlbaCLI.run(command='list-all-osds', config=config, to_json=True)
+        linked_alba_id = metadata['backend_info']['linked_alba_id']
+        for osd in all_osds:
+            if osd.get('long_id') == linked_alba_id:
+                added = True
+                claimed = osd.get('alba_id') is not None
+                break
+
+        # Add the OSD
+        if added is False:
+            # Retrieve remote arakoon configuration
+            ovs_client = OVSClient(ip=connection_info['host'], port=connection_info['port'], credentials=(connection_info['username'], connection_info['password']))
+            task_id = ovs_client.get('/alba/backends/{0}/get_config_metadata'.format(metadata['backend_info']['linked_guid']))
+            successful, arakoon_config = ovs_client.wait_for_task(task_id, timeout=300)
+            if successful is False:
+                raise RuntimeError('Could not load metadata from environment {0}'.format(ovs_client.ip))
+
+            # Write arakoon configuration to file
+            raw_config = RawConfigParser()
+            for section in arakoon_config:
+                raw_config.add_section(section)
+                for key, value in arakoon_config[section].iteritems():
+                    raw_config.set(section, key, value)
+            config_io = StringIO()
+            raw_config.write(config_io)
+            remote_arakoon_config = '/opt/OpenvStorage/arakoon_config_temp'
+            with open(remote_arakoon_config, 'w') as arakoon_cfg:
+                arakoon_cfg.write(config_io.getvalue())
+
+            try:
+                AlbaCLI.run(command='add-osd',
+                            config=config,
+                            prefix=alba_backend_guid,
+                            preset=metadata['backend_info']['linked_preset'],
+                            node_id=metadata['backend_info']['linked_guid'],
+                            to_json=True,
+                            alba_osd_config_url='file://{0}'.format(remote_arakoon_config))
+            finally:
+                os.remove(remote_arakoon_config)
+
+        if claimed is False:
+            # Claim and update model
+            AlbaController.add_units(alba_backend_guid=alba_backend_guid, osds={linked_alba_id: None}, metadata=metadata)
+
+    @staticmethod
+    @celery.task(name='alba.unlink_alba_backends')
+    def unlink_alba_backends(target_guid, linked_guid):
+        """
+        Unlink a LOCAL or GLOBAL ALBA Backend from a GLOBAL ALBA Backend
+        :param target_guid: Guid of the GLOBAL ALBA Backend from which a link will be removed
+        :type target_guid: str
+
+        :param linked_guid: Guid of the GLOBAL or LOCAL ALBA Backend which will be unlinked (Can be a local or a remote ALBA Backend)
+        :type linked_guid: str
+        """
+        child = AlbaBackend(linked_guid)
+        parent = AlbaBackend(target_guid)
+        linked_osd = None
+        for osd in parent.osds:
+            if osd.metadata is not None and osd.metadata['backend_info']['linked_guid'] == child.guid:
+                linked_osd = osd
+                break
+
+        if linked_osd is not None:
+            AlbaController.remove_units(alba_backend_guid=parent.guid, osd_ids=[linked_osd.osd_id])
+            linked_osd.delete()
+        parent.invalidate_dynamics()
+        parent.backend.invalidate_dynamics()
 
 
 if __name__ == '__main__':

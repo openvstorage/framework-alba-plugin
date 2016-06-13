@@ -28,22 +28,22 @@ define([
         self.disk = undefined;
 
         // Observables
-        self.ignoreNext      = ko.observable(false);
-        self.loaded          = ko.observable(false);
-        self.nodeID          = ko.observable();
-        self.guid            = ko.observable();
-        self.asdID           = ko.observable(id);
-        self.usage           = ko.observable();
-        self.status          = ko.observable();
-        self.statusDetail    = ko.observable();
-        self.device          = ko.observable();
-        self.mountpoint      = ko.observable();
-        self.port            = ko.observable();
-        self.processing      = ko.observable(false);
         self.albaBackend     = ko.observable();
         self.albaBackendGuid = ko.observable();
-        self.parentABGuid    = ko.observable();
+        self.device          = ko.observable();
+        self.guid            = ko.observable();
         self.highlighted     = ko.observable(false);
+        self.ignoreNext      = ko.observable(false);
+        self.loaded          = ko.observable(false);
+        self.mountpoint      = ko.observable();
+        self.nodeID          = ko.observable();
+        self.osdID           = ko.observable(id);
+        self.parentABGuid    = ko.observable();
+        self.port            = ko.observable();
+        self.processing      = ko.observable(false);
+        self.status          = ko.observable();
+        self.statusDetail    = ko.observable();
+        self.usage           = ko.observable();
 
         // Computed
         self.isLocal = ko.computed(function() {
@@ -65,7 +65,7 @@ define([
                 self.nodeID(data.node_id);
                 generic.trySet(self.guid, data, 'guid');
                 generic.trySet(self.statusDetail, data, 'status_detail');
-                generic.trySet(self.asdID, data, 'asd_id');
+                generic.trySet(self.osdID, data, 'asd_id');
                 generic.trySet(self.usage, data, 'usage');
                 generic.trySet(self.device, data, 'device');
                 generic.trySet(self.mountpoint, data, 'mountpoint');
@@ -79,7 +79,6 @@ define([
                     self.loadAlbaBackend();
                 }
             }
-
             self.loaded(true);
         };
 

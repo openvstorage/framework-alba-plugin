@@ -33,17 +33,21 @@ define([
         self.vPools  = undefined;
 
         // Observables
+        self.albaId              = ko.observable();
         self.availableActions    = ko.observableArray([]);
         self.backend             = ko.observable();
         self.backendGuid         = ko.observable();
         self.color               = ko.observable();
         self.guid                = ko.observable(guid);
+        self.linkedBackendGuids  = ko.observableArray();
         self.loaded              = ko.observable(false);
         self.loading             = ko.observable(false);
+        self.localSummary        = ko.observable();
         self.metadataInformation = ko.observable();
         self.name                = ko.observable();
         self.presets             = ko.observableArray([]);
         self.readIOps            = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.scaling             = ko.observable();
         self.totalSize           = ko.observable();
         self.usage               = ko.observable([]);
         self.writeIOps           = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
@@ -122,7 +126,10 @@ define([
         };
         self.fillData = function(data) {
             self.name(data.name);
+            self.albaId(data.alba_id);
+            self.scaling(data.scaling);
             generic.trySet(self.presets, data, 'presets');
+            generic.trySet(self.localSummary, data, 'local_summary');
             if (self.backendGuid() !== data.backend_guid) {
                 self.backendGuid(data.backend_guid);
                 self.backend(new Backend(data.backend_guid));
@@ -130,6 +137,9 @@ define([
             if (data.hasOwnProperty('statistics')) {
                 self.readIOps(data.statistics.multi_get.n_ps);
                 self.writeIOps(data.statistics.apply.n_ps);
+            }
+            if (data.hasOwnProperty('linked_backend_guids')) {
+                self.linkedBackendGuids(data.linked_backend_guids);
             }
             if (data.hasOwnProperty('metadata_information')) {
                 self.metadataInformation(data.metadata_information);
@@ -172,10 +182,10 @@ define([
                 } else {
                     self.usage([]);
                 }
-                self.rawData = data;
-                self.loaded(true);
-                self.loading(false);
             }
+            self.rawData = data;
+            self.loaded(true);
+            self.loading(false);
         };
         self.load = function(loadDynamics) {
             if (loadDynamics === undefined) {
@@ -189,7 +199,9 @@ define([
                             self.fillData(data);
                             deferred.resolve();
                         })
-                        .fail(deferred.reject)
+                        .fail(function() {
+                            deferred.reject();
+                        })
                         .always(function() {
                             self.loading(false);
                         });
@@ -199,14 +211,14 @@ define([
             }).promise();
         };
 
-        self.claimOSDs = function(asdsToClaim) {
+        self.claimOSDs = function(osdsToClaim) {
             return $.Deferred(function(deferred) {
                 var asdIDs = [], asdData = {}, allAsds = [];
-                $.each(asdsToClaim, function(diskGuid, asds) {
+                $.each(osdsToClaim, function(diskGuid, asds) {
                     $.each(asds, function(index, asd) {
                         allAsds.push(asd);
-                        asdIDs.push(asd.asdID());
-                        asdData[asd.asdID()] = diskGuid;
+                        asdIDs.push(asd.osdID());
+                        asdData[asd.osdID()] = diskGuid;
                         asd.processing(true);
                     });
                 });
@@ -222,7 +234,7 @@ define([
                                 $.t('alba:disks.claim.msgstarted')
                             );
                             api.post('alba/backends/' + self.guid() + '/add_units', {
-                                data: { asds: asdData }
+                                data: { osds: asdData }
                             })
                                 .then(self.shared.tasks.wait)
                                 .done(function() {

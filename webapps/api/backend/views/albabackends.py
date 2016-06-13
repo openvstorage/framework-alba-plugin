@@ -94,13 +94,16 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaBackend)
-    def add_units(self, albabackend, asds):
+    def add_units(self, albabackend, osds):
         """
         Add storage units to the backend and register with alba nsm
-        :param albabackend:     albabackend to add unit to
-        :param asds:         list of ASD ids
+        :param albabackend: ALBA backend to add units to
+        :type albabackend: AlbaBackend
+
+        :param osds: List of OSD ids
+        :type osds: list
         """
-        return AlbaController.add_units.s(albabackend.guid, asds).apply_async(queue='ovs_masters')
+        return AlbaController.add_units.s(albabackend.guid, osds).apply_async(queue='ovs_masters')
 
     @link()
     @log()
@@ -124,7 +127,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :param albabackend: ALBA backend to retrieve available actions for
         """
         actions = []
-        if len(albabackend.asds) == 0:
+        if len(albabackend.osds) == 0:
             actions.append('REMOVE')
         return Response(actions, status=status.HTTP_200_OK)
 
@@ -183,3 +186,37 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :param asd_id: ID of the ASD to calculate safety off
         """
         return AlbaController.calculate_safety.delay(albabackend.guid, [asd_id])
+
+    @action()
+    @log()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaBackend)
+    def link_alba_backends(self, albabackend, metadata):
+        """
+        Link a GLOBAL ALBA Backend to a LOCAL or another GLOBAL ALBA Backend
+        :param albabackend: ALBA backend to link another ALBA Backend to
+        :type albabackend: AlbaBackend
+
+        :param metadata: Metadata about the linked ALBA Backend
+        :type metadata: dict
+        """
+        return AlbaController.link_alba_backends.s(alba_backend_guid=albabackend.guid,
+                                                   metadata=metadata).apply_async(queue='ovs_masters')
+
+    @action()
+    @log()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaBackend)
+    def unlink_alba_backends(self, albabackend, linked_guid):
+        """
+        Unlink a LOCAL or GLOBAL ALBA Backend from a GLOBAL ALBA Backend
+        :param albabackend: ALBA backend to unlink another LOCAL or GLOBAL ALBA Backend from
+        :type albabackend: AlbaBackend
+
+        :param linked_guid: Guid of the GLOBAL or LOCAL ALBA Backend which will be unlinked (Can be a local or a remote ALBA Backend)
+        :type linked_guid: str
+        """
+        return AlbaController.unlink_alba_backends.s(target_guid=albabackend.guid,
+                                                     linked_guid=linked_guid).apply_async(queue='ovs_masters')

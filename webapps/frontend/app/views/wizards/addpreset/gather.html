@@ -16,7 +16,7 @@ Open vStorage is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY of any kind.
 -->
 <div>
-    <form role="form form-horizontal" class="form-horizontal">
+    <form class="form-horizontal">
         <p data-i18n="alba:wizards.addpreset.gather.basicinfo"></p>
         <div class="form-group" data-bind="css: { 'has-error': $.inArray('name', canContinue().fields) !== -1 }">
             <label class="col-lg-3 control-label" for="name" data-i18n="alba:wizards.addpreset.gather.name"></label>
@@ -92,18 +92,18 @@ but WITHOUT ANY WARRANTY of any kind.
                             <!-- ko foreach: data.policies -->
                                 <tr>
                                     <td>
-                                        <input style="width: 50px;" type="text"
+                                        <input style="width: 50px;" type="text" title="k_policy"
                                                data-bind="value: k, style: { 'border': $.inArray('k_' + id(), $root.canContinue().fields) !== -1 ? 'solid #d6605e 2px' : '' }" />
                                     </td>
                                     <td>
-                                        <input style="width: 50px;" type="text" data-bind="value: m" />
+                                        <input style="width: 50px;" type="text"  title="m_policy" data-bind="value: m" />
                                     </td>
                                     <td>
-                                        <input style="width: 50px;" type="text"
+                                        <input style="width: 50px;" type="text" title="c_policy"
                                                data-bind="value: c, style: { 'border': $.inArray('c_' + id(), $root.canContinue().fields) !== -1 ? 'solid #d6605e 2px' : '' }" />
                                     </td>
                                     <td>
-                                        <input style="width: 50px;" type="text"
+                                        <input style="width: 50px;" type="text" title="x_policy"
                                                data-bind="value: x, style: { 'border': $.inArray('x_' + id(), $root.canContinue().fields) !== -1 ? 'solid #d6605e 2px' : '' }" />
                                     </td>
                                     <td>
@@ -132,7 +132,8 @@ but WITHOUT ANY WARRANTY of any kind.
                             </tr>
                         </tbody>
                     </table>
-                    <span data-i18n="[html]alba:presets.policies.shorthelpcontent"></span>
+                    <span data-i18n="[html]alba:presets.policies.shorthelpcontent_backend" data-bind="visible: data.backend().scaling() === 'GLOBAL'"></span>
+                    <span data-i18n="[html]alba:presets.policies.shorthelpcontent_storage" data-bind="visible: data.backend().scaling() === 'LOCAL'"></span>
                 </div>
             </div>
         </div>

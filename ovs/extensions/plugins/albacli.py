@@ -17,11 +17,11 @@
 """
 Generic ALBA CLI module
 """
+import os
 import json
 import time
-import unittest
-from ovs.log.log_handler import LogHandler
 from subprocess import check_output, CalledProcessError
+from ovs.log.log_handler import LogHandler
 
 
 class AlbaCLI(object):
@@ -31,40 +31,30 @@ class AlbaCLI(object):
     _run_results = {}
 
     @staticmethod
-    def run(command, config=None, host=None, long_id=None, asd_port=None, node_id=None, extra_params=None,
-            as_json=False, debug=False, client=None, raise_on_failure=True, attempts=None):
+    def run(command, **kwargs):
         """
         Executes a command on ALBA
         """
         logger = LogHandler.get('extensions', name='albacli')
-        if hasattr(unittest, 'running_tests') and getattr(unittest, 'running_tests') is True:  # For unit tests we do not want to execute the actual command
+        if os.environ.get('RUNNING_UNITTESTS') == 'True':  # For unit tests we do not want to execute the actual command
             logger.debug('Running command {0} in unittest mode'.format(command))
             return AlbaCLI._run_results[command]
 
+        debug = kwargs.pop('debug') if 'debug' in kwargs else False
+        client = kwargs.pop('client') if 'client' in kwargs else None
+        to_json = kwargs.pop('to_json') if 'to_json' in kwargs else False
+        extra_params = kwargs.pop('extra_params') if 'extra_params' in kwargs else []
         debug_log = []
         try:
             cmd = 'export LD_LIBRARY_PATH=/usr/lib/alba; '
             cmd += '/usr/bin/alba {0}'.format(command)
-            if config is not None:
-                cmd += ' --config {0}'.format(config)
-            if host is not None:
-                cmd += ' --host {0}'.format(host)
-            if long_id is not None:
-                cmd += ' --long-id {0}'.format(long_id)
-            if asd_port is not None:
-                cmd += ' --asd-port {0}'.format(asd_port)
-            if node_id is not None:
-                cmd += ' --node-id {0}'.format(node_id)
-            if attempts is not None:
-                cmd += ' --attempts {0}'.format(attempts)
-            if as_json is True:
+            for key, value in kwargs.iteritems():
+                cmd += ' --{0}={1}'.format(key.replace('_', '-'), value)
+            if to_json is True:
                 cmd += ' --to-json'
-            if extra_params is not None:
-                if isinstance(extra_params, list):
-                    for extra_param in extra_params:
-                        cmd += ' {0}'.format(extra_param)
-                else:
-                    cmd += ' {0}'.format(extra_params)
+            for extra_param in extra_params:
+                cmd += ' {0}'.format(extra_param)
+
             if debug is False:
                 cmd += ' 2> /dev/null'
             debug_log.append('Command: {0}'.format(cmd))
@@ -74,7 +64,10 @@ class AlbaCLI(object):
                 try:
                     output = check_output(cmd, shell=True).strip()
                 except CalledProcessError as ex:
-                    output = ex.output
+                    if to_json is True:
+                        output = json.loads(ex.output)
+                        raise RuntimeError(output.get('error', {}).get('message'))
+                    raise
             else:
                 if debug:
                     output, stderr = client.run(cmd, debug=True)
@@ -88,18 +81,11 @@ class AlbaCLI(object):
             if debug is True:
                 for debug_line in debug_log:
                     logger.debug(debug_line)
-            if as_json is True:
+            if to_json is True:
                 output = json.loads(output)
                 if output['success'] is True:
-                    if raise_on_failure is True:
-                        return output['result']
-                    else:
-                        return True, output['result']
-                else:
-                    if raise_on_failure is True:
-                        raise RuntimeError(output['error']['message'])
-                    else:
-                        return False, output['error']
+                    return output['result']
+                raise RuntimeError(output['error']['message'])
             return output
         except Exception as ex:
             logger.exception('Error: {0}'.format(ex))

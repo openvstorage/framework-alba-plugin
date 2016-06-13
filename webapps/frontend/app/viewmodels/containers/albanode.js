@@ -15,11 +15,11 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'knockout', 'durandal/app', 'plugins/dialog',
+    'jquery', 'knockout', 'plugins/dialog',
     'ovs/generic', 'ovs/api', 'ovs/shared',
-    '../containers/albaosd', '../wizards/addalbanode/index', '../wizards/removeosd/index',
+    '../wizards/addalbanode/index', '../wizards/removeosd/index',
     '../wizards/initializedisk/index'
-], function($, ko, app, dialog, generic, api, shared, OSD, AddAlbaNodeWizard, RemoveOSDWizard, InitializeDiskWizard) {
+], function($, ko, dialog, generic, api, shared, AddAlbaNodeWizard, RemoveOSDWizard, InitializeDiskWizard) {
     "use strict";
     return function(nodeID, albaBackend, parent) {
         var self = this;
@@ -57,11 +57,11 @@ define([
             });
             return hasUninitialized;
         });
-        self.canClaimAll      = ko.computed(function() {
+        self.canClaimAll = ko.computed(function() {
             var hasUnclaimed = false;
             $.each(self.disks(), function(index, disk) {
-                $.each(disk.asds(), function(jndex, asd) {
-                    if (asd.status() === 'available' && asd.processing() === false) {
+                $.each(disk.osds(), function(jndex, osd) {
+                    if (osd.status() === 'available' && osd.processing() === false) {
                         hasUnclaimed = true;
                         return false;
                     }
@@ -194,7 +194,7 @@ define([
                 if (disk.processing()) {
                     return true;
                 }
-                $.each(disk.asds(), function (jndex, asd) {
+                $.each(disk.osds(), function (jndex, asd) {
                     if (asd.status() !== 'available' || asd.processing()) {
                         return true;
                     }
@@ -211,7 +211,7 @@ define([
                     $.t('alba:disks.restart.msgstarted')
                 );
                 api.post('alba/nodes/' + self.guid() + '/restart_asd', {
-                    data: { asd_id: asd.asdID() }
+                    data: { asd_id: asd.osdID() }
                 })
                     .then(self.shared.tasks.wait)
                     .done(function() {

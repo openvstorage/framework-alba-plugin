@@ -160,7 +160,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Removes and re-add an ASD
         :param albanode: ALBA node to remove a disk from
-        :param asd_id: ASDID to be resetted
+        :param asd_id: ASD ID to reset
         :param safety: Safety to maintain
         """
         return AlbaNodeController.reset_asd.delay(albanode.guid, asd_id, safety)

@@ -17,40 +17,56 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
-    '../containers/backend', '../containers/backendtype', '../containers/albabackend',
-    '../containers/albanode', '../containers/albaosd', '../containers/albadisk',
-    '../containers/storagerouter', '../containers/vpool',
-    '../wizards/addpreset/index'
-], function($, app, ko, router, dialog, shared, generic, Refresher, api, Backend, BackendType, AlbaBackend,
-            Node, OSD, Disk, StorageRouter, VPool, AddPresetWizard) {
+    '../containers/albabackend', '../containers/albadisk', '../containers/albanode', '../containers/backend',
+    '../containers/backendtype', '../containers/domain', '../containers/storagerouter', '../containers/vpool',
+    '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index'
+], function($, app, ko, router, dialog,
+            shared, generic, Refresher, api,
+            AlbaBackend, Disk, Node, Backend, BackendType, Domain, StorageRouter, VPool,
+            AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard) {
     "use strict";
     return function() {
         var self = this;
 
         // Variables
+        self.domainCache        = {};
         self.shared             = shared;
         self.generic            = generic;
         self.guard              = { authenticated: true };
         self.refresher          = new Refresher();
         self.widgets            = [];
-        self.initializing       = false;
         self.nodesHandle        = {};
         self.storageRouterCache = {};
-        self.initialRun         = true;
+        self.loadDomainsHandle  = undefined;
 
         // Observables
-        self.backend                = ko.observable();
+        self.domains                = ko.observableArray([]);
+        self.domainsLoaded          = ko.observable(false);
         self.albaBackend            = ko.observable();
-        self.rNodesLoading          = ko.observable(true);
-        self.dNodesLoading          = ko.observable(false);
-        self.registeredNodes        = ko.observableArray([]);
-        self.registeredNodesNodeIDs = ko.observableArray([]);
+        self.backend                = ko.observable();
         self.discoveredNodes        = ko.observableArray([]);
         self.disks                  = ko.observableArray([]);
-        self.vPools                 = ko.observableArray([]);
+        self.dNodesLoading          = ko.observable(false);
+        self.initialRun             = ko.observable(true);
+        self.localSummary           = ko.observable();
+        self.remoteStack            = ko.observableArray([]);
         self.otherAlbaBackendsCache = ko.observable({});
+        self.registeredNodes        = ko.observableArray([]);
+        self.registeredNodesNodeIDs = ko.observableArray([]);
+        self.rNodesLoading          = ko.observable(true);
+        self.vPools                 = ko.observableArray([]);
 
         // Computed
+        self.domainGuids = ko.computed(function() {
+            var guids = [], backend = self.backend();
+            if (backend === undefined) {
+                return guids;
+            }
+            $.each(self.domains(), function(index, domain) {
+                guids.push(domain.guid());
+            });
+            return guids;
+        });
         self.filteredDiscoveredNodes = ko.computed(function() {
             var nodes = [];
             $.each(self.discoveredNodes(), function(index, node) {
@@ -85,38 +101,24 @@ define([
             });
             return albaBackends;
         });
-        self.ASDStates = ko.computed(function() {
-            var states = {
-                claimed: 0,
-                warning: 0,
-                failure: 0
-            };
-            if (self.albaBackend() !== undefined) {
-                $.each(self.registeredNodes(), function (index, node) {
-                    $.each(node.disks(), function (jndex, disk) {
-                        $.each(disk.asds(), function(kndex, asd) {
-                            if (asd.albaBackendGuid() === self.albaBackend().guid()) {
-                                if (asd.status() === 'claimed') {
-                                    states.claimed += 1;
-                                }
-                                if (asd.status() === 'error') {
-                                    states.failure += 1;
-                                }
-                                if (asd.status() === 'warning') {
-                                    states.warning += 1;
-                                }
-                            }
-                        });
-                    });
-                });
-            }
-            return states;
-        });
         self.showDetails = ko.computed(function() {
             return self.albaBackend() !== undefined && self.backend() !== undefined;
         });
         self.showActions = ko.computed(function() {
             return self.showDetails() && !['installing', 'new'].contains(self.backend().status());
+        });
+        self.albaBackendStatus = ko.computed(function() {
+            var status = 'green';
+            $.each(self.remoteStack(), function(_, remoteStack) {
+                if (remoteStack.error === 'unknown') {
+                    status = 'red';
+                    return false;
+                } else if (remoteStack.error === 'not_allowed') {
+                    status = 'orange';
+                    return true;
+                }
+            });
+            return status;
         });
 
         // Functions
@@ -129,38 +131,21 @@ define([
                 var backend = self.backend(), backendType;
                 backend.load()
                     .then(function(backendData) {
-                        return $.Deferred(function(subDeferred) {
-                            if (backend.backendType() === undefined) {
-                                backendType = new BackendType(backend.backendTypeGuid());
-                                backendType.load();
-                                backend.backendType(backendType);
+                        if (backend.backendType() === undefined) {
+                            backendType = new BackendType(backend.backendTypeGuid());
+                            backendType.load();
+                            backend.backendType(backendType);
+                        }
+                        if (backendData.hasOwnProperty('alba_backend_guid') && backendData.alba_backend_guid !== null) {
+                            if (self.albaBackend() === undefined) {
+                                var albaBackend = new AlbaBackend(backendData.alba_backend_guid);
+                                albaBackend.vPools = self.vPools;
+                                self.albaBackend(albaBackend);
                             }
-                            if (backendData.hasOwnProperty('alba_backend_guid') && backendData.alba_backend_guid !== null) {
-                                if (self.albaBackend() === undefined) {
-                                    var albaBackend = new AlbaBackend(backendData.alba_backend_guid);
-                                    albaBackend.vPools = self.vPools;
-                                    self.albaBackend(albaBackend);
-                                }
-                                subDeferred.resolve(self.albaBackend());
-                            } else {
-                                if (!self.initializing) {
-                                    self.initializing = true;
-                                    api.post('alba/backends', {
-                                        data: {
-                                            backend_guid: self.backend().guid()
-                                        }
-                                    })
-                                        .fail(function() {
-                                            self.initializing = false;
-                                        });
-                                }
-                                subDeferred.reject();
-                            }
-                        }).promise();
-                    })
-                    .then(function(albaBackend) {
-                        return albaBackend.load(!self.initialRun)
-                            .then(albaBackend.getAvailableActions);
+                            return self.albaBackend().load(!self.initialRun())
+                                .then(self.albaBackend().getAvailableActions);
+                        }
+                        deferred.reject();
                     })
                     .done(deferred.resolve)
                     .fail(deferred.reject);
@@ -197,7 +182,7 @@ define([
                                 }, 'guid'
                             );
                             $.each(self.vPools(), function (index, vpool) {
-                                if ($.inArray(vpool.guid(), guids) !== -1) {
+                                if (guids.contains(vpool.guid())) {
                                     vpool.fillData(vpdata[vpool.guid()]);
                                 }
                             });
@@ -243,7 +228,7 @@ define([
                                     }, 'nodeID'
                                 );
                                 $.each(oArray(), function (index, node) {
-                                    if ($.inArray(node.nodeID(), nodeIDs) !== -1) {
+                                    if (nodeIDs.contains(node.nodeID())) {
                                         node.fillData(nodes[node.nodeID()]);
                                         var sr, storageRouterGuid = node.storageRouterGuid();
                                         if (storageRouterGuid && (node.storageRouter() === undefined || node.storageRouter().guid() !== storageRouterGuid)) {
@@ -272,14 +257,30 @@ define([
                 }
             }).promise();
         };
-        self.loadOSDs = function() {
+        self.loadBackendOSDs = function() {
             var data = self.albaBackend().rawData;
-            if (data === undefined || !data.hasOwnProperty('storage_stack')) {
+            if (data === undefined || !data.hasOwnProperty('remote_stack') || !data.hasOwnProperty('local_summary')) {
                 return;
             }
-            var diskNames = [], disks = {}, changes = data.storage_stack.length !== self.disks().length,
+            self.localSummary(data.local_summary);
+            var remoteStacks = [];
+            $.each(data.remote_stack, function(key, value) {
+                value.alba_backend_guid = key;
+                remoteStacks.push(value);
+            });
+            self.remoteStack(remoteStacks);
+            self.remoteStack.sort(function(stack1, stack2) {
+                return stack1.name < stack2.name ? -1 : 1;
+            });
+        };
+        self.loadASDOSDs = function() {
+            var data = self.albaBackend().rawData;
+            if (data === undefined || !data.hasOwnProperty('local_stack')) {
+                return;
+            }
+            var diskNames = [], disks = {}, changes = data.local_stack.length !== self.disks().length,
                 diskNode = {}, nodeDisks = {};
-            $.each(data.storage_stack, function (nodeId, disksData) {
+            $.each(data.local_stack, function (nodeId, disksData) {
                 $.each(disksData, function(index, disk) {
                     diskNames.push(disk.name);
                     disks[disk.name] = disk;
@@ -293,7 +294,7 @@ define([
                 }, 'name'
             );
             $.each(self.disks(), function (index, disk) {
-                if ($.inArray(disk.name(), diskNames) !== -1) {
+                if (diskNames.contains(disk.name())) {
                     disk.fillData(disks[disk.name()]);
                 }
                 var nodeId = diskNode[disk.name()];
@@ -315,10 +316,10 @@ define([
                     node.disks.sort(function (a, b) {
                         return a.name() < b.name() ? -1 : 1;
                     });
-                    node.disksLoading(self.initialRun);
+                    node.disksLoading(self.initialRun());
                     $.each(node.disks(), function(index, disk) {
                         disk.node = node;
-                        $.each(disk.asds(), function(_, asd) {
+                        $.each(disk.osds(), function(_, asd) {
                             asd.node = node;
                             asd.parentABGuid(self.albaBackend().guid());
                         })
@@ -326,7 +327,42 @@ define([
                 })
             }
         };
-
+        self.loadDomains = function() {
+            return $.Deferred(function(deferred) {
+                if (generic.xhrCompleted(self.loadDomainsHandle)) {
+                    self.loadDomainsHandle = api.get('domains', {
+                        queryparams: { sort: 'name', contents: '' }
+                    })
+                        .done(function(data) {
+                            var guids = [], ddata = {};
+                            $.each(data.data, function(index, item) {
+                                guids.push(item.guid);
+                                ddata[item.guid] = item;
+                            });
+                            generic.crossFiller(
+                                guids, self.domains,
+                                function(guid) {
+                                    return new Domain(guid);
+                                }, 'guid'
+                            );
+                            $.each(self.domains(), function(index, domain) {
+                                if (ddata.hasOwnProperty(domain.guid())) {
+                                    domain.fillData(ddata[domain.guid()]);
+                                }
+                                self.domainCache[domain.guid()] = domain;
+                            });
+                            self.domains.sort(function(dom1, dom2) {
+                                return dom1.name() < dom2.name() ? -1 : 1;
+                            });
+                            self.domainsLoaded(true);
+                            deferred.resolve();
+                        })
+                        .fail(deferred.reject);
+                } else {
+                    deferred.reject();
+                }
+            }).promise();
+        };
         self.removeBackend = function() {
             return $.Deferred(function(deferred) {
                 if (self.albaBackend() === undefined || !self.albaBackend().availableActions().contains('REMOVE')) {
@@ -410,7 +446,6 @@ define([
                 editPreset: false
             }));
         };
-
         self.editPreset = function(data) {
             dialog.show(new AddPresetWizard({
                 modal: true,
@@ -420,18 +455,40 @@ define([
                 editPreset: true
             }));
         };
+        self.linkBackend = function() {
+            if (self.albaBackend().linkedBackendGuids() === undefined || self.albaBackend().linkedBackendGuids() === null) {
+                return;
+            }
+            dialog.show(new LinkBackendWizard (
+                {
+                    modal: true,
+                    target: self.albaBackend()
+                }
+            ));
+        };
+        self.unlinkBackend = function(info) {
+            dialog.show(new UnlinkBackendWizard (
+                { 
+                    modal: true,
+                    target: self.albaBackend(),
+                    linkedOSDInfo: info
+                }
+            ));
+        };
 
         // Durandal
         self.activate = function(mode, guid) {
             self.backend(new Backend(guid));
             self.refresher.init(function() {
                 self.loadVPools();
+                self.loadDomains();
                 return self.load()
                     .then(self.fetchNodes)
-                    .then(self.loadOSDs)
+                    .then(self.loadASDOSDs)
+                    .then(self.loadBackendOSDs)
                     .then(function() {
-                        if (self.initialRun === true) {
-                            self.initialRun = false;
+                        if (self.initialRun() === true) {
+                            self.initialRun(false);
                             self.refresher.skipPause = true;
                         }
                     })

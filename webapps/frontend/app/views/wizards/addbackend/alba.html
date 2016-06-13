@@ -1,0 +1,33 @@
+<section>
+    <div class="form-group">
+        <label class="col-lg-3 control-label" data-i18n="alba:wizards.add_backend.gather.role_check" style="padding-top: 0;"></label>
+        <div class="col-lg-7" style="margin-left: 5px;">
+            <!-- ko if: storageRoutersChecked() !== true -->
+                <span class="fa fa-1p5x fa-spin" data-i18n="[html]ovs:icons.loading"></span>
+            <!-- /ko -->
+            <!-- ko if: storageRoutersChecked() === true && validStorageRouterFound() === undefined -->
+                <span class="fa" data-i18n="[html]ovs:icons.warning" style="color: orange;"></span>
+                <span data-i18n="alba:wizards.add_backend.gather.unable_to_determine_roles"></span>
+            <!-- /ko -->
+            <!-- ko if: storageRoutersChecked() === true && validStorageRouterFound() === false -->
+                <span class="fa" data-i18n="[html]ovs:icons.cancel_circle" style="color: red;"></span>
+            <!-- /ko -->
+            <!-- ko if: storageRoutersChecked() === true && validStorageRouterFound() === true -->
+                <span class="fa" data-i18n="[html]ovs:icons.check_circle" style="color: green;"></span>
+            <!-- /ko -->
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-lg-3 control-label" for="scaling" data-i18n="alba:wizards.add_backend.gather.scaling"></label>
+        <div class="col-lg-7">
+            <span id="scaling"
+                  data-bind="dropdown: {
+                      items: scalings, target: scaling,
+                      text: function(item) {
+                          return $.t('alba:generic.scalings.' + item);
+                      }
+                  }">
+            </span>
+        </div>
+    </div>
+</section>
