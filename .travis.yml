@@ -7,7 +7,8 @@ before_install:
   - sudo echo "deb http://apt.openvstorage.org unstable main" | sudo tee -a /etc/apt/sources.list
   - sudo rm -rf /var/lib/apt/lists/*
   - sudo apt-get -qq update
-  - sudo apt-get install -y --force-yes volumedriver-server openvstorage-hc
+  - sudo apt-get install -y --force-yes volumedriver-server
+  - sudo apt-get install -y --force-yes openvstorage-hc
 before_script:
   - sudo find /opt/OpenvStorage -type d -exec chmod 777 {} +
   - sudo find /opt/OpenvStorage -type f -exec chmod 666 {} +
