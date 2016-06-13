@@ -61,11 +61,16 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @log()
     @required_roles(['read', 'write', 'manage'])
     @load()
-    def create(self, request):
+    def create(self, request, version):
         """
         Creates an AlbaBackend
         :param request: Data regarding ALBA backend to create
+        :type request: request
+        :param version: version requested by the client
+        :type version: int
         """
+        if version < 3:
+            request.DATA['scaling'] = 'LOCAL'
         serializer = FullSerializer(AlbaBackend, instance=AlbaBackend(), data=request.DATA, allow_passwords=True)
         if serializer.is_valid():
             alba_backend = serializer.object
