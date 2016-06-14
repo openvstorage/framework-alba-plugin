@@ -181,11 +181,14 @@ class AlbaController(object):
             raise RuntimeError('Preset name {0} already exists'.format(name))
         AlbaController._logger.debug('Adding preset {0} with compression {1} and policies {2}'.format(name, compression, policies))
         preset = {'compression': compression,
-                  'object_checksum': {'default': ['crc-32c'], 'verify_upload': True, 'allowed': [['none'], ['sha-1'], ['crc-32c']]},
+                  'object_checksum': {'default': ['crc-32c'],
+                                      'verify_upload': True,
+                                      'allowed': [['none'], ['sha-1'], ['crc-32c']]},
                   'osds': ['all'],
                   'fragment_size': 1048576,
                   'policies': policies,
                   'fragment_checksum': ['crc-32c'],
+                  'fragment_encryption': ['none'],
                   'in_use': False,
                   'name': name}
 
@@ -196,16 +199,14 @@ class AlbaController(object):
                 temp_file.write(encryption_key)
                 temp_file.flush()
             preset['fragment_encryption'] = ['{0}'.format(encryption), '{0}'.format(temp_key_file)]
-        else:
-            preset['fragment_encryption'] = ['none']
 
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
         temp_config_file = tempfile.mktemp()
         with open(temp_config_file, 'wb') as data_file:
             data_file.write(json.dumps(preset))
             data_file.flush()
-            AlbaCLI.run(command='create-preset', config=config, to_json=True, extra_params=[name, '<', data_file.name])
-            alba_backend.invalidate_dynamics()
+        AlbaCLI.run(command='create-preset', config=config, to_json=True, input_url=temp_config_file, extra_params=[name])
+        alba_backend.invalidate_dynamics()
         for filename in [temp_key_file, temp_config_file]:
             if filename and os.path.exists(filename) and os.path.isfile(filename):
                 os.remove(filename)
@@ -256,8 +257,8 @@ class AlbaController(object):
         with open(temp_config_file, 'wb') as data_file:
             data_file.write(json.dumps(preset))
             data_file.flush()
-            AlbaCLI.run(command='update-preset', config=config, to_json=True, extra_params=[name, '<', data_file.name])
-            alba_backend.invalidate_dynamics()
+        AlbaCLI.run(command='update-preset', config=config, to_json=True, input_url=temp_config_file, extra_params=[name])
+        alba_backend.invalidate_dynamics()
         for filename in [temp_key_file, temp_config_file]:
             if filename and os.path.exists(filename) and os.path.isfile(filename):
                 os.remove(filename)
