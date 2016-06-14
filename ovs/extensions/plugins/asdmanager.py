@@ -68,7 +68,7 @@ class ASDManagerClient(object):
                         _clean(_dict[_key])
             _clean(data)
         duration = time.time() - start
-        if True or duration > self._log_min_duration:
+        if duration > self._log_min_duration:
             self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.stack()[1][3], duration, internal_duration))
         return data
 
