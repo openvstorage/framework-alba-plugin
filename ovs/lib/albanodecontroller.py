@@ -210,9 +210,10 @@ class AlbaNodeController(object):
                     break
             if model_osd is not None:
                 break
-        if model_osd is None:
-            raise RuntimeError('Could not locate asd {0} in the model'.format(asd_id))
-        alba_backend = model_osd.alba_backend
+        if model_osd is not None:
+            alba_backend = model_osd.alba_backend
+        else:
+            alba_backend = None
 
         asds = {}
         try:
@@ -225,13 +226,15 @@ class AlbaNodeController(object):
                 disk_id = _disk_id
                 break
 
-        AlbaController.remove_units(alba_backend.guid, [asd_id], absorb_exception=True)
+        if alba_backend is not None:
+            AlbaController.remove_units(alba_backend.guid, [asd_id], absorb_exception=True)
         if disk_id is not None:
-            final_safety = AlbaController.calculate_safety(alba_backend.guid, [asd_id])
-            safety_lost = final_safety['lost']
-            safety_crit = final_safety['critical']
-            if (safety_crit != 0 or safety_lost != 0) and (safety_crit != expected_safety['critical'] or safety_lost != expected_safety['lost']):
-                raise RuntimeError('Cannot remove ASD {0} as the current safety is not as expected ({1} vs {2})'.format(asd_id, final_safety, expected_safety))
+            if alba_backend is not None:
+                final_safety = AlbaController.calculate_safety(alba_backend.guid, [asd_id])
+                safety_lost = final_safety['lost']
+                safety_crit = final_safety['critical']
+                if (safety_crit != 0 or safety_lost != 0) and (safety_crit != expected_safety['critical'] or safety_lost != expected_safety['lost']):
+                    raise RuntimeError('Cannot remove ASD {0} as the current safety is not as expected ({1} vs {2})'.format(asd_id, final_safety, expected_safety))
 
             result = node.client.delete_asd(disk_id, asd_id)
             if result['_success'] is False:
@@ -241,9 +244,11 @@ class AlbaNodeController(object):
         if EtcdConfiguration.exists(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True):
             EtcdConfiguration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(asd_id), raw=True)
 
-        model_osd.delete()
-        alba_backend.invalidate_dynamics()
-        alba_backend.backend.invalidate_dynamics()
+        if model_osd is not None:
+            model_osd.delete()
+        if alba_backend is not None:
+            alba_backend.invalidate_dynamics()
+            alba_backend.backend.invalidate_dynamics()
         if node.storagerouter is not None:
             DiskController.sync_with_reality(node.storagerouter_guid)
 
