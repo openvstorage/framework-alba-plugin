@@ -63,6 +63,6 @@ class AlbaScheduledTaskController(object):
             namespaces = AlbaCLI.run(command='list-namespaces', config=config, to_json=True)
             for namespace in namespaces:
                 AlbaScheduledTaskController._logger.info('verifying namespace: {0} scheduled ...'.format(namespace['name']))
-                AlbaCLI.run(command='verify-namespace', factor=verification_factor, extra_params=[namespace['name'], '{0}_{1}'.format(albabackend.name, namespace['name'])])
+                AlbaCLI.run(command='verify-namespace', config=config, factor=verification_factor, extra_params=[namespace['name'], '{0}_{1}'.format(albabackend.name, namespace['name'])])
 
         AlbaScheduledTaskController._logger.info('verify namespace task scheduling finished')
