@@ -1291,17 +1291,27 @@ class AlbaController(object):
                                                          master_ip=client.ip)
 
     @staticmethod
-    @add_hooks('setup', ['firstnode', 'extranode'])
-    @add_hooks('plugin', ['postinstall'])
+    @add_hooks('setup', ['firstnode', 'extranode'])  # Arguments: cluster_ip and for extranode also master_ip
+    @add_hooks('plugin', ['postinstall'])  # Arguments: ip
     def _add_base_configuration(*args, **kwargs):
         _ = args, kwargs
-        EtcdConfiguration.set('/ovs/framework/plugins/alba/config', {'nsm': {'maxload': 75,
-                                                                             'safety': 3}})
-        installed = EtcdConfiguration.get('/ovs/framework/plugins/installed')
+        key = '/ovs/framework/plugins/alba/config'
+        if not EtcdConfiguration.exists(key):
+            EtcdConfiguration.set(key, {'nsm': {'maxload': 75,
+                                                'safety': 3}})
+        key = '/ovs/framework/plugins/installed'
+        installed = EtcdConfiguration.get(key)
         if 'alba' not in installed['backends']:
             installed['backends'].append('alba')
-        EtcdConfiguration.set('/ovs/framework/plugins/installed', installed)
-        EtcdConfiguration.set('/ovs/alba/backends/global_gui_error_interval', 300)
+            EtcdConfiguration.set(key, installed)
+        key = '/ovs/alba/backends/global_gui_error_interval'
+        if not EtcdConfiguration.exists(key):
+            EtcdConfiguration.set(key, 300)
+        key = '/ovs/framework/hosts/{0}/versions|alba'
+        for storagerouter in StorageRouterList.get_storagerouters():
+            machine_id = storagerouter.machine_id
+            if not EtcdConfiguration.exists(key.format(machine_id)):
+                EtcdConfiguration.set(key.format(machine_id), 9)
 
     @staticmethod
     @add_hooks('update', 'postupgrade')

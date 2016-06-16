@@ -37,18 +37,22 @@ class ALBAMigrator(object):
     @staticmethod
     def migrate(previous_version):
         """
-        Migrates from any version to any version, running all migrations required
-        If previous_version is for example 0 and this script is at
-        version 3 it will execute two steps:
-          - 1 > 2
-          - 2 > 3
-        @param previous_version: The previous version from which to start the migration.
+        Migrates from a given version to the current version. It uses 'previous_version' to be smart
+        wherever possible, but the code should be able to migrate any version towards the expected version.
+        When this is not possible, the code can set a minimum version and raise when it is not met.
+        :param previous_version: The previous version from which to start the migration
+        :type previous_version: float
         """
 
         working_version = previous_version
 
-        # Version 0.0.1 introduced:
-        if working_version < 1:
+        if working_version == 0:
+            # Initial version:
+            # * Set the version to THIS RELEASE version
+            #   Version  9: Fargo Alpha, Beta, RC
+            #   Version 10: Fargo RTM
+            # * Add any basic configuration or model entries
+
             # Add backends
             for backend_type_info in [('ALBA', 'alba')]:
                 code = backend_type_info[1]
@@ -65,13 +69,10 @@ class ALBAMigrator(object):
                 service_type.name = service_type_info
                 service_type.save()
 
-            # We're now at version 0.0.1
-            working_version = 1
+            return 9
 
-        # Version 0.0.2 introduced:
-        if working_version < 2:
-            # Execute some code that upgrades to version 2
-            # working_version = 2
-            pass
+        # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
+        if working_version < 10:
+            raise RuntimeError('Cannot upgrade to Fargo')
 
         return working_version

@@ -18,8 +18,6 @@
 Alba migration module
 """
 
-from ovs.log.log_handler import LogHandler
-
 
 class AlbaMigrator(object):
     """
@@ -35,67 +33,23 @@ class AlbaMigrator(object):
     @staticmethod
     def migrate(previous_version, master_ips=None, extra_ips=None):
         """
-        Migrates from any version to any version, running all migrations required
-        If previous_version is for example 0 and this script is at
-        verison 3 it will execute two steps:
-          - 1 > 2
-          - 2 > 3
-        :param previous_version: The previous version from which to start the migration.
+        Migrates from a given version to the current version. It uses 'previous_version' to be smart
+        wherever possible, but the code should be able to migrate any version towards the expected version.
+        When this is not possible, the code can set a minimum version and raise when it is not met.
+        :param previous_version: The previous version from which to start the migration
+        :type previous_version: float
         :param master_ips: IP addresses of the MASTER nodes
+        :type master_ips: list or None
         :param extra_ips: IP addresses of the EXTRA nodes
+        :type extra_ips: list or None
         """
-        logger = LogHandler.get('extensions', name='albamigration')
+        _ = master_ips, extra_ips
         working_version = previous_version
 
-        # Version 1 introduced:
-        # - Etcd
-        if working_version < 1:
-            try:
-                import os
-                import json
-                from ovs.extensions.db.etcd import installer
-                reload(installer)
-                from ovs.extensions.db.etcd.installer import EtcdInstaller
-                from ovs.extensions.db.etcd.configuration import EtcdConfiguration
-                from ovs.extensions.generic.system import System
-                host_id = System.get_my_machine_id()
-                etcd_migrate = False
-                if EtcdInstaller.has_cluster('127.0.0.1', 'config'):
-                    etcd_migrate = True
-                else:
-                    if master_ips is not None and extra_ips is not None:
-                        cluster_ip = None
-                        for ip in master_ips + extra_ips:
-                            if EtcdInstaller.has_cluster(ip, 'config'):
-                                cluster_ip = ip
-                                break
-                        node_ip = None
-                        path = '/opt/OpenvStorage/config/ovs.json'
-                        if os.path.exists(path):
-                            with open(path) as config_file:
-                                config = json.load(config_file)
-                                node_ip = config['grid']['ip']
-                        if node_ip is not None:
-                            if cluster_ip is None:
-                                EtcdInstaller.create_cluster('config', node_ip)
-                                EtcdConfiguration.initialize()
-                                EtcdConfiguration.initialize_host(host_id)
-                            else:
-                                EtcdInstaller.extend_cluster(cluster_ip, node_ip, 'config')
-                                EtcdConfiguration.initialize_host(host_id)
-                            etcd_migrate = True
-                if etcd_migrate is True:
-                    # At this point, there is an etcd cluster. Migrating alba.json
-                    path = '/opt/OpenvStorage/config/alba.json'
-                    if os.path.exists(path):
-                        with open(path) as config_file:
-                            config = json.load(config_file)
-                            EtcdConfiguration.set('/ovs/framework/plugins/alba/config', config)
-                        os.remove(path)
-                        EtcdConfiguration.set('/ovs/alba/backends/global_gui_error_interval', 300)
-            except:
-                logger.exception('Error migrating to version 1')
-
-            working_version = 1
+        # Version  9: Fargo Alpha, Beta, RC
+        # Version 10: Fargo RTM
+        # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
+        if working_version < 10:
+            raise RuntimeError('Cannot upgrade to Fargo')
 
         return working_version
