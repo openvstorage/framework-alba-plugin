@@ -954,7 +954,7 @@ class AlbaController(object):
         extra_parameters = ['--include-decommissioning-as-dead']
         for osd in alba_backend.osds:
             if osd.osd_id in removal_osd_ids or osd.osd_id in error_disks:
-                extra_parameters.append('--long-id {0}'.format(osd.osd_id))
+                extra_parameters.append('--long-id={0}'.format(osd.osd_id))
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
         safety_data = AlbaCLI.run(command='get-disk-safety', config=config, to_json=True, extra_params=extra_parameters)
         result = {'good': 0,
