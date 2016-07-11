@@ -72,11 +72,15 @@ class AlbaCLI(object):
                     output, stderr = channel.communicate()
                     output = output.replace(u'\u2018', u'"').replace(u'\u2019', u'"')
                     stderr = stderr.replace(u'\u2018', u'"').replace(u'\u2019', u'"')
-                    debug_log.append('stderr: {0}'.format(stderr))
-                    debug_log.append('stdout: {0}'.format(output))
+                    stderr_debug = 'stderr: {0}'.format(stderr)
+                    stdout_debug = 'stdout: {0}'.format(output)
+                    if debug is True:
+                        logger.debug(stderr_debug)
+                        logger.debug(stdout_debug)
+                    debug_log.append(stderr_debug)
+                    debug_log.append(stdout_debug)
                     exit_code = channel.returncode
                     if exit_code != 0:  # Raise same error as check_output
-                        logger.error('ex {0} out {1} err {2}'.format(exit_code, output, stderr))
                         raise CalledProcessError(exit_code, cmd_string, output)
                 else:
                     if debug:
@@ -86,7 +90,6 @@ class AlbaCLI(object):
                         output = client.run(cmd_list, debug=False).strip()
                     debug_log.append('stdout: {0}'.format(output))
             except CalledProcessError as ex:
-                logger.exception(ex)
                 if to_json is True:
                     output = json.loads(ex.output)
                     raise RuntimeError(output.get('error', {}).get('message'))
