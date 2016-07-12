@@ -37,11 +37,13 @@ define([
         self.loadDomainsHandle      = undefined;
 
         // Observables
-        self.albaBackends     = ko.observableArray([]);
-        self.domainBackendMap = ko.observable({'LOCAL': ko.observableArray([]),
-                                               'GLOBAL': ko.observableArray([])});
-        self.loading          = ko.observable(false);
-        self.selectedGroup    = ko.observable({'name': 'GLOBAL', 'disabled': false, 'translate': true});
+        self.albaBackends       = ko.observableArray([]);
+        self.albaBackendsLoaded = ko.observable(false);
+        self.domainBackendMap   = ko.observable({'LOCAL': ko.observableArray([]),
+                                                 'GLOBAL': ko.observableArray([])});
+        self.initialRun         = ko.observable(true);
+        self.loading            = ko.observable(false);
+        self.selectedGroup      = ko.observable({'name': 'GLOBAL', 'disabled': false, 'translate': true});
 
         // Computed
         self.availableGroups = ko.computed(function() {
@@ -117,11 +119,17 @@ define([
             }).promise();
         };
         self.loadAlbaBackends = function() {
+            var dynamics = '';
+            if (self.initialRun() === true) {
+                dynamics = 'name';
+            } else {
+                dynamics = 'name,local_summary';
+            }
             return $.Deferred(function(deferred) {
                 if (generic.xhrCompleted(self.loadAlbaBackendsHandle)) {
                     var options = {
                         sort: 'backend.name',
-                        contents: '_relations,name,local_summary'
+                        contents: dynamics + ',_relations'
                     };
                     self.loadAlbaBackendsHandle = api.get('alba/backends', { queryparams: options })
                         .done(function(data) {
@@ -194,11 +202,19 @@ define([
 
         // Durandal
         self.activate = function() {
-            self.refresher.init(function() {
-                self.load()
-            }, 5000);
-            self.refresher.run();
-            self.refresher.start();
+            self.load().then(function() {
+                if (self.initialRun() === true) {
+                    self.initialRun(false);
+                }
+                if (self.albaBackendsLoaded() === false) {
+                        self.albaBackendsLoaded(true);
+                    }
+                self.refresher.init(function () {
+                    self.load()
+                }, 5000);
+                self.refresher.run();
+                self.refresher.start();
+            });
         };
         self.deactivate = function() {
             $.each(self.widgets, function(index, item) {

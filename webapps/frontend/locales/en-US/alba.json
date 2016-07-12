@@ -82,7 +82,7 @@
         "stats": {
             "freespace": "Free space",
             "overhead": "Internal metadata",
-            "unknown": "Unknown sources"
+            "used": "Used space"
         },
         "statusdetail": "Status detail",
         "statusdetails": {
