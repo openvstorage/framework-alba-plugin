@@ -66,7 +66,7 @@ class AlbaCLI(object):
                         if not hasattr(select, 'poll'):
                             import subprocess
                             subprocess._has_poll = False  # Damn 'monkey patching'
-                        channel = Popen(cmd_list, stdout=PIPE, stderr=PIPE)
+                        channel = Popen(cmd_list, stdout=PIPE, stderr=PIPE, universal_newlines=True)
                     except OSError as ose:
                         raise CalledProcessError(1, cmd_string, str(ose))
                     output, stderr = channel.communicate()
