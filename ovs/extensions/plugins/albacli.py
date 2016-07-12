@@ -21,6 +21,7 @@ import os
 import json
 import time
 import select
+import string
 from subprocess import Popen, PIPE, CalledProcessError
 from ovs.log.log_handler import LogHandler
 
@@ -65,12 +66,11 @@ class AlbaCLI(object):
                         if not hasattr(select, 'poll'):
                             import subprocess
                             subprocess._has_poll = False  # Damn 'monkey patching'
-                        channel = Popen(cmd_list, stdout=PIPE, stderr=PIPE)
+                        channel = Popen(cmd_list, stdout=PIPE, stderr=PIPE, universal_newlines=True)
                     except OSError as ose:
                         raise CalledProcessError(1, cmd_string, str(ose))
                     output, stderr = channel.communicate()
-                    output = output.replace(u'\u2018', u'"').replace(u'\u2019', u'"')
-                    stderr = stderr.replace(u'\u2018', u'"').replace(u'\u2019', u'"')
+                    output = filter(lambda c: c in set(string.printable), output)
                     stderr_debug = 'stderr: {0}'.format(stderr)
                     stdout_debug = 'stdout: {0}'.format(output)
                     if debug is True:
