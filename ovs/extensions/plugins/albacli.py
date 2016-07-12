@@ -67,7 +67,6 @@ class AlbaCLI(object):
                             subprocess._has_poll = False  # Damn 'monkey patching'
                         channel = Popen(cmd_list, stdout=PIPE, stderr=PIPE)
                     except OSError as ose:
-                        logger.exception('ose error')
                         raise CalledProcessError(1, cmd_string, str(ose))
                     output, stderr = channel.communicate()
                     output = output.replace(u'\u2018', u'"').replace(u'\u2019', u'"')
