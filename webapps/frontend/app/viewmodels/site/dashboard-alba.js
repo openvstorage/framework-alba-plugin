@@ -203,12 +203,8 @@ define([
         // Durandal
         self.activate = function() {
             self.load().then(function() {
-                if (self.initialRun() === true) {
-                    self.initialRun(false);
-                }
-                if (self.albaBackendsLoaded() === false) {
-                        self.albaBackendsLoaded(true);
-                    }
+                self.initialRun(false);
+                self.albaBackendsLoaded(true);
                 self.refresher.init(function () {
                     self.load()
                 }, 5000);

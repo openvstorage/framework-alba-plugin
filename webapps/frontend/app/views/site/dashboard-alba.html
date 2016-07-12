@@ -38,7 +38,7 @@ but WITHOUT ANY WARRANTY of any kind.
             </span>
         </div>
         <div data-bind="lazylist: {
-                            displaymode: 'table', items: groupedAlbaBackends, itemsLoaded: 'albaBackendsLoaded',
+                            displaymode: 'table', items: groupedAlbaBackends, itemsLoaded: albaBackendsLoaded(),
                             loadedObservable: 'loaded', colspan: 4
                         }" >
             <table data-dummy="dummy">
