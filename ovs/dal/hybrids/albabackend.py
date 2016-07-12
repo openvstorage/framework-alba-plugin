@@ -24,7 +24,6 @@ from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.backend import Backend
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
-from ovs.dal.lists.vpoollist import VPoolList
 from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.extensions.api.client import ForbiddenException, NotFoundException, OVSClient
 from ovs.extensions.db.etcd.configuration import EtcdConfiguration
@@ -45,7 +44,7 @@ class AlbaBackend(DataObject):
     __dynamics = [Dynamic('local_stack', dict, 5),
                   Dynamic('statistics', dict, 5, locked=True),
                   Dynamic('ns_data', list, 60),
-                  Dynamic('ns_statistics', dict, 60),
+                  Dynamic('usages', dict, 60),
                   Dynamic('presets', list, 60),
                   Dynamic('available', bool, 60),
                   Dynamic('name', str, 3600),
@@ -245,58 +244,28 @@ class AlbaBackend(DataObject):
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
         return AlbaCLI.run(command='show-namespaces', config=config, max=-1, to_json=True)[1]
 
-    def _ns_statistics(self):
+    def _usages(self):
         """
-        Returns a list of the ASDs namespaces
+        Returns an overview of free space, total space, used space and overhead
         """
-        # Collect ALBA related statistics
-        alba_dataset = {}
+        # Collect usage reported by namespaces
+        ns_used = 0.0
         for namespace in self.ns_data:
             if namespace['namespace']['state'] != 'active':
                 continue
-            alba_dataset[namespace['name']] = namespace['statistics']
+            ns_used += namespace['statistics']['storage']
 
-        # Collect vPool/vDisk data
-        vdisk_dataset = {}
-        for vpool in VPoolList.get_vpools():
-            vdisk_dataset[vpool] = vpool.storagedriver_client.list_volumes()
-
-        # Collect global usage
-        global_usage = {'size': 0,
-                        'used': 0}
+        # Collect total usage
+        total_size = 0.0
+        total_used = 0.0
         for stats in self.asd_statistics.values():
-            global_usage['size'] += stats['capacity']
-            global_usage['used'] += stats['disk_usage']
+            total_size += stats['capacity']
+            total_used += stats['disk_usage']
 
-        # Cross merge
-        dataset = {'global': {'size': global_usage['size'],
-                              'used': global_usage['used']},
-                   'vpools': {},
-                   'overhead': 0,
-                   'unknown': {'storage': 0,
-                               'logical': 0}}
-        for vpool in vdisk_dataset:
-            for namespace in vdisk_dataset[vpool]:
-                if namespace in alba_dataset:
-                    if vpool.guid not in dataset['vpools']:
-                        dataset['vpools'][vpool.guid] = {'storage': 0,
-                                                         'logical': 0}
-                    dataset['vpools'][vpool.guid]['storage'] += alba_dataset[namespace]['storage']
-                    dataset['vpools'][vpool.guid]['logical'] += alba_dataset[namespace]['logical']
-                    del alba_dataset[namespace]
-            fd_namespace = 'fd-{0}-{1}'.format(vpool.name, vpool.guid)
-            if fd_namespace in alba_dataset:
-                if vpool.guid not in dataset['vpools']:
-                    dataset['vpools'][vpool.guid] = {'storage': 0,
-                                                     'logical': 0}
-                dataset['vpools'][vpool.guid]['storage'] += alba_dataset[fd_namespace]['storage']
-                dataset['vpools'][vpool.guid]['logical'] += alba_dataset[fd_namespace]['logical']
-                del alba_dataset[fd_namespace]
-        for namespace in alba_dataset:
-            dataset['unknown']['storage'] += alba_dataset[namespace]['storage']
-            dataset['unknown']['logical'] += alba_dataset[namespace]['logical']
-        dataset['overhead'] = max(0, dataset['global']['used'] - dataset['unknown']['storage'] - sum(usage['storage'] for usage in dataset['vpools'].values()))
-        return dataset
+        return {'free': total_size - total_used,
+                'size': total_size,
+                'used': ns_used,
+                'overhead': max(0.0, total_used - ns_used)}
 
     def _presets(self):
         """
@@ -432,7 +401,8 @@ class AlbaBackend(DataObject):
                                version=3)
 
             try:
-                new_guids = client.get('/alba/backends/{0}/'.format(_alba_backend_guid))['linked_backend_guids']
+                new_guids = client.get('/alba/backends/{0}/'.format(_alba_backend_guid),
+                                       params={'contents': 'linked_backend_guids'})['linked_backend_guids']
                 with lock:
                     guids.update(new_guids)
             except NotFoundException:
@@ -478,7 +448,8 @@ class AlbaBackend(DataObject):
                                version=3)
 
             try:
-                info = client.get('/alba/backends/{0}/'.format(_alba_backend_guid))
+                info = client.get('/alba/backends/{0}/'.format(_alba_backend_guid),
+                                  params={'contents': 'local_summary'})
                 with lock:
                     return_value[_alba_backend_guid].update(info['local_summary'])
             except NotFoundException:
