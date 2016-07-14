@@ -170,7 +170,7 @@ define([
             return $.Deferred(function(deferred) {
                 self.loading(true);
                 if (generic.xhrCompleted(self.loadHandle)) {
-                    self.loadHandle = api.get('alba/backends/' + self.guid(), { queryparams: { contents: '_dynamics,_relations' } })
+                    self.loadHandle = api.get('alba/backends/' + self.guid(), { queryparams: { contents: '_dynamics,-ns_data,_relations' } })
                         .done(function(data) {
                             self.fillData(data);
                             deferred.resolve();
