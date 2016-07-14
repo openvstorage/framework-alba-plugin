@@ -24,13 +24,10 @@ define([
         var self = this;
 
         // Handles
-        self.loadHandle    = undefined;
         self.actionsHandle = undefined;
+        self.loadHandle    = undefined;
         self.rawData       = undefined;
         self.shared        = shared;
-
-        // External dependencies
-        self.vPools  = undefined;
 
         // Observables
         self.albaId              = ko.observable();
@@ -105,7 +102,7 @@ define([
                 });
             });
             return presets.sort(function(preset1, preset2) {
-                return preset1.name < preset2.name ? -1 : 1;
+                return preset1.name.toLowerCase() < preset2.name.toLowerCase() ? -1 : 1;
             });
         });
 
@@ -144,57 +141,36 @@ define([
             if (data.hasOwnProperty('metadata_information')) {
                 self.metadataInformation(data.metadata_information);
             }
-            if (data.hasOwnProperty('ns_statistics')) {
-                var stats = data.ns_statistics;
-                self.totalSize(stats.global.size);
-                if (self.vPools !== undefined) {
-                    var usage, freespace, unknown, overhead, vpools = [];
-                    freespace = stats.global.size - stats.global.used;
-                    unknown = stats.unknown.storage;
-                    overhead = stats.overhead;
-                    $.each(self.vPools(), function (index, vpool) {
-                        if (stats.vpools.hasOwnProperty(vpool.guid())) {
-                            vpools.push({
-                                name: $.t('ovs:generic.vpool') + ': ' + vpool.name(),
-                                value: stats.vpools[vpool.guid()].storage,
-                                percentage: stats.global.size > 0 ? stats.vpools[vpool.guid()].storage / stats.global.size : 0
-                            });
-                        }
-                    });
-                    usage = [
-                        {
-                            name: $.t('alba:generic.stats.freespace'),
-                            value: stats.global.size > 0 ? freespace : 0.000001,
-                            percentage: stats.global.size > 0 ? freespace / stats.global.size : 1
-                        },
-                        {
-                            name: $.t('alba:generic.stats.unknown'),
-                            value: unknown,
-                            percentage: stats.global.size > 0 ? unknown / stats.global.size : 0
-                        },
-                        {
-                            name: $.t('alba:generic.stats.overhead'),
-                            value: overhead,
-                            percentage: stats.global.size > 0 ? overhead / stats.global.size : 0
-                        }
-                    ].concat(vpools);
-                    self.usage(usage);
-                } else {
-                    self.usage([]);
-                }
+            if (data.hasOwnProperty('usages')) {
+                var stats = data.usages;
+                self.totalSize(stats.size);
+                self.usage([
+                    {
+                        name: $.t('alba:generic.stats.freespace'),
+                        value: stats.size > 0 ? stats.free : 0.000001,
+                        percentage: stats.size > 0 ? stats.free / stats.size : 1
+                    },
+                    {
+                        name: $.t('alba:generic.stats.used'),
+                        value: stats.used,
+                        percentage: stats.size > 0 ? stats.used / stats.size : 0
+                    },
+                    {
+                        name: $.t('alba:generic.stats.overhead'),
+                        value: stats.overhead,
+                        percentage: stats.size > 0 ? stats.overhead / stats.size : 0
+                    }
+                ]);
             }
             self.rawData = data;
             self.loaded(true);
             self.loading(false);
         };
-        self.load = function(loadDynamics) {
-            if (loadDynamics === undefined) {
-                loadDynamics = true;
-            }
+        self.load = function() {
             return $.Deferred(function(deferred) {
                 self.loading(true);
                 if (generic.xhrCompleted(self.loadHandle)) {
-                    self.loadHandle = api.get('alba/backends/' + self.guid(), { queryparams: { contents: (loadDynamics ? '_dynamics,' : '') + '_relations' } })
+                    self.loadHandle = api.get('alba/backends/' + self.guid(), { queryparams: { contents: '_dynamics,_relations' } })
                         .done(function(data) {
                             self.fillData(data);
                             deferred.resolve();

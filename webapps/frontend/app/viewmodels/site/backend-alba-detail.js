@@ -18,11 +18,11 @@ define([
     'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/albabackend', '../containers/albadisk', '../containers/albanode', '../containers/backend',
-    '../containers/backendtype', '../containers/domain', '../containers/storagerouter', '../containers/vpool',
+    '../containers/backendtype', '../containers/domain', '../containers/storagerouter',
     '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index'
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
-            AlbaBackend, Disk, Node, Backend, BackendType, Domain, StorageRouter, VPool,
+            AlbaBackend, Disk, Node, Backend, BackendType, Domain, StorageRouter,
             AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard) {
     "use strict";
     return function() {
@@ -40,21 +40,20 @@ define([
         self.loadDomainsHandle  = undefined;
 
         // Observables
-        self.domains                = ko.observableArray([]);
-        self.domainsLoaded          = ko.observable(false);
         self.albaBackend            = ko.observable();
         self.backend                = ko.observable();
         self.discoveredNodes        = ko.observableArray([]);
         self.disks                  = ko.observableArray([]);
         self.dNodesLoading          = ko.observable(false);
+        self.domains                = ko.observableArray([]);
+        self.domainsLoaded          = ko.observable(false);
         self.initialRun             = ko.observable(true);
         self.localSummary           = ko.observable();
-        self.remoteStack            = ko.observableArray([]);
         self.otherAlbaBackendsCache = ko.observable({});
         self.registeredNodes        = ko.observableArray([]);
         self.registeredNodesNodeIDs = ko.observableArray([]);
+        self.remoteStack            = ko.observableArray([]);
         self.rNodesLoading          = ko.observable(true);
-        self.vPools                 = ko.observableArray([]);
 
         // Computed
         self.domainGuids = ko.computed(function() {
@@ -105,7 +104,7 @@ define([
             return self.albaBackend() !== undefined && self.backend() !== undefined;
         });
         self.showActions = ko.computed(function() {
-            return self.showDetails() && !['installing', 'new'].contains(self.backend().status());
+            return self.showDetails() && !['installing', 'new'].contains(self.backend().status()) && self.albaBackend().scaling() !== undefined;
         });
         self.albaBackendStatus = ko.computed(function() {
             var status = 'green';
@@ -138,11 +137,9 @@ define([
                         }
                         if (backendData.hasOwnProperty('alba_backend_guid') && backendData.alba_backend_guid !== null) {
                             if (self.albaBackend() === undefined) {
-                                var albaBackend = new AlbaBackend(backendData.alba_backend_guid);
-                                albaBackend.vPools = self.vPools;
-                                self.albaBackend(albaBackend);
+                                self.albaBackend(new AlbaBackend(backendData.alba_backend_guid));
                             }
-                            return self.albaBackend().load(!self.initialRun())
+                            return self.albaBackend().load()
                                 .then(self.albaBackend().getAvailableActions);
                         }
                         deferred.reject();
@@ -161,44 +158,12 @@ define([
                 return generic.formatPercentage(value);
             }
         };
-        self.loadVPools = function() {
-            return $.Deferred(function(deferred) {
-                if (generic.xhrCompleted(self.vPoolsHandle)) {
-                    var options = {
-                        sort: 'name',
-                        contents: ''
-                    };
-                    self.vPoolsHandle = api.get('vpools', { queryparams: options })
-                        .then(function(data) {
-                            var guids = [], vpdata = {};
-                            $.each(data.data, function (index, vpool) {
-                                guids.push(vpool.guid);
-                                vpdata[vpool.guid] = vpool;
-                            });
-                            generic.crossFiller(
-                                guids, self.vPools,
-                                function (guid) {
-                                    return new VPool(guid);
-                                }, 'guid'
-                            );
-                            $.each(self.vPools(), function (index, vpool) {
-                                if (guids.contains(vpool.guid())) {
-                                    vpool.fillData(vpdata[vpool.guid()]);
-                                }
-                            });
-                        })
-                        .always(deferred.resolve);
-                } else {
-                    deferred.resolve();
-                }
-            }).promise();
-        };
         self.fetchNodes = function(discover) {
             if (discover === undefined) {
                 discover = false;
             }
             discover = !!discover;
-            if (self.albaBackend() === undefined) {
+            if (self.albaBackend() === undefined || self.albaBackend().scaling() === 'GLOBAL') {
                 return;
             }
             return $.Deferred(function(deferred) {
@@ -476,7 +441,6 @@ define([
         self.activate = function(mode, guid) {
             self.backend(new Backend(guid));
             self.refresher.init(function() {
-                self.loadVPools();
                 self.loadDomains();
                 return self.load()
                     .then(self.fetchNodes)
