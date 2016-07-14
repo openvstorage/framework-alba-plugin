@@ -276,11 +276,11 @@ define([
                     if (!nodeDisks.hasOwnProperty(node.nodeID())) {
                         node.disks([]);
                     } else {
+                        nodeDisks[node.nodeID()].sort(function (a, b) {
+                            return a.name() < b.name() ? -1 : 1;
+                        });
                         node.disks(nodeDisks[node.nodeID()]);
                     }
-                    node.disks.sort(function (a, b) {
-                        return a.name() < b.name() ? -1 : 1;
-                    });
                     node.disksLoading(self.initialRun());
                     $.each(node.disks(), function(index, disk) {
                         disk.node = node;
@@ -424,21 +424,17 @@ define([
             if (self.albaBackend().linkedBackendGuids() === undefined || self.albaBackend().linkedBackendGuids() === null) {
                 return;
             }
-            dialog.show(new LinkBackendWizard (
-                {
-                    modal: true,
-                    target: self.albaBackend()
-                }
-            ));
+            dialog.show(new LinkBackendWizard ({
+                modal: true,
+                target: self.albaBackend()
+            }));
         };
         self.unlinkBackend = function(info) {
-            dialog.show(new UnlinkBackendWizard (
-                {
-                    modal: true,
-                    target: self.albaBackend(),
-                    linkedOSDInfo: info
-                }
-            ));
+            dialog.show(new UnlinkBackendWizard ({
+                modal: true,
+                target: self.albaBackend(),
+                linkedOSDInfo: info
+            }));
         };
 
         // Durandal

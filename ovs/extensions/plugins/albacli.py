@@ -18,10 +18,10 @@
 Generic ALBA CLI module
 """
 import os
+import re
 import json
 import time
 import select
-import string
 from subprocess import Popen, PIPE, CalledProcessError
 from ovs.log.log_handler import LogHandler
 
@@ -70,7 +70,7 @@ class AlbaCLI(object):
                     except OSError as ose:
                         raise CalledProcessError(1, cmd_string, str(ose))
                     output, stderr = channel.communicate()
-                    output = filter(lambda c: c in set(string.printable), output)
+                    output = re.sub(r'[^\x00-\x7F]+', '', output)
                     stderr_debug = 'stderr: {0}'.format(stderr)
                     stdout_debug = 'stdout: {0}'.format(output)
                     if debug is True:
