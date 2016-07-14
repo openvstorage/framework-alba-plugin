@@ -24,8 +24,8 @@ define([
         var self = this;
 
         // Handles
-        self.loadHandle    = undefined;
         self.actionsHandle = undefined;
+        self.loadHandle    = undefined;
         self.rawData       = undefined;
         self.shared        = shared;
 
@@ -102,7 +102,7 @@ define([
                 });
             });
             return presets.sort(function(preset1, preset2) {
-                return preset1.name < preset2.name ? -1 : 1;
+                return preset1.name.toLowerCase() < preset2.name.toLowerCase() ? -1 : 1;
             });
         });
 
