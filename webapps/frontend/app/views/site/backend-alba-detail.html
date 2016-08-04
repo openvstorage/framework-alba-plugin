@@ -72,7 +72,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <td style="width: 15%;" data-i18n="alba:generic.putss"></td>
                                 <td style="width: 15%;"><span data-bind="text: writeIOps"></span></td>
                                 <td rowspan="5">
-                                    <div data-bind="if: $root.showActions()">
+                                    <div data-bind="if: $root.showActions() && $root.albaBackend().scaling() !== 'GLOBAL'">
                                         <div data-bind="pie: usage()"></div>
                                     </div>
                                 </td>
@@ -102,8 +102,8 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <td colspan="2">&nbsp;</td>
                             </tr>
                             <tr>
-                                <td style="width: 15%;" data-i18n="alba:generic.health"></td>
-                                <td style="width: 20%;">
+                                <td style="width: 15%; padding-top: 2px; height: 1px;" data-i18n="alba:generic.health"></td>
+                                <td style="width: 20%; padding-top: 2px;">
                                     <span class="label label-success pointer"
                                           data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + $root.localSummary().scaling.toLowerCase() + '.claimed'),
                                                      text: ($root.localSummary() === undefined ? 0 : $root.localSummary().devices.green)"></span>&nbsp;
@@ -117,8 +117,8 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <td colspan="4">&nbsp;</td>
                             </tr>
                             <tr>
-                                <td style="width: 15%; vertical-align: top;" data-i18n="ovs:generic.domains"></td>
-                                <td style="width: 20%; padding-bottom: 2px; vertical-align: top;" colspan="3">
+                                <td style="width: 15%; padding-top: 7px; vertical-align: top;" data-i18n="ovs:generic.domains"></td>
+                                <td style="width: 20%; padding-top: 7px; padding-bottom: 2px; vertical-align: top;" colspan="3">
                                     <span data-bind="dropdown: {
                                                          items: $root.domainGuids, target: $root.backend().domainGuids,
                                                          text: function(guid) {
@@ -139,6 +139,9 @@ but WITHOUT ANY WARRANTY of any kind.
             <!-- /ko -->
         </div>
     </div>
+    <div data-bind="if: !showActions() && showDetails()" style="margin-left: 20px;">
+        <i class="fa fa-spin" data-i18n="[html]ovs:icons.loading"></i>
+    </div>
     <div data-bind="if: showActions()">
         <ul class="nav nav-tabs">
             <li data-bind="tooltip: 'alba:generic.nodes',
@@ -151,7 +154,6 @@ but WITHOUT ANY WARRANTY of any kind.
                            css: { active: albaBackend().scaling() === 'GLOBAL' }">
                 <a href="#backends" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>
             </li>
-
             <li data-bind="tooltip: 'alba:generic.presets'">
                 <a href="#presets" data-toggle="tab">
                     <span class="fa fa-flip-vertical hand" data-i18n="[html]alba:icons.presets"></span>
@@ -171,7 +173,7 @@ but WITHOUT ANY WARRANTY of any kind.
                     <span class="fa" data-i18n="[html]ovs:icons.link"></span>&nbsp;
                     <span data-i18n="alba:detail.link_backend"></span>
                 </button>
-                <table class="table table-striped table-hover" style="clear: both;" data-bind="visible: $root.initialRun() === false && $root.remoteStack().length > 0">
+                <table class="table table-striped table-hover" style="clear: both;">
                     <thead>
                         <tr>
                             <th data-i18n="alba:detail.status" style="width: 30px;"></th>
@@ -184,6 +186,11 @@ but WITHOUT ANY WARRANTY of any kind.
                         </tr>
                     </thead>
                     <tbody>
+                        <tr>
+                            <td colspan="7" data-bind="visible: remoteStack().length === 0 && localSummary() === undefined">
+                                <i class="fa fa-spin" data-i18n="[html]ovs:icons.loading"></i>
+                            </td>
+                        </tr>
                         <!-- ko foreach: remoteStack -->
                             <tr>
                                 <td>
@@ -688,7 +695,6 @@ but WITHOUT ANY WARRANTY of any kind.
                 <div>
                     <span class="pull-right"><span data-i18n="alba:presets.policyinfo"></span></span>
                 </div>
-
             </div>
         </div>
     </div>

@@ -100,7 +100,7 @@ define([
                 if (self.albaBackendGuid() !== undefined) {
                     if (!cache.hasOwnProperty(self.albaBackendGuid())) {
                         ab = new AlbaBackend(self.albaBackendGuid());
-                        ab.load()
+                        ab.load(false)
                             .then(function () {
                                 ab.backend().load();
                             });

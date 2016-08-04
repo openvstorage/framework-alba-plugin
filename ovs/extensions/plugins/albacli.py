@@ -18,9 +18,11 @@
 Generic ALBA CLI module
 """
 import os
+import re
 import json
 import time
-from subprocess import check_output, CalledProcessError
+import select
+from subprocess import Popen, PIPE, CalledProcessError
 from ovs.log.log_handler import LogHandler
 
 
@@ -46,41 +48,54 @@ class AlbaCLI(object):
         extra_params = kwargs.pop('extra_params') if 'extra_params' in kwargs else []
         debug_log = []
         try:
-            cmd = 'export LD_LIBRARY_PATH=/usr/lib/alba; '
-            cmd += '/usr/bin/alba {0}'.format(command)
+            cmd_list = ['/usr/bin/alba', command]
             for key, value in kwargs.iteritems():
-                cmd += ' --{0}={1}'.format(key.replace('_', '-'), value)
+                cmd_list.append('--{0}={1}'.format(key.replace('_', '-'), value))
             if to_json is True:
-                cmd += ' --to-json'
+                cmd_list.append('--to-json')
             for extra_param in extra_params:
-                cmd += ' {0}'.format(extra_param)
+                cmd_list.append('{0}'.format(extra_param))
 
-            if debug is False:
-                cmd += ' 2> /dev/null'
-            debug_log.append('Command: {0}'.format(cmd))
+            cmd_string = ' '.join(cmd_list)
+            debug_log.append('Command: {0}'.format(cmd_string))
 
             start = time.time()
-            if client is None:
-                try:
-                    output = check_output(cmd, shell=True).strip()
-                except CalledProcessError as ex:
-                    if to_json is True:
-                        output = json.loads(ex.output)
-                        raise RuntimeError(output.get('error', {}).get('message'))
-                    raise
-            else:
-                if debug:
-                    output, stderr = client.run(cmd, debug=True)
-                    debug_log.append('Stderr: {0}'.format(stderr))
+            try:
+                if client is None:
+                    try:
+                        if not hasattr(select, 'poll'):
+                            import subprocess
+                            subprocess._has_poll = False  # Damn 'monkey patching'
+                        channel = Popen(cmd_list, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+                    except OSError as ose:
+                        raise CalledProcessError(1, cmd_string, str(ose))
+                    output, stderr = channel.communicate()
+                    output = re.sub(r'[^\x00-\x7F]+', '', output)
+                    stderr_debug = 'stderr: {0}'.format(stderr)
+                    stdout_debug = 'stdout: {0}'.format(output)
+                    if debug is True:
+                        logger.debug(stderr_debug)
+                        logger.debug(stdout_debug)
+                    debug_log.append(stderr_debug)
+                    debug_log.append(stdout_debug)
+                    exit_code = channel.returncode
+                    if exit_code != 0:  # Raise same error as check_output
+                        raise CalledProcessError(exit_code, cmd_string, output)
                 else:
-                    output = client.run(cmd, debug=False).strip()
-                debug_log.append('Output: {0}'.format(output))
+                    if debug:
+                        output, stderr = client.run(cmd_list, debug=True)
+                        debug_log.append('stderr: {0}'.format(stderr))
+                    else:
+                        output = client.run(cmd_list, debug=False).strip()
+                    debug_log.append('stdout: {0}'.format(output))
+            except CalledProcessError as ex:
+                if to_json is True:
+                    output = json.loads(ex.output)
+                    raise RuntimeError(output.get('error', {}).get('message'))
+                raise
             duration = time.time() - start
             if duration > 0.5:
                 logger.warning('AlbaCLI call {0} took {1}s'.format(command, round(duration, 2)))
-            if debug is True:
-                for debug_line in debug_log:
-                    logger.debug(debug_line)
             if to_json is True:
                 output = json.loads(output)
                 if output['success'] is True:

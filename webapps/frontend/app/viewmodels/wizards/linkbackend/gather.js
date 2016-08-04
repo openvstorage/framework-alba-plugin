@@ -128,7 +128,7 @@ define([
                 var relay = '', remoteInfo = {},
                     getData = {
                         backend_type: 'alba',
-                        contents: '_dynamics'
+                        contents: '_dynamics,-ns_data'
                     };
                 if (!self.data.localHost()) {
                     relay = 'relay/';

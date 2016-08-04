@@ -709,8 +709,8 @@ class AlbaController(object):
         for alba_node in storage_router.alba_nodes:
             for disk in alba_node.disks:
                 for osd in disk.osds:
-                    AlbaNodeController.remove_asd(node_guid=osd.alba_node.guid, asd_id=osd.osd_id, expected_safety={})
-                AlbaNodeController.remove_disk(node_guid=osd.alba_node.guid, disk=osd.name)
+                    AlbaNodeController.remove_asd(node_guid=osd.alba_disk.alba_node_guid, asd_id=osd.osd_id, expected_safety={})
+                AlbaNodeController.remove_disk(node_guid=osd.alba_disk.alba_node_guid, disk=osd.alba_disk.name)
             alba_node.delete()
         for service in storage_router.services:
             if service.abm_service is not None:
@@ -954,7 +954,7 @@ class AlbaController(object):
         extra_parameters = ['--include-decommissioning-as-dead']
         for osd in alba_backend.osds:
             if osd.osd_id in removal_osd_ids or osd.osd_id in error_disks:
-                extra_parameters.append('--long-id {0}'.format(osd.osd_id))
+                extra_parameters.append('--long-id={0}'.format(osd.osd_id))
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend))
         safety_data = AlbaCLI.run(command='get-disk-safety', config=config, to_json=True, extra_params=extra_parameters)
         result = {'good': 0,
