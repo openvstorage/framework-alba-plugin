@@ -30,6 +30,7 @@ define([
         self.shared        = shared;
 
         // Observables
+        self.accessRights        = ko.observable();
         self.albaId              = ko.observable();
         self.availableActions    = ko.observableArray([]);
         self.backend             = ko.observable();
@@ -141,6 +142,9 @@ define([
             if (data.hasOwnProperty('metadata_information')) {
                 self.metadataInformation(data.metadata_information);
             }
+            if (data.hasOwnProperty('access_rights')) {
+                self.accessRights(data.access_rights);
+            }
             if (data.hasOwnProperty('usages')) {
                 var stats = data.usages;
                 self.totalSize(stats.size);
@@ -186,7 +190,6 @@ define([
                 }
             }).promise();
         };
-
         self.claimOSDs = function(osdsToClaim) {
             return $.Deferred(function(deferred) {
                 var asdIDs = [], asdData = {}, allAsds = [];
@@ -249,6 +252,9 @@ define([
                         deferred.reject();
                     });
             }).promise();
+        };
+        self.saveAccessRights = function() {
+
         };
     };
 });

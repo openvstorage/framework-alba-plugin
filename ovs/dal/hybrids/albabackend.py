@@ -52,7 +52,8 @@ class AlbaBackend(DataObject):
                   Dynamic('asd_statistics', dict, 5, locked=True),
                   Dynamic('linked_backend_guids', set, 30),
                   Dynamic('remote_stack', dict, 60),
-                  Dynamic('local_summary', dict, 10)]
+                  Dynamic('local_summary', dict, 10),
+                  Dynamic('access_rights', dict, 3600)]
 
     def _local_stack(self):
         """
@@ -538,3 +539,16 @@ class AlbaBackend(DataObject):
                     device_info['green'] += 1
 
         return return_value
+
+    def _access_rights(self):
+        """
+        A condensed extract from the user_rights and access_rights
+        :return: dict
+        """
+        data = {'users': {},
+                'clients': {}}
+        for user_right in self.user_rights:
+            data['users'][user_right.user_guid] = user_right.grant
+        for client_right in self.client_rights:
+            data['clients'][client_right.client_guid] = client_right.grant
+        return data

@@ -20,7 +20,13 @@ Contains the AlbaBackendViewSet
 
 from backend.decorators import load, log, required_roles, return_list, return_object, return_task
 from backend.serializers.serializers import FullSerializer
+from backend.toolbox import Toolbox
+from backend.exceptions import HttpForbiddenException
 from ovs.dal.hybrids.albabackend import AlbaBackend
+from ovs.dal.hybrids.user import User
+from ovs.dal.hybrids.client import Client
+from ovs.dal.hybrids.j_albabackenduser import AlbaBackendUser
+from ovs.dal.hybrids.j_albabackendclient import AlbaBackendClient
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.lib.albacontroller import AlbaController
 from rest_framework import status, viewsets
@@ -41,22 +47,35 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read'])
     @return_list(AlbaBackend)
     @load()
-    def list(self):
+    def list(self, request):
         """
         Lists all available ALBA Backends
         """
-        return AlbaBackendList.get_albabackends()
+        backends = AlbaBackendList.get_albabackends()
+        allowed_backends = []
+        for backend in backends:
+            if Toolbox.access_granted(request.client,
+                                      user_rights=backend.user_rights,
+                                      client_rights=backend.client_rights):
+                allowed_backends.append(backend)
+        return allowed_backends
 
     @log()
     @required_roles(['read'])
     @return_object(AlbaBackend)
     @load(AlbaBackend)
-    def retrieve(self, albabackend):
+    def retrieve(self, albabackend, request):
         """
         Load information about a given AlbaBackend
         :param albabackend: ALBA backend to retrieve
+        :param request: Request object
         """
-        return albabackend
+        if Toolbox.access_granted(request.client,
+                                  user_rights=albabackend.user_rights,
+                                  client_rights=albabackend.client_rights):
+            return albabackend
+        raise HttpForbiddenException(error_description='The requesting client has no access to this AlbaBackend',
+                                     error='no_ownership')
 
     @log()
     @required_roles(['read', 'write', 'manage'])
@@ -225,3 +244,64 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         return AlbaController.unlink_alba_backends.s(target_guid=albabackend.guid,
                                                      linked_guid=linked_guid).apply_async(queue='ovs_masters')
+
+    @action()
+    @log()
+    @required_roles(['manage'])
+    @load(AlbaBackend)
+    def configure_rights(self, albabackend, new_rights):
+        """
+        Configures the access rights for this backend
+        :param albabackend: The backend to configure
+        :type albabackend: AlbaBackend
+        :param new_rights: New access rights
+        :type new_rights: dict
+
+        Example of new_rights.
+        {'users': {'guida': True,
+                   'guidb': True,
+                   'guidc': False},
+         'clients': {'guidd': False,
+                     'guide': True}}
+        """
+        # Users
+        matched_guids = []
+        for user_guid, grant in new_rights.get('users', {}).iteritems():
+            found = False
+            for user_right in albabackend.user_rights:
+                if user_right.user_guid == user_guid:
+                    user_right.grant = grant
+                    user_right.save()
+                    matched_guids.append(user_right.guid)
+                    found = True
+            if found is False:
+                user_right = AlbaBackendUser()
+                user_right.alba_backend = albabackend
+                user_right.user = User(user_guid)
+                user_right.grant = grant
+                user_right.save()
+                matched_guids.append(user_right.guid)
+        for user_right in albabackend.user_rights:
+            if user_right.guid not in matched_guids:
+                user_right.delete()
+        # Clients
+        matched_guids = []
+        for client_guid, grant in new_rights.get('clients', {}).iteritems():
+            found = False
+            for client_right in albabackend.client_rights:
+                if client_right.client_guid == client_guid:
+                    client_right.grant = grant
+                    client_right.save()
+                    matched_guids.append(client_right.guid)
+                    found = True
+            if found is False:
+                client_right = AlbaBackendClient()
+                client_right.alba_backend = albabackend
+                client_right.client = Client(client_guid)
+                client_right.grant = grant
+                client_right.save()
+                matched_guids.append(client_right.guid)
+        for client_right in albabackend.client_rights:
+            if client_right.guid not in matched_guids:
+                client_right.delete()
+        albabackend.invalidate_dynamics(['access_rights'])

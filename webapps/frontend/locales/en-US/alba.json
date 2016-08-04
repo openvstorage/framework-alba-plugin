@@ -1,5 +1,6 @@
 {
     "generic": {
+        "access_rights": "Access rights",
         "addpolicy": "Add policy",
         "addpreset": "Add preset",
         "asdid": "ASD ID",
@@ -197,7 +198,8 @@
         "notinuse": "&#xf016;",
         "presets": "&#xf126;",
         "registernode": "&#xf067;",
-        "up": "&#xf077;"
+        "up": "&#xf077;",
+        "rights": "&#xf132;"
     },
     "presets": {
         "available": "Available",
