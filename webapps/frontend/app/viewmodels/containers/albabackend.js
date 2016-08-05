@@ -30,7 +30,6 @@ define([
         self.shared        = shared;
 
         // Observables
-        self.accessRights        = ko.observable();
         self.albaId              = ko.observable();
         self.availableActions    = ko.observableArray([]);
         self.backend             = ko.observable();
@@ -142,11 +141,6 @@ define([
             if (data.hasOwnProperty('metadata_information')) {
                 self.metadataInformation(data.metadata_information);
             }
-            if (data.hasOwnProperty('access_rights')) {
-                if (!generic.objectEquals(data.access_rights, self.accessRights())) {
-                    self.accessRights(data.access_rights);
-                }
-            }
             if (data.hasOwnProperty('usages')) {
                 var stats = data.usages;
                 self.totalSize(stats.size);
@@ -254,32 +248,6 @@ define([
                         });
                         deferred.reject();
                     });
-            }).promise();
-        };
-        self.saveAccessRights = function(newRights) {
-            return $.Deferred(function(deferred) {
-                generic.alertInfo(
-                    $.t('alba:rights.started'),
-                    $.t('alba:rights.msgstarted')
-                );
-                api.post('alba/backends/' + self.guid() + '/configure_rights', {
-                    queryparams: {new_rights: JSON.stringify(newRights)}
-                })
-                    .done(function() {
-                        generic.alertSuccess(
-                            $.t('alba:rights.complete'),
-                            $.t('alba:rights.success')
-                        );
-                        deferred.resolve();
-                    })
-                    .fail(function(error) {
-                        error = generic.extractErrorMessage(error);
-                        generic.alertError(
-                            $.t('ovs:generic.error'),
-                            $.t('alba:rights.failed', { why: error })
-                        );
-                        deferred.reject();
-                    })
             }).promise();
         };
     };

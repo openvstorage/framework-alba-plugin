@@ -1,6 +1,5 @@
 {
     "generic": {
-        "access_rights": "Access Rights",
         "addpolicy": "Add policy",
         "addpreset": "Add preset",
         "asdid": "ASD ID",
@@ -198,8 +197,7 @@
         "notinuse": "&#xf016;",
         "presets": "&#xf126;",
         "registernode": "&#xf067;",
-        "up": "&#xf077;",
-        "rights": "&#xf132;"
+        "up": "&#xf077;"
     },
     "presets": {
         "available": "Available",
@@ -228,13 +226,6 @@
         },
         "policyinfo": "Policies displayed in bold will be used when writing new data",
         "unavailable": "Unavailable"
-    },
-    "rights": {
-        "started": "Applying",
-        "msgstarted": "The Access Rights are begin applied",
-        "complete": "Applied",
-        "success": "The Access Rights were succesfully applied",
-        "failed": "Error applying Access Rights: __why__"
     },
     "wizards": {
         "addalbanode": {
