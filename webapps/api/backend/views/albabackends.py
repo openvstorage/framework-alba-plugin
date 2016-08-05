@@ -39,6 +39,18 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     prefix = r'alba/backends'
     base_name = 'albabackends'
 
+    def validate_access(self, albabackend, request):
+        """
+        :param albabackend: The AlbaBackend to validate
+        :param request: The raw request
+        """
+        _ = self
+        if not Toolbox.access_granted(request.client,
+                                      user_rights=albabackend.backend.user_rights,
+                                      client_rights=albabackend.backend.client_rights):
+            raise HttpForbiddenException(error_description='The requesting client has no access to this AlbaBackend',
+                                         error='no_ownership')
+
     @log()
     @required_roles(['read'])
     @return_list(AlbaBackend)
@@ -59,19 +71,13 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @log()
     @required_roles(['read'])
     @return_object(AlbaBackend)
-    @load(AlbaBackend)
-    def retrieve(self, albabackend, request):
+    @load(AlbaBackend, validator=validate_access)
+    def retrieve(self, albabackend):
         """
         Load information about a given AlbaBackend
         :param albabackend: ALBA backend to retrieve
-        :param request: Request object
         """
-        if Toolbox.access_granted(request.client,
-                                  user_rights=albabackend.backend.user_rights,
-                                  client_rights=albabackend.backend.client_rights):
-            return albabackend
-        raise HttpForbiddenException(error_description='The requesting client has no access to this (Alba)Backend',
-                                     error='no_ownership')
+        return albabackend
 
     @log()
     @required_roles(['read', 'write', 'manage'])
@@ -101,7 +107,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @log()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
-    @load(AlbaBackend)
+    @load(AlbaBackend, validator=validate_access)
     def destroy(self, albabackend):
         """
         Deletes an AlbaBackend
@@ -113,13 +119,11 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @log()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
-    @load(AlbaBackend)
+    @load(AlbaBackend, validator=validate_access)
     def add_units(self, albabackend, osds):
         """
         Add storage units to the backend and register with alba nsm
         :param albabackend: ALBA backend to add units to
-        :type albabackend: AlbaBackend
-
         :param osds: List of OSD ids
         :type osds: list
         """
@@ -127,9 +131,9 @@ class AlbaBackendViewSet(viewsets.ViewSet):
 
     @link()
     @log()
-    @required_roles(['read', 'manage'])
+    @required_roles(['read'])
     @return_task()
-    @load(AlbaBackend)
+    @load(AlbaBackend, validator=validate_access)
     def get_config_metadata(self, albabackend):
         """
         Gets the configuration metadata for an Alba backend
@@ -140,7 +144,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @link()
     @log()
     @required_roles(['read'])
-    @load(AlbaBackend)
+    @load(AlbaBackend, validator=validate_access)
     def get_available_actions(self, albabackend):
         """
         Gets a list of all available actions
@@ -155,7 +159,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @log()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
-    @load(AlbaBackend)
+    @load(AlbaBackend, validator=validate_access)
     def add_preset(self, albabackend, name, compression, policies, encryption):
         """
         Adds a preset to a backend
@@ -171,7 +175,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @log()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
-    @load(AlbaBackend)
+    @load(AlbaBackend, validator=validate_access)
     def delete_preset(self, albabackend, name):
         """
         Deletes a preset
@@ -184,7 +188,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @log()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
-    @load(AlbaBackend)
+    @load(AlbaBackend, validator=validate_access)
     def update_preset(self, albabackend, name, policies):
         """
         Updates a preset's policies to a backend
@@ -198,7 +202,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @log()
     @required_roles(['read'])
     @return_task()
-    @load(AlbaBackend)
+    @load(AlbaBackend, validator=validate_access)
     def calculate_safety(self, albabackend, asd_id):
         """
         Returns the safety resulting the removal of a given disk
@@ -211,7 +215,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @log()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
-    @load(AlbaBackend)
+    @load(AlbaBackend, validator=validate_access)
     def link_alba_backends(self, albabackend, metadata):
         """
         Link a GLOBAL ALBA Backend to a LOCAL or another GLOBAL ALBA Backend
@@ -228,7 +232,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @log()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
-    @load(AlbaBackend)
+    @load(AlbaBackend, validator=validate_access)
     def unlink_alba_backends(self, albabackend, linked_guid):
         """
         Unlink a LOCAL or GLOBAL ALBA Backend from a GLOBAL ALBA Backend
