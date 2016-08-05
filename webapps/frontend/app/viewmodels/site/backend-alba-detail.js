@@ -356,6 +356,7 @@ define([
                                     deferred.resolve();
                                 })
                                 .fail(function(error) {
+                                    error = generic.extractErrorMessage(error);
                                     generic.alertError(
                                         $.t('ovs:generic.error'),
                                         $.t('alba:detail.delete.failed', { why: error })
@@ -391,6 +392,7 @@ define([
                                     deferred.resolve();
                                 })
                                 .fail(function(error) {
+                                    error = generic.extractErrorMessage(error);
                                     generic.alertError(
                                         $.t('ovs:generic.error'),
                                         $.t('alba:presets.delete.failed', { why: error })

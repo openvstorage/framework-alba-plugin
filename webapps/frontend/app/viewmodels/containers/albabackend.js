@@ -143,7 +143,9 @@ define([
                 self.metadataInformation(data.metadata_information);
             }
             if (data.hasOwnProperty('access_rights')) {
-                self.accessRights(data.access_rights);
+                if (!generic.objectEquals(data.access_rights, self.accessRights())) {
+                    self.accessRights(data.access_rights);
+                }
             }
             if (data.hasOwnProperty('usages')) {
                 var stats = data.usages;
@@ -229,6 +231,7 @@ define([
                                     deferred.resolve();
                                 })
                                 .fail(function(error) {
+                                    error = generic.extractErrorMessage(error);
                                     generic.alertError(
                                         $.t('ovs:generic.error'),
                                         $.t('alba:disks.claim.failed', { why: error })
@@ -253,8 +256,31 @@ define([
                     });
             }).promise();
         };
-        self.saveAccessRights = function() {
-
+        self.saveAccessRights = function(newRights) {
+            return $.Deferred(function(deferred) {
+                generic.alertInfo(
+                    $.t('alba:rights.started'),
+                    $.t('alba:rights.msgstarted')
+                );
+                api.post('alba/backends/' + self.guid() + '/configure_rights', {
+                    queryparams: {new_rights: JSON.stringify(newRights)}
+                })
+                    .done(function() {
+                        generic.alertSuccess(
+                            $.t('alba:rights.complete'),
+                            $.t('alba:rights.success')
+                        );
+                        deferred.resolve();
+                    })
+                    .fail(function(error) {
+                        error = generic.extractErrorMessage(error);
+                        generic.alertError(
+                            $.t('ovs:generic.error'),
+                            $.t('alba:rights.failed', { why: error })
+                        );
+                        deferred.reject();
+                    })
+            }).promise();
         };
     };
 });

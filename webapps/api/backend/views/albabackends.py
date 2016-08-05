@@ -18,7 +18,7 @@
 Contains the AlbaBackendViewSet
 """
 
-from backend.decorators import load, log, required_roles, return_list, return_object, return_task
+from backend.decorators import load, log, required_roles, return_list, return_object, return_task, return_plain
 from backend.serializers.serializers import FullSerializer
 from backend.toolbox import Toolbox
 from backend.exceptions import HttpForbiddenException
@@ -248,6 +248,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @action()
     @log()
     @required_roles(['manage'])
+    @return_plain()
     @load(AlbaBackend)
     def configure_rights(self, albabackend, new_rights):
         """
@@ -305,3 +306,4 @@ class AlbaBackendViewSet(viewsets.ViewSet):
             if client_right.guid not in matched_guids:
                 client_right.delete()
         albabackend.invalidate_dynamics(['access_rights'])
+        return albabackend.access_rights
