@@ -19,7 +19,7 @@ Contains the AlbaBackendViewSet
 """
 
 from backend.decorators import load, log, required_roles, return_list, return_object, return_task, return_plain
-from backend.exceptions import HttpForbiddenException
+from backend.exceptions import HttpForbiddenException, HttpNotAcceptableException
 from backend.serializers.serializers import FullSerializer
 from backend.toolbox import Toolbox
 from ovs.dal.hybrids.albabackend import AlbaBackend
@@ -216,15 +216,32 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaBackend, validator=validate_access)
-    def link_alba_backends(self, albabackend, metadata):
+    def link_alba_backends(self, albabackend, metadata, local_storagerouter, request):
         """
         Link a GLOBAL ALBA Backend to a LOCAL or another GLOBAL ALBA Backend
         :param albabackend: ALBA backend to link another ALBA Backend to
         :type albabackend: AlbaBackend
-
         :param metadata: Metadata about the linked ALBA Backend
         :type metadata: dict
+        :param local_storagerouter: The local storagerouter
+        :param request: Raw request
         """
+        if 'backend_connection_info' not in metadata:
+            raise HttpNotAcceptableException(error_description='Invalid metadata passed',
+                                             error='invalid_data')
+        connection_info = metadata['backend_connection_info']
+        if connection_info['host'] == '':
+            client = None
+            for _client in request.client.user.clients:
+                if _client.ovs_type == 'INTERNAL' and _client.grant_type == 'CLIENT_CREDENTIALS':
+                    client = _client
+            if client is None:
+                raise HttpNotAcceptableException(error_description='Invalid metadata passed',
+                                                 error='invalid_data')
+            connection_info['username'] = client.client_id
+            connection_info['password'] = client.client_secret
+            connection_info['host'] = local_storagerouter.ip
+            connection_info['port'] = 443
         return AlbaController.link_alba_backends.s(alba_backend_guid=albabackend.guid,
                                                    metadata=metadata).apply_async(queue='ovs_masters')
 

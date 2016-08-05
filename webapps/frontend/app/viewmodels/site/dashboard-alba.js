@@ -43,9 +43,27 @@ define([
                                                  'GLOBAL': ko.observableArray([])});
         self.initialRun         = ko.observable(true);
         self.loading            = ko.observable(false);
-        self.selectedGroup      = ko.observable({'name': 'GLOBAL', 'disabled': false, 'translate': true});
+        self._selectedGroup     = ko.observable(undefined);
 
         // Computed
+        self.selectedGroup = ko.computed({
+            read: function() {
+                var group = self._selectedGroup();
+                if (group !== undefined) {
+                    return group;
+                }
+                if (self.domainBackendMap()['GLOBAL']().length > 0) {
+                    group = {'name': 'GLOBAL', 'translate': true}
+                } else {
+                    group = {'name': 'LOCAL', 'translate': true}
+                }
+                self._selectedGroup(group);
+                return group;
+            },
+            write: function(group) {
+                self._selectedGroup(group);
+            }
+        });
         self.availableGroups = ko.computed(function() {
             var customgroups  = [],
                 defaultgroups = [{'name': 'GLOBAL', 'disabled': false, 'translate': true},
@@ -113,6 +131,7 @@ define([
                         });
                     })
                     .always(function() {
+                        self._selectedGroup(undefined);
                         self.loading(false);
                         deferred.resolve();
                     });
