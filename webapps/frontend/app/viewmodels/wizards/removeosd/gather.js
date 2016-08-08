@@ -55,6 +55,7 @@ define([
                         );
                     })
                     .fail(function(error) {
+                        error = generic.extractErrorMessage(error);
                         generic.alertError(
                             $.t('ovs:generic.error'),
                             $.t('alba:wizards.removeosd.failed', { why: error })

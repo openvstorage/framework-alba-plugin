@@ -57,6 +57,7 @@ define([
                         );
                     })
                     .fail(function(error) {
+                        error = generic.extractErrorMessage(error);
                         generic.alertError(
                             $.t('ovs:generic.error'),
                             $.t('alba:wizards.unlink_backend.error_msg', {error: error})

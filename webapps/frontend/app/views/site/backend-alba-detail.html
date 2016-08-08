@@ -154,9 +154,16 @@ but WITHOUT ANY WARRANTY of any kind.
                            css: { active: albaBackend().scaling() === 'GLOBAL' }">
                 <a href="#backends" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>
             </li>
-            <li data-bind="tooltip: 'alba:generic.presets'">
+            <li data-bind="tooltip: 'alba:generic.presets',
+                           visible: $root.shared.user.roles().contains('manage')">
                 <a href="#presets" data-toggle="tab">
                     <span class="fa fa-flip-vertical hand" data-i18n="[html]alba:icons.presets"></span>
+                </a>
+            </li>
+            <li data-bind="tooltip: 'ovs:generic.access_rights',
+                           css: { active: !$root.shared.user.roles().contains('manage') }">
+                <a href="#rights" data-toggle="tab">
+                    <span class="fa hand" data-i18n="[html]ovs:icons.rights"></span>
                 </a>
             </li>
         </ul>
@@ -695,6 +702,13 @@ but WITHOUT ANY WARRANTY of any kind.
                 <div>
                     <span class="pull-right"><span data-i18n="alba:presets.policyinfo"></span></span>
                 </div>
+            </div>
+            <div class="tab-pane" id="rights" style="padding: 15px;"
+                 data-bind="css: { active: !$root.shared.user.roles().contains('manage') }">
+                <h4 data-i18n="ovs:generic.access_rights"></h4>
+                <div data-bind="accessrights: {
+                                    rights: backend().accessRights(), save: backend().saveAccessRights
+                                }"></div>
             </div>
         </div>
     </div>

@@ -1344,32 +1344,15 @@ class AlbaController(object):
         :param metadata: Metadata about the linked ALBA Backend
         :type metadata: dict
         """
-        Toolbox.verify_required_params(required_params={'backend_connection_info': (dict, {'host': (str, Toolbox.regex_ip, False),
+        Toolbox.verify_required_params(required_params={'backend_connection_info': (dict, {'host': (str, Toolbox.regex_ip),
                                                                                            'port': (int, {'min': 1, 'max': 65535}),
-                                                                                           'username': (str, None, False),
-                                                                                           'password': (str, None, False)}),
+                                                                                           'username': (str, None),
+                                                                                           'password': (str, None)}),
                                                         'backend_info': (dict, {'linked_guid': (str, Toolbox.regex_guid),
                                                                                 'linked_name': (str, Toolbox.regex_vpool),
                                                                                 'linked_preset': (str, Toolbox.regex_preset),
                                                                                 'linked_alba_id': (str, Toolbox.regex_guid)})},
                                        actual_params=metadata)
-
-        # Make sure connection information is always available
-        connection_info = metadata['backend_connection_info']
-        if connection_info['host'] == '':
-            clients = ClientList.get_by_types('INTERNAL', 'CLIENT_CREDENTIALS')
-            oauth_client = None
-            for current_client in clients:
-                if current_client.user.group.name == 'administrators':
-                    oauth_client = current_client
-                    break
-            if oauth_client is None:
-                raise RuntimeError('Could not find INTERNAL CLIENT_CREDENTIALS client in administrator group.')
-
-            connection_info['host'] = StorageRouterList.get_masters()[0].ip
-            connection_info['port'] = 443
-            connection_info['username'] = oauth_client.client_id
-            connection_info['password'] = oauth_client.client_secret
 
         # Verify OSD has already been added
         added = False
@@ -1386,6 +1369,7 @@ class AlbaController(object):
         # Add the OSD
         if added is False:
             # Retrieve remote arakoon configuration
+            connection_info = metadata['backend_connection_info']
             ovs_client = OVSClient(ip=connection_info['host'], port=connection_info['port'], credentials=(connection_info['username'], connection_info['password']))
             task_id = ovs_client.get('/alba/backends/{0}/get_config_metadata'.format(metadata['backend_info']['linked_guid']))
             successful, arakoon_config = ovs_client.wait_for_task(task_id, timeout=300)

@@ -127,6 +127,7 @@ define([
                         disk.processing(false);
                     })
                     .fail(function(error) {
+                        error = generic.extractErrorMessage(error);
                         generic.alertError(
                             $.t('ovs:generic.error'),
                             $.t('alba:disks.remove.failed', { why: error })
@@ -156,6 +157,7 @@ define([
                         disk.processing(false);
                     })
                     .fail(function(error) {
+                        error = generic.extractErrorMessage(error);
                         generic.alertError(
                             $.t('ovs:generic.error'),
                             $.t('alba:disks.restart.failed', { why: error })
@@ -223,6 +225,7 @@ define([
 
                     })
                     .fail(function(error) {
+                        error = generic.extractErrorMessage(error);
                         generic.alertError(
                             $.t('ovs:generic.error'),
                             $.t('alba:disks.restart.failed', { why: error })

@@ -82,6 +82,7 @@ define([
                         }
                     })
                     .fail(function(error) {
+                        error = generic.extractErrorMessage(error);
                         if (self.data.editPreset()) {
                             generic.alertError(
                                 $.t('ovs:generic.error'),
