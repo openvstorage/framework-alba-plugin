@@ -131,7 +131,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
 
     @link()
     @log()
-    @required_roles(['read'])
+    @required_roles(['read', 'manage'])
     @return_task()
     @load(AlbaBackend, validator=validate_access)
     def get_config_metadata(self, albabackend):
