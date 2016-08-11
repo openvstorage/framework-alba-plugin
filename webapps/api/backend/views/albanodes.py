@@ -18,12 +18,8 @@
 Contains the AlbaNodeViewSet
 """
 
-from backend.decorators import load
-from backend.decorators import log
-from backend.decorators import required_roles
-from backend.decorators import return_list
-from backend.decorators import return_object
-from backend.decorators import return_task
+from backend.decorators import load, log, required_roles, return_list, return_object, return_task
+from backend.exceptions import HttpNotAcceptableException
 from ovs.dal.datalist import DataList
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodelist import AlbaNodeList
@@ -54,9 +50,11 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :param node_id: ID of the ALBA node
         """
         if discover is False and (ip is not None or node_id is not None):
-            raise RuntimeError('Discover is mutually exclusive with IP and nodeID')
+            raise HttpNotAcceptableException(error_description='Discover is mutually exclusive with IP and nodeID',
+                                             error='invalid_data')
         if (ip is None and node_id is not None) or (ip is not None and node_id is None):
-            raise RuntimeError('Both IP and nodeID need to be specified')
+            raise HttpNotAcceptableException(error_description='Both IP and nodeID need to be specified',
+                                             error='invalid_data')
 
         if discover is False:
             return AlbaNodeList.get_albanodes()
@@ -71,9 +69,11 @@ class AlbaNodeViewSet(viewsets.ViewSet):
             node.password = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|password'.format(node_id))
             data = node.client.get_metadata()
             if data['_success'] is False and data['_error'] == 'Invalid credentials':
-                raise RuntimeError('Invalid credentials')
+                raise HttpNotAcceptableException(error_description='Invalid credentials',
+                                                 error='invalid_data')
             if data['node_id'] != node_id:
-                raise RuntimeError('Unexpected node identifier. {0} vs {1}'.format(data['node_id'], node_id))
+                raise HttpNotAcceptableException(error_description='Unexpected node identifier. {0} vs {1}'.format(data['node_id'], node_id),
+                                                 error='invalid_data')
             node_list = DataList(AlbaNode, {})
             node_list._executed = True
             node_list._guids = [node.guid]
@@ -163,6 +163,9 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :param asd_id: ASD ID to reset
         :param safety: Safety to maintain
         """
+        if safety is None:
+            raise HttpNotAcceptableException(error_description='Safety must be passed',
+                                             error='invalid_data')
         return AlbaNodeController.reset_asd.delay(albanode.guid, asd_id, safety)
 
     @action()
