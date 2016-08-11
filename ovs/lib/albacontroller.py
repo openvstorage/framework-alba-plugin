@@ -710,7 +710,7 @@ class AlbaController(object):
             for disk in alba_node.disks:
                 for osd in disk.osds:
                     AlbaNodeController.remove_asd(node_guid=osd.alba_disk.alba_node_guid, asd_id=osd.osd_id, expected_safety=None)
-                AlbaNodeController.remove_disk(node_guid=osd.alba_disk.alba_node_guid, disk=osd.alba_disk.name)
+                AlbaNodeController.remove_disk(node_guid=disk.alba_node_guid, disk=disk.name)
             alba_node.delete()
         for service in storage_router.services:
             if service.abm_service is not None:
