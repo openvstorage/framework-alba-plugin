@@ -187,16 +187,12 @@ class AlbaNodeController(object):
     def remove_asd(node_guid, asd_id, expected_safety):
         """
         Removes an ASD
-
         :param node_guid: Guid of the node to remove a disk from
         :type node_guid: str
-
         :param asd_id: ASD to remove
         :type asd_id: str
-
         :param expected_safety: Expected safety after having removed the disk
-        :type expected_safety: dict
-
+        :type expected_safety: dict or None
         :return: True
         :rtype: bool
         """
@@ -230,11 +226,14 @@ class AlbaNodeController(object):
             AlbaController.remove_units(alba_backend.guid, [asd_id], absorb_exception=True)
         if disk_id is not None:
             if alba_backend is not None:
-                final_safety = AlbaController.calculate_safety(alba_backend.guid, [asd_id])
-                safety_lost = final_safety['lost']
-                safety_crit = final_safety['critical']
-                if (safety_crit != 0 or safety_lost != 0) and (safety_crit != expected_safety['critical'] or safety_lost != expected_safety['lost']):
-                    raise RuntimeError('Cannot remove ASD {0} as the current safety is not as expected ({1} vs {2})'.format(asd_id, final_safety, expected_safety))
+                if expected_safety is None:
+                    AlbaNodeController._logger.warning('Skipping safety check - this is dangerous')
+                else:
+                    final_safety = AlbaController.calculate_safety(alba_backend.guid, [asd_id])
+                    safety_lost = final_safety['lost']
+                    safety_crit = final_safety['critical']
+                    if (safety_crit != 0 or safety_lost != 0) and (safety_crit != expected_safety['critical'] or safety_lost != expected_safety['lost']):
+                        raise RuntimeError('Cannot remove ASD {0} as the current safety is not as expected ({1} vs {2})'.format(asd_id, final_safety, expected_safety))
 
             result = node.client.delete_asd(disk_id, asd_id)
             if result['_success'] is False:
