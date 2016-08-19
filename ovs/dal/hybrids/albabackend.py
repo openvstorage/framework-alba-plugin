@@ -26,7 +26,7 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.extensions.api.client import ForbiddenException, NotFoundException, OVSClient
-from ovs.extensions.db.etcd.configuration import EtcdConfiguration
+from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.log.log_handler import LogHandler
 
@@ -156,10 +156,10 @@ class AlbaBackend(DataObject):
 
         # Load information from alba
         backend_interval_key = '/ovs/alba/backends/{0}/gui_error_interval'.format(self.guid)
-        if EtcdConfiguration.exists(backend_interval_key):
-            interval = EtcdConfiguration.get(backend_interval_key)
+        if Configuration.exists(backend_interval_key):
+            interval = Configuration.get(backend_interval_key)
         else:
-            interval = EtcdConfiguration.get('/ovs/alba/backends/global_gui_error_interval')
+            interval = Configuration.get('/ovs/alba/backends/global_gui_error_interval')
         config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
         for found_osd in AlbaCLI.run(command='list-all-osds', config=config, to_json=True):
             node_id = found_osd['node_id']

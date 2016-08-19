@@ -21,7 +21,7 @@ ScheduledTaskController module
 from celery.schedules import crontab
 from ovs.celery_run import celery
 from ovs.dal.lists.albabackendlist import AlbaBackendList
-from ovs.extensions.db.etcd.configuration import EtcdConfiguration
+from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.lib.helpers.decorators import ensure_single
 from ovs.log.log_handler import LogHandler
@@ -35,10 +35,10 @@ class AlbaScheduledTaskController(object):
     _logger = LogHandler.get('lib', name='scheduled tasks')
     verification_schedule = 3
     verification_schedule_key = '/ovs/alba/backends/verification_schedule'
-    if EtcdConfiguration.exists(verification_schedule_key):
-        verification_schedule = EtcdConfiguration.get(verification_schedule_key)
+    if Configuration.exists(verification_schedule_key):
+        verification_schedule = Configuration.get(verification_schedule_key)
     else:
-        EtcdConfiguration.set(verification_schedule_key, verification_schedule)
+        Configuration.set(verification_schedule_key, verification_schedule)
 
     @staticmethod
     @celery.task(name='alba.scheduled.verify_namespaces',
@@ -52,10 +52,10 @@ class AlbaScheduledTaskController(object):
 
         verification_factor = 10
         verification_factor_key = '/ovs/alba/backends/verification_factor'
-        if EtcdConfiguration.exists(verification_factor_key):
-            verification_factor = EtcdConfiguration.get(verification_factor_key)
+        if Configuration.exists(verification_factor_key):
+            verification_factor = Configuration.get(verification_factor_key)
         else:
-            EtcdConfiguration.set(verification_factor_key, verification_factor)
+            Configuration.set(verification_factor_key, verification_factor)
 
         for albabackend in AlbaBackendList.get_albabackends():
             backend_name = albabackend.abm_services[0].service.name if albabackend.abm_services else albabackend.name + '-abm'
