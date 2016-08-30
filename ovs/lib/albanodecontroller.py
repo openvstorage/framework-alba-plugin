@@ -41,7 +41,7 @@ class AlbaNodeController(object):
     """
     Contains all BLL related to ALBA nodes
     """
-    NR_OF_AGENTS_ETCD_TEMPLATE = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
+    NR_OF_AGENTS_CONFIG_KEY = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
     _logger = LogHandler.get('lib', name='albanode')
     ASD_CONFIG_DIR = '/ovs/alba/asds/{0}'
     ASD_CONFIG = '{0}/config'.format(ASD_CONFIG_DIR)
@@ -77,7 +77,7 @@ class AlbaNodeController(object):
 
         # increase maintenance agents count for all nodes by 1
         for backend in AlbaBackendList.get_albabackends():
-            nr_of_agents_key = AlbaNodeController.NR_OF_AGENTS_ETCD_TEMPLATE.format(backend.guid)
+            nr_of_agents_key = AlbaNodeController.NR_OF_AGENTS_CONFIG_KEY.format(backend.guid)
             if Configuration.exists(nr_of_agents_key):
                 Configuration.set(nr_of_agents_key, int(Configuration.get(nr_of_agents_key) + 1))
             else:
@@ -349,7 +349,7 @@ class AlbaNodeController(object):
     @add_hooks('plugin', ['postinstall'])
     def model_local_albanode(**kwargs):
         """
-        Add all ALBA nodes known to etcd to the model
+        Add all ALBA nodes known to the config platform to the model
         :param kwargs: Kwargs containing information regarding the node
         :type kwargs: dict
 
@@ -407,7 +407,7 @@ class AlbaNodeController(object):
 
         alba_backends = AlbaBackendList.get_albabackends()
         for alba_backend in alba_backends:
-            nr_of_agents_key = AlbaNodeController.NR_OF_AGENTS_ETCD_TEMPLATE.format(alba_backend.guid)
+            nr_of_agents_key = AlbaNodeController.NR_OF_AGENTS_CONFIG_KEY.format(alba_backend.guid)
             name = alba_backend.backend.name
             if not Configuration.exists(nr_of_agents_key):
                 Configuration.set(nr_of_agents_key, nr_of_storage_nodes)

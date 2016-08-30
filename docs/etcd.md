@@ -18,7 +18,7 @@
 ```
 /ovs/alba/asds/<asd_id>/config = {"asd_id": "$ASD ID generated during initialization of the disk",
                                   "node_id": "$Node ID to which ASD node this ASD is connected to",
-                                  "capacity": $Size of the ASD in bytes,  
+                                  "capacity": $Size of the ASD in bytes,
                                   "home": "$Mountpoint of the ASD",  (E.g. /mnt/alba-asd/yaEIdD1lypngS3xE/CiUd8JkNGUHaCFH1ekUcUGkeGhc8JVJN)
                                   "log_level": "info",
                                   "rocksdb_block_cache_size": 488139647,
@@ -36,7 +36,7 @@
 
 ##### Specific Backend related keys
 ```
-/ovs/alba/backends/<guid>/maintenance/config = {"albamgr_cfg_url": "etcd://127.0.0.1:2379/ovs/arakoon/<backend-name>-abm/config",
+/ovs/alba/backends/<guid>/maintenance/config = {"albamgr_cfg_url": "<some_path_to>/ovs/arakoon/<backend-name>-abm/config",
                                                 "log_level": "info"}
 /ovs/alba/backends/<guid>/maintenance/nr_of_agents = "$Amount of maintenance agents deployed for this backend"  (Defaults to amount of ALBA nodes)
 ```
