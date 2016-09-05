@@ -81,6 +81,7 @@ define([
                             $.each(disks, function(index, disk) {
                                 disk.processing(false);
                             });
+                            error = generic.extractErrorMessage(error);
                             generic.alertError(
                                 $.t('ovs:generic.error'),
                                 $.t('alba:disks.initialize.failed', { why: error })

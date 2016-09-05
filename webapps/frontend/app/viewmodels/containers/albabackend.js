@@ -186,7 +186,6 @@ define([
                 }
             }).promise();
         };
-
         self.claimOSDs = function(osdsToClaim) {
             return $.Deferred(function(deferred) {
                 var asdIDs = [], asdData = {}, allAsds = [];
@@ -226,6 +225,7 @@ define([
                                     deferred.resolve();
                                 })
                                 .fail(function(error) {
+                                    error = generic.extractErrorMessage(error);
                                     generic.alertError(
                                         $.t('ovs:generic.error'),
                                         $.t('alba:disks.claim.failed', { why: error })
