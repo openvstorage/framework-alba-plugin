@@ -662,7 +662,7 @@ class AlbaController(object):
                                                     offline_nodes=offline_node_ips)
 
                     AlbaController._logger.info('* Restarting ABM cluster')
-                    ArakoonInstaller.restart_cluster_remove(abm_service_name, abm_remaining_ips)
+                    ArakoonInstaller.restart_cluster_remove(abm_service_name, abm_remaining_ips, filesystem=False)
                     AlbaController._update_abm_client_config(abm_name=abm_service_name,
                                                              ip=abm_remaining_ips[0])
 
@@ -691,7 +691,7 @@ class AlbaController(object):
                                                         offline_nodes=offline_node_ips)
 
                         AlbaController._logger.info('* Restarting NSM cluster {0}'.format(nsm_service_number))
-                        ArakoonInstaller.restart_cluster_remove(nsm_service_name, nsm_remaining_ips)
+                        ArakoonInstaller.restart_cluster_remove(nsm_service_name, nsm_remaining_ips, filesystem=False)
                         AlbaController.update_nsm(abm_service_name, nsm_service_name, nsm_remaining_ips[0])
 
                         AlbaController._logger.info('* Remove old NSM node from model')
