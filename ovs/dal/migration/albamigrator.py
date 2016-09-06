@@ -29,6 +29,7 @@ class ALBAMigrator(object):
     """
 
     identifier = 'alba'
+    THIS_VERSION = 10
 
     def __init__(self):
         """ Init method """
@@ -48,9 +49,6 @@ class ALBAMigrator(object):
 
         if working_version == 0:
             # Initial version:
-            # * Set the version to THIS RELEASE version
-            #   Version  9: Fargo Alpha, Beta, RC
-            #   Version 10: Fargo RTM
             # * Add any basic configuration or model entries
 
             # Add backends
@@ -69,10 +67,8 @@ class ALBAMigrator(object):
                 service_type.name = service_type_info
                 service_type.save()
 
-            return 9
-
         # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
-        if working_version < 10:
-            raise RuntimeError('Cannot upgrade to Fargo')
+        elif working_version < ALBAMigrator.THIS_VERSION:
+            pass
 
-        return working_version
+        return ALBAMigrator.THIS_VERSION
