@@ -29,7 +29,7 @@ from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
-from ovs.extensions.db.etcd.configuration import EtcdConfiguration
+from ovs.extensions.generic.configuration import Configuration
 from ovs.log.log_handler import LogHandler
 from ovs.lib.albacontroller import AlbaController
 from ovs.lib.disk import DiskController
@@ -41,7 +41,7 @@ class AlbaNodeController(object):
     """
     Contains all BLL related to ALBA nodes
     """
-    NR_OF_AGENTS_ETCD_TEMPLATE = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
+    NR_OF_AGENTS_CONFIG_KEY = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
     _logger = LogHandler.get('lib', name='albanode')
     ASD_CONFIG_DIR = '/ovs/alba/asds/{0}'
     ASD_CONFIG = '{0}/config'.format(ASD_CONFIG_DIR)
@@ -58,7 +58,7 @@ class AlbaNodeController(object):
         """
         node = AlbaNodeList.get_albanode_by_node_id(node_id)
         if node is None:
-            main_config = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main'.format(node_id))
+            main_config = Configuration.get('/ovs/alba/asdnodes/{0}/config/main'.format(node_id))
             node = AlbaNode()
             node.ip = main_config['ip']
             node.port = main_config['port']
@@ -77,11 +77,11 @@ class AlbaNodeController(object):
 
         # increase maintenance agents count for all nodes by 1
         for backend in AlbaBackendList.get_albabackends():
-            nr_of_agents_key = AlbaNodeController.NR_OF_AGENTS_ETCD_TEMPLATE.format(backend.guid)
-            if EtcdConfiguration.exists(nr_of_agents_key):
-                EtcdConfiguration.set(nr_of_agents_key, int(EtcdConfiguration.get(nr_of_agents_key) + 1))
+            nr_of_agents_key = AlbaNodeController.NR_OF_AGENTS_CONFIG_KEY.format(backend.guid)
+            if Configuration.exists(nr_of_agents_key):
+                Configuration.set(nr_of_agents_key, int(Configuration.get(nr_of_agents_key) + 1))
             else:
-                EtcdConfiguration.set(nr_of_agents_key, 1)
+                Configuration.set(nr_of_agents_key, 1)
         AlbaNodeController.checkup_maintenance_agents()
 
     @staticmethod
@@ -240,8 +240,8 @@ class AlbaNodeController(object):
                 raise RuntimeError('Error removing ASD: {0}'.format(result['_error']))
         else:
             AlbaNodeController._logger.warning('Alba purge osd {0} without safety validations (node down)'.format(asd_id))
-        if EtcdConfiguration.exists(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True):
-            EtcdConfiguration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(asd_id), raw=True)
+        if Configuration.exists(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True):
+            Configuration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(asd_id), raw=True)
 
         if model_osd is not None:
             model_osd.delete()
@@ -349,19 +349,19 @@ class AlbaNodeController(object):
     @add_hooks('plugin', ['postinstall'])
     def model_local_albanode(**kwargs):
         """
-        Add all ALBA nodes known to etcd to the model
+        Add all ALBA nodes known to the config platform to the model
         :param kwargs: Kwargs containing information regarding the node
         :type kwargs: dict
 
         :return: None
         """
         _ = kwargs
-        if EtcdConfiguration.dir_exists('/ovs/alba/asdnodes'):
-            for node_id in EtcdConfiguration.list('/ovs/alba/asdnodes'):
+        if Configuration.dir_exists('/ovs/alba/asdnodes'):
+            for node_id in Configuration.list('/ovs/alba/asdnodes'):
                 node = AlbaNodeList.get_albanode_by_node_id(node_id)
                 if node is None:
                     node = AlbaNode()
-                main_config = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main'.format(node_id))
+                main_config = Configuration.get('/ovs/alba/asdnodes/{0}/config/main'.format(node_id))
                 node.type = 'ASD'
                 node.node_id = node_id
                 node.ip = main_config['ip']
@@ -407,11 +407,11 @@ class AlbaNodeController(object):
 
         alba_backends = AlbaBackendList.get_albabackends()
         for alba_backend in alba_backends:
-            nr_of_agents_key = AlbaNodeController.NR_OF_AGENTS_ETCD_TEMPLATE.format(alba_backend.guid)
+            nr_of_agents_key = AlbaNodeController.NR_OF_AGENTS_CONFIG_KEY.format(alba_backend.guid)
             name = alba_backend.backend.name
-            if not EtcdConfiguration.exists(nr_of_agents_key):
-                EtcdConfiguration.set(nr_of_agents_key, nr_of_storage_nodes)
-            required_nr = EtcdConfiguration.get(nr_of_agents_key)
+            if not Configuration.exists(nr_of_agents_key):
+                Configuration.set(nr_of_agents_key, nr_of_storage_nodes)
+            required_nr = Configuration.get(nr_of_agents_key)
             maintenance_agents_map[name] = {'required': required_nr,
                                             'actual': _get_node_load(name)['total_load'],
                                             'backend': alba_backend.backend}
