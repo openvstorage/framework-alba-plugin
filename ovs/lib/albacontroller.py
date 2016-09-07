@@ -1255,7 +1255,7 @@ class AlbaController(object):
         for alba_backend in AlbaBackendList.get_albabackends():
             service_name = '{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, alba_backend.backend.name)
             if ServiceManager.has_service(service_name, client=client) is True:
-                if ServiceManager.get_service_status(service_name, client=client) is True:
+                if ServiceManager.get_service_status(service_name, client=client)[0] is True:
                     ServiceManager.stop_service(service_name, client=client)
                 ServiceManager.remove_service(service_name, client=client)
 
@@ -1348,7 +1348,7 @@ class AlbaController(object):
             alba_backend_name = alba_backend.backend.name
             service_name = '{0}_{1}'.format(AlbaController.ALBA_REBALANCER_SERVICE_PREFIX, alba_backend_name)
             if ServiceManager.has_service(service_name, client=client) is True:
-                if ServiceManager.get_service_status(service_name, client=client) is True:
+                if ServiceManager.get_service_status(service_name, client=client)[0] is True:
                     ServiceManager.stop_service(service_name, client=client)
                 ServiceManager.remove_service(service_name, client=client)
 
