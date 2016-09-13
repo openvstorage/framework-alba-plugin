@@ -18,10 +18,7 @@
 AlbaNodeController module
 """
 
-import random
 import requests
-import string
-import sys
 from ovs.celery_run import celery
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albadisk import AlbaDisk
@@ -41,7 +38,6 @@ class AlbaNodeController(object):
     """
     Contains all BLL related to ALBA nodes
     """
-    NR_OF_AGENTS_CONFIG_KEY = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
     _logger = LogHandler.get('lib', name='albanode')
     ASD_CONFIG_DIR = '/ovs/alba/asds/{0}'
     ASD_CONFIG = '{0}/config'.format(ASD_CONFIG_DIR)
@@ -74,15 +70,6 @@ class AlbaNodeController(object):
         node.node_id = node_id
         node.type = 'ASD'
         node.save()
-
-        # increase maintenance agents count for all nodes by 1
-        for backend in AlbaBackendList.get_albabackends():
-            nr_of_agents_key = AlbaNodeController.NR_OF_AGENTS_CONFIG_KEY.format(backend.guid)
-            if Configuration.exists(nr_of_agents_key):
-                Configuration.set(nr_of_agents_key, int(Configuration.get(nr_of_agents_key) + 1))
-            else:
-                Configuration.set(nr_of_agents_key, 1)
-        AlbaNodeController.checkup_maintenance_agents()
 
     @staticmethod
     @celery.task(name='albanode.initialize_disk')
@@ -370,77 +357,3 @@ class AlbaNodeController(object):
                 node.password = main_config['password']
                 node.storagerouter = StorageRouterList.get_by_ip(main_config['ip'])
                 node.save()
-
-    @staticmethod
-    def checkup_maintenance_agents():
-        """
-        Check if requested nr of maintenance agents / backend is actually present
-        Add / remove as necessary
-        :return: None
-        """
-        service_template_key = 'alba-maintenance_{0}-{1}'
-        maintenance_agents_map = {}
-        asd_nodes = AlbaNodeList.get_albanodes()
-        nr_of_storage_nodes = len(asd_nodes)
-
-        def _get_node_load(backend_name):
-            highest_load = 0
-            lowest_load = sys.maxint
-            agent_load = {'high_load_node': asd_nodes[0] if asd_nodes else None,
-                          'low_load_node': asd_nodes[0] if asd_nodes else None,
-                          'total_load': 0}
-            for asd_node in asd_nodes:
-                actual_nr_of_agents = 0
-                maint_services = asd_node.client.list_maintenance_services()
-                for service_name in maint_services:
-                    if service_template_key.format(backend_name, '') in service_name:
-                        actual_nr_of_agents += 1
-                if actual_nr_of_agents > highest_load:
-                    agent_load['high_load_node'] = asd_node
-                    highest_load = actual_nr_of_agents
-                if actual_nr_of_agents < lowest_load:
-                    agent_load['low_load_node'] = asd_node
-                    lowest_load = actual_nr_of_agents
-                agent_load['total_load'] += actual_nr_of_agents
-
-            return agent_load
-
-        alba_backends = AlbaBackendList.get_albabackends()
-        for alba_backend in alba_backends:
-            nr_of_agents_key = AlbaNodeController.NR_OF_AGENTS_CONFIG_KEY.format(alba_backend.guid)
-            name = alba_backend.backend.name
-            if not Configuration.exists(nr_of_agents_key):
-                Configuration.set(nr_of_agents_key, nr_of_storage_nodes)
-            required_nr = Configuration.get(nr_of_agents_key)
-            maintenance_agents_map[name] = {'required': required_nr,
-                                            'actual': _get_node_load(name)['total_load'],
-                                            'backend': alba_backend.backend}
-
-        for name, values in maintenance_agents_map.iteritems():
-            AlbaNodeController._logger.info('Checking backend: {0}'.format(name))
-            to_process = values['required'] - values['actual']
-
-            if to_process == 0:
-                AlbaNodeController._logger.info('No action required for: {0}'.format(name))
-            elif to_process >= 0:
-                AlbaNodeController._logger.info('Adding {0} maintenance agent(s) for {1}'.format(to_process, name))
-                for _ in xrange(to_process):
-                    unique_hash = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(16))
-                    node = _get_node_load(name)['low_load_node']
-                    AlbaNodeController._logger.info('Service to add: ' + service_template_key.format(name, unique_hash))
-                    if node and node.client:
-                        node.client.add_maintenance_service(service_template_key.format(name, unique_hash),
-                                                            values['backend'].alba_backend.guid,
-                                                            AlbaController.get_abm_service_name(values['backend']))
-                        AlbaNodeController._logger.info('Service added')
-            else:
-                to_process = abs(to_process)
-                AlbaNodeController._logger.info('Removing {0} maintenance agent(s) for {1}'.format(to_process, name))
-                for _ in xrange(to_process):
-                    node = _get_node_load(name)['high_load_node']
-                    services = node.client.list_maintenance_services()
-                    if services and node and node.client:
-                        for service in services:
-                            if 'alba-maintenance_' + name in service:
-                                node.client.remove_maintenance_service(service)
-                                break
