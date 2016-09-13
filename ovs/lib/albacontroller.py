@@ -366,8 +366,8 @@ class AlbaController(object):
         for node in AlbaNodeList.get_albanodes():
             try:
                 for service_name in node.client.list_maintenance_services():
-                    backend_name = service_name.split('_')[1].split('-')[0]
-                    if backend_name == albabackend.backend.name:
+                    backend_name = service_name.split('_', 1)[1].rsplit('-', 1)[0]  # E.g. alba-maintenance_mybackend-a4f7e3c61
+                    if backend_name == albabackend.name:
                         node.client.remove_maintenance_service(service_name)
                         AlbaController._logger.info('Removed maintenance service {0} on {1}'.format(service_name, node.ip))
             except Exception as ex:
