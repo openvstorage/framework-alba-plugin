@@ -21,6 +21,7 @@ AlbaController module
 import os
 import json
 import time
+import string
 import random
 import requests
 import tempfile
@@ -65,6 +66,7 @@ class AlbaController(object):
     CONFIG_MAINTENANCE_KEY = CONFIG_ALBA_BACKEND_KEY + '/maintenance'
     CONFIG_NR_OF_AGENTS_KEY = CONFIG_MAINTENANCE_KEY + '/nr_of_agents'
     CONFIG_DEFAULT_NSM_HOSTS_KEY = CONFIG_ALBA_BACKEND_KEY.format('default_nsm_hosts')
+    NR_OF_AGENTS_CONFIG_KEY = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
 
     _logger = LogHandler.get('lib', name='alba')
 
@@ -305,7 +307,7 @@ class AlbaController(object):
         config_key = AlbaController.CONFIG_NR_OF_AGENTS_KEY.format(alba_backend_guid)
         nr_of_storage_nodes = len(AlbaNodeList.get_albanodes())
         Configuration.set(config_key, nr_of_storage_nodes)
-        AlbaNodeController.checkup_maintenance_agents()
+        AlbaController.checkup_maintenance_agents.delay()
 
     @staticmethod
     @celery.task(name='alba.remove_cluster')
@@ -360,12 +362,16 @@ class AlbaController(object):
                 service.delete()
                 AlbaController._logger.debug('Removed service "{0}"'.format(service.name))
 
-        # Set amount of maintenance agents to 0, to let the checkup remove all obsolete agents
-        AlbaController._logger.debug('Updating maintenance agents to 0 in Configuration')
-        config_key = AlbaController.CONFIG_NR_OF_AGENTS_KEY.format(alba_backend_guid)
-        Configuration.set(config_key, 0)
-        AlbaController._logger.debug('Removing maintenance agents')
-        AlbaNodeController.checkup_maintenance_agents()
+        # Removing maintenance agents
+        for node in AlbaNodeList.get_albanodes():
+            try:
+                for service_name in node.client.list_maintenance_services():
+                    backend_name = service_name.split('_', 1)[1].rsplit('-', 1)[0]  # E.g. alba-maintenance_mybackend-a4f7e3c61
+                    if backend_name == albabackend.name:
+                        node.client.remove_maintenance_service(service_name)
+                        AlbaController._logger.info('Removed maintenance service {0} on {1}'.format(service_name, node.ip))
+            except Exception as ex:
+                AlbaController._logger.exception('Could not clean up maintenance services for {0}'.format(albabackend.name))
 
         config_key = AlbaController.CONFIG_ALBA_BACKEND_KEY.format(alba_backend_guid)
         AlbaController._logger.debug('Deleting ALBA backend entry "{0}" from Configuration'.format(config_key))
@@ -1264,7 +1270,7 @@ class AlbaController(object):
                                   nr_of_storagenodes)
 
         if len(all_nodes_to_upgrade) == 0:
-            AlbaNodeController.checkup_maintenance_agents()
+            AlbaController.checkup_maintenance_agents.delay()
 
     @staticmethod
     @add_hooks('update', 'postupgrade')
@@ -1446,6 +1452,172 @@ class AlbaController(object):
             linked_osd.delete()
         parent.invalidate_dynamics()
         parent.backend.invalidate_dynamics()
+
+    @staticmethod
+    @celery.task(name='alba.checkup_maintenance_agents', schedule=crontab(minute='0', hour='*'))
+    @ensure_single(task_name='alba.checkup_maintenance_agents', mode='CHAINED')
+    def checkup_maintenance_agents():
+        """
+        Check if requested nr of maintenance agents / backend is actually present
+        Add / remove as necessary
+        :return: None
+        """
+        service_template_key = 'alba-maintenance_{0}-{1}'
+
+        def _generate_name(_backend_name):
+            unique_hash = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(16))
+            return service_template_key.format(_backend_name, unique_hash)
+
+        def _count(_service_map):
+            amount = 0
+            for _services in _service_map.values():
+                amount += len(_services)
+            return amount
+
+        def _add_service(_node, _service_name, _abackend):
+            _name = _abackend.name
+            try:
+                _node.client.add_maintenance_service(name=_service_name,
+                                                     alba_backend_guid=_abackend.guid,
+                                                     abm_name=AlbaController.get_abm_service_name(_abackend.backend))
+                return True
+            except Exception:
+                AlbaController._logger.exception('Could not add maintenance service for {0} on {1}'.format(_name, _node.ip))
+            return False
+
+        def _remove_service(_node, _service_name, _abackend):
+            _name = _abackend.name
+            try:
+                _node.client.remove_maintenance_service(name=_service_name)
+                return True
+            except Exception:
+                AlbaController._logger.exception('Could not remove maintenance service for {0} on {1}'.format(_name, _node.ip))
+            return False
+
+        AlbaController._logger.info('Loading maintenance information')
+        service_map = {}
+        node_load = {}
+        available_node_map = {}
+        all_nodes = []
+        for node in AlbaNodeList.get_albanodes():
+            try:
+                service_names = node.client.list_maintenance_services()
+            except Exception:
+                AlbaController._logger.exception('* Cannot fetch maintenance information for {0}'.format(node.ip))
+                continue
+
+            for disk in node.disks:
+                for osd in disk.osds:
+                    backend_guid = osd.alba_backend_guid
+                    if backend_guid not in available_node_map:
+                        available_node_map[backend_guid] = set()
+                    available_node_map[backend_guid].add(node)
+
+            for service_name in service_names:
+                backend_name, service_hash = service_name.split('_', 1)[1].rsplit('-', 1)  # E.g. alba-maintenance_mybackend-a4f7e3c61
+                AlbaController._logger.debug('* Maintenance {0} for {1} on {2}'.format(service_hash, backend_name, node.ip))
+
+                if backend_name not in service_map:
+                    service_map[backend_name] = {}
+                if node not in service_map[backend_name]:
+                    service_map[backend_name][node] = []
+                service_map[backend_name][node].append(service_name)
+
+                if node not in node_load:
+                    node_load[node] = 0
+                node_load[node] += 1
+            all_nodes.append(node)
+
+        for alba_backend in AlbaBackendList.get_albabackends():
+            name = alba_backend.name
+            AlbaController._logger.info('Generating service worklog for {0}'.format(name))
+            key = AlbaController.NR_OF_AGENTS_CONFIG_KEY.format(alba_backend.guid)
+            if Configuration.exists(key):
+                required_nr = Configuration.get(key)
+            else:
+                required_nr = 3
+                Configuration.set(key, required_nr)
+            if name not in service_map:
+                service_map[name] = {}
+            if alba_backend.guid not in available_node_map:
+                available_node_map[alba_backend.guid] = []
+            else:
+                available_node_map[alba_backend.guid] = sorted(available_node_map[alba_backend.guid],
+                                                               key=lambda n: node_load.get(n, 0))
+
+            to_remove = {}
+            to_add = {}
+            # Clean out services on non-available nodes
+            for node in service_map[name]:
+                if node not in available_node_map[alba_backend.guid]:
+                    if node not in to_remove:
+                        to_remove[node] = []
+                    service_names = service_map[name][node]
+                    to_remove[node] += service_names
+                    service_map[name][node] = []
+                    AlbaController._logger.debug('* Candidates for removal (unused node): {0} on {1}'.format(service_names, node.ip))
+            # Multiple services on a single node must be cleaned
+            for node, service_names in service_map[name].iteritems():
+                if len(service_names) > 1:
+                    if node not in to_remove:
+                        to_remove[node] = []
+                    service_names = service_names[1:]
+                    to_remove[node] += service_names
+                    service_map[name][node] = service_names[0]
+                    AlbaController._logger.debug('* Candidates for removal (too many services on node): {0} on {1}'.format(service_names, node.ip))
+            # Add services if required
+            if _count(service_map[name]) < required_nr:
+                for node in available_node_map[alba_backend.guid]:
+                    if node not in service_map[name]:
+                        if node not in to_add:
+                            to_add[node] = []
+                        service_name = _generate_name(name)
+                        to_add[node].append(service_name)
+                        service_map[name][node] = [service_name]
+                        AlbaController._logger.debug('* Candidate add (not enough services): {0} on {1}'.format(service_name, node.ip))
+                    if _count(service_map[name]) == required_nr:
+                        break
+            # Remove services if required
+            if _count(service_map[name]) > required_nr:
+                for node in reversed(available_node_map[alba_backend.guid]):
+                    if node in service_map[name]:
+                        if node not in to_remove:
+                            to_remove[node] = []
+                        for service_name in service_map[name][node][:]:
+                            to_remove[node].append(service_name)
+                            service_map[name][node].remove(service_name)
+                            AlbaController._logger.debug('* Candidate removal (too many services): {0} on {1}'.format(service_name, node.ip))
+                    if _count(service_map[name]) == required_nr:
+                        break
+            # Make sure there's still at least one service left
+            if _count(service_map[name]) == 0:
+                selected = False
+                for node in to_remove:
+                    if len(to_remove[node]) > 0:
+                        service_name = to_remove[node].pop()
+                        AlbaController._logger.debug('* Removing removal candidate (at least 1 service required): {0} on {1}'.format(service_name, node.ip))
+                        selected = True
+                        break
+                if selected is False and len(all_nodes) > 0:
+                    service_name = _generate_name(name)
+                    to_add[all_nodes[0]].append(service_name)
+                    AlbaController._logger.debug('* Candidate add (at least 1 service required): {0} on {1}'.format(service_name, all_nodes[0].ip))
+
+            AlbaController._logger.info('Applying service worklog for {0}'.format(name))
+            for node, services in to_remove.iteritems():
+                for service_name in services:
+                    if _remove_service(node, service_name, alba_backend):
+                        AlbaController._logger.info('* Removed service {0} on {1}: OK'.format(service_name, node.ip))
+                    else:
+                        AlbaController._logger.warning('* Removed service {0} on {1}: FAIL'.format(service_name, node.ip))
+            for node, services in to_add.iteritems():
+                for service_name in services:
+                    if _add_service(node, service_name, alba_backend):
+                        AlbaController._logger.info('* Added service {0} on {1}: OK'.format(service_name, node.ip))
+                    else:
+                        AlbaController._logger.warning('* Added service {0} on {1}: FAIL'.format(service_name, node.ip))
+
+            AlbaController._logger.info('Finished service worklog for {0}'.format(name))
 
 
 if __name__ == '__main__':
