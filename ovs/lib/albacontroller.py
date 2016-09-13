@@ -371,7 +371,7 @@ class AlbaController(object):
                         node.client.remove_maintenance_service(service_name)
                         AlbaController._logger.info('Removed maintenance service {0} on {1}'.format(service_name, node.ip))
             except Exception as ex:
-                AlbaController._logger.exception('Could not clean up maintenance services for {0}'.format(albabackend.backend.name))
+                AlbaController._logger.exception('Could not clean up maintenance services for {0}'.format(albabackend.name))
 
         config_key = AlbaController.CONFIG_ALBA_BACKEND_KEY.format(alba_backend_guid)
         AlbaController._logger.debug('Deleting ALBA backend entry "{0}" from Configuration'.format(config_key))
