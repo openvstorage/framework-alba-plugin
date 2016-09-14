@@ -1600,7 +1600,10 @@ class AlbaController(object):
                         break
                 if selected is False and len(all_nodes) > 0:
                     service_name = _generate_name(name)
-                    to_add[all_nodes[0]].append(service_name)
+                    node = all_nodes[0]
+                    if node not in to_add:
+                        to_add[node] = []
+                    to_add[node].append(service_name)
                     AlbaController._logger.debug('* Candidate add (at least 1 service required): {0} on {1}'.format(service_name, all_nodes[0].ip))
 
             AlbaController._logger.info('Applying service worklog for {0}'.format(name))
