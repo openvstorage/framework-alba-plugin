@@ -78,6 +78,11 @@ class ASDManagerClient(object):
         except:
             raise RuntimeError(response.content)
         internal_duration = data['_duration']
+        if '_success' in data and data['_success'] is False:
+            error_message = 'Unknown exception: {0}'.format(data)
+            if '_error' in data:
+                error_message = data['_error']
+            raise RuntimeError(error_message)
         if clean is True:
             def _clean(_dict):
                 for _key in _dict.keys():
