@@ -950,7 +950,7 @@ class AlbaController(object):
                                                     nsm_name=nsm_name,
                                                     ip=storagerouters[0].ip)
                         AlbaController._logger.debug('New NSM ({0}) added'.format(number))
-            except Exception as ex:
+            except Exception:
                 AlbaController._logger.exception('NSM Checkup failed for backend {0}'.format(alba_backend.name))
                 failed_backends.append(alba_backend.name)
         if len(failed_backends) > 0:
