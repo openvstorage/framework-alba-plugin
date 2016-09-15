@@ -885,7 +885,7 @@ class AlbaController(object):
                                     continue
                             if client is None:
                                 raise ValueError('Could not find an online master node')
-                            AlbaController._model_service(service_name=metadata.cluster_id,
+                            AlbaController._model_service(service_name=metadata['cluster_name'],
                                                           service_type=nsm_service_type,
                                                           ports=[],
                                                           storagerouter=None,
@@ -893,7 +893,7 @@ class AlbaController(object):
                                                           backend=alba_backend,
                                                           number=number)
                             AlbaController.register_nsm(abm_name=abm_service_name,
-                                                        nsm_name=metadata.cluster_id,
+                                                        nsm_name=metadata['cluster_name'],
                                                         ip=client.ip)
                     else:
                         AlbaController._logger.debug('Adding new NSM')
@@ -951,7 +951,7 @@ class AlbaController(object):
                                                     ip=storagerouters[0].ip)
                         AlbaController._logger.debug('New NSM ({0}) added'.format(number))
             except Exception as ex:
-                AlbaController._logger.error('NSM Checkup failed for backend {0}. {1}'.format(alba_backend.name, ex))
+                AlbaController._logger.exception('NSM Checkup failed for backend {0}'.format(alba_backend.name))
                 failed_backends.append(alba_backend.name)
         if len(failed_backends) > 0:
             raise RuntimeError('Checking NSM failed for ALBA backends: {0}'.format(', '.join(failed_backends)))
