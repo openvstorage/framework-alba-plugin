@@ -296,6 +296,11 @@ class AlbaController(object):
             AlbaController.remove_cluster(alba_backend_guid=alba_backend.guid)
             raise
 
+        # Enable LRU
+        masters = StorageRouterList.get_masters()
+        redis_endpoint = 'redis://{0}:6379/alba_lru_{1}'.format(masters[0].ip, alba_backend.guid)
+        AlbaCLI.run(command='update-maintenance-config', config=config, set_lru_cache_eviction=redis_endpoint)
+
         # Mark the backend as "running"
         alba_backend.backend.status = 'RUNNING'
         alba_backend.backend.save()
