@@ -1592,9 +1592,7 @@ class AlbaController(object):
                             service_name = _generate_name(name)
                             to_add[node] = service_name
                             AlbaController._logger.debug('* Candidate add (at least {0} service required): {1} on {2}'.format(minimum, service_name, node.ip))
-                            if node not in service_map[name]:
-                                service_map[name][node] = []
-                            service_map[name][node].append(service_name)
+                            service_map[name][node] = [service_name]
                         if _count(service_map[name]) == minimum:
                             break
 
