@@ -63,8 +63,6 @@ class AlbaController(object):
     ALBA_MAINTENANCE_SERVICE_PREFIX = 'alba-maintenance'
     ALBA_REBALANCER_SERVICE_PREFIX = 'alba-rebalancer'
     CONFIG_ALBA_BACKEND_KEY = '/ovs/alba/backends/{0}'
-    CONFIG_MAINTENANCE_KEY = CONFIG_ALBA_BACKEND_KEY + '/maintenance'
-    CONFIG_NR_OF_AGENTS_KEY = CONFIG_MAINTENANCE_KEY + '/nr_of_agents'
     CONFIG_DEFAULT_NSM_HOSTS_KEY = CONFIG_ALBA_BACKEND_KEY.format('default_nsm_hosts')
     NR_OF_AGENTS_CONFIG_KEY = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
 
@@ -298,15 +296,16 @@ class AlbaController(object):
             AlbaController.remove_cluster(alba_backend_guid=alba_backend.guid)
             raise
 
+        # Enable LRU
+        masters = StorageRouterList.get_masters()
+        redis_endpoint = 'redis://{0}:6379/alba_lru_{1}'.format(masters[0].ip, alba_backend.guid)
+        AlbaCLI.run(command='update-maintenance-config', config=config, set_lru_cache_eviction=redis_endpoint)
+
         # Mark the backend as "running"
         alba_backend.backend.status = 'RUNNING'
         alba_backend.backend.save()
 
         AlbaNodeController.model_local_albanode()
-
-        config_key = AlbaController.CONFIG_NR_OF_AGENTS_KEY.format(alba_backend_guid)
-        nr_of_storage_nodes = len(AlbaNodeList.get_albanodes())
-        Configuration.set(config_key, nr_of_storage_nodes)
         AlbaController.checkup_maintenance_agents.delay()
 
     @staticmethod
@@ -319,7 +318,6 @@ class AlbaController(object):
 
         :return: None
         """
-        from ovs.lib.albanodecontroller import AlbaNodeController
 
         albabackend = AlbaBackend(alba_backend_guid)
         if len(albabackend.osds) > 0:
@@ -885,7 +883,7 @@ class AlbaController(object):
                                     continue
                             if client is None:
                                 raise ValueError('Could not find an online master node')
-                            AlbaController._model_service(service_name=metadata.cluster_id,
+                            AlbaController._model_service(service_name=metadata['cluster_name'],
                                                           service_type=nsm_service_type,
                                                           ports=[],
                                                           storagerouter=None,
@@ -893,7 +891,7 @@ class AlbaController(object):
                                                           backend=alba_backend,
                                                           number=number)
                             AlbaController.register_nsm(abm_name=abm_service_name,
-                                                        nsm_name=metadata.cluster_id,
+                                                        nsm_name=metadata['cluster_name'],
                                                         ip=client.ip)
                     else:
                         AlbaController._logger.debug('Adding new NSM')
@@ -950,8 +948,8 @@ class AlbaController(object):
                                                     nsm_name=nsm_name,
                                                     ip=storagerouters[0].ip)
                         AlbaController._logger.debug('New NSM ({0}) added'.format(number))
-            except Exception as ex:
-                AlbaController._logger.error('NSM Checkup failed for backend {0}. {1}'.format(alba_backend.name, ex))
+            except Exception:
+                AlbaController._logger.exception('NSM Checkup failed for backend {0}'.format(alba_backend.name))
                 failed_backends.append(alba_backend.name)
         if len(failed_backends) > 0:
             raise RuntimeError('Checking NSM failed for ALBA backends: {0}'.format(', '.join(failed_backends)))
@@ -1209,7 +1207,6 @@ class AlbaController(object):
 
         :return: None
         """
-        from ovs.lib.albanodecontroller import AlbaNodeController
         storagerouter_ips = [sr.ip for sr in StorageRouterList.get_storagerouters()]
         other_storagerouter_ips = [ip for ip in storagerouter_ips if ip != client.ip]
 
@@ -1257,7 +1254,6 @@ class AlbaController(object):
             node.client.restart_services()
             all_nodes_to_upgrade.remove(node)
 
-        nr_of_storagenodes = len(AlbaNodeList.get_albanodes())
         for alba_backend in AlbaBackendList.get_albabackends():
             service_name = '{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, alba_backend.backend.name)
             if ServiceManager.has_service(service_name, client=client) is True:
@@ -1265,12 +1261,7 @@ class AlbaController(object):
                     ServiceManager.stop_service(service_name, client=client)
                 ServiceManager.remove_service(service_name, client=client)
 
-            if not Configuration.exists(AlbaController.CONFIG_NR_OF_AGENTS_KEY.format(alba_backend.guid)):
-                Configuration.set(AlbaController.CONFIG_NR_OF_AGENTS_KEY.format(alba_backend.guid),
-                                  nr_of_storagenodes)
-
-        if len(all_nodes_to_upgrade) == 0:
-            AlbaController.checkup_maintenance_agents.delay()
+        AlbaController.checkup_maintenance_agents.delay()
 
     @staticmethod
     @add_hooks('update', 'postupgrade')
@@ -1570,11 +1561,10 @@ class AlbaController(object):
                 for node in available_node_map[alba_backend.guid]:
                     if node not in service_map[name]:
                         if node not in to_add:
-                            to_add[node] = []
-                        service_name = _generate_name(name)
-                        to_add[node].append(service_name)
-                        service_map[name][node] = [service_name]
-                        AlbaController._logger.debug('* Candidate add (not enough services): {0} on {1}'.format(service_name, node.ip))
+                            service_name = _generate_name(name)
+                            to_add[node] = service_name
+                            service_map[name][node] = [service_name]
+                            AlbaController._logger.debug('* Candidate add (not enough services): {0} on {1}'.format(service_name, node.ip))
                     if _count(service_map[name]) == required_nr:
                         break
             # Remove services if required
@@ -1589,19 +1579,27 @@ class AlbaController(object):
                             AlbaController._logger.debug('* Candidate removal (too many services): {0} on {1}'.format(service_name, node.ip))
                     if _count(service_map[name]) == required_nr:
                         break
+            minimum = 1 if alba_backend.scaling == AlbaBackend.SCALINGS.LOCAL else 3
             # Make sure there's still at least one service left
             if _count(service_map[name]) == 0:
-                selected = False
                 for node in to_remove:
                     if len(to_remove[node]) > 0:
                         service_name = to_remove[node].pop()
-                        AlbaController._logger.debug('* Removing removal candidate (at least 1 service required): {0} on {1}'.format(service_name, node.ip))
-                        selected = True
+                        AlbaController._logger.debug('* Removing removal candidate (at least {0} service required): {1} on {2}'.format(minimum, service_name, node.ip))
+                        if node not in service_map[name]:
+                            service_map[name][node] = []
+                        service_map[name][node].append(service_name)
+                    if _count(service_map[name]) == minimum:
                         break
-                if selected is False and len(all_nodes) > 0:
-                    service_name = _generate_name(name)
-                    to_add[all_nodes[0]].append(service_name)
-                    AlbaController._logger.debug('* Candidate add (at least 1 service required): {0} on {1}'.format(service_name, all_nodes[0].ip))
+                if _count(service_map[name]) < minimum and len(all_nodes) > 0:
+                    for node in all_nodes:
+                        if node not in to_add and node not in service_map[name]:
+                            service_name = _generate_name(name)
+                            to_add[node] = service_name
+                            AlbaController._logger.debug('* Candidate add (at least {0} service required): {1} on {2}'.format(minimum, service_name, node.ip))
+                            service_map[name][node] = [service_name]
+                        if _count(service_map[name]) == minimum:
+                            break
 
             AlbaController._logger.info('Applying service worklog for {0}'.format(name))
             for node, services in to_remove.iteritems():
@@ -1610,12 +1608,11 @@ class AlbaController(object):
                         AlbaController._logger.info('* Removed service {0} on {1}: OK'.format(service_name, node.ip))
                     else:
                         AlbaController._logger.warning('* Removed service {0} on {1}: FAIL'.format(service_name, node.ip))
-            for node, services in to_add.iteritems():
-                for service_name in services:
-                    if _add_service(node, service_name, alba_backend):
-                        AlbaController._logger.info('* Added service {0} on {1}: OK'.format(service_name, node.ip))
-                    else:
-                        AlbaController._logger.warning('* Added service {0} on {1}: FAIL'.format(service_name, node.ip))
+            for node, service_name in to_add.iteritems():
+                if _add_service(node, service_name, alba_backend):
+                    AlbaController._logger.info('* Added service {0} on {1}: OK'.format(service_name, node.ip))
+                else:
+                    AlbaController._logger.warning('* Added service {0} on {1}: FAIL'.format(service_name, node.ip))
 
             AlbaController._logger.info('Finished service worklog for {0}'.format(name))
 
