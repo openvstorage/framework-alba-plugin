@@ -48,7 +48,6 @@ class AlbaBackend(DataObject):
                   Dynamic('presets', list, 60),
                   Dynamic('available', bool, 60),
                   Dynamic('name', str, 3600),
-                  Dynamic('metadata_information', dict, 60),
                   Dynamic('asd_statistics', dict, 5, locked=True),
                   Dynamic('linked_backend_guids', set, 30),
                   Dynamic('remote_stack', dict, 60),
@@ -339,26 +338,6 @@ class AlbaBackend(DataObject):
         Returns the backend's name
         """
         return self.backend.name
-
-    def _metadata_information(self):
-        """
-        Returns metadata information about the backend
-        """
-        from ovs.dal.hybrids.diskpartition import DiskPartition
-        from ovs.dal.hybrids.servicetype import ServiceType
-        from ovs.dal.lists.servicetypelist import ServiceTypeList
-
-        info = {'nsm_partition_guids': []}
-
-        nsm_service_name = self.backend.name + "-nsm_0"
-        nsm_service_type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.NS_MGR)
-        for service in nsm_service_type.services:
-            if service.name == nsm_service_name and service.is_internal is True:
-                for disk in service.storagerouter.disks:
-                    for partition in disk.partitions:
-                        if DiskPartition.ROLES.DB in partition.roles:
-                            info['nsm_partition_guids'].append(partition.guid)
-        return info
 
     def _asd_statistics(self):
         """
