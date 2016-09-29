@@ -119,7 +119,7 @@ class ASDManagerClient(object):
         :param disk_id: Identifier of the disk
         :type disk_id: str
         """
-        return self._call(requests.post, 'disks/{0}/add'.format(disk_id), timeout=60)
+        return self._call(requests.post, 'disks/{0}/add'.format(disk_id), timeout=300)
 
     def remove_disk(self, disk_id):
         """
