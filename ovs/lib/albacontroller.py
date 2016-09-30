@@ -856,16 +856,21 @@ class AlbaController(object):
                                 AlbaController._logger.debug('Node added')
 
                 # Load and minimum nsm hosts
+                nsms_to_add = 0
                 load_ok = min(nsm_loads.values()) < maxload
-                amount_nsms = 0 if min_nsms is None else min_nsms - len(nsm_loads)
+                AlbaController._logger.debug('Currently {0} NSM hosts'.format(len(nsm_loads)))
+                if min_nsms is not None:
+                    AlbaController._logger.debug('Minimum {0} NSM hosts requested'.format(min_nsms))
+                    nsms_to_add = max(0, min_nsms - len(nsm_loads))
                 if load_ok:
                     AlbaController._logger.debug('NSM load OK')
                 else:
-                    amount_nsms = min(1, amount_nsms)
-                if amount_nsms == 0:
-                    AlbaController._logger.debug('Enough NSM hosts')
+                    AlbaController._logger.debug('NSM load NOT OK')
+                    nsms_to_add = max(1, nsms_to_add)
+                if nsms_to_add > 0:
+                    AlbaController._logger.debug('Trying to add {0} NSM hosts'.format(nsms_to_add))
                 base_number = max(nsm_loads.keys()) + 1
-                for number in xrange(base_number, base_number + amount_nsms):
+                for number in xrange(base_number, base_number + nsms_to_add):
                     if nsm_metadata['internal'] is False:
                         AlbaController._logger.debug('Externally managed NSM arakoon cluster needs to be expanded')
                         metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM)
@@ -940,7 +945,7 @@ class AlbaController(object):
                             client = SSHClient(storagerouter, username='root')
                             ArakoonInstaller.start(nsm_name, client)
                         if metadata is not None:
-                            ArakoonInstaller.claim_cluster(cluster_name=abm_service_name,
+                            ArakoonInstaller.claim_cluster(cluster_name=nsm_name,
                                                            master_ip=first_ip,
                                                            filesystem=False,
                                                            metadata=metadata)
