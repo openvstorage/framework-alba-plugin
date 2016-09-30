@@ -30,8 +30,6 @@ class AlbaCLI(object):
     """
     Wrapper for 'alba' command line interface
     """
-    _run_results = {}
-
     @staticmethod
     def run(command, **kwargs):
         """

@@ -27,6 +27,7 @@ class VirtualAlbaBackend(object):
     """
     data = {}
     run_log = {}
+    statistics = None
 
     @staticmethod
     def update_abm_client_config(**kwargs):
@@ -90,6 +91,14 @@ class VirtualAlbaBackend(object):
         key = VirtualAlbaBackend._key_from_config(**kwargs)
         nsm = kwargs['extra_params'][0].split('/')[-2]
         VirtualAlbaBackend.run_log[key].append(['update_nsm_host', nsm])
+
+    @staticmethod
+    def asd_multistatistics(**kwargs):
+        """
+        Returns statistics
+        """
+        _ = kwargs
+        return VirtualAlbaBackend.statistics
 
     @staticmethod
     def _get_nsm_state(abm):
