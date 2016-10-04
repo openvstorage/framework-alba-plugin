@@ -128,7 +128,7 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.remove_units')
-    def remove_units(alba_backend_guid, osd_ids, absorb_exception=False):
+    def remove_units(alba_backend_guid, osd_ids):
         """
         Removes storage units from an Alba backend
         :param alba_backend_guid: Guid of the ALBA backend
@@ -142,14 +142,21 @@ class AlbaController(object):
 
         :return: None
         """
-        try:
-            alba_backend = AlbaBackend(alba_backend_guid)
-            config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend)))
-            for osd_id in osd_ids:
+        alba_backend = AlbaBackend(alba_backend_guid)
+        config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend)))
+        failed_osds = []
+        last_exception = None
+        for osd_id in osd_ids:
+            try:
                 AlbaCLI.run(command='purge-osd', config=config, long_id=osd_id, to_json=True)
-        except:
-            if absorb_exception is False:
-                raise
+            except Exception as ex:
+                AlbaController._logger.exception('Error purging OSD {0}'.format(osd_id))
+                last_exception = ex
+                failed_osds.append(osd_id)
+        if len(failed_osds) > 0:
+            if len(osd_ids) == 1:
+                raise last_exception
+            raise RuntimeError('Error processing one or more OSDs: {0}'.format(failed_osds))
 
     @staticmethod
     @celery.task(name='alba.add_preset')

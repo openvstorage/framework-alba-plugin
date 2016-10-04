@@ -210,8 +210,12 @@ class AlbaNodeController(object):
                 break
 
         if alba_backend is not None:
-            AlbaController.remove_units(alba_backend.guid, [asd_id], absorb_exception=True)
+            AlbaNodeController._logger.debug('Purging ASD {0} on backend {1}'.format(asd_id, alba_backend.guid))
+            AlbaController.remove_units(alba_backend.guid, [asd_id])
+        else:
+            AlbaNodeController._logger.warning('Could not match ASD {0} to any backend. Cannot purge'.format(asd_id))
         if disk_id is not None:
+            AlbaNodeController._logger.debug('Removing ASD {0} from disk {1}'.format(asd_id, disk_id))
             if alba_backend is not None:
                 if expected_safety is None:
                     AlbaNodeController._logger.warning('Skipping safety check - this is dangerous')
