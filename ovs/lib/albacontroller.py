@@ -111,10 +111,9 @@ class AlbaController(object):
         disks = {}
 
         for osd_id, disk_guid in osds.iteritems():
-            alba_disk = None
             if disk_guid is not None and disk_guid not in disks:
                 disks[disk_guid] = AlbaDisk(disk_guid)
-                alba_disk = disks.get(disk_guid)
+            alba_disk = disks.get(disk_guid)
             AlbaCLI.run(command='claim-osd', config=config, long_id=osd_id, to_json=True)
             osd = AlbaOSD()
             osd.osd_id = osd_id
