@@ -21,14 +21,33 @@ import os
 import time
 import base64
 import inspect
+import logging
 import requests
 from ovs.log.log_handler import LogHandler
+try:
+    from requests.packages.urllib3 import disable_warnings
+except ImportError:
+    try:
+        reload(requests)  # Required for 2.6 > 2.7 upgrade (new requests.packages module)
+    except ImportError:
+        pass  # So, this reload fails because of some FileNodeWarning that can't be found. But it did reload. Yay.
+    from requests.packages.urllib3 import disable_warnings
+from requests.packages.urllib3.exceptions import InsecurePlatformWarning
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from requests.packages.urllib3.exceptions import SNIMissingWarning
+logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.getLogger('requests').setLevel(logging.WARNING)
 
 
 class ASDManagerClient(object):
     """
     ASD Manager Client
     """
+
+    disable_warnings(InsecurePlatformWarning)
+    disable_warnings(InsecureRequestWarning)
+    disable_warnings(SNIMissingWarning)
+
     def __init__(self, node):
         self._logger = LogHandler.get('extensions', name='asdmanagerclient')
         self.node = node
@@ -59,6 +78,8 @@ class ASDManagerClient(object):
         except:
             raise RuntimeError(response.content)
         internal_duration = data['_duration']
+        if data.get('_success', True) is False:
+            raise RuntimeError(data.get('_error', 'Unknown exception: {0}'.format(data)))
         if clean is True:
             def _clean(_dict):
                 for _key in _dict.keys():

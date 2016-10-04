@@ -25,6 +25,7 @@ class AlbaMigrator(object):
     """
 
     identifier = 'alba'  # Used by migrator.py, so don't remove
+    THIS_VERSION = 10
 
     def __init__(self):
         """ Init method """
@@ -46,10 +47,8 @@ class AlbaMigrator(object):
         _ = master_ips, extra_ips
         working_version = previous_version
 
-        # Version  9: Fargo Alpha, Beta, RC
-        # Version 10: Fargo RTM
         # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
-        if working_version < 10:
-            raise RuntimeError('Cannot upgrade to Fargo')
+        if working_version < AlbaMigrator.THIS_VERSION:
+            pass
 
-        return working_version
+        return AlbaMigrator.THIS_VERSION

@@ -1,3 +1,3 @@
 # Summary
 
-* [ETCD](docs/etcd.md)
+* [Configuration Management](docs/configmgmt.md)

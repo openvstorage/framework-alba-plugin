@@ -20,7 +20,7 @@ AlbaNode module
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
-from ovs.extensions.db.etcd.configuration import EtcdConfiguration
+from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.asdmanager import ASDManagerClient
 
 
@@ -50,4 +50,4 @@ class AlbaNode(DataObject):
         """
         Returns the IPs of the node
         """
-        return EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/network|ips'.format(self.node_id))
+        return Configuration.get('/ovs/alba/asdnodes/{0}/config/network|ips'.format(self.node_id))

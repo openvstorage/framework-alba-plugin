@@ -26,7 +26,7 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.extensions.api.client import ForbiddenException, NotFoundException, OVSClient
-from ovs.extensions.db.etcd.configuration import EtcdConfiguration
+from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.log.log_handler import LogHandler
 
@@ -48,7 +48,6 @@ class AlbaBackend(DataObject):
                   Dynamic('presets', list, 60),
                   Dynamic('available', bool, 60),
                   Dynamic('name', str, 3600),
-                  Dynamic('metadata_information', dict, 60),
                   Dynamic('asd_statistics', dict, 5, locked=True),
                   Dynamic('linked_backend_guids', set, 30),
                   Dynamic('remote_stack', dict, 60),
@@ -156,11 +155,11 @@ class AlbaBackend(DataObject):
 
         # Load information from alba
         backend_interval_key = '/ovs/alba/backends/{0}/gui_error_interval'.format(self.guid)
-        if EtcdConfiguration.exists(backend_interval_key):
-            interval = EtcdConfiguration.get(backend_interval_key)
+        if Configuration.exists(backend_interval_key):
+            interval = Configuration.get(backend_interval_key)
         else:
-            interval = EtcdConfiguration.get('/ovs/alba/backends/global_gui_error_interval')
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
+            interval = Configuration.get('/ovs/alba/backends/global_gui_error_interval')
+        config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name))
         for found_osd in AlbaCLI.run(command='list-all-osds', config=config, to_json=True):
             node_id = found_osd['node_id']
             asd_id = found_osd['long_id']
@@ -241,7 +240,7 @@ class AlbaBackend(DataObject):
         if len(self.abm_services) == 0:
             return []  # No ABM services yet, so backend not fully installed yet
 
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
+        config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name))
         return AlbaCLI.run(command='show-namespaces', config=config, max=-1, to_json=True)[1]
 
     def _usages(self):
@@ -282,7 +281,7 @@ class AlbaBackend(DataObject):
                     for asd_info in disk['asds'].values():
                         if asd_info['status'] in ['claimed', 'warning']:
                             asds[node.node_id] += 1
-        config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
+        config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name))
         presets = AlbaCLI.run(command='list-presets', config=config, to_json=True)
         preset_dict = {}
         for preset in presets:
@@ -340,26 +339,6 @@ class AlbaBackend(DataObject):
         """
         return self.backend.name
 
-    def _metadata_information(self):
-        """
-        Returns metadata information about the backend
-        """
-        from ovs.dal.hybrids.diskpartition import DiskPartition
-        from ovs.dal.hybrids.servicetype import ServiceType
-        from ovs.dal.lists.servicetypelist import ServiceTypeList
-
-        info = {'nsm_partition_guids': []}
-
-        nsm_service_name = self.backend.name + "-nsm_0"
-        nsm_service_type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.NS_MGR)
-        for service in nsm_service_type.services:
-            if service.name == nsm_service_name and service.is_internal is True:
-                for disk in service.storagerouter.disks:
-                    for partition in disk.partitions:
-                        if DiskPartition.ROLES.DB in partition.roles:
-                            info['nsm_partition_guids'].append(partition.guid)
-        return info
-
     def _asd_statistics(self):
         """
         Loads statistics from all it's asds in one call
@@ -375,7 +354,7 @@ class AlbaBackend(DataObject):
             return statistics
 
         try:
-            config = 'etcd://127.0.0.1:2379/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name)
+            config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name))
             raw_statistics = AlbaCLI.run(command='asd-multistatistics', long_id=','.join(asd_ids), config=config, to_json=True)
         except RuntimeError:
             return statistics

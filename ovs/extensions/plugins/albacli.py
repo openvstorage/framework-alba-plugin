@@ -30,17 +30,16 @@ class AlbaCLI(object):
     """
     Wrapper for 'alba' command line interface
     """
-    _run_results = {}
-
     @staticmethod
     def run(command, **kwargs):
         """
         Executes a command on ALBA
         """
         logger = LogHandler.get('extensions', name='albacli')
-        if os.environ.get('RUNNING_UNITTESTS') == 'True':  # For unit tests we do not want to execute the actual command
-            logger.debug('Running command {0} in unittest mode'.format(command))
-            return AlbaCLI._run_results[command]
+        if os.environ.get('RUNNING_UNITTESTS') == 'True':
+            # For the unittest, all commands are passed to a mocked Alba
+            from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
+            return getattr(VirtualAlbaBackend, command.replace('-', '_'))(**kwargs)
 
         debug = kwargs.pop('debug') if 'debug' in kwargs else False
         client = kwargs.pop('client') if 'client' in kwargs else None

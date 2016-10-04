@@ -30,24 +30,23 @@ define([
         self.shared        = shared;
 
         // Observables
-        self.albaId              = ko.observable();
-        self.availableActions    = ko.observableArray([]);
-        self.backend             = ko.observable();
-        self.backendGuid         = ko.observable();
-        self.color               = ko.observable();
-        self.guid                = ko.observable(guid);
-        self.linkedBackendGuids  = ko.observableArray();
-        self.loaded              = ko.observable(false);
-        self.loading             = ko.observable(false);
-        self.localSummary        = ko.observable();
-        self.metadataInformation = ko.observable();
-        self.name                = ko.observable();
-        self.presets             = ko.observableArray([]);
-        self.readIOps            = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
-        self.scaling             = ko.observable();
-        self.totalSize           = ko.observable();
-        self.usage               = ko.observable([]);
-        self.writeIOps           = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.albaId             = ko.observable();
+        self.availableActions   = ko.observableArray([]);
+        self.backend            = ko.observable();
+        self.backendGuid        = ko.observable();
+        self.color              = ko.observable();
+        self.guid               = ko.observable(guid);
+        self.linkedBackendGuids = ko.observableArray();
+        self.loaded             = ko.observable(false);
+        self.loading            = ko.observable(false);
+        self.localSummary       = ko.observable();
+        self.name               = ko.observable();
+        self.presets            = ko.observableArray([]);
+        self.readIOps           = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.scaling            = ko.observable();
+        self.totalSize          = ko.observable();
+        self.usage              = ko.observable([]);
+        self.writeIOps          = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
 
         // Computed
         self.enhancedPresets = ko.computed(function() {
@@ -137,9 +136,6 @@ define([
             }
             if (data.hasOwnProperty('linked_backend_guids')) {
                 self.linkedBackendGuids(data.linked_backend_guids);
-            }
-            if (data.hasOwnProperty('metadata_information')) {
-                self.metadataInformation(data.metadata_information);
             }
             if (data.hasOwnProperty('usages')) {
                 var stats = data.usages;

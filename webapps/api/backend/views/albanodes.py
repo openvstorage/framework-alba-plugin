@@ -23,7 +23,7 @@ from backend.exceptions import HttpNotAcceptableException
 from ovs.dal.datalist import DataList
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodelist import AlbaNodeList
-from ovs.extensions.db.etcd.configuration import EtcdConfiguration
+from ovs.extensions.generic.configuration import Configuration
 from ovs.lib.albanodecontroller import AlbaNodeController
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -64,9 +64,9 @@ class AlbaNodeViewSet(viewsets.ViewSet):
             node.ip = ip
             node.type = 'ASD'
             node.node_id = node_id
-            node.port = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|port'.format(node_id))
-            node.username = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|username'.format(node_id))
-            node.password = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|password'.format(node_id))
+            node.port = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|port'.format(node_id))
+            node.username = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|username'.format(node_id))
+            node.password = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|password'.format(node_id))
             data = node.client.get_metadata()
             if data['_success'] is False and data['_error'] == 'Invalid credentials':
                 raise HttpNotAcceptableException(error_description='Invalid credentials',
@@ -85,17 +85,17 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         model_node_ids = [node.node_id for node in AlbaNodeList.get_albanodes()]
         found_node_ids = []
         asd_node_ids = []
-        if EtcdConfiguration.dir_exists('/ovs/alba/asdnodes'):
-            asd_node_ids = EtcdConfiguration.list('/ovs/alba/asdnodes')
+        if Configuration.dir_exists('/ovs/alba/asdnodes'):
+            asd_node_ids = Configuration.list('/ovs/alba/asdnodes')
 
         for node_id in asd_node_ids:
             node = AlbaNode(volatile=True)
             node.type = 'ASD'
             node.node_id = node_id
-            node.ip = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|ip'.format(node_id))
-            node.port = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|port'.format(node_id))
-            node.username = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|username'.format(node_id))
-            node.password = EtcdConfiguration.get('/ovs/alba/asdnodes/{0}/config/main|password'.format(node_id))
+            node.ip = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|ip'.format(node_id))
+            node.port = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|port'.format(node_id))
+            node.username = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|username'.format(node_id))
+            node.password = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|password'.format(node_id))
             if node.node_id not in model_node_ids and node.node_id not in found_node_ids:
                 nodes[node.guid] = node
                 found_node_ids.append(node.node_id)
