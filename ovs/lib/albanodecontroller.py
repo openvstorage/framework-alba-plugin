@@ -117,7 +117,7 @@ class AlbaNodeController(object):
         if node.storagerouter is not None:
             DiskController.sync_with_reality(node.storagerouter_guid)
             for disk in node.storagerouter.disks:
-                if disk.path in added_disks:
+                if set(disk.aliases).intersection(set(added_disks)):
                     partition = disk.partitions[0]
                     partition.roles.append(DiskPartition.ROLES.BACKEND)
                     partition.save()
@@ -248,7 +248,7 @@ class AlbaNodeController(object):
     @celery.task(name='albanode.reset_asd')
     def reset_asd(node_guid, asd_id, expected_safety):
         """
-        Removes and readds an ASD to a Disk
+        Removes and re-adds an ASD to a Disk
 
         :param node_guid: Guid of the node to remove a disk from
         :type node_guid: str
