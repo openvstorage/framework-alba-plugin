@@ -159,7 +159,7 @@ class AlbaController(object):
 
     @staticmethod
     @celery.task(name='alba.add_preset')
-    def add_preset(alba_backend_guid, name, compression, policies, encryption):
+    def add_preset(alba_backend_guid, name, compression, policies, encryption, fragment_size=None):
         """
         Adds a preset to Alba
         :param alba_backend_guid: Guid of the ALBA backend
@@ -177,6 +177,9 @@ class AlbaController(object):
         :param encryption: Encryption for the preset (none | aec-cbc-256)
         :type encryption: str
 
+        :param fragment_size: Size of a fragment in bytes (e.g. 1048576)
+        :type fragment_size: int
+
         :return: None
         """
         temp_key_file = None
@@ -184,13 +187,22 @@ class AlbaController(object):
         alba_backend = AlbaBackend(alba_backend_guid)
         if name in [preset['name'] for preset in alba_backend.presets]:
             raise RuntimeError('Preset name {0} already exists'.format(name))
+
+        if fragment_size is None:
+            fragment_size = 1048576  # default value is 1 MB
+        else:
+            try:
+                fragment_size = int(fragment_size)
+            except ValueError:
+                fragment_size = 1048576
+
         AlbaController._logger.debug('Adding preset {0} with compression {1} and policies {2}'.format(name, compression, policies))
         preset = {'compression': compression,
                   'object_checksum': {'default': ['crc-32c'],
                                       'verify_upload': True,
                                       'allowed': [['none'], ['sha-1'], ['crc-32c']]},
                   'osds': ['all'],
-                  'fragment_size': 1048576,
+                  'fragment_size': fragment_size,
                   'policies': policies,
                   'fragment_checksum': ['crc-32c'],
                   'fragment_encryption': ['none'],

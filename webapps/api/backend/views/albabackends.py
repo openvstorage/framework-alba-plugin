@@ -160,7 +160,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaBackend, validator=validate_access)
-    def add_preset(self, albabackend, name, compression, policies, encryption):
+    def add_preset(self, albabackend, name, compression, policies, encryption, fragment_size=None):
         """
         Adds a preset to a backend
         :param albabackend: ALBA backend to add preset for
@@ -168,8 +168,9 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :param compression: Compression type
         :param policies: Policies linked to the preset
         :param encryption: Encryption type
+        :param fragment_size: Size of a fragment in bytes
         """
-        return AlbaController.add_preset.delay(albabackend.guid, name, compression, policies, encryption)
+        return AlbaController.add_preset.delay(albabackend.guid, name, compression, policies, encryption, fragment_size)
 
     @action()
     @log()
