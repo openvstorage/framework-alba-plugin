@@ -28,9 +28,9 @@ class AlbaNode(DataObject):
     """
     The AlbaNode contains information about nodes (containing OSDs)
     """
-    __properties = [Property('ip', str, doc='IP Address'),
+    __properties = [Property('ip', str, unique=True, doc='IP Address'),
                     Property('port', int, doc='Port'),
-                    Property('node_id', str, doc='Alba node_id identifier'),
+                    Property('node_id', str, unique=True, doc='Alba node_id identifier'),
                     Property('username', str, doc='Username of the AlbaNode'),
                     Property('password', str, doc='Password of the AlbaNode'),
                     Property('type', ['ASD'], default='ASD', doc='The type of the AlbaNode')]
