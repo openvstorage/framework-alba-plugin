@@ -162,11 +162,14 @@ define([
             self.loaded(true);
             self.loading(false);
         };
-        self.load = function() {
+        self.load = function(contents) {
+            if (contents === undefined) {
+                contents = '_dynamics,-ns_data,_relations';
+            }
             return $.Deferred(function(deferred) {
                 self.loading(true);
                 if (generic.xhrCompleted(self.loadHandle)) {
-                    self.loadHandle = api.get('alba/backends/' + self.guid(), { queryparams: { contents: '_dynamics,-ns_data,_relations' } })
+                    self.loadHandle = api.get('alba/backends/' + self.guid(), { queryparams: { contents: contents } })
                         .done(function(data) {
                             self.fillData(data);
                             deferred.resolve();

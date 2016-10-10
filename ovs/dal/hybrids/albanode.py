@@ -17,6 +17,7 @@
 """
 AlbaNode module
 """
+import requests
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
@@ -35,7 +36,8 @@ class AlbaNode(DataObject):
                     Property('password', str, doc='Password of the AlbaNode'),
                     Property('type', ['ASD'], default='ASD', doc='The type of the AlbaNode')]
     __relations = [Relation('storagerouter', StorageRouter, 'alba_nodes', mandatory=False, doc='StorageRouter hosting the AlbaNode')]
-    __dynamics = [Dynamic('ips', list, 3600)]
+    __dynamics = [Dynamic('storage_stack', dict, 5),
+                  Dynamic('ips', list, 3600)]
 
     def __init__(self, *args, **kwargs):
         """
@@ -45,6 +47,49 @@ class AlbaNode(DataObject):
         self._frozen = False
         self.client = ASDManagerClient(self)
         self._frozen = True
+
+    def _storage_stack(self):
+        """
+        Returns a live list of all disks known to this AlbaNode
+        """
+        storage_stack = {'status': 'ok',
+                         'stack': {}}
+        stack = storage_stack['stack']
+
+        try:
+            disk_data = self.client.get_disks()
+        except (requests.ConnectionError, requests.Timeout):
+            storage_stack['status'] = 'nodedown'
+            disk_data = {}
+        for disk_id, disk_info in disk_data.iteritems():
+            entry = {'name': disk_id,
+                     'status': 'unknown',
+                     'status_detail': '',
+                     'asds': {}}
+            entry.update(disk_info)
+            if disk_info['state'] == 'ok':
+                entry['status'] = 'uninitialized' if disk_info['available'] is True else 'initialized'
+                entry['status_detail'] = ''
+            else:
+                entry['status'] = disk_info['state']
+                entry['status_detail'] = disk_info.get('state_detail', '')
+            stack[disk_id] = entry
+        # Live ASD information
+        try:
+            asd_data = self.client.get_asds()
+        except (requests.ConnectionError, requests.Timeout):
+            storage_stack['status'] = 'nodedown'
+            asd_data = {}
+        for disk_id, asds in asd_data.iteritems():
+            if disk_id not in stack:
+                continue
+            for asd_id, asd_info in asds.iteritems():
+                stack[disk_id]['asds'][asd_id] = {'asd_id': asd_id,
+                                                  'status': 'error' if asd_info['state'] == 'error' else 'initialized',
+                                                  'status_detail': asd_info.get('state_detail', ''),
+                                                  'state': asd_info['state'],
+                                                  'state_detail': asd_info.get('state_detail', '')}
+        return storage_stack
 
     def _ips(self):
         """

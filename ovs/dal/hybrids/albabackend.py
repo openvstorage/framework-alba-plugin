@@ -17,6 +17,7 @@
 """
 AlbaBackend module
 """
+import copy
 import time
 import requests
 from threading import Lock, Thread
@@ -93,51 +94,34 @@ class AlbaBackend(DataObject):
 
         # Load information from node
         def _load_live_info(_node, _node_data):
-            # Live disk information
-            try:
-                disk_data = _node.client.get_disks()
-            except (requests.ConnectionError, requests.Timeout):
-                for entry in _node_data.values():
-                    entry['status_detail'] = 'nodedown'
-                disk_data = {}
-            for _disk_id, disk_info in disk_data.iteritems():
-                if _disk_id in _node_data:
-                    entry = _node_data[_disk_id]
-                else:
-                    entry = {'name': _disk_id,
-                             'status': 'unknown',
-                             'status_detail': '',
-                             'asds': {}}
-                    _node_data[_disk_id] = entry
-                entry.update(disk_info)
-                if disk_info['state'] == 'ok':
-                    entry['status'] = 'uninitialized' if disk_info['available'] is True else 'initialized'
-                    entry['status_detail'] = ''
-                else:
-                    entry['status'] = disk_info['state']
-                    entry['status_detail'] = disk_info.get('state_detail', '')
-            # Live ASD information
-            try:
-                _asd_data = _node.client.get_asds()
-            except (requests.ConnectionError, requests.Timeout):
+            _data = _node.storage_stack
+            if _data['status'] != 'ok':
                 for disk_entry in _node_data.values():
-                    for entry in disk_entry['asds'].values():
-                        entry['status_detail'] = 'nodedown'
-                _asd_data = {}
-            for _disk_id, asds in _asd_data.iteritems():
-                if _disk_id not in _node_data:
-                    continue
-                for _asd_id, asd_info in asds.iteritems():
-                    entry = {'asd_id': _asd_id,
-                             'status': 'error' if asd_info['state'] == 'error' else 'initialized',
-                             'status_detail': asd_info.get('state_detail', ''),
-                             'state': asd_info['state'],
-                             'state_detail': asd_info.get('state_detail', '')}
-                    if _asd_id not in _node_data[_disk_id]['asds']:
-                        _node_data[_disk_id]['asds'][_asd_id] = entry
-                        asd_map[_asd_id] = entry
-                    else:
-                        _node_data[_disk_id]['asds'][_asd_id].update(entry)
+                    disk_entry['status_detail'] = _data['status']
+                    for entry in disk_entry.get('asds', {}).values():
+                        entry['status_detail'] = _data['status']
+            else:
+                for _disk_id, disk_asd_info in _data['stack'].iteritems():
+                    if _disk_id not in _node_data:
+                        _node_data[_disk_id] = {'asds'}
+                    entry = _node_data[_disk_id]
+                    print disk_asd_info
+                    disk_info = copy.deepcopy(disk_asd_info)
+                    del disk_info['asds']
+                    entry.update(disk_info)
+                    asds_info = disk_asd_info['asds']
+                    for _asd_id, asd_info in asds_info.iteritems():
+                        entry = {'asd_id': _asd_id,
+                                 'status': 'error' if asd_info['state'] == 'error' else 'initialized',
+                                 'status_detail': asd_info.get('state_detail', ''),
+                                 'state': asd_info['state'],
+                                 'state_detail': asd_info.get('state_detail', '')}
+                        if _asd_id not in _node_data[_disk_id]['asds']:
+                            _node_data[_disk_id]['asds'][_asd_id] = entry
+                            asd_map[_asd_id] = entry
+                        else:
+                            _node_data[_disk_id]['asds'][_asd_id].update(entry)
+
         threads = []
         for node in alba_nodes:
             thread = Thread(target=_load_live_info, args=(node, storage_map[node.node_id]))
