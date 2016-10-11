@@ -210,22 +210,21 @@ class AlbaNodeController(object):
                 break
 
         if alba_backend is not None:
+            if expected_safety is None:
+                AlbaNodeController._logger.warning('Skipping safety check for ASD {0} on backend {1} - this is dangerous'.format(asd_id, alba_backend.guid))
+            else:
+                final_safety = AlbaController.calculate_safety(alba_backend.guid, [asd_id])
+                safety_lost = final_safety['lost']
+                safety_crit = final_safety['critical']
+                if (safety_crit != 0 or safety_lost != 0) and (safety_crit != expected_safety['critical'] or safety_lost != expected_safety['lost']):
+                    raise RuntimeError('Cannot remove ASD {0} as the current safety is not as expected ({1} vs {2})'.format(asd_id, final_safety, expected_safety))
+                AlbaNodeController._logger.debug('Safety OK for ASD {0} on backend {1}'.format(asd_id, alba_backend.guid))
             AlbaNodeController._logger.debug('Purging ASD {0} on backend {1}'.format(asd_id, alba_backend.guid))
             AlbaController.remove_units(alba_backend.guid, [asd_id])
         else:
             AlbaNodeController._logger.warning('Could not match ASD {0} to any backend. Cannot purge'.format(asd_id))
         if disk_id is not None:
             AlbaNodeController._logger.debug('Removing ASD {0} from disk {1}'.format(asd_id, disk_id))
-            if alba_backend is not None:
-                if expected_safety is None:
-                    AlbaNodeController._logger.warning('Skipping safety check - this is dangerous')
-                else:
-                    final_safety = AlbaController.calculate_safety(alba_backend.guid, [asd_id])
-                    safety_lost = final_safety['lost']
-                    safety_crit = final_safety['critical']
-                    if (safety_crit != 0 or safety_lost != 0) and (safety_crit != expected_safety['critical'] or safety_lost != expected_safety['lost']):
-                        raise RuntimeError('Cannot remove ASD {0} as the current safety is not as expected ({1} vs {2})'.format(asd_id, final_safety, expected_safety))
-
             result = node.client.delete_asd(disk_id, asd_id)
             if result['_success'] is False:
                 raise RuntimeError('Error removing ASD: {0}'.format(result['_error']))
