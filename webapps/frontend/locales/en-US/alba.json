@@ -79,6 +79,7 @@
                 }
             }
         },
+        "status": "Status",
         "stats": {
             "freespace": "Free space",
             "overhead": "Internal metadata",
