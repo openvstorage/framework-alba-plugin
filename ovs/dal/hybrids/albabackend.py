@@ -137,45 +137,49 @@ class AlbaBackend(DataObject):
         else:
             interval = Configuration.get('/ovs/alba/backends/global_gui_error_interval')
         config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name))
+        asds = {}
         for found_osd in AlbaCLI.run(command='list-all-osds', config=config, to_json=True):
-            node_id = found_osd['node_id']
-            asd_id = found_osd['long_id']
-            for _disk in storage_map.get(node_id, {}).values():
-                asd_data = _disk['asds'].get(asd_id, {})
-                if 'state' not in asd_data:
-                    continue
-                if found_osd.get('decommissioned') is True:
-                    asd_data['status'] = 'unavailable'
-                    asd_data['status_detail'] = 'decommissioned'
-                    continue
-                state = asd_data['state']
-                if state == 'ok':
-                    if found_osd['id'] is None:
-                        alba_id = found_osd['alba_id']
-                        if alba_id is None:
-                            asd_data['status'] = 'available'
+            asds[found_osd['long_id']] = found_osd
+        for node_data in storage_map.values():
+            for _disk in node_data.values():
+                for asd_id, asd_data in _disk['asds'].iteritems():
+                    if asd_id not in asds:
+                        continue
+                    found_osd = asds[asd_id]
+                    if 'state' not in asd_data:
+                        continue
+                    if found_osd.get('decommissioned') is True:
+                        asd_data['status'] = 'unavailable'
+                        asd_data['status_detail'] = 'decommissioned'
+                        continue
+                    state = asd_data['state']
+                    if state == 'ok':
+                        if found_osd['id'] is None:
+                            alba_id = found_osd['alba_id']
+                            if alba_id is None:
+                                asd_data['status'] = 'available'
+                            else:
+                                asd_data['status'] = 'unavailable'
+                                alba_backend = alba_backend_map.get(alba_id)
+                                if alba_backend is not None:
+                                    asd_data['alba_backend_guid'] = alba_backend.guid
                         else:
-                            asd_data['status'] = 'unavailable'
-                            alba_backend = alba_backend_map.get(alba_id)
-                            if alba_backend is not None:
-                                asd_data['alba_backend_guid'] = alba_backend.guid
-                    else:
-                        asd_data['alba_backend_guid'] = self.guid
-                        asd_data['status'] = 'warning'
-                        asd_data['status_detail'] = 'recenterrors'
+                            asd_data['alba_backend_guid'] = self.guid
+                            asd_data['status'] = 'warning'
+                            asd_data['status_detail'] = 'recenterrors'
 
-                        read = found_osd['read'] or [0]
-                        write = found_osd['write'] or [0]
-                        errors = found_osd['errors']
-                        if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + interval):
-                            asd_data['status'] = 'claimed'
-                            asd_data['status_detail'] = ''
-                else:
-                    asd_data['status'] = 'error'
-                    asd_data['status_detail'] = asd_data.get('state_detail', '')
-                    alba_backend = alba_backend_map.get(found_osd.get('alba_id'))
-                    if alba_backend is not None:
-                        asd_data['alba_backend_guid'] = alba_backend.guid
+                            read = found_osd['read'] or [0]
+                            write = found_osd['write'] or [0]
+                            errors = found_osd['errors']
+                            if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + interval):
+                                asd_data['status'] = 'claimed'
+                                asd_data['status_detail'] = ''
+                    else:
+                        asd_data['status'] = 'error'
+                        asd_data['status_detail'] = asd_data.get('state_detail', '')
+                        alba_backend = alba_backend_map.get(found_osd.get('alba_id'))
+                        if alba_backend is not None:
+                            asd_data['alba_backend_guid'] = alba_backend.guid
         return storage_map
 
     def _statistics(self):
