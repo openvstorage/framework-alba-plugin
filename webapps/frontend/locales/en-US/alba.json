@@ -79,12 +79,12 @@
                 }
             }
         },
-        "status": "Status",
         "stats": {
             "freespace": "Free space",
             "overhead": "Internal metadata",
             "used": "Used space"
         },
+        "status": "Status",
         "statusdetail": "Status detail",
         "statusdetails": {
             "missing": "Disk is missing",
