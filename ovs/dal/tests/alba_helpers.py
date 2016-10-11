@@ -36,16 +36,12 @@ class Helper(object):
     @staticmethod
     def build_service_structure(structure, previous_structure=None):
         """
-        Builds an MDS service structure
+        Builds a service structure
         Example:
-            structure = Helper.build_service_structure(
-                {'vpools': [1],
-                 'domains': [],
-                 'storagerouters': [1],
-                 'storagedrivers': [(1, 1, 1)],  # (<id>, <vpool_id>, <storagerouter_id>)
-                 'mds_services': [(1, 1)],  # (<id>, <storagedriver_id>)
-                 'storagerouter_domains': []}  # (<id>, <storagerouter_id>, <domain_id>)
-            )
+            structure = Helper.build_service_structure({
+                'alba_backends': [1],
+                'alba_nodes': [1]
+            })
         """
         if previous_structure is None:
             previous_structure = {}
