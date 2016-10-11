@@ -602,7 +602,9 @@ but WITHOUT ANY WARRANTY of any kind.
                             <span class="label pointer" style="background-color: #DDD; color: #333; opacity: .65;"
                                   data-bind="style: { border: '1px solid ' + color() }">
                                 <span data-bind="lazyloader: { item: backend, loadedObservable: 'loaded', undefinedLoading: true }">
-                                    <span data-part="lazy-entry" data-bind="text: item().name"></span>
+                                    <a data-part="lazy-entry" style="color: #333"
+                                       data-bind="text: item().name,
+                                                  attr: { href: $root.shared.routing.loadHash('backend-alba-detail', { guid: item().guid }) }"></a>
                                 </span>
                             </span>&nbsp;
                         <!-- /ko -->

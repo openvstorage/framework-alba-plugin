@@ -48,11 +48,13 @@ class ASDManagerClient(object):
     disable_warnings(InsecureRequestWarning)
     disable_warnings(SNIMissingWarning)
 
+    test_results = {}
+    test_exceptions = {}
+
     def __init__(self, node):
         self._logger = LogHandler.get('extensions', name='asdmanagerclient')
         self.node = node
         self.timeout = 20
-        self._results = {}
         self._unittest_mode = os.environ.get('RUNNING_UNITTESTS') == 'True'
         self._log_min_duration = 1
 
@@ -60,7 +62,10 @@ class ASDManagerClient(object):
         if self._unittest_mode is True:
             curframe = inspect.currentframe()
             calframe = inspect.getouterframes(curframe, 2)
-            return self._results.get(calframe[1][3])
+            exception = ASDManagerClient.test_exceptions.get(self.node, {}).get(calframe[1][3])
+            if exception is not None:
+                raise exception
+            return ASDManagerClient.test_results[self.node][calframe[1][3]]
 
         if timeout is None:
             timeout = self.timeout
