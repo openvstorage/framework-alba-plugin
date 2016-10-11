@@ -101,6 +101,14 @@ class VirtualAlbaBackend(object):
         return VirtualAlbaBackend.statistics
 
     @staticmethod
+    def list_all_osds(**kwargs):
+        """
+        Lists all osds
+        """
+        data = VirtualAlbaBackend._get_data(**kwargs)
+        return data['osds']
+
+    @staticmethod
     def _get_nsm_state(abm):
         state = {}
         data = VirtualAlbaBackend.data[abm]

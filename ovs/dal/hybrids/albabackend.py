@@ -103,24 +103,17 @@ class AlbaBackend(DataObject):
             else:
                 for _disk_id, disk_asd_info in _data['stack'].iteritems():
                     if _disk_id not in _node_data:
-                        _node_data[_disk_id] = {'asds'}
+                        _node_data[_disk_id] = {'asds': {}}
                     entry = _node_data[_disk_id]
-                    print disk_asd_info
                     disk_info = copy.deepcopy(disk_asd_info)
                     del disk_info['asds']
                     entry.update(disk_info)
                     asds_info = disk_asd_info['asds']
                     for _asd_id, asd_info in asds_info.iteritems():
-                        entry = {'asd_id': _asd_id,
-                                 'status': 'error' if asd_info['state'] == 'error' else 'initialized',
-                                 'status_detail': asd_info.get('state_detail', ''),
-                                 'state': asd_info['state'],
-                                 'state_detail': asd_info.get('state_detail', '')}
                         if _asd_id not in _node_data[_disk_id]['asds']:
-                            _node_data[_disk_id]['asds'][_asd_id] = entry
-                            asd_map[_asd_id] = entry
+                            _node_data[_disk_id]['asds'][_asd_id] = asd_info
                         else:
-                            _node_data[_disk_id]['asds'][_asd_id].update(entry)
+                            _node_data[_disk_id]['asds'][_asd_id].update(asd_info)
 
         threads = []
         for node in alba_nodes:
