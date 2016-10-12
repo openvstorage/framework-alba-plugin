@@ -149,9 +149,10 @@ class AlbaController(object):
             try:
                 AlbaCLI.run(command='purge-osd', config=config, long_id=osd_id, to_json=True)
             except Exception as ex:
-                AlbaController._logger.exception('Error purging OSD {0}'.format(osd_id))
-                last_exception = ex
-                failed_osds.append(osd_id)
+                if 'Albamgr_protocol.Protocol.Error.Osd_unknown' not in ex.message:
+                    AlbaController._logger.exception('Error purging OSD {0}'.format(osd_id))
+                    last_exception = ex
+                    failed_osds.append(osd_id)
         if len(failed_osds) > 0:
             if len(osd_ids) == 1:
                 raise last_exception
