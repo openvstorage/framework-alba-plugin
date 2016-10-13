@@ -212,6 +212,7 @@ class Alba(unittest.TestCase):
         disk = structure['alba_disks'][1]
         osd = structure['alba_osds'][1]
         expected['node_1']['alba_disk_1'].update({'guid': disk.guid})
+        expected['node_1']['alba_disk_1'].update({'aliases': disk.aliases})
         expected['node_1']['alba_disk_1']['asds']['alba_osd_1'].update({'alba_backend_guid': backend.guid,
                                                                         'status': 'claimed',
                                                                         'status_detail': '',
@@ -227,6 +228,7 @@ class Alba(unittest.TestCase):
                                                'name': 'alba_disk_1',
                                                'status_detail': 'nodedown',
                                                'guid': disk.guid,
+                                               'aliases': disk.aliases,
                                                'asds': {'alba_osd_1': {'asd_id': 'alba_osd_1',
                                                                        'status': 'error',
                                                                        'status_detail': 'nodedown',
