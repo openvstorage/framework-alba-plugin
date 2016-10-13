@@ -63,6 +63,9 @@ define([
                     })
                     .always(function() {
                         self.data.albaOSD().processing(false);
+                        if (self.data.albaDisk() !== undefined) {
+                            self.data.albaDisk().processing(false);
+                        }
                     });
                 deferred.resolve();
             }).promise();
