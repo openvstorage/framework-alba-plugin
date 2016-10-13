@@ -26,6 +26,6 @@ class AlbaDisk(DataObject):
     """
     The AlbaDisk represents a disk hosting zero or more ASDs
     """
-    __properties = [Property('name', str, doc='The disk name')]
+    __properties = [Property('aliases', list, doc='The device\'s aliases')]
     __relations = [Relation('alba_node', AlbaNode, 'disks', doc='The AlbaNode to which the AlbaDisk belongs')]
     __dynamics = []

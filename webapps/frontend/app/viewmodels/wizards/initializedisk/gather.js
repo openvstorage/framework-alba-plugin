@@ -34,47 +34,78 @@ define([
 
         self.finish = function() {
             return $.Deferred(function(deferred) {
-                generic.alertInfo(
-                    $.t('alba:disks.initialize.started'),
-                    $.t('alba:disks.initialize.msgstarted')
-                );
                 var disks = [];
                 $.each(self.data.disks(), function(index, disk) {
                     disks.push(disk);
                 });
+                if (disks.length === 1) {
+                    generic.alertInfo(
+                        $.t('alba:disks.initialize.started'),
+                        $.t('alba:disks.initialize.msg_started_single', {what: disks[0].device()})
+                    );
+                } else {
+                    generic.alertInfo(
+                        $.t('alba:disks.initialize.started'),
+                        $.t('alba:disks.initialize.msg_started_multi')
+                    );
+                }
                 (function(disks, amount, nodeGuid, dfd) {
-                    var disk_data = {};
+                    var diskData = {}, aliasDeviceNameMap = {};
                     $.each(disks, function(index, disk) {
                         disk.processing(true);
-                        disk_data[disk.name()] = amount;
+                        if (disk.aliases() !== undefined) {
+                            $.each(disk.aliases(), function(index, alias) {
+                                aliasDeviceNameMap[alias] = disk.device();
+                            });
+                        }
+                        diskData[disk.alias()] = amount;
                     });
                     api.post('alba/nodes/' + nodeGuid + '/initialize_disks', {
-                        data: { disks: disk_data }
+                        data: { disks: diskData }
                     })
                         .then(self.shared.tasks.wait)
                         .done(function(failures) {
                             if (generic.keys(failures).length > 0) {
-                                var error = '';
-                                $.each(failures, function(disk, message) {
-                                    error = message;
-                                });
+                                if (disks.length === 1) {
+                                    var key = generic.keys(failures)[0];
+                                    generic.alertError(
+                                        $.t('ovs:generic.error'),
+                                        $.t('alba:disks.initialize.failed_single', {what: disks[0].device(), why: failures[key]})
+                                    );
+                                } else {
+                                    var error = '\n';
+                                    $.each(failures, function(alias, message) {
+                                        if (aliasDeviceNameMap.hasOwnProperty(alias)) {
+                                            error += aliasDeviceNameMap[alias] + ': ' + message + '\n';
+                                        } else {
+                                            error += alias + ': ' + message + '\n';
+                                        }
+                                    });
+                                    generic.alertError(
+                                        $.t('ovs:generic.error'),
+                                        $.t('alba:disks.initialize.failed_multi', {why: error})
+                                    );
+                                }
                                 $.each(disks, function(index, disk) {
                                     disk.processing(false);
                                 });
-                                generic.alertError(
-                                    $.t('ovs:generic.error'),
-                                    $.t('alba:disks.initialize.failed', { why: error })
-                                );
                             } else {
                                 $.each(disks, function(index, disk) {
                                     disk.ignoreNext(true);
                                     disk.status('initialized');
                                     disk.processing(false);
                                 });
-                                generic.alertSuccess(
-                                    $.t('alba:disks.initialize.complete'),
-                                    $.t('alba:disks.initialize.success')
-                                );
+                                if (disks.length === 1) {
+                                    generic.alertSuccess(
+                                        $.t('alba:disks.initialize.complete'),
+                                        $.t('alba:disks.initialize.success_single', {what: disks[0].device()})
+                                    );
+                                } else {
+                                    generic.alertSuccess(
+                                        $.t('alba:disks.initialize.complete'),
+                                        $.t('alba:disks.initialize.success_multi')
+                                    );
+                                }
                             }
                         })
                         .fail(function(error) {
@@ -84,7 +115,7 @@ define([
                             error = generic.extractErrorMessage(error);
                             generic.alertError(
                                 $.t('ovs:generic.error'),
-                                $.t('alba:disks.initialize.failed', { why: error })
+                                $.t('alba:disks.initialize.failed_multi', { why: error })
                             );
                         });
                     dfd.resolve();

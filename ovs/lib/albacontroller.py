@@ -73,7 +73,6 @@ class AlbaController(object):
         """
         :param backend: The backend for which the ABM name should be returned
         :type backend: Backend
-
         :return: The ABM name
         :rtype: str
         """
@@ -84,7 +83,6 @@ class AlbaController(object):
         """
         :param backend: The backend for which the NSM name should be returned
         :type backend: Backend
-
         :return: The NSM name
         :rtype: str
         """
@@ -97,13 +95,10 @@ class AlbaController(object):
         Adds storage units to an Alba backend
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
-
         :param osds: ASDs to add to the ALBA backend
         :type osds: dict
-
         :param metadata: Metadata to add to the OSD (connection information for remote backend, general backend information)
         :type metadata: dict
-
         :return: None
         """
         alba_backend = AlbaBackend(alba_backend_guid)
@@ -132,13 +127,8 @@ class AlbaController(object):
         Removes storage units from an Alba backend
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
-
         :param osd_ids: IDs of the ASDs
         :type osd_ids: list
-
-        :param absorb_exception: Ignore potential errors
-        :type absorb_exception: bool
-
         :return: None
         """
         alba_backend = AlbaBackend(alba_backend_guid)
@@ -165,22 +155,16 @@ class AlbaController(object):
         Adds a preset to Alba
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
-
         :param name: Name of the preset
         :type name: str
-
         :param compression: Compression type for the preset (none | snappy | bzip2)
         :type compression: str
-
         :param policies: Policies for the preset
         :type policies: list
-
         :param encryption: Encryption for the preset (none | aec-cbc-256)
         :type encryption: str
-
         :param fragment_size: Size of a fragment in bytes (e.g. 1048576)
         :type fragment_size: int
-
         :return: None
         """
         temp_key_file = None
@@ -236,10 +220,8 @@ class AlbaController(object):
         Deletes a preset from the Alba backend
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
-
         :param name: Name of the preset
         :type name: str
-
         :return: None
         """
         alba_backend = AlbaBackend(alba_backend_guid)
@@ -255,13 +237,10 @@ class AlbaController(object):
         Updates policies for an existing preset to Alba
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
-
         :param name: Name of backend
         :type name: str
-
         :param policies: New policy list to be sent to alba
         :type policies: list
-
         :return: None
         """
         temp_key_file = None
@@ -288,7 +267,6 @@ class AlbaController(object):
         Adds an arakoon cluster to service backend
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
-
         :return: None
         """
         from ovs.lib.albanodecontroller import AlbaNodeController
@@ -334,10 +312,8 @@ class AlbaController(object):
         Removes an Alba backend/cluster
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
-
         :return: None
         """
-
         albabackend = AlbaBackend(alba_backend_guid)
         if len(albabackend.osds) > 0:
             raise RuntimeError('A backend with claimed OSDs cannot be removed')
@@ -387,7 +363,7 @@ class AlbaController(object):
                     if backend_name == albabackend.name:
                         node.client.remove_maintenance_service(service_name)
                         AlbaController._logger.info('Removed maintenance service {0} on {1}'.format(service_name, node.ip))
-            except Exception as ex:
+            except Exception:
                 AlbaController._logger.exception('Could not clean up maintenance services for {0}'.format(albabackend.name))
 
         config_key = AlbaController.CONFIG_ALBA_BACKEND_KEY.format(alba_backend_guid)
@@ -408,7 +384,6 @@ class AlbaController(object):
         Gets the arakoon configuration for an Alba backend
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
-
         :return: Arakoon cluster configuration information
         :rtype: dict
         """
@@ -434,16 +409,12 @@ class AlbaController(object):
         Create symlinks for the arakoon plugins to the correct (mounted) partition
         :param client: SSHClient to execute this on
         :type client: SSHClient
-
         :param data_dir: Directory on which the DB partition resides
         :type data_dir: str
-
         :param plugins: Plugins to symlink
         :type plugins: list
-
         :param cluster_name: Name of the arakoon cluster
         :type cluster_name: str
-
         :return: None
         """
         data_dir = '' if data_dir == '/' else data_dir
@@ -456,6 +427,7 @@ class AlbaController(object):
     def scheduled_alba_arakoon_checkup():
         """
         Makes sure the volumedriver arakoon is on all available master nodes
+        :return: None
         """
         AlbaController._alba_arakoon_checkup(create_nsm_cluster=False)
 
@@ -466,10 +438,8 @@ class AlbaController(object):
         Creates a new Arakoon Cluster if required and extends cluster if possible on all available master nodes
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
-
         :param create_nsm_cluster: Create the NSM cluster if not present yet
         :type create_nsm_cluster: bool
-
         :return: None
         """
         AlbaController._alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
@@ -649,13 +619,10 @@ class AlbaController(object):
         A node is being demoted
         :param cluster_ip: IP of the cluster node to execute this on
         :type cluster_ip: str
-
         :param master_ip: IP of the master of the cluster
         :type master_ip: str
-
         :param offline_node_ips: IPs of nodes which are offline
         :type offline_node_ips: list
-
         :return: None
         """
         _ = master_ip
@@ -730,7 +697,6 @@ class AlbaController(object):
         A node is removed
         :param cluster_ip: IP of the node being removed
         :type cluster_ip: str
-
         :return: None
         """
         for alba_backend in AlbaBackendList.get_albabackends():
@@ -746,7 +712,7 @@ class AlbaController(object):
             for disk in alba_node.disks:
                 for osd in disk.osds:
                     AlbaNodeController.remove_asd(node_guid=osd.alba_disk.alba_node_guid, asd_id=osd.osd_id, expected_safety=None)
-                AlbaNodeController.remove_disk(node_guid=disk.alba_node_guid, disk=disk.name)
+                AlbaNodeController.remove_disk(node_guid=disk.alba_node_guid, device_alias=disk.aliases[0])
             alba_node.delete()
         for service in storage_router.services:
             if service.abm_service is not None:
@@ -765,13 +731,10 @@ class AlbaController(object):
 
         :param allow_offline: Ignore offline nodes
         :type allow_offline: bool
-
         :param backend_guid: Run for a specific backend
         :type backend_guid: str
-
         :param min_nsms: Minimum amount of NSM hosts that need to be provided
         :type min_nsms: int
-
         :return: None
         """
         alba_backends = AlbaBackendList.get_albabackends() if backend_guid is None else [AlbaBackend(backend_guid)]
@@ -985,10 +948,8 @@ class AlbaController(object):
         Calculates/loads the safety when a certain set of disks are removed
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
-
         :param removal_osd_ids: ASDs to take into account for safety calculation
         :type removal_osd_ids: list
-
         :return: Amount of good, critical and lost ASDs
         :rtype: dict
         """
@@ -1024,7 +985,6 @@ class AlbaController(object):
         Calculates the load of an NSM node, returning a float percentage
         :param nsm_service: NSM service to retrieve the load for
         :type nsm_service: NSMService
-
         :return: Load of the NSM service
         :rtype: float
         """
@@ -1045,13 +1005,10 @@ class AlbaController(object):
         Register the NSM service to the cluster
         :param abm_name: Name of the ABM service
         :type abm_name: str
-
         :param nsm_name: Name of the NSM service
         :type nsm_name: str
-
         :param ip: IP of node in the cluster to register
         :type ip: str
-
         :return: None
         """
         nsm_config_file = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(nsm_name))
@@ -1084,10 +1041,8 @@ class AlbaController(object):
         Update the client configuration for the ABM cluster
         :param abm_name: Name of the ABM service
         :type abm_name: str
-
         :param ip: Any IP of a remaining node in the cluster with the correct configuration file available
         :type ip: str
-
         :return: None
         """
         abm_config_file = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(abm_name))
@@ -1127,12 +1082,11 @@ class AlbaController(object):
         Retrieve information about the SDM packages
         :param client: SSHClient on which to retrieve the metadata
         :type client: SSHClient
-
-        :return: List of dictionaries which contain services to restart,
-                                                    packages to update,
-                                                    information about potential downtime
-                                                    information about unmet prerequisites
-        :rtype: list
+        :return: Information about services to restart,
+                                   packages to update,
+                                   information about potential downtime
+                                   information about unmet prerequisites
+        :rtype: dict
         """
         other_storage_router_ips = [sr.ip for sr in StorageRouterList.get_storagerouters() if sr.ip != client.ip]
         version = ''
@@ -1163,12 +1117,11 @@ class AlbaController(object):
         Also check the arakoon clusters to be able to warn the customer for potential downtime
         :param client: SSHClient on which to retrieve the metadata
         :type client: SSHClient
-
-        :return: List of dictionaries which contain services to restart,
-                                                    packages to update,
-                                                    information about potential downtime
-                                                    information about unmet prerequisites
-        :rtype: list
+        :return: Information about services to restart,
+                                   packages to update,
+                                   information about potential downtime
+                                   information about unmet prerequisites
+        :rtype: dict
         """
         downtime = []
         alba_services = set()
@@ -1228,7 +1181,6 @@ class AlbaController(object):
         Upgrade the openvstorage-sdm packages
         :param client: SSHClient to 1 of the master nodes (On which the update is initiated)
         :type client: SSHClient
-
         :return: None
         """
         storagerouter_ips = [sr.ip for sr in StorageRouterList.get_storagerouters()]
@@ -1294,7 +1246,6 @@ class AlbaController(object):
         Restart all arakoon clusters after arakoon and/or alba package upgrade
         :param client: SSHClient to 1 of the master nodes (On which the update is initiated)
         :type client: SSHClient
-
         :return: None
         """
         services = []
@@ -1360,7 +1311,6 @@ class AlbaController(object):
         Upgrade the ALBA plugin
         :param client: SSHClient to connect to for upgrade
         :type client: SSHClient
-
         :return: None
         """
         from ovs.dal.lists.albabackendlist import AlbaBackendList
@@ -1380,9 +1330,9 @@ class AlbaController(object):
         Link a GLOBAL ALBA Backend to a LOCAL or another GLOBAL ALBA Backend
         :param alba_backend_guid: ALBA backend guid to link another ALBA Backend to
         :type alba_backend_guid: str
-
         :param metadata: Metadata about the linked ALBA Backend
         :type metadata: dict
+        :return: None
         """
         Toolbox.verify_required_params(required_params={'backend_connection_info': (dict, {'host': (str, Toolbox.regex_ip),
                                                                                            'port': (int, {'min': 1, 'max': 65535}),
@@ -1450,9 +1400,9 @@ class AlbaController(object):
         Unlink a LOCAL or GLOBAL ALBA Backend from a GLOBAL ALBA Backend
         :param target_guid: Guid of the GLOBAL ALBA Backend from which a link will be removed
         :type target_guid: str
-
         :param linked_guid: Guid of the GLOBAL or LOCAL ALBA Backend which will be unlinked (Can be a local or a remote ALBA Backend)
         :type linked_guid: str
+        :return: None
         """
         child = AlbaBackend(linked_guid)
         parent = AlbaBackend(target_guid)

@@ -61,7 +61,7 @@ define([
             var hasUnclaimed = false;
             $.each(self.disks(), function(index, disk) {
                 $.each(disk.osds(), function(jndex, osd) {
-                    if (osd.status() === 'available' && osd.processing() === false) {
+                    if (osd.status() === 'available' && osd.processing() === false && disk.processing() === false) {
                         hasUnclaimed = true;
                         return false;
                     }
@@ -108,18 +108,18 @@ define([
         self.removeDisk = function(disk) {
             disk.processing(true);
             return $.Deferred(function(deferred) {
-                generic.alertSuccess(
+                generic.alertInfo(
                     $.t('alba:disks.remove.started'),
-                    $.t('alba:disks.remove.msgstarted')
+                    $.t('alba:disks.remove.msg_started', {what: disk.device()})
                 );
                 api.post('alba/nodes/' + self.guid() + '/remove_disk', {
-                    data: { disk: disk.name() }
+                    data: { disk: disk.alias() }
                 })
                     .then(self.shared.tasks.wait)
                     .done(function() {
                         generic.alertSuccess(
                             $.t('alba:disks.remove.complete'),
-                            $.t('alba:disks.remove.success')
+                            $.t('alba:disks.remove.success', {what: disk.device()})
                         );
                         deferred.resolve();
                         disk.ignoreNext(true);
@@ -130,7 +130,7 @@ define([
                         error = generic.extractErrorMessage(error);
                         generic.alertError(
                             $.t('ovs:generic.error'),
-                            $.t('alba:disks.remove.failed', { why: error })
+                            $.t('alba:disks.remove.failed', {what: disk.device(), why: error})
                         );
                         deferred.reject();
                         disk.processing(false);
@@ -140,18 +140,18 @@ define([
         self.restartDisk = function(disk) {
             disk.processing(true);
             return $.Deferred(function(deferred) {
-                generic.alertSuccess(
+                generic.alertInfo(
                     $.t('alba:disks.restart.started'),
-                    $.t('alba:disks.restart.msgstarted')
+                    $.t('alba:disks.restart.msg_started', {what: disk.device()})
                 );
                 api.post('alba/nodes/' + self.guid() + '/restart_disk', {
-                    data: { disk: disk.name() }
+                    data: { disk: disk.alias() }
                 })
                     .then(self.shared.tasks.wait)
                     .done(function() {
                         generic.alertSuccess(
                             $.t('alba:disks.restart.complete'),
-                            $.t('alba:disks.restart.success')
+                            $.t('alba:disks.restart.success', {what: disk.device()})
                         );
                         deferred.resolve();
                         disk.processing(false);
@@ -160,7 +160,7 @@ define([
                         error = generic.extractErrorMessage(error);
                         generic.alertError(
                             $.t('ovs:generic.error'),
-                            $.t('alba:disks.restart.failed', { why: error })
+                            $.t('alba:disks.restart.failed', {what: disk.device(), why: error})
                         );
                         deferred.reject();
                         disk.processing(false);
@@ -208,9 +208,9 @@ define([
         self.restartOSD = function(asd) {
             asd.processing(true);
             return $.Deferred(function(deferred) {
-                generic.alertSuccess(
-                    $.t('alba:disks.restart.started'),
-                    $.t('alba:disks.restart.msgstarted')
+                generic.alertInfo(
+                    $.t('alba:osds.restart.started'),
+                    $.t('alba:osds.restart.msg_started', {what: asd.osdID()})
                 );
                 api.post('alba/nodes/' + self.guid() + '/restart_asd', {
                     data: { asd_id: asd.osdID() }
@@ -218,8 +218,8 @@ define([
                     .then(self.shared.tasks.wait)
                     .done(function() {
                         generic.alertSuccess(
-                            $.t('alba:disks.restart.complete'),
-                            $.t('alba:disks.restart.success')
+                            $.t('alba:osds.restart.complete'),
+                            $.t('alba:osds.restart.success', {what: asd.osdID()})
                         );
                         deferred.resolve();
 
@@ -228,7 +228,7 @@ define([
                         error = generic.extractErrorMessage(error);
                         generic.alertError(
                             $.t('ovs:generic.error'),
-                            $.t('alba:disks.restart.failed', { why: error })
+                            $.t('alba:osds.restart.failed', {what: asd.osdID(), why: error})
                         );
                         deferred.reject();
                     })

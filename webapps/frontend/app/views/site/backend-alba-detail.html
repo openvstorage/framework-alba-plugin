@@ -332,7 +332,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                                                   mouseover: function() { highlight('available', true); },
                                                                   mouseout: function() { highlight('available', false); }
                                                               },
-                                                              tooltip: 'alba:generic.claimall',
+                                                              tooltip: 'alba:generic.claim_all',
                                                               style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() ? 'black' : 'lightgrey' }"
                                                    class="hand fa fa-fw" data-i18n="[html]alba:icons.claim"></i>
                                             </td>
@@ -413,10 +413,10 @@ but WITHOUT ANY WARRANTY of any kind.
                                                                 <li>
                                                                     <a>
                                                                         <span data-i18n="ovs:generic.name"></span>:
-                                                                        <span data-bind="shortText: name(), maxLength: 25, middle: true"></span>
+                                                                        <span data-bind="shortText: device(), maxLength: 25, middle: true"></span>
                                                                     </a>
                                                                 </li>
-                                                                <!-- ko if: mountpoint() !== undefined -->
+                                                                <!-- ko if: mountpoint() !== undefined && mountpoint() !== null -->
                                                                     <li>
                                                                         <a>
                                                                             <span data-i18n="alba:generic.mountpoint"></span>:
@@ -429,6 +429,16 @@ but WITHOUT ANY WARRANTY of any kind.
                                                                         <a>
                                                                             <span data-i18n="ovs:generic.usage"></span>: <span data-bind="text: $root.formatBytes(usage().used)"></span> / <span data-bind="text: $root.formatBytes(usage().size)"></span>
                                                                             - <span data-bind="text: $root.formatPercentage(usage().used / usage().size)"></span>
+                                                                        </a>
+                                                                    </li>
+                                                                <!-- /ko -->
+                                                                <!-- ko if: aliases() !== undefined -->
+                                                                    <li>
+                                                                        <a>
+                                                                            <span data-i18n="ovs:generic.aliases"></span>:
+                                                                            <ul data-bind="foreach: aliases" style="margin-top: 2px;">
+                                                                                <li data-bind="shortText: $data, maxLength: 28, middle: true" style="margin-bottom: 5px;"></li>
+                                                                            </ul>
                                                                         </a>
                                                                     </li>
                                                                 <!-- /ko -->

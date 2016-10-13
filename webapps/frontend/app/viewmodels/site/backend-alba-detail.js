@@ -270,14 +270,14 @@ define([
             });
             if (changes) {
                 self.disks.sort(function (a, b) {
-                    return a.name() < b.name() ? -1 : 1;
+                    return a.device() < b.device() ? -1 : 1;
                 });
                 $.each(self.registeredNodes(), function(index, node) {
                     if (!nodeDisks.hasOwnProperty(node.nodeID())) {
                         node.disks([]);
                     } else {
                         nodeDisks[node.nodeID()].sort(function (a, b) {
-                            return a.name() < b.name() ? -1 : 1;
+                            return a.device() < b.device() ? -1 : 1;
                         });
                         node.disks(nodeDisks[node.nodeID()]);
                     }
@@ -289,7 +289,12 @@ define([
                             asd.parentABGuid(self.albaBackend().guid());
                         })
                     })
-                })
+                });
+                self.registeredNodes.sort(function(a, b) {
+                    if (a.storageRouter() !== undefined && b.storageRouter() !== undefined) {
+                        return a.storageRouter().name() < b.storageRouter().name() ? -1 : 1;
+                    }
+                });
             }
         };
         self.loadDomains = function() {
@@ -343,7 +348,7 @@ define([
                         if (answer === $.t('ovs:generic.yes')) {
                             generic.alertSuccess(
                                 $.t('alba:detail.delete.started'),
-                                $.t('alba:detail.delete.msgstarted')
+                                $.t('alba:detail.delete.msg_started')
                             );
                             router.navigate(self.shared.routing.loadHash('backends'));
                             api.del('alba/backends/' + self.albaBackend().guid())
@@ -380,7 +385,7 @@ define([
                         if (answer === $.t('ovs:generic.yes')) {
                             generic.alertSuccess(
                                 $.t('alba:presets.delete.started'),
-                                $.t('alba:presets.delete.msgstarted')
+                                $.t('alba:presets.delete.msg_started')
                             );
                             api.post('alba/backends/' + self.albaBackend().guid() + '/delete_preset', { data: { name: name } })
                                 .then(self.shared.tasks.wait)
