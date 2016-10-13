@@ -1225,7 +1225,7 @@ class AlbaController(object):
                         AlbaController._logger.error('{0}: Error during update: {1}'.format(node.ip, ex.message))
                     time.sleep(10)
             if status != 'done':
-                AlbaController._logger.error('{0}: Failed to perform SDM update. Please check /var/log/upstart/alba-asdmanager.log on the appropriate node'.format(node.ip))
+                AlbaController._logger.error('{0}: Failed to perform SDM update. Please check the appropriate logfile on the node'.format(node.ip))
                 raise Exception('Status after upgrade is "{0}"'.format(status))
             node.client.restart_services()
             all_nodes_to_upgrade.remove(node)

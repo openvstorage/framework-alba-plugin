@@ -169,11 +169,27 @@ define([
         };
         self.claimOSDs = self.albaBackend.claimOSDs;
         self.removeOSD = function(asd) {
+            var matchingDisk = undefined;
+            $.each(self.disks(), function(index, disk) {
+                $.each(disk.osds(), function(_, osd) {
+                    if (osd.osdID() === asd.osdID()) {
+                        matchingDisk = disk;
+                        return false;
+                    }
+                });
+                if (matchingDisk !== undefined) {
+                    return false;
+                }
+            });
+            if (matchingDisk !== undefined) {
+                matchingDisk.processing(true);
+            }
             dialog.show(new RemoveOSDWizard({
                 modal: true,
                 albaBackend: self.albaBackend,
                 albaNode: self,
-                albaOSD: asd
+                albaOSD: asd,
+                albaDisk: matchingDisk
             }));
         };
         self.initializeAll = function() {

@@ -32,6 +32,7 @@ define([
         self.data.albaBackend(options.albaBackend);
         self.data.albaNode(options.albaNode);
         self.data.albaOSD(options.albaOSD);
+        self.data.albaDisk(options.albaDisk);
         self.steps([new Gather(self)]);
         self.activateStep();
 
