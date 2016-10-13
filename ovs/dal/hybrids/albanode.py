@@ -61,6 +61,8 @@ class AlbaNode(DataObject):
         except (requests.ConnectionError, requests.Timeout):
             storage_stack['status'] = 'nodedown'
             disk_data = {}
+
+        partition_device_map = {}
         for disk_id, disk_info in disk_data.iteritems():
             entry = {'name': disk_id,
                      'status': 'unknown',
@@ -74,21 +76,26 @@ class AlbaNode(DataObject):
                 entry['status'] = disk_info['state']
                 entry['status_detail'] = disk_info.get('state_detail', '')
             stack[disk_id] = entry
+            for partition_alias in disk_info.get('partition_aliases', []):
+                partition_device_map[partition_alias] = disk_id
+
         # Live ASD information
         try:
             asd_data = self.client.get_asds()
         except (requests.ConnectionError, requests.Timeout):
             storage_stack['status'] = 'nodedown'
             asd_data = {}
-        for disk_id, asds in asd_data.iteritems():
-            if disk_id not in stack:
+        for partition_id, asds in asd_data.iteritems():
+            if partition_id not in partition_device_map:
                 continue
-            for asd_id, asd_info in asds.iteritems():
-                stack[disk_id]['asds'][asd_id] = {'asd_id': asd_id,
-                                                  'status': 'error' if asd_info['state'] == 'error' else 'initialized',
-                                                  'status_detail': asd_info.get('state_detail', ''),
-                                                  'state': asd_info['state'],
-                                                  'state_detail': asd_info.get('state_detail', '')}
+            disk_id = partition_device_map.get(partition_id)
+            if disk_id is not None and disk_id in stack:
+                for asd_id, asd_info in asds.iteritems():
+                    stack[disk_id]['asds'][asd_id] = {'asd_id': asd_id,
+                                                      'status': 'error' if asd_info['state'] == 'error' else 'initialized',
+                                                      'status_detail': asd_info.get('state_detail', ''),
+                                                      'state': asd_info['state'],
+                                                      'state_detail': asd_info.get('state_detail', '')}
         return storage_stack
 
     def _ips(self):

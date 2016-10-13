@@ -96,7 +96,7 @@ class Helper(object):
         for ad_id, an_id in structure.get('alba_disks', ()):
             if ad_id not in alba_disks:
                 alba_disk = AlbaDisk()
-                alba_disk.name = 'alba_disk_{0}'.format(ad_id)
+                alba_disk.aliases = ['/dev/alba_disk_{0}'.format(ad_id)]
                 alba_disk.alba_node = alba_nodes[an_id]
                 alba_disk.save()
                 alba_disks[ad_id] = alba_disk

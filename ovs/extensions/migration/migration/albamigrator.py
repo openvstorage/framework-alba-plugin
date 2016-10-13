@@ -25,7 +25,7 @@ class AlbaMigrator(object):
     """
 
     identifier = 'alba'  # Used by migrator.py, so don't remove
-    THIS_VERSION = 10
+    THIS_VERSION = 11
 
     def __init__(self):
         """ Init method """
@@ -49,6 +49,17 @@ class AlbaMigrator(object):
 
         # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
         if working_version < AlbaMigrator.THIS_VERSION:
-            pass
+            # Complete rework of the way we detect devices to assign roles or use as ASD
+            # Allow loop-, raid-, nvme-, ??-devices and logical volumes as ASD (https://github.com/openvstorage/framework/issues/792)
+            from ovs.dal.lists.albanodelist import AlbaNodeList
+
+            for alba_node in AlbaNodeList.get_albanodes():
+                all_disks = alba_node.client.get_disks()
+                for alba_disk in alba_node.disks:
+                    for disk_info in all_disks.itervalues():
+                        if '/dev/disk/by-id/{0}'.format(alba_disk.name) in disk_info['aliases']:
+                            alba_disk.aliases = disk_info['aliases']
+                            alba_disk.save()
+                            break
 
         return AlbaMigrator.THIS_VERSION

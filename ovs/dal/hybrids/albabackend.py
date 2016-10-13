@@ -19,7 +19,6 @@ AlbaBackend module
 """
 import copy
 import time
-import requests
 from threading import Lock, Thread
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.backend import Backend
@@ -76,12 +75,13 @@ class AlbaBackend(DataObject):
             node_id = node.node_id
             storage_map[node_id] = {}
             for disk in node.disks:
-                disk_id = disk.name
-                storage_map[node_id][disk_id] = {'name': disk_id,
+                disk_id = disk.aliases[0].split('/')[-1]
+                storage_map[node_id][disk_id] = {'asds': {},
+                                                 'name': disk_id,
                                                  'guid': disk.guid,
                                                  'status': 'error',
-                                                 'status_detail': 'unknown',
-                                                 'asds': {}}
+                                                 'aliases': disk.aliases,
+                                                 'status_detail': 'unknown'}
                 for osd in disk.osds:
                     osd_id = osd.osd_id
                     data = {'asd_id': osd_id,
