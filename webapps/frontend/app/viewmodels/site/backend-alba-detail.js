@@ -270,6 +270,9 @@ define([
             });
             if (changes) {
                 self.disks.sort(function (a, b) {
+                    if (a.device() === undefined || b.device() === undefined) {
+                        return a.alias() < b.alias() ? -1 : 1;
+                    }
                     return a.device() < b.device() ? -1 : 1;
                 });
                 $.each(self.registeredNodes(), function(index, node) {
