@@ -33,16 +33,10 @@ class AlbaScheduledTaskController(object):
     executed at certain intervals and should be self-containing
     """
     _logger = LogHandler.get('lib', name='scheduled tasks')
-    verification_schedule = 3
-    verification_schedule_key = '/ovs/alba/backends/verification_schedule'
-    if Configuration.exists(verification_schedule_key):
-        verification_schedule = Configuration.get(verification_schedule_key)
-    else:
-        Configuration.set(verification_schedule_key, verification_schedule)
+    verification_schedule = Configuration.get('/ovs/alba/backends/verification_schedule', default=3)
 
     @staticmethod
-    @celery.task(name='alba.scheduled.verify_namespaces',
-                 schedule=crontab(0, 0, month_of_year='*/{0}'.format(verification_schedule)))
+    @celery.task(name='alba.scheduled.verify_namespaces', schedule=crontab(0, 0, month_of_year='*/{0}'.format(verification_schedule)))
     @ensure_single(task_name='alba.scheduled.verify_namespaces')
     def verify_namespaces():
         """
@@ -50,13 +44,7 @@ class AlbaScheduledTaskController(object):
         """
         AlbaScheduledTaskController._logger.info('verify namespace task scheduling started')
 
-        verification_factor = 10
-        verification_factor_key = '/ovs/alba/backends/verification_factor'
-        if Configuration.exists(verification_factor_key):
-            verification_factor = Configuration.get(verification_factor_key)
-        else:
-            Configuration.set(verification_factor_key, verification_factor)
-
+        verification_factor = Configuration.get('/ovs/alba/backends/verification_factor', default=10)
         for albabackend in AlbaBackendList.get_albabackends():
             backend_name = albabackend.abm_services[0].service.name if albabackend.abm_services else albabackend.name + '-abm'
             config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(backend_name))
