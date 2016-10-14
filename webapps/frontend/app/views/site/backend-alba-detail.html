@@ -410,12 +410,14 @@ but WITHOUT ANY WARRANTY of any kind.
                                                                         </a>
                                                                     </li>
                                                                 <!-- /ko -->
+                                                                <!-- ko if: device() !== undefined -->
                                                                 <li>
                                                                     <a>
                                                                         <span data-i18n="ovs:generic.name"></span>:
                                                                         <span data-bind="shortText: device(), maxLength: 25, middle: true"></span>
                                                                     </a>
                                                                 </li>
+                                                                <!-- /ko -->
                                                                 <!-- ko if: mountpoint() !== undefined && mountpoint() !== null -->
                                                                     <li>
                                                                         <a>
