@@ -174,12 +174,12 @@ class AlbaController(object):
             raise RuntimeError('Preset name {0} already exists'.format(name))
 
         if fragment_size is None:
-            fragment_size = 1048576  # default value is 1 MB
+            fragment_size = 16 * 1024 ** 2
         else:
             try:
                 fragment_size = int(fragment_size)
             except ValueError:
-                fragment_size = 1048576
+                fragment_size = 16 * 1024 ** 2
 
         AlbaController._logger.debug('Adding preset {0} with compression {1} and policies {2}'.format(name, compression, policies))
         preset = {'compression': compression,
