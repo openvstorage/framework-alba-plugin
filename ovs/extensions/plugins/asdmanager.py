@@ -182,7 +182,7 @@ class ASDManagerClient(object):
         :param asd_id: AsdID from the ASD to be removed
         :type asd_id: str
         """
-        return self._call(requests.post, 'disks/{0}/asds/{1}/delete'.format(disk_id, asd_id), timeout=30)
+        return self._call(requests.post, 'disks/{0}/asds/{1}/delete'.format(disk_id, asd_id), timeout=60)
 
     def get_update_information(self):
         """
