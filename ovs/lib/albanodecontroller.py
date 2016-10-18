@@ -248,6 +248,7 @@ class AlbaNodeController(object):
                 raise RuntimeError('Failed to find disk for partition with alias {0}'.format(partition_alias))
         else:
             AlbaNodeController._logger.warning('Alba purge osd {0} without safety validations (node down)'.format(asd_id))
+
         if Configuration.exists(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True):
             Configuration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(asd_id), raw=True)
 
@@ -259,7 +260,7 @@ class AlbaNodeController(object):
         if node.storagerouter is not None:
             DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
 
-        return disk_data.get('aliases', [])
+        return [] if disk_data is None else disk_data.get('aliases', [])
 
     @staticmethod
     @celery.task(name='albanode.reset_asd')
