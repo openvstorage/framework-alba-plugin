@@ -961,26 +961,24 @@ class AlbaController(object):
                 for asd_id, asd in disk['asds'].iteritems():
                     if asd['status'] == 'error':
                         error_disks.append(asd_id)
-        osd_ids = []
+        extra_parameters = ['--include-decommissioning-as-dead']
         for osd in alba_backend.osds:
             if osd.osd_id in removal_osd_ids or osd.osd_id in error_disks:
-                osd_ids.append(osd.osd_id)
+                extra_parameters.append('--long-id={0}'.format(osd.osd_id))
         safety_data = []
         while True:
             try:
-                extra_parameters = ['--include-decommissioning-as-dead']
-                for osd_id in osd_ids:
-                    extra_parameters.append('--long-id={0}'.format(osd_id))
+
                 config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend)))
                 safety_data = AlbaCLI.run(command='get-disk-safety', config=config, to_json=True, extra_params=extra_parameters)
                 break
             except Exception as ex:
-                if len(osd_ids) > 0 and 'unknown osd' in ex.message:
+                if len(extra_parameters) > 1 and 'unknown osd' in ex.message:
                     match = re.search('osd ([^ "]*)', ex.message)
                     if match is not None:
                         osd_id = match.groups()[0]
                         AlbaController._logger.debug('Getting safety: skipping OSD {0}'.format(osd_id))
-                        osd_ids.remove(osd_id)
+                        extra_parameters.remove('--long-id={0}'.format(osd_id))
                         continue
                 raise
         result = {'good': 0,
