@@ -968,7 +968,6 @@ class AlbaController(object):
         safety_data = []
         while True:
             try:
-
                 config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend)))
                 safety_data = AlbaCLI.run(command='get-disk-safety', config=config, to_json=True, extra_params=extra_parameters)
                 break
