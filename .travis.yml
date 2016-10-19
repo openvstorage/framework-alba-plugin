@@ -20,3 +20,4 @@ before_script:
 script:
   - ovs unittest /opt/OpenvStorage/ovs/dal/tests/test_alba.py
   - ovs unittest /opt/OpenvStorage/ovs/dal/tests/test_hybrids.py
+  - ovs unittest /opt/OpenvStorage/ovs/lib/tests/alba_tests/test_nsmcheckup.py
