@@ -98,15 +98,16 @@ class AlbaNodeController(object):
                 AlbaNodeController._logger.exception('Disk {0} not available on node {1}'.format(device_alias, node.ip))
                 failures[device_alias] = 'Disk unavailable'
             else:
+                add_disk_result = node.client.add_disk(disk_id=device_id)
                 disk = AlbaDisk()
-                disk.aliases = available_disks[device_id]['aliases']
+                disk.aliases = add_disk_result['aliases']
                 disk.alba_node = node
                 disk.save()
-                add_disk_result = node.client.add_disk(disk_id=device_id)
                 if add_disk_result['_success'] is False:
                     failures[device_alias] = add_disk_result['_error']
                     disk.delete()
                 else:
+                    device_id = disk.aliases[0].split('/')[-1]
                     for _ in xrange(amount):
                         add_asd_result = node.client.add_asd(disk_id=device_id)
                         if add_asd_result['_success'] is False:
