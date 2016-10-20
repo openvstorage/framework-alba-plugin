@@ -26,7 +26,6 @@ import string
 import random
 import requests
 import tempfile
-from celery.schedules import crontab
 from ConfigParser import RawConfigParser
 from StringIO import StringIO
 from ovs.celery_run import celery
@@ -50,7 +49,7 @@ from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.extensions.services.service import ServiceManager
 from ovs.lib.helpers.decorators import add_hooks, ensure_single
-from ovs.lib.helpers.toolbox import Toolbox
+from ovs.lib.helpers.toolbox import Toolbox, Schedule
 from ovs.log.log_handler import LogHandler
 
 
@@ -424,7 +423,7 @@ class AlbaController(object):
             client.run(cmd)
 
     @staticmethod
-    @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=crontab(minute='30', hour='*'))
+    @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=Schedule(minute='30', hour='*'))
     def scheduled_alba_arakoon_checkup():
         """
         Makes sure the volumedriver arakoon is on all available master nodes
@@ -721,7 +720,7 @@ class AlbaController(object):
             service.delete()
 
     @staticmethod
-    @celery.task(name='alba.nsm_checkup', schedule=crontab(minute='45', hour='*'))
+    @celery.task(name='alba.nsm_checkup', schedule=Schedule(minute='45', hour='*'))
     @ensure_single(task_name='alba.nsm_checkup', mode='CHAINED')
     def nsm_checkup(allow_offline=False, backend_guid=None, min_nsms=None):
         """
@@ -1433,7 +1432,7 @@ class AlbaController(object):
         parent.backend.invalidate_dynamics()
 
     @staticmethod
-    @celery.task(name='alba.checkup_maintenance_agents', schedule=crontab(minute='0', hour='*'))
+    @celery.task(name='alba.checkup_maintenance_agents', schedule=Schedule(minute='0', hour='*'))
     @ensure_single(task_name='alba.checkup_maintenance_agents', mode='CHAINED')
     def checkup_maintenance_agents():
         """

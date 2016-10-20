@@ -42,7 +42,6 @@ The [OVS commandline](https://openvstorage.gitbooks.io/administration/content/Ad
 ##### Global Backend related keys
 ```
 /ovs/alba/backends/default_nsm_hosts = "$Default amount of NSM hosts"  (Defaults to 1)
-/ovs/alba/backends/verification_schedule = "$x-monthly check for ALBA scheduled tasks, eg: verify-namespaces"  (Defaults to 3)
 /ovs/alba/backends/global_gui_error_interval = "$ASDs are reported as warning/error for x seconds since last read/write failure"  (Defaults to 300)
 ```
 

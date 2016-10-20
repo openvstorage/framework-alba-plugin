@@ -18,12 +18,12 @@
 ScheduledTaskController module
 """
 
-from celery.schedules import crontab
 from ovs.celery_run import celery
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.lib.helpers.decorators import ensure_single
+from ovs.lib.helpers.toolbox import Schedule
 from ovs.log.log_handler import LogHandler
 
 
@@ -33,10 +33,9 @@ class AlbaScheduledTaskController(object):
     executed at certain intervals and should be self-containing
     """
     _logger = LogHandler.get('lib', name='scheduled tasks')
-    verification_schedule = Configuration.get('/ovs/alba/backends/verification_schedule', default=3)
 
     @staticmethod
-    @celery.task(name='alba.scheduled.verify_namespaces', schedule=crontab(0, 0, month_of_year='*/{0}'.format(verification_schedule)))
+    @celery.task(name='alba.scheduled.verify_namespaces', schedule=Schedule(minute='0', hour='0', month_of_year='*/3'))
     @ensure_single(task_name='alba.scheduled.verify_namespaces')
     def verify_namespaces():
         """
