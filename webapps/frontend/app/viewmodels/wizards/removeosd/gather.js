@@ -39,7 +39,7 @@ define([
             return $.Deferred(function(deferred) {
                 generic.alertInfo(
                     $.t('alba:wizards.remove_osd.started'),
-                    $.t('alba:wizards.remove_osd.msg_started', {what: self.data.albaOSD().osdID()})
+                    $.t('alba:wizards.remove_osd.started_msg', {what: self.data.albaOSD().osdID()})
                 );
                 api.post('alba/nodes/' + self.data.albaNode().guid() + '/reset_asd', {
                     data: {

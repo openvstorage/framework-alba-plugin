@@ -19,11 +19,11 @@ define([
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/albabackend', '../containers/albadisk', '../containers/albanode', '../containers/backend',
     '../containers/backendtype', '../containers/domain', '../containers/storagerouter',
-    '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index'
+    '../wizards/addalbanode/index', '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index'
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
             AlbaBackend, Disk, Node, Backend, BackendType, Domain, StorageRouter,
-            AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard) {
+            AddAlbaNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -351,7 +351,7 @@ define([
                         if (answer === $.t('ovs:generic.yes')) {
                             generic.alertSuccess(
                                 $.t('alba:detail.delete.started'),
-                                $.t('alba:detail.delete.msg_started')
+                                $.t('alba:detail.delete.started_msg')
                             );
                             router.navigate(self.shared.routing.loadHash('backends'));
                             api.del('alba/backends/' + self.albaBackend().guid())
@@ -388,7 +388,7 @@ define([
                         if (answer === $.t('ovs:generic.yes')) {
                             generic.alertSuccess(
                                 $.t('alba:presets.delete.started'),
-                                $.t('alba:presets.delete.msg_started')
+                                $.t('alba:presets.delete.started_msg')
                             );
                             api.post('alba/backends/' + self.albaBackend().guid() + '/delete_preset', { data: { name: name } })
                                 .then(self.shared.tasks.wait)
@@ -412,6 +412,21 @@ define([
                         }
                     });
             }).promise();
+        };
+        self.register = function(node) {
+            var oldID = undefined, oldGuid = undefined;
+            $.each(self.registeredNodes(), function(index, registeredNode) {
+                if (registeredNode.ip() === node.ip()) {
+                    oldID = registeredNode.nodeID();
+                    oldGuid = registeredNode.guid();
+                }
+            });
+            dialog.show(new AddAlbaNodeWizard({
+                modal: true,
+                node: node,
+                oldID: oldID,
+                oldGuid: oldGuid
+            }));
         };
         self.addPreset = function() {
             dialog.show(new AddPresetWizard({

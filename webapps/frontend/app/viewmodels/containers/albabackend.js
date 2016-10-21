@@ -206,12 +206,12 @@ define([
                             if (allAsds.length === 1) {
                                 generic.alertInfo(
                                     $.t('alba:osds.claim.started'),
-                                    $.t('alba:osds.claim.msg_started_single', {what: allAsds[0].osdID()})
+                                    $.t('alba:osds.claim.started_msg_single', {what: allAsds[0].osdID()})
                                 );
                             } else {
                                 generic.alertInfo(
                                     $.t('alba:osds.claim.started'),
-                                    $.t('alba:osds.claim.msg_started_multi')
+                                    $.t('alba:osds.claim.started_msg_multi')
                                 );
                             }
                             api.post('alba/backends/' + self.guid() + '/add_units', {
