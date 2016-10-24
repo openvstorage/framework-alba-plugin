@@ -15,10 +15,10 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'knockout', 'plugins/dialog',
+    'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
     'ovs/generic', 'ovs/api', 'ovs/shared',
     '../wizards/removeosd/index', '../wizards/initializedisk/index'
-], function($, ko, dialog, generic, api, shared, RemoveOSDWizard, InitializeDiskWizard) {
+], function($, app, ko, dialog, generic, api, shared, RemoveOSDWizard, InitializeDiskWizard) {
     "use strict";
     return function(nodeID, albaBackend, parent) {
         var self = this;
@@ -74,12 +74,12 @@ define([
         self.canDelete = ko.computed(function() {
             var deletePossible = true;
             $.each(self.disks(), function(index, disk) {
-                if (disk.status() !== 'error' && disk.status() !== 'uninitialized') {
+                if ((disk.status() !== 'error' && disk.status() !== 'uninitialized') || disk.processing() === true) {
                     deletePossible = false;
                     return false;
                 }
                 $.each(disk.osds(), function(jndex, osd) {
-                    if (osd.status() !== 'error' && osd.status() !== 'available') {
+                    if ((osd.status() !== 'error' && osd.status() !== 'available') || osd.processing() === true) {
                         deletePossible = false;
                         return false;
                     }
@@ -233,44 +233,53 @@ define([
             return self.albaBackend.claimOSDs(asds);
         };
         self.deleteNode = function() {
-            $.each(self.disks(), function(index, disk) {
-                disk.processing(true);
-                $.each(disk.osds(), function(jndex, osd) {
-                    osd.processing(true);
-                });
-            });
-            return $.Deferred(function(deferred) {
-                generic.alertInfo(
-                    $.t('alba:node.remove.started'),
-                    $.t('alba:node.remove.started_msg', {what: self.nodeID()})
-                );
-                api.del('alba/nodes/' + self.guid())
-                    .then(self.shared.tasks.wait)
-                    .done(function() {
-                        generic.alertSuccess(
-                            $.t('alba:node.remove.complete'),
-                            $.t('alba:node.remove.success', {what: self.nodeID()})
-                        );
-                        deferred.resolve();
-
-                    })
-                    .fail(function(error) {
-                        error = generic.extractErrorMessage(error);
-                        generic.alertError(
-                            $.t('ovs:generic.error'),
-                            $.t('alba:node.remove.failed', {what: self.nodeID(), why: error})
-                        );
-                        deferred.reject();
-                    })
-                    .always(function() {
-                        $.each(self.disks(), function(index, disk) {
-                            disk.processing(false);
-                            $.each(disk.osds(), function(jndex, osd) {
-                                osd.processing(false);
-                            });
+            app.showMessage(
+                $.t('alba:node.remove.warning'),
+                $.t('alba:node.remove.title'),
+                [$.t('alba:generic.no'), $.t('alba:generic.yes')]
+            )
+            .done(function(answer) {
+                if (answer === $.t('alba:generic.yes')) {
+                    $.each(self.disks(), function(index, disk) {
+                        disk.processing(true);
+                        $.each(disk.osds(), function(jndex, osd) {
+                            osd.processing(true);
                         });
                     });
-            }).promise();
+                    return $.Deferred(function(deferred) {
+                        generic.alertInfo(
+                            $.t('alba:node.remove.started'),
+                            $.t('alba:node.remove.started_msg', {what: self.nodeID()})
+                        );
+                        api.del('alba/nodes/' + self.guid())
+                            .then(self.shared.tasks.wait)
+                            .done(function() {
+                                generic.alertSuccess(
+                                    $.t('alba:node.remove.complete'),
+                                    $.t('alba:node.remove.success', {what: self.nodeID()})
+                                );
+                                deferred.resolve();
+
+                            })
+                            .fail(function(error) {
+                                error = generic.extractErrorMessage(error);
+                                generic.alertError(
+                                    $.t('ovs:generic.error'),
+                                    $.t('alba:node.remove.failed', {what: self.nodeID(), why: error})
+                                );
+                                deferred.reject();
+                            })
+                            .always(function() {
+                                $.each(self.disks(), function(index, disk) {
+                                    disk.processing(false);
+                                    $.each(disk.osds(), function(jndex, osd) {
+                                        osd.processing(false);
+                                    });
+                                });
+                            });
+                    }).promise();
+                }
+            });
         };
         self.restartOSD = function(asd) {
             asd.processing(true);

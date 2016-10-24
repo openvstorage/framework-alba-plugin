@@ -142,8 +142,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :return: Celery async task result
         :rtype: CeleryTask
         """
-        AlbaNodeController.remove_node(node_guid=albanode.guid)
-        return AlbaNodeController.register.delay(new_node_id)
+        return AlbaNodeController.replace_node.delay(old_node_guid=albanode.guid, new_node_id=new_node_id)
 
     @log()
     @required_roles(['manage'])

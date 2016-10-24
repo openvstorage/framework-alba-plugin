@@ -35,13 +35,13 @@ define([
         self.finish = function () {
             return $.Deferred(function (deferred) {
                 // Add ALBA node
-                if (self.data.oldID() === undefined) {
+                if (self.data.oldNode() === undefined) {
                     generic.alertInfo(
                         $.t('alba:wizards.add_alba_node.started'),
                         $.t('alba:wizards.add_alba_node.in_progress')
                     );
                     deferred.resolve();
-                    api.post('alba/nodes', {data: {node_id: self.data.nodeID()}})
+                    api.post('alba/nodes', {data: {node_id: self.data.newNode().nodeID()}})
                         .then(self.shared.tasks.wait)
                         .done(function () {
                             generic.alertSuccess(
@@ -58,12 +58,18 @@ define([
                         });
                     // Replace ALBA node
                 } else {
+                    $.each(self.data.oldNode().disks(), function(index, disk) {
+                        disk.processing(true);
+                        $.each(disk.osds(), function(jndex, osd) {
+                            osd.processing(true);
+                        })
+                    });
                     generic.alertInfo(
                         $.t('alba:wizards.replace_alba_node.started'),
                         $.t('alba:wizards.replace_alba_node.in_progress')
                     );
                     deferred.resolve();
-                    api.post('alba/nodes/' + self.data.oldGuid() + '/replace_node', {data: {new_node_id: self.data.nodeID()}})
+                    api.post('alba/nodes/' + self.data.oldNode().guid() + '/replace_node', {data: {new_node_id: self.data.newNode().nodeID()}})
                         .then(self.shared.tasks.wait)
                         .done(function() {
                             generic.alertSuccess(
@@ -77,7 +83,15 @@ define([
                                 $.t('ovs:generic.error'),
                                 $.t('alba:wizards.replace_alba_node.failed', {why: error})
                             );
-                        });
+                        })
+                        .always(function() {
+                            $.each(self.data.oldNode().disks(), function(index, disk) {
+                                disk.processing(false);
+                                $.each(disk.osds(), function(jndex, osd) {
+                                    osd.processing(false);
+                                })
+                            });
+                        })
                 }
             }).promise();
         };

@@ -27,6 +27,7 @@
         "initializeall": "Initialize all uninitialized disks",
         "inuselegend": "In use by other backends:",
         "mountpoint": "Mtpt",
+        "no": "No",
         "node": "Node / Storage Router",
         "nodeid": "Node ID",
         "nodes": "ASD Nodes",
@@ -99,7 +100,8 @@
         },
         "statistics": "Statistics",
         "unknown": "Unknown/external",
-        "wayreplication": "-way replication:"
+        "wayreplication": "-way replication:",
+        "yes": "Yes"
     },
     "dashboard": {
         "title": "Backends",
@@ -187,7 +189,9 @@
             "failed": "Failed to remove node __what__: __why__",
             "started": "Started",
             "started_msg": "Node __what__ is being removed",
-            "success": "Node __what__ has been removed"
+            "success": "Node __what__ has been removed",
+            "title": "Remove Node",
+            "warning": "Are you sure you want to delete this ALBA node?"
         }
     },
     "osds" : {

@@ -713,14 +713,15 @@ class AlbaController(object):
             AlbaController._logger.warning('Failed to retrieve StorageRouter with IP {0} from model'.format(cluster_ip))
             return
 
-        if complete_removal is True and storage_router.alba_node is not None:
-            from ovs.lib.albanodecontroller import AlbaNodeController
-
-            AlbaNodeController.remove_node(node_guid=storage_router.alba_node.guid)
-            AlbaController.checkup_maintenance_agents()
-        elif complete_removal is False:
-            storage_router.alba_node = None
-            storage_router.save()
+        if storage_router.alba_node is not None:
+            alba_node = storage_router.alba_node
+            if complete_removal is True:
+                from ovs.lib.albanodecontroller import AlbaNodeController
+                AlbaNodeController.remove_node(node_guid=storage_router.alba_node.guid)
+                AlbaController.checkup_maintenance_agents()
+            else:
+                alba_node.storagerouter = None
+                alba_node.save()
 
         for service in storage_router.services:
             if service.abm_service is not None:

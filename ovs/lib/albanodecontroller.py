@@ -28,6 +28,7 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.diskpartitionlist import DiskPartitionList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.plugins.asdmanager import InvalidCredentialsError
 from ovs.log.log_handler import LogHandler
 from ovs.lib.albacontroller import AlbaController
 from ovs.lib.disk import DiskController
@@ -92,7 +93,27 @@ class AlbaNodeController(object):
                 node.client.remove_maintenance_service(service_name)
         except (requests.ConnectionError, requests.Timeout):
             AlbaNodeController._logger.exception('Could not connect to node {0} to retrieve the maintenance services'.format(node.guid))
+        except InvalidCredentialsError:
+            AlbaNodeController._logger.warning('Failed to retrieve the maintenance services for ALBA node {0}'.format(node.node_id))
+
+        if Configuration.dir_exists('/ovs/alba/asdnodes/{0}'.format(node.node_id)):
+            Configuration.delete('/ovs/alba/asdnodes/{0}'.format(node.node_id))
+
         node.delete()
+
+    @staticmethod
+    @celery.task(name='albanode.replace_node')
+    def replace_node(old_node_guid, new_node_id):
+        """
+        Replace an ALBA node
+        :param old_node_guid: Guid of the old ALBA node being replaced
+        :type old_node_guid: str
+        :param new_node_id: ID of the new ALBA node
+        :type new_node_id: str
+        :return: None
+        """
+        AlbaNodeController.remove_node(node_guid=old_node_guid)
+        AlbaNodeController.register(node_id=new_node_id)
 
     @staticmethod
     @celery.task(name='albanode.initialize_disk')
@@ -177,7 +198,7 @@ class AlbaNodeController(object):
             if device_id not in all_disks:
                 raise RuntimeError('Disk {0} not available on node {1}'.format(device_alias, node.guid))
             mountpoint = all_disks[device_id]['mountpoint']
-        except (requests.ConnectionError, requests.Timeout):
+        except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
             AlbaNodeController._logger.warning('Could not connect to node {0} to validate disks'.format(node.guid))
             mountpoint = None
             offline_node = True
@@ -243,7 +264,7 @@ class AlbaNodeController(object):
         asds = {}
         try:
             asds = node.client.get_asds()
-        except (requests.ConnectionError, requests.Timeout):
+        except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
             AlbaNodeController._logger.warning('Could not connect to node {0} to validate ASD'.format(node.guid))
         partition_alias = None
         for alias, asd_ids in asds.iteritems():

@@ -414,18 +414,17 @@ define([
             }).promise();
         };
         self.register = function(node) {
-            var oldID = undefined, oldGuid = undefined;
+            var oldNode = undefined;
             $.each(self.registeredNodes(), function(index, registeredNode) {
                 if (registeredNode.ip() === node.ip()) {
-                    oldID = registeredNode.nodeID();
-                    oldGuid = registeredNode.guid();
+                    oldNode = registeredNode;
+                    return false;
                 }
             });
             dialog.show(new AddAlbaNodeWizard({
                 modal: true,
-                node: node,
-                oldID: oldID,
-                oldGuid: oldGuid
+                newNode: node,
+                oldNode: oldNode
             }));
         };
         self.addPreset = function() {

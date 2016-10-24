@@ -39,6 +39,13 @@ logging.getLogger('urllib3').setLevel(logging.WARNING)
 logging.getLogger('requests').setLevel(logging.WARNING)
 
 
+class InvalidCredentialsError(RuntimeError):
+    """
+    Invalid credentials error
+    """
+    pass
+
+
 class ASDManagerClient(object):
     """
     ASD Manager Client
@@ -84,7 +91,10 @@ class ASDManagerClient(object):
             raise RuntimeError(response.content)
         internal_duration = data['_duration']
         if data.get('_success', True) is False:
-            raise RuntimeError(data.get('_error', 'Unknown exception: {0}'.format(data)))
+            error_message = data.get('_error', 'Unknown exception: {0}'.format(data))
+            if error_message == 'Invalid credentials':
+                raise InvalidCredentialsError(error_message)
+            raise RuntimeError(error_message)
         if clean is True:
             def _clean(_dict):
                 for _key in _dict.keys():

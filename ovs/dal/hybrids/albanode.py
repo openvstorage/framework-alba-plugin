@@ -22,7 +22,7 @@ from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
 from ovs.extensions.generic.configuration import Configuration
-from ovs.extensions.plugins.asdmanager import ASDManagerClient
+from ovs.extensions.plugins.asdmanager import ASDManagerClient, InvalidCredentialsError
 
 
 class AlbaNode(DataObject):
@@ -58,7 +58,7 @@ class AlbaNode(DataObject):
 
         try:
             disk_data = self.client.get_disks()
-        except (requests.ConnectionError, requests.Timeout):
+        except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
             storage_stack['status'] = 'nodedown'
             disk_data = {}
 
@@ -82,7 +82,7 @@ class AlbaNode(DataObject):
         # Live ASD information
         try:
             asd_data = self.client.get_asds()
-        except (requests.ConnectionError, requests.Timeout):
+        except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
             storage_stack['status'] = 'nodedown'
             asd_data = {}
         for partition_id, asds in asd_data.iteritems():
