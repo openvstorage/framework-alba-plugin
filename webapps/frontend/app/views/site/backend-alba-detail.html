@@ -321,7 +321,8 @@ but WITHOUT ANY WARRANTY of any kind.
                                                               },
                                                               tooltip: 'alba:generic.initializeall',
                                                               style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() ? 'black' : 'lightgrey' }"
-                                                   class="hand fa fa-fw" data-i18n="[html]alba:icons.initialize"></i>
+                                                   class="hand fa fa-fw" data-i18n="[html]alba:icons.initialize">
+                                                </i>
                                                 <i data-bind="attr: { id: 'claim_all_' + nodeID() },
                                                               click: function() {
                                                                   if (canClaimAll() && $root.shared.user.roles().contains('manage')) {
@@ -334,7 +335,22 @@ but WITHOUT ANY WARRANTY of any kind.
                                                               },
                                                               tooltip: 'alba:generic.claim_all',
                                                               style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() ? 'black' : 'lightgrey' }"
-                                                   class="hand fa fa-fw" data-i18n="[html]alba:icons.claim"></i>
+                                                   class="hand fa fa-fw" data-i18n="[html]alba:icons.claim">
+                                                </i>
+                                                <i data-bind="attr: { id: 'delete_' + nodeID() },
+                                                              click: function() {
+                                                                  if (canDelete() && $root.shared.user.roles().contains('manage')) {
+                                                                      deleteNode();
+                                                                  }
+                                                              },
+                                                              event: {
+                                                                  mouseover: function() { highlight('available', true); },
+                                                                  mouseout: function() { highlight('available', false); }
+                                                              },
+                                                              tooltip: 'alba:generic.remove',
+                                                              style: { color: $root.shared.user.roles().contains('manage') && canDelete() ? 'black' : 'lightgrey' }"
+                                                   class="hand fa fa-fw" data-i18n="[html]alba:icons.delete">
+                                                </i>
                                             </td>
                                         </tr>
                                         <tr data-bind="visible: expanded()">
@@ -555,7 +571,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                     <i data-bind="attr: { id: 'registernode_' + nodeID() },
                                                   click: function() {
                                                       if ($root.shared.user.roles().contains('manage')) {
-                                                          register();
+                                                          $root.register($data);
                                                       }
                                                   },
                                                   tooltip: 'alba:generic.register',

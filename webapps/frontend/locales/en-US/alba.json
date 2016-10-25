@@ -27,6 +27,7 @@
         "initializeall": "Initialize all uninitialized disks",
         "inuselegend": "In use by other backends:",
         "mountpoint": "Mtpt",
+        "no": "No",
         "node": "Node / Storage Router",
         "nodeid": "Node ID",
         "nodes": "ASD Nodes",
@@ -99,7 +100,8 @@
         },
         "statistics": "Statistics",
         "unknown": "Unknown/external",
-        "wayreplication": "-way replication:"
+        "wayreplication": "-way replication:",
+        "yes": "Yes"
     },
     "dashboard": {
         "title": "Backends",
@@ -123,8 +125,8 @@
         "delete": {
             "complete": "Deleted",
             "failed": "The backend could not be deleted: __why__",
-            "msg_started": "The backend is being deleted",
             "started": "Deleting",
+            "started_msg": "The backend is being deleted",
             "success": "The backend is deleted",
             "warning": "You are about to delete this Backend, are you sure?"
         },
@@ -139,24 +141,24 @@
             "complete": "Initialized",
             "failed_multi": "Failed initializing disks: __why__",
             "failed_single": "Failed initializing disk __what__: __why__",
-            "msg_started_multi": "The disks are being initialized",
-            "msg_started_single": "Disk __what__ is being initialized",
             "started": "Started",
+            "started_msg_multi": "The disks are being initialized",
+            "started_msg_single": "Disk __what__ is being initialized",
             "success_multi": "The disks have been initialized",
             "success_single": "Disk __what__ has been initialized"
         },
         "remove": {
             "complete": "Removed",
             "failed": "Failed removing disk __what__: __why__",
-            "msg_started": "Disk __what__ is being removed",
             "started": "Started",
+            "started_msg": "Disk __what__ is being removed",
             "success": "Disk __what__ has been removed"
         },
         "restart": {
             "complete": "Restarted",
             "failed": "Failed restarting disk __what__: __why__",
-            "msg_started": "Disk __what__ is being restarted",
             "started": "Started",
+            "started_msg": "Disk __what__ is being restarted",
             "success": "Disk __what__ has been restarted"
         }
     },
@@ -166,6 +168,7 @@
     "icons": {
         "claim": "&#xf140;",
         "collapse": "&#xf147;",
+        "delete": "&#xf014;",
         "devices": "&#xf0a0;",
         "discover": "&#xf002;",
         "down": "&#xf078;",
@@ -180,13 +183,24 @@
         "registernode": "&#xf067;",
         "up": "&#xf077;"
     },
+    "node": {
+        "remove": {
+            "complete": "Removed",
+            "failed": "Failed to remove node __what__: __why__",
+            "started": "Started",
+            "started_msg": "Node __what__ is being removed",
+            "success": "Node __what__ has been removed",
+            "title": "Remove Node",
+            "warning": "Are you sure you want to delete this ALBA node?"
+        }
+    },
     "osds" : {
         "claim": {
             "complete": "Claimed",
             "failed": "Failed claiming ASD__multi__: __why__",
-            "msg_started_multi": "The ASDs are being claimed",
-            "msg_started_single": "ASD __what__ is being claimed",
             "started": "Started",
+            "started_msg_multi": "The ASDs are being claimed",
+            "started_msg_single": "ASD __what__ is being claimed",
             "success_multi": "The ASDs have been claimed",
             "success_single": "ASD __what__ has been claimed",
             "title": "Claim ASD__multi__",
@@ -195,8 +209,8 @@
         "restart": {
             "complete": "Restarted",
             "failed": "Failed restarting ASD __what__: __why__",
-            "msg_started": "ASD __what__ is being restarted",
             "started": "Started",
+            "started_msg": "ASD __what__ is being restarted",
             "success": "ASD __what__ has been restarted"
         }
     },
@@ -207,8 +221,8 @@
         "delete": {
             "complete": "Deleted",
             "failed": "Could not delete this preset: __why__",
-            "msg_started": "The preset is being deleted",
             "started": "Deleting",
+            "started_msg": "The preset is being deleted",
             "success": "The preset was deleted",
             "warning": "Are you sure you want to delete preset \"__what__\"?"
         },
@@ -229,14 +243,14 @@
         "unavailable": "Unavailable"
     },
     "wizards": {
-        "addalbanode": {
-            "asdips": "Below IPs will be used for datatransfer",
-            "basicinfo": "This information will be used to add the remote ASDs",
+        "add_alba_node": {
+            "asd_ips": "Below IPs will be used for datatransfer",
+            "basic_info": "This information will be used to add the remote ASDs",
             "complete": "Completed",
             "failed": "Adding node failed: __why__",
-            "inprogress": "Adding node in progress",
+            "in_progress": "Adding node in progress",
             "ip": "IP Address:",
-            "loading": "Information is loading",
+            "loading": "Loading information",
             "node_id": "Node ID:",
             "port": "Port:",
             "started": "Started",
@@ -324,8 +338,8 @@
         "remove_osd": {
             "complete": "Removed",
             "failed": "Failed removing ASD __what__: __why__",
-            "msg_started": "ASD __what__ is being removed",
             "started": "Started",
+            "started_msg": "ASD __what__ is being removed",
             "success": "ASD __what__ has been removed",
             "title": "Remove ASD",
             "gather": {
@@ -337,6 +351,17 @@
                 "loading": "Disk safety is being loaded.",
                 "nodedownwarning": "Disk is being removed while node is down!"
             }
+        },
+        "replace_alba_node": {
+            "complete": "Completed",
+            "failed": "Replacing node failed: __why__",
+            "in_progress": "Node is being replaced",
+            "replace_msg_1": "Node ",
+            "replace_msg_2": " with IP ",
+            "replace_msg_3": " already exists and will be replaced by this node when proceeding.",
+            "started": "Started",
+            "success": "Node has been replaced",
+            "title": "Replace node"
         },
         "unlink_backend": {
             "accepttext": "I understand the risks, this Backend can be removed.",

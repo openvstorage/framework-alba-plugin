@@ -17,12 +17,12 @@
 """
 Helper module
 """
-from ovs.dal.hybrids.backendtype import BackendType
-from ovs.dal.hybrids.backend import Backend
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albaosd import AlbaOSD
+from ovs.dal.hybrids.backend import Backend
+from ovs.dal.hybrids.backendtype import BackendType
 from ovs.dal.hybrids.j_abmservice import ABMService
 from ovs.dal.hybrids.service import Service
 from ovs.dal.hybrids.servicetype import ServiceType

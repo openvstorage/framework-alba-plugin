@@ -41,12 +41,12 @@ define([
                 if (disks.length === 1) {
                     generic.alertInfo(
                         $.t('alba:disks.initialize.started'),
-                        $.t('alba:disks.initialize.msg_started_single', {what: disks[0].device()})
+                        $.t('alba:disks.initialize.started_msg_single', {what: disks[0].device()})
                     );
                 } else {
                     generic.alertInfo(
                         $.t('alba:disks.initialize.started'),
-                        $.t('alba:disks.initialize.msg_started_multi')
+                        $.t('alba:disks.initialize.started_msg_multi')
                     );
                 }
                 (function(disks, amount, nodeGuid, dfd) {

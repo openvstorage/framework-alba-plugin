@@ -129,6 +129,32 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         return AlbaNodeController.register.delay(node_id)
 
     @action()
+    @required_roles(['manage'])
+    @return_task()
+    @load(AlbaNode)
+    def replace_node(self, albanode, new_node_id):
+        """
+        Replace an existing Alba node with a newly configured node (only possible if IPs are identical)
+        :param albanode: Guid of the ALBA node that needs to be replaced
+        :type albanode: AlbaNode
+        :param new_node_id: ID of the new ALBA node
+        :type new_node_id: str
+        :return: Celery async task result
+        :rtype: CeleryTask
+        """
+        return AlbaNodeController.replace_node.delay(old_node_guid=albanode.guid, new_node_id=new_node_id)
+
+    @log()
+    @required_roles(['manage'])
+    @return_task()
+    @load(AlbaNode)
+    def destroy(self, albanode):
+        """
+        Deletes an ALBA node
+        """
+        return AlbaNodeController.remove_node.delay(node_guid=albanode.guid)
+
+    @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaNode)

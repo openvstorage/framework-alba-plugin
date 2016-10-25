@@ -302,7 +302,7 @@ class AlbaController(object):
         alba_backend.backend.status = 'RUNNING'
         alba_backend.backend.save()
 
-        AlbaNodeController.model_local_albanode()
+        AlbaNodeController.model_albanodes()
         AlbaController.checkup_maintenance_agents.delay()
 
     @staticmethod
@@ -692,11 +692,13 @@ class AlbaController(object):
 
     @staticmethod
     @add_hooks('setup', 'remove')
-    def on_remove(cluster_ip):
+    def on_remove(cluster_ip, complete_removal):
         """
         A node is removed
         :param cluster_ip: IP of the node being removed
         :type cluster_ip: str
+        :param complete_removal: Completely remove the ASDs and ASD-manager or only unlink
+        :type complete_removal: bool
         :return: None
         """
         for alba_backend in AlbaBackendList.get_albabackends():
@@ -707,17 +709,62 @@ class AlbaController(object):
                     service.delete()
 
         storage_router = StorageRouterList.get_by_ip(cluster_ip)
-        from ovs.lib.albanodecontroller import AlbaNodeController
-        for alba_node in storage_router.alba_nodes:
-            for disk in alba_node.disks:
-                for osd in disk.osds:
-                    AlbaNodeController.remove_asd(node_guid=osd.alba_disk.alba_node_guid, asd_id=osd.osd_id, expected_safety=None)
-                AlbaNodeController.remove_disk(node_guid=disk.alba_node_guid, device_alias=disk.aliases[0])
-            alba_node.delete()
+        if storage_router is None:
+            AlbaController._logger.warning('Failed to retrieve StorageRouter with IP {0} from model'.format(cluster_ip))
+            return
+
+        if storage_router.alba_node is not None:
+            alba_node = storage_router.alba_node
+            if complete_removal is True:
+                from ovs.lib.albanodecontroller import AlbaNodeController
+                AlbaNodeController.remove_node(node_guid=storage_router.alba_node.guid)
+                AlbaController.checkup_maintenance_agents()
+            else:
+                alba_node.storagerouter = None
+                alba_node.save()
+
         for service in storage_router.services:
             if service.abm_service is not None:
                 service.abm_service.delete()
             service.delete()
+
+    @staticmethod
+    @add_hooks('setup', 'validate_asd_removal')
+    def validate_removal(storage_router_ip):
+        """
+        Do some validations before removing a node
+        :param storage_router_ip: IP of the node trying to be removed
+        :type storage_router_ip: str
+        :return: Information about ASD safety
+        :rtype: dict
+        """
+        storage_router = StorageRouterList.get_by_ip(storage_router_ip)
+        if storage_router is None:
+            raise RuntimeError('Failed to retrieve the StorageRouter with IP {0}'.format(storage_router_ip))
+
+        asd_ids = {}
+        if storage_router.alba_node is None:
+            return {'confirm': False}
+
+        for disk in storage_router.alba_node.disks:
+            for osd in disk.osds:
+                if osd.alba_backend_guid not in asd_ids:
+                    asd_ids[osd.alba_backend_guid] = []
+                asd_ids[osd.alba_backend_guid].append(osd.osd_id)
+
+        confirm = False
+        messages = []
+        for alba_backend_guid, asd_ids in asd_ids.iteritems():
+            alba_backend = AlbaBackend(alba_backend_guid)
+            safety = AlbaController.calculate_safety(alba_backend_guid=alba_backend_guid, removal_osd_ids=asd_ids)
+            if safety['lost'] > 0:
+                confirm = True
+                messages.append('The removal of these StorageRouters will cause data loss on backend {0}'.format(alba_backend.name))
+            elif safety['critical'] > 0:
+                confirm = True
+                messages.append('The removal of these StorageRouters brings data at risk on backend {0}. Loosing more disks will cause data loss.'.format(alba_backend.name))
+        return {'confirm': confirm,
+                'question': '\n'.join(sorted(messages)) + '\nAre you sure you want to continue?'}
 
     @staticmethod
     @celery.task(name='alba.nsm_checkup', schedule=Schedule(minute='45', hour='*'))
@@ -983,7 +1030,7 @@ class AlbaController(object):
                   'critical': 0,
                   'lost': 0}
         for namespace in safety_data:
-            safety = namespace['safety']
+            safety = namespace.get('safety')
             if safety is None or safety > 0:
                 result['good'] += 1
             elif safety == 0:
