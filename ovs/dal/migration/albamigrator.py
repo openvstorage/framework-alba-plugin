@@ -92,11 +92,19 @@ class ALBAMigrator(object):
                             ukey = '{0}{1}'.format(unique_key.format(property_name), hashlib.sha1(str(data[property_name])).hexdigest())
                             client.set(ukey, key)
 
-            # Complete rework of the way we detect devices to assign roles or use as ASD
-            # Allow loop-, raid-, nvme-, ??-devices and logical volumes as ASD (https://github.com/openvstorage/framework/issues/792)
             from ovs.dal.lists.albanodelist import AlbaNodeList
 
+            storagerouter_guids = []
             for alba_node in AlbaNodeList.get_albanodes():
+                # StorageRouter - AlbaNode 1-to-many relation changes to 1-to-1
+                if alba_node.storagerouter_guid is not None:
+                    if alba_node.storagerouter_guid in storagerouter_guids:
+                        alba_node.storagerouter = None
+                        alba_node.save()
+                    else:
+                        storagerouter_guids.append(alba_node.storagerouter_guid)
+                # Complete rework of the way we detect devices to assign roles or use as ASD
+                # Allow loop-, raid-, nvme-, ??-devices and logical volumes as ASD (https://github.com/openvstorage/framework/issues/792)
                 for alba_disk in alba_node.disks:
                     if alba_disk.aliases is not None:
                         continue
