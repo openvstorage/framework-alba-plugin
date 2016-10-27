@@ -30,24 +30,23 @@ define([
         self.shared        = shared;
 
         // Observables
-        self.albaId              = ko.observable();
-        self.availableActions    = ko.observableArray([]);
-        self.backend             = ko.observable();
-        self.backendGuid         = ko.observable();
-        self.color               = ko.observable();
-        self.guid                = ko.observable(guid);
-        self.linkedBackendGuids  = ko.observableArray();
-        self.loaded              = ko.observable(false);
-        self.loading             = ko.observable(false);
-        self.localSummary        = ko.observable();
-        self.metadataInformation = ko.observable();
-        self.name                = ko.observable();
-        self.presets             = ko.observableArray([]);
-        self.readIOps            = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
-        self.scaling             = ko.observable();
-        self.totalSize           = ko.observable();
-        self.usage               = ko.observable([]);
-        self.writeIOps           = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.albaId             = ko.observable();
+        self.availableActions   = ko.observableArray([]);
+        self.backend            = ko.observable();
+        self.backendGuid        = ko.observable();
+        self.color              = ko.observable();
+        self.guid               = ko.observable(guid);
+        self.linkedBackendGuids = ko.observableArray();
+        self.loaded             = ko.observable(false);
+        self.loading            = ko.observable(false);
+        self.localSummary       = ko.observable();
+        self.name               = ko.observable();
+        self.presets            = ko.observableArray([]);
+        self.readIOps           = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
+        self.scaling            = ko.observable();
+        self.totalSize          = ko.observable();
+        self.usage              = ko.observable([]);
+        self.writeIOps          = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
 
         // Computed
         self.enhancedPresets = ko.computed(function() {
@@ -138,9 +137,6 @@ define([
             if (data.hasOwnProperty('linked_backend_guids')) {
                 self.linkedBackendGuids(data.linked_backend_guids);
             }
-            if (data.hasOwnProperty('metadata_information')) {
-                self.metadataInformation(data.metadata_information);
-            }
             if (data.hasOwnProperty('usages')) {
                 var stats = data.usages;
                 self.totalSize(stats.size);
@@ -166,11 +162,14 @@ define([
             self.loaded(true);
             self.loading(false);
         };
-        self.load = function() {
+        self.load = function(contents) {
+            if (contents === undefined) {
+                contents = '_dynamics,-ns_data,_relations';
+            }
             return $.Deferred(function(deferred) {
                 self.loading(true);
                 if (generic.xhrCompleted(self.loadHandle)) {
-                    self.loadHandle = api.get('alba/backends/' + self.guid(), { queryparams: { contents: '_dynamics,-ns_data,_relations' } })
+                    self.loadHandle = api.get('alba/backends/' + self.guid(), { queryparams: { contents: contents } })
                         .done(function(data) {
                             self.fillData(data);
                             deferred.resolve();
@@ -198,25 +197,39 @@ define([
                     });
                 });
                 app.showMessage(
-                    $.t('alba:disks.claim.warning', { what: '<ul><li>' + asdIDs.join('</li><li>') + '</li></ul>', info: '' }).trim(),
-                    $.t('ovs:generic.areyousure'),
+                    $.t('alba:osds.claim.warning', { what: '<ul><li>' + asdIDs.join('</li><li>') + '</li></ul>', multi: allAsds.length === 1 ? '' : 's' }).trim(),
+                    $.t('alba:osds.claim.title', {multi: allAsds.length === 1 ? '' : 's'}),
                     [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
                 )
                     .done(function(answer) {
                         if (answer === $.t('ovs:generic.yes')) {
-                            generic.alertInfo(
-                                $.t('alba:disks.claim.started'),
-                                $.t('alba:disks.claim.msgstarted')
-                            );
+                            if (allAsds.length === 1) {
+                                generic.alertInfo(
+                                    $.t('alba:osds.claim.started'),
+                                    $.t('alba:osds.claim.started_msg_single', {what: allAsds[0].osdID()})
+                                );
+                            } else {
+                                generic.alertInfo(
+                                    $.t('alba:osds.claim.started'),
+                                    $.t('alba:osds.claim.started_msg_multi')
+                                );
+                            }
                             api.post('alba/backends/' + self.guid() + '/add_units', {
                                 data: { osds: asdData }
                             })
                                 .then(self.shared.tasks.wait)
                                 .done(function() {
-                                    generic.alertSuccess(
-                                        $.t('alba:disks.claim.complete'),
-                                        $.t('alba:disks.claim.success')
-                                    );
+                                    if (allAsds.length === 1) {
+                                        generic.alertSuccess(
+                                            $.t('alba:osds.claim.complete'),
+                                            $.t('alba:osds.claim.success_single', {what: allAsds[0].osdID()})
+                                        );
+                                    } else {
+                                        generic.alertSuccess(
+                                            $.t('alba:osds.claim.complete'),
+                                            $.t('alba:osds.claim.success_multi')
+                                        );
+                                    }
                                     $.each(allAsds, function(index, asd) {
                                         asd.ignoreNext(true);
                                         asd.status('claimed');
@@ -228,7 +241,7 @@ define([
                                     error = generic.extractErrorMessage(error);
                                     generic.alertError(
                                         $.t('ovs:generic.error'),
-                                        $.t('alba:disks.claim.failed', { why: error })
+                                        $.t('alba:osds.claim.failed', { multi: allAsds.length === 1 ? '' : 's', why: error })
                                     );
                                     $.each(allAsds, function(index, asd) {
                                         asd.processing(false);

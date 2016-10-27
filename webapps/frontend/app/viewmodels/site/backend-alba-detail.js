@@ -19,11 +19,11 @@ define([
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/albabackend', '../containers/albadisk', '../containers/albanode', '../containers/backend',
     '../containers/backendtype', '../containers/domain', '../containers/storagerouter',
-    '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index'
+    '../wizards/addalbanode/index', '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index'
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
             AlbaBackend, Disk, Node, Backend, BackendType, Domain, StorageRouter,
-            AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard) {
+            AddAlbaNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -270,14 +270,17 @@ define([
             });
             if (changes) {
                 self.disks.sort(function (a, b) {
-                    return a.name() < b.name() ? -1 : 1;
+                    if (a.device() === undefined || b.device() === undefined) {
+                        return a.alias() < b.alias() ? -1 : 1;
+                    }
+                    return a.device() < b.device() ? -1 : 1;
                 });
                 $.each(self.registeredNodes(), function(index, node) {
                     if (!nodeDisks.hasOwnProperty(node.nodeID())) {
                         node.disks([]);
                     } else {
                         nodeDisks[node.nodeID()].sort(function (a, b) {
-                            return a.name() < b.name() ? -1 : 1;
+                            return a.device() < b.device() ? -1 : 1;
                         });
                         node.disks(nodeDisks[node.nodeID()]);
                     }
@@ -289,7 +292,12 @@ define([
                             asd.parentABGuid(self.albaBackend().guid());
                         })
                     })
-                })
+                });
+                self.registeredNodes.sort(function(a, b) {
+                    if (a.storageRouter() !== undefined && b.storageRouter() !== undefined) {
+                        return a.storageRouter().name() < b.storageRouter().name() ? -1 : 1;
+                    }
+                });
             }
         };
         self.loadDomains = function() {
@@ -343,7 +351,7 @@ define([
                         if (answer === $.t('ovs:generic.yes')) {
                             generic.alertSuccess(
                                 $.t('alba:detail.delete.started'),
-                                $.t('alba:detail.delete.msgstarted')
+                                $.t('alba:detail.delete.started_msg')
                             );
                             router.navigate(self.shared.routing.loadHash('backends'));
                             api.del('alba/backends/' + self.albaBackend().guid())
@@ -380,7 +388,7 @@ define([
                         if (answer === $.t('ovs:generic.yes')) {
                             generic.alertSuccess(
                                 $.t('alba:presets.delete.started'),
-                                $.t('alba:presets.delete.msgstarted')
+                                $.t('alba:presets.delete.started_msg')
                             );
                             api.post('alba/backends/' + self.albaBackend().guid() + '/delete_preset', { data: { name: name } })
                                 .then(self.shared.tasks.wait)
@@ -404,6 +412,20 @@ define([
                         }
                     });
             }).promise();
+        };
+        self.register = function(node) {
+            var oldNode = undefined;
+            $.each(self.registeredNodes(), function(index, registeredNode) {
+                if (registeredNode.ip() === node.ip()) {
+                    oldNode = registeredNode;
+                    return false;
+                }
+            });
+            dialog.show(new AddAlbaNodeWizard({
+                modal: true,
+                newNode: node,
+                oldNode: oldNode
+            }));
         };
         self.addPreset = function() {
             dialog.show(new AddPresetWizard({

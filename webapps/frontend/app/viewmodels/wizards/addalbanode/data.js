@@ -18,11 +18,8 @@ define(['knockout'], function(ko){
     "use strict";
     var singleton = function() {
         return {
-            nodeID:   ko.observable(),
-            ip:       ko.observable(),
-            port:     ko.observable(),
-            username: ko.observable(),
-            asdIPs:   ko.observableArray([])
+            newNode: ko.observable(),
+            oldNode: ko.observable()
         };
     };
     return singleton();

@@ -26,19 +26,21 @@ define([
         self.node = undefined;
 
         // Observables
+        self.alias        = ko.observable();
+        self.aliases      = ko.observableArray([]);
+        self.device       = ko.observable();
+        self.guid         = ko.observable();
+        self.highlighted  = ko.observable(false);
         self.ignoreNext   = ko.observable(false);
         self.loaded       = ko.observable(false);
-        self.guid         = ko.observable();
+        self.mountpoint   = ko.observable();
         self.name         = ko.observable(name);
         self.nodeID       = ko.observable();
         self.osds         = ko.observableArray([]);
-        self.usage        = ko.observable();
+        self.processing   = ko.observable(false);
         self.status       = ko.observable();
         self.statusDetail = ko.observable();
-        self.device       = ko.observable();
-        self.mountpoint   = ko.observable();
-        self.processing   = ko.observable(false);
-        self.highlighted  = ko.observable(false);
+        self.usage        = ko.observable();
 
         // Computed
         self.canRemove = ko.computed(function() {
@@ -73,11 +75,14 @@ define([
                 self.status(data.status);
                 self.nodeID(data.node_id);
                 generic.trySet(self.guid, data, 'guid');
+                generic.trySet(self.aliases, data, 'aliases');
                 generic.trySet(self.statusDetail, data, 'status_detail');
                 generic.trySet(self.usage, data, 'usage');
                 generic.trySet(self.device, data, 'device');
                 generic.trySet(self.mountpoint, data, 'mountpoint');
-
+                if (self.aliases().length > 0) {
+                    self.alias(self.aliases()[0]);
+                }
                 if (!data.hasOwnProperty('asds')) {
                     return;
                 }

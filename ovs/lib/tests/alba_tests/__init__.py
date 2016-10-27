@@ -13,19 +13,3 @@
 #
 # Open vStorage is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY of any kind.
-
-"""
-AlbaDisk module
-"""
-from ovs.dal.dataobject import DataObject
-from ovs.dal.hybrids.albanode import AlbaNode
-from ovs.dal.structures import Property, Relation
-
-
-class AlbaDisk(DataObject):
-    """
-    The AlbaDisk represents a disk hosting zero or more ASDs
-    """
-    __properties = [Property('aliases', list, doc='The device\'s aliases')]
-    __relations = [Relation('alba_node', AlbaNode, 'disks', doc='The AlbaNode to which the AlbaDisk belongs')]
-    __dynamics = []

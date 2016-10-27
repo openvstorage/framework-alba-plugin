@@ -19,3 +19,5 @@ before_script:
   - export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.7/dist-packages/:/usr/lib/python2.7/dist-packages
 script:
   - ovs unittest /opt/OpenvStorage/ovs/dal/tests/test_alba.py
+  - ovs unittest /opt/OpenvStorage/ovs/dal/tests/test_hybrids.py
+  - ovs unittest /opt/OpenvStorage/ovs/lib/tests/alba_tests/test_nsmcheckup.py

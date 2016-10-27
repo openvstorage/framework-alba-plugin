@@ -29,7 +29,7 @@ class ALBAMigrator(object):
     """
 
     identifier = 'alba'
-    THIS_VERSION = 10
+    THIS_VERSION = 11
 
     def __init__(self):
         """ Init method """
@@ -69,6 +69,51 @@ class ALBAMigrator(object):
 
         # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
         elif working_version < ALBAMigrator.THIS_VERSION:
-            pass
+            # Migrate unique constraints
+            import hashlib
+            from ovs.dal.helpers import HybridRunner, Descriptor
+            from ovs.extensions.storage.persistentfactory import PersistentFactory
+            client = PersistentFactory.get_client()
+            hybrid_structure = HybridRunner.get_hybrids()
+            for class_descriptor in hybrid_structure.values():
+                cls = Descriptor().load(class_descriptor).get_object()
+                classname = cls.__name__.lower()
+                unique_key = 'ovs_unique_{0}_{{0}}_'.format(classname)
+                uniques = []
+                # noinspection PyProtectedMember
+                for prop in cls._properties:
+                    if prop.unique is True and len([k for k in client.prefix(unique_key.format(prop.name))]) == 0:
+                        uniques.append(prop.name)
+                if len(uniques) > 0:
+                    prefix = 'ovs_data_{0}_'.format(classname)
+                    for key in client.prefix(prefix):
+                        data = client.get(key)
+                        for property_name in uniques:
+                            ukey = '{0}{1}'.format(unique_key.format(property_name), hashlib.sha1(str(data[property_name])).hexdigest())
+                            client.set(ukey, key)
+
+            from ovs.dal.lists.albanodelist import AlbaNodeList
+
+            storagerouter_guids = []
+            for alba_node in AlbaNodeList.get_albanodes():
+                # StorageRouter - AlbaNode 1-to-many relation changes to 1-to-1
+                if alba_node.storagerouter_guid is not None:
+                    if alba_node.storagerouter_guid in storagerouter_guids:
+                        alba_node.storagerouter = None
+                        alba_node.save()
+                    else:
+                        storagerouter_guids.append(alba_node.storagerouter_guid)
+                # Complete rework of the way we detect devices to assign roles or use as ASD
+                # Allow loop-, raid-, nvme-, ??-devices and logical volumes as ASD (https://github.com/openvstorage/framework/issues/792)
+                for alba_disk in alba_node.disks:
+                    if alba_disk.aliases is not None:
+                        continue
+                    all_disks = alba_node.client.get_disks()
+                    for disk_info in all_disks.itervalues():
+                        # noinspection PyProtectedMember
+                        if '/dev/disk/by-id/{0}'.format(alba_disk._data['name']) in disk_info['aliases']:
+                            alba_disk.aliases = disk_info['aliases']
+                            alba_disk.save()
+                            break
 
         return ALBAMigrator.THIS_VERSION

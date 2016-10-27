@@ -17,8 +17,8 @@
 """
 AlbaBackend module
 """
+import copy
 import time
-import requests
 from threading import Lock, Thread
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.backend import Backend
@@ -48,7 +48,6 @@ class AlbaBackend(DataObject):
                   Dynamic('presets', list, 60),
                   Dynamic('available', bool, 60),
                   Dynamic('name', str, 3600),
-                  Dynamic('metadata_information', dict, 60),
                   Dynamic('asd_statistics', dict, 5, locked=True),
                   Dynamic('linked_backend_guids', set, 30),
                   Dynamic('remote_stack', dict, 60),
@@ -76,12 +75,13 @@ class AlbaBackend(DataObject):
             node_id = node.node_id
             storage_map[node_id] = {}
             for disk in node.disks:
-                disk_id = disk.name
-                storage_map[node_id][disk_id] = {'name': disk_id,
+                disk_id = disk.aliases[0].split('/')[-1]
+                storage_map[node_id][disk_id] = {'asds': {},
+                                                 'name': disk_id,
                                                  'guid': disk.guid,
                                                  'status': 'error',
-                                                 'status_detail': 'unknown',
-                                                 'asds': {}}
+                                                 'aliases': disk.aliases,
+                                                 'status_detail': 'unknown'}
                 for osd in disk.osds:
                     osd_id = osd.osd_id
                     data = {'asd_id': osd_id,
@@ -94,51 +94,27 @@ class AlbaBackend(DataObject):
 
         # Load information from node
         def _load_live_info(_node, _node_data):
-            # Live disk information
-            try:
-                disk_data = _node.client.get_disks()
-            except (requests.ConnectionError, requests.Timeout):
-                for entry in _node_data.values():
-                    entry['status_detail'] = 'nodedown'
-                disk_data = {}
-            for _disk_id, disk_info in disk_data.iteritems():
-                if _disk_id in _node_data:
-                    entry = _node_data[_disk_id]
-                else:
-                    entry = {'name': _disk_id,
-                             'status': 'unknown',
-                             'status_detail': '',
-                             'asds': {}}
-                    _node_data[_disk_id] = entry
-                entry.update(disk_info)
-                if disk_info['state'] == 'ok':
-                    entry['status'] = 'uninitialized' if disk_info['available'] is True else 'initialized'
-                    entry['status_detail'] = ''
-                else:
-                    entry['status'] = disk_info['state']
-                    entry['status_detail'] = disk_info.get('state_detail', '')
-            # Live ASD information
-            try:
-                _asd_data = _node.client.get_asds()
-            except (requests.ConnectionError, requests.Timeout):
+            _data = _node.storage_stack
+            if _data['status'] != 'ok':
                 for disk_entry in _node_data.values():
-                    for entry in disk_entry['asds'].values():
-                        entry['status_detail'] = 'nodedown'
-                _asd_data = {}
-            for _disk_id, asds in _asd_data.iteritems():
-                if _disk_id not in _node_data:
-                    continue
-                for _asd_id, asd_info in asds.iteritems():
-                    entry = {'asd_id': _asd_id,
-                             'status': 'error' if asd_info['state'] == 'error' else 'initialized',
-                             'status_detail': asd_info.get('state_detail', ''),
-                             'state': asd_info['state'],
-                             'state_detail': asd_info.get('state_detail', '')}
-                    if _asd_id not in _node_data[_disk_id]['asds']:
-                        _node_data[_disk_id]['asds'][_asd_id] = entry
-                        asd_map[_asd_id] = entry
-                    else:
-                        _node_data[_disk_id]['asds'][_asd_id].update(entry)
+                    disk_entry['status_detail'] = _data['status']
+                    for entry in disk_entry.get('asds', {}).values():
+                        entry['status_detail'] = _data['status']
+            else:
+                for _disk_id, disk_asd_info in _data['stack'].iteritems():
+                    if _disk_id not in _node_data:
+                        _node_data[_disk_id] = {'asds': {}}
+                    entry = _node_data[_disk_id]
+                    disk_info = copy.deepcopy(disk_asd_info)
+                    del disk_info['asds']
+                    entry.update(disk_info)
+                    asds_info = disk_asd_info['asds']
+                    for _asd_id, asd_info in asds_info.iteritems():
+                        if _asd_id not in _node_data[_disk_id]['asds']:
+                            _node_data[_disk_id]['asds'][_asd_id] = asd_info
+                        else:
+                            _node_data[_disk_id]['asds'][_asd_id].update(asd_info)
+
         threads = []
         for node in alba_nodes:
             thread = Thread(target=_load_live_info, args=(node, storage_map[node.node_id]))
@@ -161,45 +137,49 @@ class AlbaBackend(DataObject):
         else:
             interval = Configuration.get('/ovs/alba/backends/global_gui_error_interval')
         config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name))
+        asds = {}
         for found_osd in AlbaCLI.run(command='list-all-osds', config=config, to_json=True):
-            node_id = found_osd['node_id']
-            asd_id = found_osd['long_id']
-            for _disk in storage_map.get(node_id, {}).values():
-                asd_data = _disk['asds'].get(asd_id, {})
-                if 'state' not in asd_data:
-                    continue
-                if found_osd.get('decommissioned') is True:
-                    asd_data['status'] = 'unavailable'
-                    asd_data['status_detail'] = 'decommissioned'
-                    continue
-                state = asd_data['state']
-                if state == 'ok':
-                    if found_osd['id'] is None:
-                        alba_id = found_osd['alba_id']
-                        if alba_id is None:
-                            asd_data['status'] = 'available'
+            asds[found_osd['long_id']] = found_osd
+        for node_data in storage_map.values():
+            for _disk in node_data.values():
+                for asd_id, asd_data in _disk['asds'].iteritems():
+                    if asd_id not in asds:
+                        continue
+                    found_osd = asds[asd_id]
+                    if 'state' not in asd_data:
+                        continue
+                    if found_osd.get('decommissioned') is True:
+                        asd_data['status'] = 'unavailable'
+                        asd_data['status_detail'] = 'decommissioned'
+                        continue
+                    state = asd_data['state']
+                    if state == 'ok':
+                        if found_osd['id'] is None:
+                            alba_id = found_osd['alba_id']
+                            if alba_id is None:
+                                asd_data['status'] = 'available'
+                            else:
+                                asd_data['status'] = 'unavailable'
+                                alba_backend = alba_backend_map.get(alba_id)
+                                if alba_backend is not None:
+                                    asd_data['alba_backend_guid'] = alba_backend.guid
                         else:
-                            asd_data['status'] = 'unavailable'
-                            alba_backend = alba_backend_map.get(alba_id)
-                            if alba_backend is not None:
-                                asd_data['alba_backend_guid'] = alba_backend.guid
-                    else:
-                        asd_data['alba_backend_guid'] = self.guid
-                        asd_data['status'] = 'warning'
-                        asd_data['status_detail'] = 'recenterrors'
+                            asd_data['alba_backend_guid'] = self.guid
+                            asd_data['status'] = 'warning'
+                            asd_data['status_detail'] = 'recenterrors'
 
-                        read = found_osd['read'] or [0]
-                        write = found_osd['write'] or [0]
-                        errors = found_osd['errors']
-                        if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + interval):
-                            asd_data['status'] = 'claimed'
-                            asd_data['status_detail'] = ''
-                else:
-                    asd_data['status'] = 'error'
-                    asd_data['status_detail'] = asd_data.get('state_detail', '')
-                    alba_backend = alba_backend_map.get(found_osd.get('alba_id'))
-                    if alba_backend is not None:
-                        asd_data['alba_backend_guid'] = alba_backend.guid
+                            read = found_osd['read'] or [0]
+                            write = found_osd['write'] or [0]
+                            errors = found_osd['errors']
+                            if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + interval):
+                                asd_data['status'] = 'claimed'
+                                asd_data['status_detail'] = ''
+                    else:
+                        asd_data['status'] = 'error'
+                        asd_data['status_detail'] = asd_data.get('state_detail', '')
+                        alba_backend = alba_backend_map.get(found_osd.get('alba_id'))
+                        if alba_backend is not None:
+                            asd_data['alba_backend_guid'] = alba_backend.guid
         return storage_map
 
     def _statistics(self):
@@ -339,26 +319,6 @@ class AlbaBackend(DataObject):
         Returns the backend's name
         """
         return self.backend.name
-
-    def _metadata_information(self):
-        """
-        Returns metadata information about the backend
-        """
-        from ovs.dal.hybrids.diskpartition import DiskPartition
-        from ovs.dal.hybrids.servicetype import ServiceType
-        from ovs.dal.lists.servicetypelist import ServiceTypeList
-
-        info = {'nsm_partition_guids': []}
-
-        nsm_service_name = self.backend.name + "-nsm_0"
-        nsm_service_type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.NS_MGR)
-        for service in nsm_service_type.services:
-            if service.name == nsm_service_name and service.is_internal is True:
-                for disk in service.storagerouter.disks:
-                    for partition in disk.partitions:
-                        if DiskPartition.ROLES.DB in partition.roles:
-                            info['nsm_partition_guids'].append(partition.guid)
-        return info
 
     def _asd_statistics(self):
         """
