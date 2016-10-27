@@ -22,7 +22,6 @@ from ovs.celery_run import celery
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.albacli import AlbaCLI
-from ovs.lib.helpers.decorators import ensure_single
 from ovs.lib.helpers.toolbox import Schedule
 from ovs.log.log_handler import LogHandler
 
@@ -35,8 +34,7 @@ class AlbaScheduledTaskController(object):
     _logger = LogHandler.get('lib', name='scheduled tasks')
 
     @staticmethod
-    @celery.task(name='alba.scheduled.verify_namespaces', schedule=Schedule(minute='0', hour='0', month_of_year='*/3'))
-    @ensure_single(task_name='alba.scheduled.verify_namespaces')
+    @celery.task(name='alba.scheduled.verify_namespaces', schedule=Schedule(minute='0', hour='0', day_of_month='1', month_of_year='*/3'))
     def verify_namespaces():
         """
         Verify namespaces for all backends
