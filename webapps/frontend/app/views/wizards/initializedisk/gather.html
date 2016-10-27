@@ -16,25 +16,23 @@ Open vStorage is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY of any kind.
 -->
 <div>
-    <form role="form form-horizontal" class="form-horizontal">
-        <p data-i18n="[html]alba:wizards.initializedisk.gather.basicinfo"></p>
-        <div class="form-group" style="margin-bottom: 0;">
-            <label class="col-lg-2 control-label" for="amount" data-i18n="alba:wizards.initializedisk.gather.amount"></label>
-            <div class="col-lg-3">
-                <div class="input-group">
-                    <span class="input-group-btn">
-                        <button class="btn btn-default" type="button" data-bind="click: function() { data.amount(Math.max(1, parseInt('0' + data.amount(), 10) - 1)); }">
-                            <span class="fa fa-minus"></span>
-                        </button>
-                    </span>
-                    <input type="text" id="amount" class="form-control" data-bind="value: data.amount">
-                    <span class="input-group-btn">
-                        <button class="btn btn-default" type="button" data-bind="click: function() { data.amount(parseInt('0' + data.amount(), 10) + 1); }">
-                            <span class="fa fa-plus"></span>
-                        </button>
-                    </span>
-                </div>
+    <p data-i18n="[html]alba:wizards.initializedisk.gather.basicinfo"></p>
+    <div class="form-group" style="margin-bottom: 0;">
+        <label class="col-lg-2 control-label" for="amount" data-i18n="alba:wizards.initializedisk.gather.amount"></label>
+        <div class="col-lg-3">
+            <div class="input-group">
+                <span class="input-group-btn">
+                    <button class="btn btn-default" type="button" data-bind="click: function() { data.amount(Math.max(1, parseInt('0' + data.amount(), 10) - 1)); }">
+                        <span class="fa fa-minus"></span>
+                    </button>
+                </span>
+                <input type="text" id="amount" class="form-control" data-bind="value: data.amount">
+                <span class="input-group-btn">
+                    <button class="btn btn-default" type="button" data-bind="click: function() { data.amount(parseInt('0' + data.amount(), 10) + 1); }">
+                        <span class="fa fa-plus"></span>
+                    </button>
+                </span>
             </div>
         </div>
-    </form>
+    </div>
 </div>

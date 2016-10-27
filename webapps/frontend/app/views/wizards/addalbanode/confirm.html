@@ -16,21 +16,19 @@ Open vStorage is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY of any kind.
 -->
 <div>
-    <form class="form-horizontal">
-        <div>
-            <p data-i18n="[html]alba:wizards.add_alba_node.basic_info"></p>
-            <ul>
-                <li><b data-i18n="alba:wizards.add_alba_node.node_id"></b> <span data-bind="text: data.newNode().nodeID"></span></li>
-                <li><b data-i18n="alba:wizards.add_alba_node.ip"></b> <span data-bind="text: data.newNode().ip()"></span></li>
-                <li><b data-i18n="alba:wizards.add_alba_node.port"></b> <span data-bind="text: data.newNode().port()"></span></li>
-                <li><b data-i18n="alba:wizards.add_alba_node.username"></b> <span data-bind="text: data.newNode().username()"></span></li>
-            </ul>
-            <p data-i18n="[html]alba:wizards.add_alba_node.asd_ips" data-bind="visible: data.newNode().ips().length > 0"></p>
-            <ul data-bind="foreach: data.newNode().ips()">
-                <li><span data-bind="text: $data"></span></li>
-            </ul>
-        </div>
-    </form>
+    <div>
+        <p data-i18n="[html]alba:wizards.add_alba_node.basic_info"></p>
+        <ul>
+            <li><b data-i18n="alba:wizards.add_alba_node.node_id"></b> <span data-bind="text: data.newNode().nodeID"></span></li>
+            <li><b data-i18n="alba:wizards.add_alba_node.ip"></b> <span data-bind="text: data.newNode().ip()"></span></li>
+            <li><b data-i18n="alba:wizards.add_alba_node.port"></b> <span data-bind="text: data.newNode().port()"></span></li>
+            <li><b data-i18n="alba:wizards.add_alba_node.username"></b> <span data-bind="text: data.newNode().username()"></span></li>
+        </ul>
+        <p data-i18n="[html]alba:wizards.add_alba_node.asd_ips" data-bind="visible: data.newNode().ips().length > 0"></p>
+        <ul data-bind="foreach: data.newNode().ips()">
+            <li><span data-bind="text: $data"></span></li>
+        </ul>
+    </div>
     <div class="alert alert-warning" data-bind="visible: data.oldNode() !== undefined" style="margin-top: 10px;">
         <span data-i18n="alba:wizards.replace_alba_node.replace_msg_1"></span>
         <span data-bind="text: data.oldNode().nodeID()"></span>
