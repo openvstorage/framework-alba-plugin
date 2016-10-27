@@ -18,17 +18,16 @@
 Contains the AlbaBackendViewSet
 """
 
-from backend.decorators import load, log, required_roles, return_list, return_object, return_task, return_plain
+from backend.decorators import load, log, required_roles, return_list, return_object, return_task, return_simple
 from backend.exceptions import HttpForbiddenException, HttpNotAcceptableException
 from backend.serializers.serializers import FullSerializer
 from backend.toolbox import Toolbox
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.lib.albacontroller import AlbaController
-from rest_framework import status, viewsets
+from rest_framework import viewsets
 from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 
 
 class AlbaBackendViewSet(viewsets.ViewSet):
@@ -38,6 +37,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
     prefix = r'alba/backends'
     base_name = 'albabackends'
+    return_exceptions = ['albabackends.destroy']
 
     def validate_access(self, albabackend, request):
         """
@@ -57,7 +57,9 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @load()
     def list(self, request):
         """
-        Lists all available ALBA Backends
+        Lists all available ALBA Backends:
+        :param request: The raw request
+        :type request: Request
         """
         backends = AlbaBackendList.get_albabackends()
         allowed_backends = []
@@ -76,11 +78,13 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         Load information about a given AlbaBackend
         :param albabackend: ALBA backend to retrieve
+        :type albabackend: AlbaBackend
         """
         return albabackend
 
     @log()
     @required_roles(['read', 'write', 'manage'])
+    @return_object(AlbaBackend, mode='created')
     @load()
     def create(self, request, version):
         """
@@ -93,16 +97,12 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         if version < 3:
             request.DATA['scaling'] = 'LOCAL'
         serializer = FullSerializer(AlbaBackend, instance=AlbaBackend(), data=request.DATA, allow_passwords=True)
-        if serializer.is_valid():
-            alba_backend = serializer.object
-            alba_backend.save()
-            alba_backend.backend.status = 'INSTALLING'
-            alba_backend.backend.save()
-            AlbaController.add_cluster.delay(alba_backend.guid)
-            serializer = FullSerializer(AlbaBackend, contents='', instance=alba_backend)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        alba_backend = serializer.object
+        alba_backend.save()
+        alba_backend.backend.status = 'INSTALLING'
+        alba_backend.backend.save()
+        AlbaController.add_cluster.delay(alba_backend.guid)
+        return alba_backend
 
     @log()
     @required_roles(['read', 'write', 'manage'])
@@ -112,6 +112,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         Deletes an AlbaBackend
         :param albabackend: ALBA backend to destroy
+        :type albabackend: AlbaBackend
         """
         return AlbaController.remove_cluster.delay(albabackend.guid)
 
@@ -124,6 +125,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         Add storage units to the backend and register with alba nsm
         :param albabackend: ALBA backend to add units to
+        :type albabackend: AlbaBackend
         :param osds: List of OSD ids
         :type osds: list
         """
@@ -138,22 +140,27 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         Gets the configuration metadata for an Alba backend
         :param albabackend: ALBA backend to retrieve metadata for
+        :type albabackend: AlbaBackend
         """
         return AlbaController.get_arakoon_config.delay(albabackend.guid)
 
     @link()
     @log()
     @required_roles(['read'])
+    @return_simple()
     @load(AlbaBackend, validator=validate_access)
     def get_available_actions(self, albabackend):
         """
         Gets a list of all available actions
         :param albabackend: ALBA backend to retrieve available actions for
+        :type albabackend: AlbaBackend
+        :return: List of available actions
+        :rtype: list
         """
         actions = []
         if len(albabackend.osds) == 0:
             actions.append('REMOVE')
-        return Response(actions, status=status.HTTP_200_OK)
+        return actions
 
     @action()
     @log()
@@ -164,11 +171,17 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         Adds a preset to a backend
         :param albabackend: ALBA backend to add preset for
+        :type albabackend: AlbaBackend
         :param name: Name of preset
+        :type name: str
         :param compression: Compression type
+        :type compression: str
         :param policies: Policies linked to the preset
+        :type policies: list
         :param encryption: Encryption type
+        :type encryption: str
         :param fragment_size: Size of a fragment in bytes
+        :type fragment_size: int
         """
         return AlbaController.add_preset.delay(albabackend.guid, name, compression, policies, encryption, fragment_size)
 
@@ -181,7 +194,9 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         Deletes a preset
         :param albabackend: ALBA backend to delete present from
+        :type albabackend: AlbaBackend
         :param name: Name of preset to delete
+        :type name: str
         """
         return AlbaController.delete_preset.delay(albabackend.guid, name)
 
@@ -194,8 +209,11 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         Updates a preset's policies to a backend
         :param albabackend: ALBA backend to update preset for
+        :type albabackend: AlbaBackend
         :param name: Name of preset
+        :type name: str
         :param policies: Policies to set
+        :type policies: list
         """
         return AlbaController.update_preset.delay(albabackend.guid, name, policies)
 
@@ -208,7 +226,9 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         Returns the safety resulting the removal of a given disk
         :param albabackend: ALBA backend to calculate safety for
+        :type albabackend: AlbaBackend
         :param asd_id: ID of the ASD to calculate safety off
+        :type asd_id: str
         """
         return AlbaController.calculate_safety.delay(albabackend.guid, [asd_id])
 
@@ -225,7 +245,9 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :param metadata: Metadata about the linked ALBA Backend
         :type metadata: dict
         :param local_storagerouter: The local storagerouter
+        :type local_storagerouter: StorageRouter
         :param request: Raw request
+        :type request: Request
         """
         if 'backend_connection_info' not in metadata:
             raise HttpNotAcceptableException(error_description='Invalid metadata passed',
@@ -256,7 +278,6 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         Unlink a LOCAL or GLOBAL ALBA Backend from a GLOBAL ALBA Backend
         :param albabackend: ALBA backend to unlink another LOCAL or GLOBAL ALBA Backend from
         :type albabackend: AlbaBackend
-
         :param linked_guid: Guid of the GLOBAL or LOCAL ALBA Backend which will be unlinked (Can be a local or a remote ALBA Backend)
         :type linked_guid: str
         """
