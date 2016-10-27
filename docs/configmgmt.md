@@ -5,7 +5,7 @@ There are 2 option as configuration management system:
 * Arakoon, the preferred and advised system.
 * ETCD
 
-#### Set, get and list configuration keys
+### Set, get and list configuration keys
 The [OVS commandline](https://openvstorage.gitbooks.io/administration/content/Administration/usingthecli/configmgmt.html) allows to easily list and change the configuration parameters of the cluster:
 * `ovs config edit some/key`: Edit that key in your `$EDITOR`. If it doesn't exist, the key is created.
 * `ovs config list some`: List all keys with the given prefix.
@@ -51,3 +51,8 @@ The [OVS commandline](https://openvstorage.gitbooks.io/administration/content/Ad
                                                 "log_level": "info"}
 /ovs/alba/backends/<guid>/maintenance/nr_of_agents = "$Amount of maintenance agents deployed for this backend"  (Defaults to amount of ALBA nodes)
 ```
+
+### Changing the schedule for the ALBA backend verifictaion process
+In case you want to change the schedule for the ALBA backend verifictaion process which checks the state of each object in the backend, add `"alba.scheduled.verify_namespaces": {"minute": "0", "hour": "0", "month_of_year": "*/X"}` to the `/ovs/framework/scheduling/celery` JSON object. In this schedule X is the amount of months between each run.
+
+In case the configuration cannot be parsed at all (e.g. invalid JSON), the code will fallback to the hardcoded schedule. If the crontab arguments are invalid (e.g. they contain an unsupported key) the task will be disabled.
