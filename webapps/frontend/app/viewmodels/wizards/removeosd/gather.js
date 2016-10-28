@@ -36,6 +36,7 @@ define([
         // Functions
         self.finish = function() {
             self.data.albaOSD().processing(true);
+            self.data.albaDisk().processing(true);
             return $.Deferred(function(deferred) {
                 generic.alertInfo(
                     $.t('alba:wizards.remove_osd.started'),
@@ -63,9 +64,7 @@ define([
                     })
                     .always(function() {
                         self.data.albaOSD().processing(false);
-                        if (self.data.albaDisk() !== undefined) {
-                            self.data.albaDisk().processing(false);
-                        }
+                        self.data.albaDisk().processing(false);
                     });
                 deferred.resolve();
             }).promise();
