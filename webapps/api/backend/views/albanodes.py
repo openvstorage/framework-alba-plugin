@@ -18,16 +18,16 @@
 Contains the AlbaNodeViewSet
 """
 
-from backend.decorators import load, log, required_roles, return_list, return_object, return_task
-from backend.exceptions import HttpNotAcceptableException
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from api.backend.decorators import load, log, required_roles, return_list, return_object, return_task
+from api.backend.exceptions import HttpNotAcceptableException
 from ovs.dal.datalist import DataList
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.extensions.generic.configuration import Configuration
 from ovs.lib.albanodecontroller import AlbaNodeController
-from rest_framework import viewsets
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 
 
 class AlbaNodeViewSet(viewsets.ViewSet):

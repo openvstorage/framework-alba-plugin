@@ -18,16 +18,16 @@
 Contains the AlbaBackendViewSet
 """
 
-from backend.decorators import load, log, required_roles, return_list, return_object, return_task, return_simple
-from backend.exceptions import HttpForbiddenException, HttpNotAcceptableException
-from backend.serializers.serializers import FullSerializer
-from backend.toolbox import Toolbox
-from ovs.dal.hybrids.albabackend import AlbaBackend
-from ovs.dal.lists.albabackendlist import AlbaBackendList
-from ovs.lib.albacontroller import AlbaController
 from rest_framework import viewsets
 from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
+from api.backend.decorators import load, log, required_roles, return_list, return_object, return_task, return_simple
+from api.backend.exceptions import HttpForbiddenException, HttpNotAcceptableException
+from api.backend.serializers.serializers import FullSerializer
+from api.backend.toolbox import Toolbox
+from ovs.dal.hybrids.albabackend import AlbaBackend
+from ovs.dal.lists.albabackendlist import AlbaBackendList
+from ovs.lib.albacontroller import AlbaController
 
 
 class AlbaBackendViewSet(viewsets.ViewSet):
