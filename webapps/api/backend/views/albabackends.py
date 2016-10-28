@@ -97,7 +97,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         if version < 3:
             request.DATA['scaling'] = 'LOCAL'
         serializer = FullSerializer(AlbaBackend, instance=AlbaBackend(), data=request.DATA, allow_passwords=True)
-        alba_backend = serializer.object
+        alba_backend = serializer.deserialize()
         alba_backend.save()
         alba_backend.backend.status = 'INSTALLING'
         alba_backend.backend.save()
