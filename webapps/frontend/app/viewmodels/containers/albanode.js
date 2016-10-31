@@ -192,9 +192,6 @@ define([
                     return false;
                 }
             });
-            if (matchingDisk !== undefined) {
-                matchingDisk.processing(true);
-            }
             dialog.show(new RemoveOSDWizard({
                 modal: true,
                 albaBackend: self.albaBackend,
