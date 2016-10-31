@@ -37,7 +37,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
     prefix = r'alba/nodes'
     base_name = 'albanodes'
-    return_exceptions = ['albanodes.create']
+    return_exceptions = ['albanodes.create', 'albanodes.destroy']
 
     @log()
     @required_roles(['read'])
@@ -157,6 +157,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     def destroy(self, albanode):
         """
         Deletes an ALBA node
+        :param albanode: The AlbaNode to be removed
+        :type albanode: AlbaNode
         """
         return AlbaNodeController.remove_node.delay(node_guid=albanode.guid)
 
