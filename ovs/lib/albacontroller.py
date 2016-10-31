@@ -1613,7 +1613,7 @@ class AlbaController(object):
                             AlbaController._logger.debug('* Candidate removal (too many services): {0} on {1}'.format(service_name, node.ip))
                     if _count(service_map[name]) == required_nr:
                         break
-            minimum = 1 if alba_backend.scaling == AlbaBackend.SCALINGS.LOCAL else 3
+            minimum = 1 if alba_backend.scaling == AlbaBackend.SCALINGS.LOCAL else required_nr
             # Make sure there's still at least one service left
             if _count(service_map[name]) == 0:
                 for node in to_remove:
