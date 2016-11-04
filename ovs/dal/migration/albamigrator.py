@@ -69,6 +69,7 @@ class ALBAMigrator(object):
 
         # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
         elif working_version < ALBAMigrator.THIS_VERSION:
+
             # Migrate unique constraints
             import hashlib
             from ovs.dal.helpers import HybridRunner, Descriptor
@@ -92,8 +93,8 @@ class ALBAMigrator(object):
                             ukey = '{0}{1}'.format(unique_key.format(property_name), hashlib.sha1(str(data[property_name])).hexdigest())
                             client.set(ukey, key)
 
+            # Changes on AlbaNodes & AlbaDisks
             from ovs.dal.lists.albanodelist import AlbaNodeList
-
             storagerouter_guids = []
             for alba_node in AlbaNodeList.get_albanodes():
                 # StorageRouter - AlbaNode 1-to-many relation changes to 1-to-1
@@ -104,16 +105,13 @@ class ALBAMigrator(object):
                     else:
                         storagerouter_guids.append(alba_node.storagerouter_guid)
                 # Complete rework of the way we detect devices to assign roles or use as ASD
-                # Allow loop-, raid-, nvme-, ??-devices and logical volumes as ASD (https://github.com/openvstorage/framework/issues/792)
+                # Allow loop-, raid-, nvme-, ??-devices and logical volumes as ASD
+                # More info: https://github.com/openvstorage/framework/issues/792
                 for alba_disk in alba_node.disks:
                     if alba_disk.aliases is not None:
                         continue
-                    all_disks = alba_node.client.get_disks()
-                    for disk_info in all_disks.itervalues():
-                        # noinspection PyProtectedMember
-                        if '/dev/disk/by-id/{0}'.format(alba_disk._data['name']) in disk_info['aliases']:
-                            alba_disk.aliases = disk_info['aliases']
-                            alba_disk.save()
-                            break
+                    if 'name' in alba_disk._data:
+                        alba_disk.aliases = ['/dev/disk/by-id/{0}'.format(alba_disk._data['name'])]
+                        alba_disk.save()
 
         return ALBAMigrator.THIS_VERSION
