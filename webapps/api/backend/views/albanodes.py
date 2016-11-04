@@ -18,16 +18,16 @@
 Contains the AlbaNodeViewSet
 """
 
-from backend.decorators import load, log, required_roles, return_list, return_object, return_task
-from backend.exceptions import HttpNotAcceptableException
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from api.backend.decorators import load, log, required_roles, return_list, return_object, return_task
+from api.backend.exceptions import HttpNotAcceptableException
 from ovs.dal.datalist import DataList
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.extensions.generic.configuration import Configuration
 from ovs.lib.albanodecontroller import AlbaNodeController
-from rest_framework import viewsets
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 
 
 class AlbaNodeViewSet(viewsets.ViewSet):
@@ -37,6 +37,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
     prefix = r'alba/nodes'
     base_name = 'albanodes'
+    return_exceptions = ['albanodes.create', 'albanodes.destroy']
 
     @log()
     @required_roles(['read'])
@@ -46,8 +47,11 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Lists all available ALBA Nodes
         :param discover: If True and IP provided, return list of single ALBA node, If True and no IP provided, return all ALBA nodes else return modeled ALBA nodes
+        :type discover: bool
         :param ip: IP of ALBA node to retrieve
+        :type ip: str
         :param node_id: ID of the ALBA node
+        :type node_id: str
         """
         if discover is False and (ip is not None or node_id is not None):
             raise HttpNotAcceptableException(error_description='Discover is mutually exclusive with IP and nodeID',
@@ -114,6 +118,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Load information about a given AlbaBackend
         :param albanode: ALBA node to retrieve
+        :type albanode: AlbaNode
         """
         return albanode
 
@@ -125,8 +130,37 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Adds a node with a given node_id to the model
         :param node_id: ID of the ALBA node to create
+        :type node_id: str
         """
         return AlbaNodeController.register.delay(node_id)
+
+    @action()
+    @required_roles(['manage'])
+    @return_task()
+    @load(AlbaNode)
+    def replace_node(self, albanode, new_node_id):
+        """
+        Replace an existing Alba node with a newly configured node (only possible if IPs are identical)
+        :param albanode: Guid of the ALBA node that needs to be replaced
+        :type albanode: AlbaNode
+        :param new_node_id: ID of the new ALBA node
+        :type new_node_id: str
+        :return: Celery async task result
+        :rtype: CeleryTask
+        """
+        return AlbaNodeController.replace_node.delay(old_node_guid=albanode.guid, new_node_id=new_node_id)
+
+    @log()
+    @required_roles(['manage'])
+    @return_task()
+    @load(AlbaNode)
+    def destroy(self, albanode):
+        """
+        Deletes an ALBA node
+        :param albanode: The AlbaNode to be removed
+        :type albanode: AlbaNode
+        """
+        return AlbaNodeController.remove_node.delay(node_guid=albanode.guid)
 
     @action()
     @required_roles(['read', 'write', 'manage'])
@@ -136,7 +170,9 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Initializes disks
         :param albanode: ALBA node to initialize disks
-        :param disks: Disks to initialize
+        :type albanode: AlbaNode
+        :param disks: Disks to initialize (dict from type {disk_alias (str): amount of asds (int)})
+        :type disks: dict
         """
         return AlbaNodeController.initialize_disks.delay(albanode.guid, disks)
 
@@ -148,7 +184,9 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Removes a disk
         :param albanode: ALBA node to remove a disk from
+        :type albanode: AlbaNode
         :param disk: Disk to remove
+        :type disk: str
         """
         return AlbaNodeController.remove_disk.delay(albanode.guid, disk)
 
@@ -160,8 +198,11 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Removes and re-add an ASD
         :param albanode: ALBA node to remove a disk from
+        :type albanode: AlbaNode
         :param asd_id: ASD ID to reset
+        :type asd_id: str
         :param safety: Safety to maintain
+        :type safety: dict
         """
         if safety is None:
             raise HttpNotAcceptableException(error_description='Safety must be passed',
@@ -176,7 +217,9 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Restarts an ASD process
         :param albanode: The node on which the ASD runs
+        :type albanode: AlbaNode
         :param asd_id: The ASD to restart
+        :type asd_id: str
         """
         return AlbaNodeController.restart_asd.delay(albanode.guid, asd_id)
 
@@ -188,6 +231,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Restarts a disk
         :param albanode: ALBA node to restart a disk from
+        :type albanode: AlbaNode
         :param disk: Disk to restart
+        :type disk: str
         """
         return AlbaNodeController.restart_disk.delay(albanode.guid, disk)

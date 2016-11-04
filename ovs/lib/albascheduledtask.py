@@ -18,12 +18,11 @@
 ScheduledTaskController module
 """
 
-from celery.schedules import crontab
 from ovs.celery_run import celery
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.albacli import AlbaCLI
-from ovs.lib.helpers.decorators import ensure_single
+from ovs.lib.helpers.toolbox import Schedule
 from ovs.log.log_handler import LogHandler
 
 
@@ -33,30 +32,16 @@ class AlbaScheduledTaskController(object):
     executed at certain intervals and should be self-containing
     """
     _logger = LogHandler.get('lib', name='scheduled tasks')
-    verification_schedule = 3
-    verification_schedule_key = '/ovs/alba/backends/verification_schedule'
-    if Configuration.exists(verification_schedule_key):
-        verification_schedule = Configuration.get(verification_schedule_key)
-    else:
-        Configuration.set(verification_schedule_key, verification_schedule)
 
     @staticmethod
-    @celery.task(name='alba.scheduled.verify_namespaces',
-                 schedule=crontab(0, 0, month_of_year='*/{0}'.format(verification_schedule)))
-    @ensure_single(task_name='alba.scheduled.verify_namespaces')
+    @celery.task(name='alba.scheduled.verify_namespaces', schedule=Schedule(minute='0', hour='0', day_of_month='1', month_of_year='*/3'))
     def verify_namespaces():
         """
         Verify namespaces for all backends
         """
         AlbaScheduledTaskController._logger.info('verify namespace task scheduling started')
 
-        verification_factor = 10
-        verification_factor_key = '/ovs/alba/backends/verification_factor'
-        if Configuration.exists(verification_factor_key):
-            verification_factor = Configuration.get(verification_factor_key)
-        else:
-            Configuration.set(verification_factor_key, verification_factor)
-
+        verification_factor = Configuration.get('/ovs/alba/backends/verification_factor', default=10)
         for albabackend in AlbaBackendList.get_albabackends():
             backend_name = albabackend.abm_services[0].service.name if albabackend.abm_services else albabackend.name + '-abm'
             config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(backend_name))

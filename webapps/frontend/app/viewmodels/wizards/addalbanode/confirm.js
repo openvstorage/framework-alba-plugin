@@ -24,39 +24,76 @@ define([
         var self = this;
 
         // Variables
-        self.data   = data;
+        self.data = data;
         self.shared = shared;
 
         // Computed
-        self.canContinue = ko.computed(function() {
-            return { value: true, reasons: [], fields: [] };
+        self.canContinue = ko.computed(function () {
+            return {value: true, reasons: [], fields: []};
         });
 
-        self.finish = function() {
-            return $.Deferred(function(deferred) {
-                generic.alertInfo(
-                    $.t('alba:wizards.addalbanode.started'),
-                    $.t('alba:wizards.addalbanode.inprogress')
-                );
-                deferred.resolve();
-                api.post('alba/nodes', { data: { node_id: self.data.nodeID() } })
-                    .then(self.shared.tasks.wait)
-                    .done(function() {
-                        generic.alertSuccess(
-                            $.t('alba:wizards.addalbanode.complete'),
-                            $.t('alba:wizards.addalbanode.success')
-                        );
-                    })
-                    .fail(function(error) {
-                        error = generic.extractErrorMessage(error);
-                        generic.alertError(
-                            $.t('ovs:generic.error'),
-                            $.t('alba:wizards.addalbanode.failed', {
-                                why: error
-                            })
-                        );
+        self.finish = function () {
+            return $.Deferred(function (deferred) {
+                // Add ALBA node
+                if (self.data.oldNode() === undefined) {
+                    generic.alertInfo(
+                        $.t('alba:wizards.add_alba_node.started'),
+                        $.t('alba:wizards.add_alba_node.in_progress')
+                    );
+                    deferred.resolve();
+                    api.post('alba/nodes', {data: {node_id: self.data.newNode().nodeID()}})
+                        .then(self.shared.tasks.wait)
+                        .done(function () {
+                            generic.alertSuccess(
+                                $.t('alba:wizards.add_alba_node.complete'),
+                                $.t('alba:wizards.add_alba_node.success')
+                            );
+                        })
+                        .fail(function (error) {
+                            error = generic.extractErrorMessage(error);
+                            generic.alertError(
+                                $.t('ovs:generic.error'),
+                                $.t('alba:wizards.add_alba_node.failed', {why: error})
+                            );
+                        });
+                    // Replace ALBA node
+                } else {
+                    $.each(self.data.oldNode().disks(), function(index, disk) {
+                        disk.processing(true);
+                        $.each(disk.osds(), function(jndex, osd) {
+                            osd.processing(true);
+                        })
                     });
+                    generic.alertInfo(
+                        $.t('alba:wizards.replace_alba_node.started'),
+                        $.t('alba:wizards.replace_alba_node.in_progress')
+                    );
+                    deferred.resolve();
+                    api.post('alba/nodes/' + self.data.oldNode().guid() + '/replace_node', {data: {new_node_id: self.data.newNode().nodeID()}})
+                        .then(self.shared.tasks.wait)
+                        .done(function() {
+                            generic.alertSuccess(
+                                $.t('alba:wizards.replace_alba_node.complete'),
+                                $.t('alba:wizards.replace_alba_node.success')
+                            );
+                        })
+                        .fail(function (error) {
+                            error = generic.extractErrorMessage(error);
+                            generic.alertError(
+                                $.t('ovs:generic.error'),
+                                $.t('alba:wizards.replace_alba_node.failed', {why: error})
+                            );
+                        })
+                        .always(function() {
+                            $.each(self.data.oldNode().disks(), function(index, disk) {
+                                disk.processing(false);
+                                $.each(disk.osds(), function(jndex, osd) {
+                                    osd.processing(false);
+                                })
+                            });
+                        })
+                }
             }).promise();
         };
-    };
+    }
 });

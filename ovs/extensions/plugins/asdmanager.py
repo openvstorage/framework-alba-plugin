@@ -39,6 +39,13 @@ logging.getLogger('urllib3').setLevel(logging.WARNING)
 logging.getLogger('requests').setLevel(logging.WARNING)
 
 
+class InvalidCredentialsError(RuntimeError):
+    """
+    Invalid credentials error
+    """
+    pass
+
+
 class ASDManagerClient(object):
     """
     ASD Manager Client
@@ -48,11 +55,13 @@ class ASDManagerClient(object):
     disable_warnings(InsecureRequestWarning)
     disable_warnings(SNIMissingWarning)
 
+    test_results = {}
+    test_exceptions = {}
+
     def __init__(self, node):
         self._logger = LogHandler.get('extensions', name='asdmanagerclient')
         self.node = node
         self.timeout = 20
-        self._results = {}
         self._unittest_mode = os.environ.get('RUNNING_UNITTESTS') == 'True'
         self._log_min_duration = 1
 
@@ -60,7 +69,10 @@ class ASDManagerClient(object):
         if self._unittest_mode is True:
             curframe = inspect.currentframe()
             calframe = inspect.getouterframes(curframe, 2)
-            return self._results.get(calframe[1][3])
+            exception = ASDManagerClient.test_exceptions.get(self.node, {}).get(calframe[1][3])
+            if exception is not None:
+                raise exception
+            return ASDManagerClient.test_results[self.node][calframe[1][3]]
 
         if timeout is None:
             timeout = self.timeout
@@ -79,7 +91,10 @@ class ASDManagerClient(object):
             raise RuntimeError(response.content)
         internal_duration = data['_duration']
         if data.get('_success', True) is False:
-            raise RuntimeError(data.get('_error', 'Unknown exception: {0}'.format(data)))
+            error_message = data.get('_error', 'Unknown exception: {0}'.format(data))
+            if error_message == 'Invalid credentials':
+                raise InvalidCredentialsError(error_message)
+            raise RuntimeError(error_message)
         if clean is True:
             def _clean(_dict):
                 for _key in _dict.keys():
@@ -177,7 +192,7 @@ class ASDManagerClient(object):
         :param asd_id: AsdID from the ASD to be removed
         :type asd_id: str
         """
-        return self._call(requests.post, 'disks/{0}/asds/{1}/delete'.format(disk_id, asd_id), timeout=30)
+        return self._call(requests.post, 'disks/{0}/asds/{1}/delete'.format(disk_id, asd_id), timeout=60)
 
     def get_update_information(self):
         """

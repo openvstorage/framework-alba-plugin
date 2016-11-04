@@ -16,21 +16,19 @@ Open vStorage is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY of any kind.
 -->
 <div>
-    <form role="form form-horizontal" class="form-horizontal">
-        <p data-i18n="alba:wizards.addpreset.confirm.basicinfo"></p>
-        <ul>
-            <li><b data-i18n="alba:wizards.addpreset.gather.name"></b>: <span data-bind="text: data.name"></span></li>
-            <li><b data-i18n="alba:wizards.addpreset.gather.encryption"></b>: <span data-bind="translate: 'alba:generic.encryptions.' + data.encryption()"></span></li>
-            <li><b data-i18n="alba:wizards.addpreset.gather.compression"></b>: <span data-bind="translate: 'alba:generic.compressions.' + data.compression()"></span></li>
-            <li>
-                <b data-i18n="alba:wizards.addpreset.gather.policies"></b>:
-                <span data-bind="visible: !data.advanced()">
-                    <span data-bind="text: data.replication()"></span><span data-i18n="alba:generic.wayreplication"></span>
-                </span>
-                (<span data-bind="text: data.cleanPolicies().join('), (')"></span>)
-            </li>
-        </ul>
-    </form>
+    <p data-i18n="alba:wizards.addpreset.confirm.basicinfo"></p>
+    <ul>
+        <li><b data-i18n="alba:wizards.addpreset.gather.name"></b>: <span data-bind="text: data.name"></span></li>
+        <li><b data-i18n="alba:wizards.addpreset.gather.encryption"></b>: <span data-bind="translate: 'alba:generic.encryptions.' + data.encryption()"></span></li>
+        <li><b data-i18n="alba:wizards.addpreset.gather.compression"></b>: <span data-bind="translate: 'alba:generic.compressions.' + data.compression()"></span></li>
+        <li>
+            <b data-i18n="alba:wizards.addpreset.gather.policies"></b>:
+            <span data-bind="visible: !data.advanced()">
+                <span data-bind="text: data.replication()"></span><span data-i18n="alba:generic.wayreplication"></span>
+            </span>
+            (<span data-bind="text: data.cleanPolicies().join('), (')"></span>)
+        </li>
+    </ul>
     <div class="alert alert-danger" data-bind="visible: !canContinue().value" style="margin-bottom: -10px;">
         <p data-bind="visible: canContinue().reasons.length === 0"><span data-i18n="ovs:generic.errorsfound"></span></p>
         <p data-bind="visible: canContinue().reasons.length > 0"><span data-i18n="ovs:generic.followingerrorsfound"></span></p>

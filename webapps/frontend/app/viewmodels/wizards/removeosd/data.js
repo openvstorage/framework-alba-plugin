@@ -23,7 +23,8 @@ define(['knockout'], function(ko){
             loaded: ko.observable(false),
             albaOSD: ko.observable(),
             albaBackend: ko.observable(),
-            albaNode: ko.observable()
+            albaNode: ko.observable(),
+            albaDisk: ko.observable()
         };
         data.shouldConfirm = ko.computed(function() {
             return (data.safety().lost !== undefined && data.safety().lost > 0) ||

@@ -27,16 +27,13 @@ define([
         self.data = data;
 
         // Setup
-        self.title(generic.tryGet(options, 'title', $.t('alba:wizards.addalbanode.title')));
+        self.title(generic.tryGet(options, 'title', (options.oldNode === undefined ? $.t('alba:wizards.add_alba_node.title') : $.t('alba:wizards.replace_alba_node.title'))));
         self.modal(generic.tryGet(options, 'modal', false));
         self.steps([new Confirm()]);
         self.activateStep();
 
         // Cleaning data
-        data.nodeID(options.node.nodeID());
-        data.ip(options.node.ip());
-        data.port(options.node.port());
-        data.username(options.node.username());
-        data.asdIPs(options.node.ips());
+        data.newNode(options.newNode);
+        data.oldNode(options.oldNode);
     };
 });

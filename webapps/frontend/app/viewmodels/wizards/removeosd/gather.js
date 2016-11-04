@@ -36,10 +36,11 @@ define([
         // Functions
         self.finish = function() {
             self.data.albaOSD().processing(true);
+            self.data.albaDisk().processing(true);
             return $.Deferred(function(deferred) {
-                generic.alertSuccess(
-                    $.t('alba:wizards.removeosd.started'),
-                    $.t('alba:wizards.removeosd.msgstarted')
+                generic.alertInfo(
+                    $.t('alba:wizards.remove_osd.started'),
+                    $.t('alba:wizards.remove_osd.started_msg', {what: self.data.albaOSD().osdID()})
                 );
                 api.post('alba/nodes/' + self.data.albaNode().guid() + '/reset_asd', {
                     data: {
@@ -50,19 +51,20 @@ define([
                     .then(self.shared.tasks.wait)
                     .done(function() {
                         generic.alertSuccess(
-                            $.t('alba:wizards.removeosd.complete'),
-                            $.t('alba:wizards.removeosd.success')
+                            $.t('alba:wizards.remove_osd.complete'),
+                            $.t('alba:wizards.remove_osd.success', {what: self.data.albaOSD().osdID()})
                         );
                     })
                     .fail(function(error) {
                         error = generic.extractErrorMessage(error);
                         generic.alertError(
                             $.t('ovs:generic.error'),
-                            $.t('alba:wizards.removeosd.failed', { why: error })
+                            $.t('alba:wizards.remove_osd.failed', {what: self.data.albaOSD().osdID(), why: error})
                         );
                     })
                     .always(function() {
                         self.data.albaOSD().processing(false);
+                        self.data.albaDisk().processing(false);
                     });
                 deferred.resolve();
             }).promise();
