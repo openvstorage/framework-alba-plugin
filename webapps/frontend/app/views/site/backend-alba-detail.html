@@ -62,7 +62,7 @@ but WITHOUT ANY WARRANTY of any kind.
                         </thead>
                         <tbody>
                             <tr style="height: 1px;">
-                                <td style="width: 15%;" data-i18n="ovs:generic.backendtype"></td>
+                                <td style="width: 15%;" data-i18n="ovs:generic.backend_type"></td>
                                 <td style="width: 20%;">
                                     <span data-bind="lazyloader: { item: $root.backend().backendType, loadedObservable: 'loaded', undefinedLoading: false }">
                                         <span data-part="lazy-entry"
@@ -219,12 +219,12 @@ but WITHOUT ANY WARRANTY of any kind.
                                         <a data-bind="text: name, attr: { href: $root.shared.routing.loadHash('backend-alba-detail', { guid: backend_guid }) }"></a>
                                     <!-- /ko -->
                                     <!-- ko if: error === '' && local_ip === false -->
-                                        <a data-bind="text: name,
-                                                      attr: { href: 'https://' + remote_host + '/#full/ovs-backend/' + backend_guid,
-                                                              target: '_blank'}"></a>
-                                        <a class="hand fa fa-fw" data-i18n="[html]alba:icons.external_link"
-                                           data-bind="attr: { href: 'https://' + remote_host + '/#full/ovs-backend/' + backend_guid,
-                                                              target: '_blank'}"></a>
+                                        <a data-bind="attr: {
+                                                          href: 'https://' + remote_host + '/' + $root.shared.routing.loadHash('backend-alba-detail', { guid: backend_guid }),
+                                                          target: '_blank'
+                                                      }">
+                                            <span data-bind="text: name" class="hand"></span> <i class="fa fa-fw hand" data-i18n="[html]alba:icons.external_link"></i>
+                                        </a>
                                     <!-- /ko -->
                                 </td>
                                 <td data-bind="text: error === '' ? scaling : '-'"></td>
