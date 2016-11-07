@@ -61,7 +61,6 @@ class AlbaNode(DataObject):
         except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
             storage_stack['status'] = 'nodedown'
             disk_data = {}
-
         partition_device_map = {}
         for disk_id, disk_info in disk_data.iteritems():
             entry = {'name': disk_id,
@@ -76,8 +75,11 @@ class AlbaNode(DataObject):
                 entry['status'] = disk_info['state']
                 entry['status_detail'] = disk_info.get('state_detail', '')
             stack[disk_id] = entry
-            for partition_alias in disk_info.get('partition_aliases', []):
-                partition_device_map[partition_alias] = disk_id
+            if 'partition_aliases' in disk_info:
+                for partition_alias in disk_info['partition_aliases']:
+                    partition_device_map[partition_alias] = disk_id
+            else:
+                partition_device_map[disk_id] = disk_id
 
         # Live ASD information
         try:
