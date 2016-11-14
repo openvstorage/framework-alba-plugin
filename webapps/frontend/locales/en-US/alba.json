@@ -327,7 +327,6 @@
             "linked_backend_guids_failure": "Information about 1 or more previously linked ALBA Backends could not be loaded. To be able to continue, please investigate and fix the issue.",
             "no_backends": "No backends found",
             "port": "Port:",
-            "secret_key": "Secret Key:",
             "started": "Started",
             "started_msg": "Linking __global_backend__ to __backend_to_link__",
             "success": "Success",
