@@ -419,8 +419,7 @@ class AlbaController(object):
         """
         data_dir = '' if data_dir == '/' else data_dir
         for plugin in plugins:
-            cmd = 'ln -s {0}/{1}.cmxs {2}/arakoon/{3}/db'.format(AlbaController.ARAKOON_PLUGIN_DIR, plugin, data_dir, cluster_name)
-            client.run(cmd)
+            client.run(['ln', '-s', '{0}/{1}.cmxs'.format(AlbaController.ARAKOON_PLUGIN_DIR, plugin), '{0}/arakoon/{1}/db'.format(data_dir, cluster_name)])
 
     @staticmethod
     @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=Schedule(minute='30', hour='*'))
