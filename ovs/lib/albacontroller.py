@@ -1463,11 +1463,10 @@ class AlbaController(object):
         :type linked_guid: str
         :return: None
         """
-        child = AlbaBackend(linked_guid)
         parent = AlbaBackend(target_guid)
         linked_osd = None
         for osd in parent.osds:
-            if osd.metadata is not None and osd.metadata['backend_info']['linked_guid'] == child.guid:
+            if osd.metadata is not None and osd.metadata['backend_info']['linked_guid'] == linked_guid:
                 linked_osd = osd
                 break
 
