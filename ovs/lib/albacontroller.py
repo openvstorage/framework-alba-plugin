@@ -61,7 +61,6 @@ class AlbaController(object):
     NSM_PLUGIN = 'nsm_host_plugin'
     ARAKOON_PLUGIN_DIR = '/usr/lib/alba'
     ALBA_MAINTENANCE_SERVICE_PREFIX = 'alba-maintenance'
-    ALBA_REBALANCER_SERVICE_PREFIX = 'alba-rebalancer'
     CONFIG_ALBA_BACKEND_KEY = '/ovs/alba/backends/{0}'
     CONFIG_DEFAULT_NSM_HOSTS_KEY = CONFIG_ALBA_BACKEND_KEY.format('default_nsm_hosts')
     NR_OF_AGENTS_CONFIG_KEY = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
