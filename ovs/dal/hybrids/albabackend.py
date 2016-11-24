@@ -226,15 +226,8 @@ class AlbaBackend(DataObject):
 
     def _usages(self):
         """
-        Returns an overview of free space, total space, used space and overhead
+        Returns an overview of free space, total space and used space
         """
-        # Collect usage reported by namespaces
-        ns_used = 0.0
-        for namespace in self.ns_data:
-            if namespace['namespace']['state'] != 'active':
-                continue
-            ns_used += namespace['statistics']['storage']
-
         # Collect total usage
         total_size = 0.0
         total_used = 0.0
@@ -244,8 +237,7 @@ class AlbaBackend(DataObject):
 
         return {'free': total_size - total_used,
                 'size': total_size,
-                'used': ns_used,
-                'overhead': max(0.0, total_used - ns_used)}
+                'used': total_used}
 
     def _presets(self):
         """
