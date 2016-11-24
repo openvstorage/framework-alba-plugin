@@ -150,11 +150,6 @@ define([
                         name: $.t('alba:generic.stats.used'),
                         value: stats.used,
                         percentage: stats.size > 0 ? stats.used / stats.size : 0
-                    },
-                    {
-                        name: $.t('alba:generic.stats.overhead'),
-                        value: stats.overhead,
-                        percentage: stats.size > 0 ? stats.overhead / stats.size : 0
                     }
                 ]);
             }

@@ -82,7 +82,6 @@
         },
         "stats": {
             "freespace": "Free space",
-            "overhead": "Internal metadata",
             "used": "Used space"
         },
         "status": "Status",
