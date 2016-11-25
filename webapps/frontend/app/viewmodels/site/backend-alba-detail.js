@@ -269,17 +269,14 @@ define([
                 nodeDisks[nodeId].push(disk);
             });
             if (changes) {
-                self.disks.sort(function (a, b) {
-                    if (a.device() === undefined || b.device() === undefined) {
-                        return a.alias() < b.alias() ? -1 : 1;
-                    }
-                    return a.device() < b.device() ? -1 : 1;
-                });
                 $.each(self.registeredNodes(), function(index, node) {
                     if (!nodeDisks.hasOwnProperty(node.nodeID())) {
                         node.disks([]);
                     } else {
                         nodeDisks[node.nodeID()].sort(function (a, b) {
+                            if (a.device() === undefined || b.device() === undefined) {
+                                return a.alias() < b.alias() ? -1 : 1;
+                            }
                             return a.device() < b.device() ? -1 : 1;
                         });
                         node.disks(nodeDisks[node.nodeID()]);
