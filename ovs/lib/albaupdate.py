@@ -17,6 +17,8 @@
 """
 Module for AlbaUpdateController
 """
+import copy
+import time
 import requests
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.albanodelist import AlbaNodeList
@@ -24,6 +26,7 @@ from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
+from ovs.extensions.generic.system import System
 from ovs.extensions.generic.toolbox import Toolbox
 from ovs.extensions.packages.package import PackageManager
 from ovs.lib.albacontroller import AlbaController
@@ -36,7 +39,7 @@ class AlbaUpdateController(object):
     """
     This class contains all logic for updating an environment
     """
-    _logger = LogHandler.get('lib', name='update-alba-plugin')
+    _logger = LogHandler.get('update', name='alba-plugin')
     _logger.logger.propagate = False
     sdm_packages = {'alba', 'openvstorage-sdm'}
     alba_plugin_packages = {'alba', 'arakoon', 'openvstorage-backend'}
@@ -49,12 +52,14 @@ class AlbaUpdateController(object):
     @add_hooks('update', 'get_package_info_multi')
     def get_package_information_alba_plugin_storage_routers(client, package_info):
         """
+        Called by ScheduledTaskController.refresh_package_information() every hour
+
         Retrieve information about the currently installed versions of the core packages
         Retrieve information about the versions to which each package can potentially be upgraded
         If installed version is different from candidate version --> store this information in model
 
-        Additionally if installed version is identical to candidate version, check the services with a 'run' file
-        Verify whether the running version is identical to the candidate version
+        Additionally check the services with a 'run' file
+        Verify whether the running version is up-to-date with the candidate version
         If different --> store this information in the model
 
         Result: Every package with updates or which requires services to be restarted is stored in the model
@@ -75,45 +80,67 @@ class AlbaUpdateController(object):
             if set(installed.keys()) != set(AlbaUpdateController.all_alba_plugin_packages) or set(candidate.keys()) != set(AlbaUpdateController.all_alba_plugin_packages):
                 raise RuntimeError('Failed to retrieve the installed and candidate versions for packages: {0}'.format(', '.join(AlbaUpdateController.all_alba_plugin_packages)))
 
+            # Retrieve Arakoon information
+            cacc_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name='cacc', filesystem=True, ip=client.ip)
+            framework_arakoons = ['arakoon-{0}'.format(cacc_metadata['cluster_name']),
+                                  'arakoon-{0}'.format(ArakoonClusterConfig.get_cluster_name('ovsdb'))]
+
             storagerouter = StorageRouterList.get_by_ip(client.ip)
             arakoon_services = []
             for service in storagerouter.services:
                 if service.type.name == ServiceType.SERVICE_TYPES.ALBA_MGR or service.type.name == ServiceType.SERVICE_TYPES.NS_MGR:
                     arakoon_services.append('arakoon-{0}'.format(service.name))
 
-            for component, info in {'framework': {'arakoon': ['arakoon-ovsdb'],
+            default_entry = {'candidate': None,
+                             'installed': None,
+                             'services_to_restart': []}
+            #                       component:    package_name: services_with_run_file
+            for component, info in {'framework': {'arakoon': framework_arakoons,
                                                   'openvstorage-backend': []},
                                     'alba': {'alba': arakoon_services,
                                              'arakoon': arakoon_services}}.iteritems():
-                packages = []
+                component_info = {}
                 for package_name, services in info.iteritems():
-                    old = installed[package_name]
-                    new = candidate[package_name]
-                    if old != new:
-                        packages.append({'name': package_name,
-                                         'installed': old,
-                                         'candidate': new,
-                                         'namespace': 'alba',  # Namespace refers to json translation file: alba.json
-                                         'services_to_restart': []})
-                    else:
-                        if package_name == 'arakoon':
-                            services_to_restart = UpdateController.get_running_service_info(client=client,
-                                                                                            services=dict((service_name, new) for service_name in services))
+                    for service in services:
+                        service = Toolbox.remove_prefix(service, 'ovs-')
+                        asd_version_file = '/opt/asd-manager/run/{0}.version'.format(service)
+                        ovs_version_file = '/opt/OpenvStorage/run/{0}.version'.format(service)
+                        if client.file_exists(asd_version_file) is True:
+                            version_file = asd_version_file
+                            running_versions = client.file_read(asd_version_file).strip()
+                        elif client.file_exists(ovs_version_file) is True:
+                            version_file = ovs_version_file
+                            running_versions = client.file_read(ovs_version_file).strip()
                         else:
-                            services_to_restart = UpdateController.get_running_service_info(client=client,
-                                                                                            services=dict((service_name, new) for service_name in services),
-                                                                                            component='asd-manager')
+                            AlbaUpdateController._logger.warning('Failed to find a version file in /opt/asd-manager/run or /opt/OpenvStorage/run for service {0}'.format(service))
+                            continue
 
-                        if len(services_to_restart) > 0:
-                            packages.append({'name': package_name,
-                                             'installed': old,
-                                             'candidate': new,
-                                             'namespace': 'alba',
-                                             'services_to_restart': services_to_restart})
-                if component != 'alba':  # Framework, storagedriver can potentially be updated in other hooks too
-                    package_info[client.ip][component].extend(packages)
-                else:
-                    package_info[client.ip][component] = packages
+                        for version in running_versions.split(';'):
+                            version = version.strip()
+                            running_version = None
+                            if '=' in version:
+                                package_name = version.split('=')[0]
+                                running_version = version.split('=')[1]
+                                if package_name not in UpdateController.all_core_packages:
+                                    raise ValueError('Unknown package dependency found in {0}'.format(version_file))
+                            elif version:
+                                running_version = version
+
+                            if running_version is not None and running_version != candidate[package_name]:
+                                if package_name not in component_info:
+                                    component_info[package_name] = copy.deepcopy(default_entry)
+                                component_info[package_name]['installed'] = running_version
+                                component_info[package_name]['candidate'] = candidate[package_name]
+                                component_info[package_name]['services_to_restart'].append('ovs-{0}'.format(service))
+
+                    if installed[package_name] != candidate[package_name] and package_name not in component_info:
+                        component_info[package_name] = copy.deepcopy(default_entry)
+                        component_info[package_name]['installed'] = installed[package_name]
+                        component_info[package_name]['candidate'] = candidate[package_name]
+                if component_info:
+                    if component not in package_info[client.ip]:
+                        package_info[client.ip][component] = {}
+                    package_info[client.ip][component].update(component_info)
         except Exception as ex:
             if 'errors' not in package_info[client.ip]:
                 package_info[client.ip]['errors'] = []
@@ -124,6 +151,8 @@ class AlbaUpdateController(object):
     @add_hooks('update', 'get_package_info_single')
     def get_package_information_alba_plugin_storage_nodes(information):
         """
+        Called by ScheduledTaskController.refresh_package_information() every hour
+
         Retrieve and store the package information for all AlbaNodes
         :return: None
         """
@@ -133,17 +162,14 @@ class AlbaUpdateController(object):
             elif 'errors' not in information[alba_node.ip]:
                 information[alba_node.ip]['errors'] = []
 
-            package_info = {}
             try:
-                package_info = alba_node.client.get_update_information()
+                alba_node.package_information = alba_node.client.get_package_information()
+                alba_node.save()
             except (requests.ConnectionError, requests.Timeout):
                 AlbaUpdateController._logger.warning('Update information for Alba Node with IP {0} could not be updated'.format(alba_node.ip))
                 information[alba_node.ip]['errors'].append('Connection timed out or connection refused on {0}'.format(alba_node.ip))
             except Exception as ex:
                 information[alba_node.ip]['errors'].append(ex)
-
-            alba_node.package_information = package_info
-            alba_node.save()
 
     @staticmethod
     @add_hooks('update', 'merge_package_info')
@@ -152,25 +178,48 @@ class AlbaUpdateController(object):
         Retrieve the package information for the ALBA plugin, so the core code can merge it all together
         :return: Package information for ALBA nodes
         """
-        package_info = {}
-        for node in AlbaNodeList.get_albanodes():
-            package_info[node.ip] = node.package_information
-        return package_info
+        return dict((node.ip, node.package_information) for node in AlbaNodeList.get_albanodes())
 
     @staticmethod
     @add_hooks('update', 'information')
     def get_update_information_alba_plugin(information):
         """
-        Retrieve the update information for all StorageRouters for the ALBA plugin packages
+        Called when the 'Update' button in the GUI is pressed
+        This call collects additional information about the packages which can be updated
+        Eg:
+            * Downtime for Arakoons
+            * Downtime for StorageDrivers
+            * Prerequisites that haven't been met
+            * Services which will be stopped during update
+            * Services which will be restarted after update
         """
-        # Verify arakoon downtime
-        arakoon_ovs_down = False
-        cluster_name = ArakoonClusterConfig.get_cluster_name('ovsdb')
-        arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
-        if arakoon_metadata['internal'] is True:
-            config = ArakoonClusterConfig(cluster_id=cluster_name, filesystem=False)
-            config.load_config()
-            arakoon_ovs_down = len(config.nodes) < 3
+        # Verify arakoon info
+        arakoon_ovs_info = {'down': False,
+                            'name': None,
+                            'internal': False}
+        arakoon_cacc_info = {'down': False,
+                             'name': None,
+                             'internal': False}
+        for cluster in ['cacc', 'ovsdb']:
+            cluster_name = ArakoonClusterConfig.get_cluster_name(cluster)
+            if cluster_name is None:
+                continue
+
+            if cluster == 'cacc':
+                arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, filesystem=True, ip=System.get_my_storagerouter().ip)
+            else:
+                arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
+
+            if arakoon_metadata['internal'] is True:
+                config = ArakoonClusterConfig(cluster_id=cluster_name, filesystem=(cluster == 'cacc'))
+                config.load_config(System.get_my_storagerouter().ip if cluster == 'cacc' else None)
+                if cluster == 'ovsdb':
+                    arakoon_ovs_info['down'] = len(config.nodes) < 3
+                    arakoon_ovs_info['name'] = arakoon_metadata['cluster_name']
+                    arakoon_ovs_info['internal'] = True
+                else:
+                    arakoon_cacc_info['name'] = arakoon_metadata['cluster_name']
+                    arakoon_cacc_info['internal'] = True
 
         # Verify StorageRouter downtime
         fwk_prerequisites = []
@@ -189,17 +238,15 @@ class AlbaUpdateController(object):
             except Exception:
                 alba_prerequisites.append(['alba_node_unresponsive', alba_node.ip])
 
-        ips_covered = []
         for key in ['framework', 'alba']:
             if key not in information:
-                information[key] = {'packages': [],
+                information[key] = {'packages': {},
                                     'downtime': [],
                                     'prerequisites': fwk_prerequisites if key == 'framework' else alba_prerequisites,
                                     'services_stop_start': set(),
                                     'services_post_update': set()}
 
             for storagerouter in StorageRouterList.get_storagerouters():
-                ips_covered.append(storagerouter.ip)
                 if key not in storagerouter.package_information:
                     continue
 
@@ -223,43 +270,52 @@ class AlbaUpdateController(object):
                             else:
                                 arakoon_downtime.append(['backend', service.abm_service.alba_backend.name])
 
-                packages_to_check = storagerouter.package_information[key]
-                for package_info in packages_to_check:
-                    package_name = package_info.get('name')
-                    covered_packages = [pkg['name'] for pkg in information[key]['packages']]
+                for package_name, package_info in storagerouter.package_information[key].iteritems():
                     if package_name not in AlbaUpdateController.alba_plugin_packages:
                         continue  # Only gather information for the core packages
 
-                    # noinspection PyTypeChecker
-                    services_to_restart = package_info.pop('services_to_restart')
-                    information[key]['services_post_update'].update(services_to_restart)
-                    if package_name not in covered_packages and len(services_to_restart) == 0:  # Services to restart is only populated when installed version == candidate version, but some services require a restart
-                        information[key]['packages'].append(package_info)
+                    information[key]['services_post_update'].update(package_info.pop('services_to_restart'))
+                    if package_name not in information[key]['packages']:
+                        information[key]['packages'][package_name] = {}
+                    information[key]['packages'][package_name].update(package_info)
 
                     if package_name == 'openvstorage-backend':
-                        information[key]['downtime'].append(['gui', None])
+                        if ['gui', None] not in information[key]['downtime']:
+                            information[key]['downtime'].append(['gui', None])
+                        if ['api', None] not in information[key]['downtime']:
+                            information[key]['downtime'].append(['api', None])
                         information[key]['services_stop_start'].update({'watcher-framework', 'memcached'})
+                    elif package_name == 'alba':
+                        for down in arakoon_downtime:
+                            if down not in information[key]['downtime']:
+                                information[key]['downtime'].append(down)
+                        information[key]['services_post_update'].update(arakoon_services)
                     elif package_name == 'arakoon':
                         if key == 'framework':
-                            information[key]['services_post_update'].update({'ovs-arakoon-{0}'.format(ArakoonClusterConfig.get_cluster_name('ovsdb'))})
-                            if arakoon_ovs_down is True:
+                            framework_arakoons = set()
+                            if arakoon_ovs_info['internal'] is True:
+                                framework_arakoons.add('ovs-arakoon-{0}'.format(arakoon_ovs_info['name']))
+                            if arakoon_cacc_info['internal'] is True:
+                                framework_arakoons.add('ovs-arakoon-{0}'.format(arakoon_cacc_info['name']))
+
+                            information[key]['services_post_update'].update(framework_arakoons)
+                            if arakoon_ovs_info['down'] is True and ['ovsdb', None] not in information[key]['downtime']:
                                 information[key]['downtime'].append(['ovsdb', None])
                         else:
-                            information[key]['downtime'].extend(arakoon_downtime)
+                            for down in arakoon_downtime:
+                                if down not in information[key]['downtime']:
+                                    information[key]['downtime'].append(down)
                             information[key]['services_post_update'].update(arakoon_services)
 
             for alba_node in AlbaNodeList.get_albanodes():
-                for package_info in alba_node.package_information.get(key, []):
-                    package_name = package_info.get('name')
-                    covered_packages = [pkg['name'] for pkg in information[key]['packages']]
+                for package_name, package_info in alba_node.package_information.get(key, {}).iteritems():
                     if package_name not in AlbaUpdateController.sdm_packages:
-                        continue  # Only gather information for the core packages
+                        continue  # Only gather information for the SDM packages
 
-                    # noinspection PyTypeChecker
-                    services_to_restart = package_info.pop('services_to_restart')
-                    information[key]['services_post_update'].update(services_to_restart)
-                    if package_name not in covered_packages and len(services_to_restart) == 0:  # Services to restart is only populated when installed version == candidate version, but some services require a restart
-                        information[key]['packages'].append(package_info)
+                    information[key]['services_post_update'].update(package_info.pop('services_to_restart'))
+                    if package_name not in information[key]['packages']:
+                        information[key]['packages'][package_name] = {}
+                    information[key]['packages'][package_name].update(package_info)
         return information
 
     @staticmethod
@@ -288,15 +344,25 @@ class AlbaUpdateController(object):
         """
         if set(package_names).intersection(AlbaUpdateController.sdm_packages):
             for alba_node in AlbaNodeList.get_albanodes():
-                AlbaUpdateController._logger.debug('Updating SDM on ALBA node {0}'.format(alba_node.ip))
+                AlbaUpdateController._logger.debug('{0}: Updating SDM'.format(alba_node.ip))
                 try:
-                    alba_node.client.execute_update(status=None)
-                    AlbaUpdateController._logger.debug('Updated SDM on ALBA node {0}'.format(alba_node.ip))
+                    result = alba_node.client.execute_update(status=None)
+                    # Backwards compatibility
+                    if result and 'status' in result and result['status'] != 'done':
+                        counter = 0
+                        max_counter = 12
+                        while counter < max_counter:
+                            status = alba_node.client.execute_update(status=None).get('status')
+                            if status == 'done':
+                                break
+                            time.sleep(10)
+                            counter += 1
+                        if counter == max_counter:
+                            raise Exception('{0}: Failed to update SDM'.format(alba_node.ip))
                 except requests.ConnectionError as ce:
                     if 'Connection aborted.' not in ce.message:  # This error is thrown due the post-update code of the SDM package which restarts the asd-manager service
                         raise
-                    else:
-                        AlbaUpdateController._logger.debug('Updated SDM on ALBA node {0}'.format(alba_node.ip))
+                AlbaUpdateController._logger.debug('{0}: Updated SDM'.format(alba_node.ip))
 
     @staticmethod
     @add_hooks('update', 'post_update_multi')
@@ -305,13 +371,17 @@ class AlbaUpdateController(object):
         Execute functionality after the openvstorage-backend core packages have been updated
         For framework:
             * Restart arakoon-ovsdb on every client (if present and required)
+            * Restart arakoon-config on every client (if present and required)
+        For ALBA:
+            * Restart ABM arakoons on every client (if present and required)
+            * Restart NSM arakoons on every client (if present and required)
         :param client: Client on which to execute this post update functionality
         :type client: SSHClient
         :param components: Update components which have been executed
         :type components: list
         :return: None
         """
-        if 'framework' not in components or 'alba' not in components:
+        if 'framework' not in components and 'alba' not in components:
             return
 
         update_information = AlbaUpdateController.get_update_information_alba_plugin({})
@@ -327,9 +397,12 @@ class AlbaUpdateController(object):
                 UpdateController.change_services_state(services=[service_name], ssh_clients=[client], action='restart')
             else:
                 cluster_name = ArakoonClusterConfig.get_cluster_name(Toolbox.remove_prefix(service_name, 'ovs-arakoon-'))
-                arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
+                if cluster_name == 'cacc':
+                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, filesystem=True, ip=System.get_my_storagerouter().ip)
+                else:
+                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
                 if arakoon_metadata['internal'] is True:
-                    AlbaUpdateController._logger.debug('Restarting arakoon node {0}'.format(cluster_name), client_ip=client.ip)
+                    AlbaUpdateController._logger.debug('{0}: Restarting arakoon node {1}'.format(client.ip, cluster_name))
                     ArakoonInstaller.restart_node(cluster_name=cluster_name,
                                                   client=client)
 
@@ -350,12 +423,10 @@ class AlbaUpdateController(object):
 
         # Update ALBA nodes
         for node in AlbaNodeList.get_albanodes():
-            update_info = node.client.get_update_information()
-            for component, package_info in update_info.iteritems():
-                if len(package_info) > 0:
-                    AlbaUpdateController._logger.debug('{0}: Restarting services'.format(node.ip))
-                    node.client.restart_services()
+            if node.client.get_package_information():
+                AlbaUpdateController._logger.debug('{0}: Restarting services'.format(node.ip))
+                node.client.restart_services()
 
         # Renew maintenance services
-        AlbaUpdateController._logger.debug('Checkup maintenance agents')
+        AlbaUpdateController._logger.debug('{0}: Checkup maintenance agents'.format(System.get_my_storagerouter().ip))
         AlbaController.checkup_maintenance_agents.delay()

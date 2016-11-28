@@ -209,7 +209,7 @@ class ASDManagerClient(object):
         """
         return self._call(requests.get, 'asds/services', timeout=60, clean=True)['services']
 
-    def get_update_information(self):
+    def get_package_information(self):
         """
         Retrieve the package information for this ALBA node
         :return: Latest available version and services which require a restart
@@ -219,12 +219,7 @@ class ASDManagerClient(object):
             return self._call(requests.get, 'update/package_information', timeout=120, clean=True)
         except NotFoundError:
             update_info = self._call(requests.get, 'update/information', timeout=120, clean=True)
-            return {'alba': [{'candidate': '',
-                              'installed': '',
-                              'name': 'alba',
-                              'namespace': 'alba',
-                              'services_to_restart': []},
-                             {'candidate': update_info['version'],
+            return {'alba': [{'candidate': update_info['version'],
                               'installed': update_info['installed'],
                               'name': 'openvstorage-sdm',
                               'namespace': 'alba',
@@ -237,9 +232,9 @@ class ASDManagerClient(object):
         :return: None
         """
         try:
-            return self._call(requests.post, 'update/execute')
+            return self._call(requests.post, 'update/execute', timeout=300)
         except NotFoundError:
-            return self._call(requests.post, 'update/execute/{0}'.format(status))
+            return self._call(requests.post, 'update/execute/{0}'.format(status), timeout=300)
 
     def restart_services(self):
         """
@@ -278,3 +273,6 @@ class ASDManagerClient(object):
     def _refresh(self):
         self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
         self._base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}
+
+    def test(self):
+        return self._call(requests.post, 'test')

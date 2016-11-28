@@ -243,6 +243,7 @@
         "unavailable": "Unavailable"
     },
     "updates": {
+        "component_alba": "Alba",
         "title": "Alba"
     },
     "wizards": {
@@ -382,7 +383,7 @@
         },
         "update": {
             "downtime": {
-                "backend": "ALBA Backend availability"
+                "backend": "ALBA Backend"
             },
             "prerequisites": {
                 "general": "Following prerequisites are unmet:",
