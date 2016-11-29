@@ -45,9 +45,7 @@ from ovs.extensions.api.client import OVSClient
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
-from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.plugins.albacli import AlbaCLI
-from ovs.extensions.services.service import ServiceManager
 from ovs.lib.helpers.decorators import add_hooks, ensure_single
 from ovs.lib.helpers.toolbox import Toolbox, Schedule
 from ovs.log.log_handler import LogHandler
@@ -501,7 +499,7 @@ class AlbaController(object):
                                                              cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM,
                                                              ip=storagerouter.ip,
                                                              base_dir=partition.folder,
-                                                             plugins=[AlbaController.ABM_PLUGIN])
+                                                             plugins={AlbaController.ABM_PLUGIN: 'alba=`alba version --terse`'})
                     AlbaController.link_plugins(client=clients[storagerouter],
                                                 data_dir=partition.folder,
                                                 plugins=[AlbaController.ABM_PLUGIN],
@@ -546,7 +544,7 @@ class AlbaController(object):
                                                              cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                              ip=storagerouter.ip,
                                                              base_dir=partition.folder,
-                                                             plugins=[AlbaController.NSM_PLUGIN])
+                                                             plugins={AlbaController.NSM_PLUGIN: 'alba=`alba version --terse`'})
                     AlbaController.link_plugins(client=clients[storagerouter],
                                                 data_dir=partition.folder,
                                                 plugins=[AlbaController.NSM_PLUGIN],
@@ -949,7 +947,7 @@ class AlbaController(object):
                                                                              cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                                              ip=storagerouter.ip,
                                                                              base_dir=partition.folder,
-                                                                             plugins=[AlbaController.NSM_PLUGIN])
+                                                                             plugins={AlbaController.NSM_PLUGIN: 'alba=`alba version --terse`'})
                                 first_ip = storagerouter.ip
                                 metadata = nsm_result['metadata']
                             else:

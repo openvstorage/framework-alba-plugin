@@ -219,22 +219,31 @@ class ASDManagerClient(object):
             return self._call(requests.get, 'update/package_information', timeout=120, clean=True)
         except NotFoundError:
             update_info = self._call(requests.get, 'update/information', timeout=120, clean=True)
-            return {'alba': [{'candidate': update_info['version'],
-                              'installed': update_info['installed'],
-                              'name': 'openvstorage-sdm',
-                              'namespace': 'alba',
-                              'services_to_restart': []}]}
+            return {'alba': {'openvstorage-sdm': {'candidate': update_info['version'],
+                                                  'installed': update_info['installed'],
+                                                  'services_to_restart': []}}}
 
-    def execute_update(self, status):
+    def execute_update(self, package_name):
         """
         Execute an update
-        :param status: Status of update
         :return: None
         """
         try:
-            return self._call(requests.post, 'update/execute', timeout=300)
+            return self._call(requests.post, 'update/execute/{0}'.format(package_name), timeout=300)
         except NotFoundError:
-            return self._call(requests.post, 'update/execute/{0}'.format(status), timeout=300)
+            # Backwards compatibility
+            status = self._call(requests.post, 'update/execute/started', timeout=300).get('status', 'done')
+            if status != 'done':
+                counter = 0
+                max_counter = 12
+                while counter < max_counter:
+                    status = self._call(requests.post, 'update/execute/{0}'.format(status), timeout=300).get('status', 'done')
+                    if status == 'done':
+                        break
+                    time.sleep(10)
+                    counter += 1
+                if counter == max_counter:
+                    raise Exception('Failed to update SDM')
 
     def restart_services(self):
         """
@@ -273,6 +282,3 @@ class ASDManagerClient(object):
     def _refresh(self):
         self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
         self._base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}
-
-    def test(self):
-        return self._call(requests.post, 'test')

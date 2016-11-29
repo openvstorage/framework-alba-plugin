@@ -320,49 +320,40 @@ class AlbaUpdateController(object):
 
     @staticmethod
     @add_hooks('update', 'package_install_multi')
-    def package_install_alba_plugin(client, package_names):
+    def package_install_alba_plugin(client, package_info):
         """
         Update the Alba plugin packages
         :param client: Client on which to execute update the packages
         :type client: SSHClient
-        :param package_names: Packages to install
-        :type package_names: list
+        :param package_info: Information about the packages (installed, candidate)
+        :type package_info: dict
         :return: None
         """
-        for package_name in package_names:
-            if package_name in AlbaUpdateController.alba_plugin_packages:
-                PackageManager.install(package_name=package_name, client=client)
+        for pkg_name, pkg_info in package_info.iteritems():
+            if pkg_name in AlbaUpdateController.alba_plugin_packages:
+                AlbaUpdateController._logger.debug('{0}: Updating Alba plugin package {1} ({2} --> {3})'.format(client.ip, pkg_name, pkg_info['installed'], pkg_info['candidate']))
+                PackageManager.install(package_name=pkg_name, client=client)
+                AlbaUpdateController._logger.debug('{0}: Updated Alba plugin package {1}'.format(client.ip, pkg_name))
 
     @staticmethod
     @add_hooks('update', 'package_install_single')
-    def package_install_sdm(package_names):
+    def package_install_sdm(package_info):
         """
         Update the SDM packages
-        :param package_names: Packages to install
-        :type package_names: list
+        :param package_info: Information about the packages (installed, candidate)
+        :type package_info: dict
         :return: None
         """
-        if set(package_names).intersection(AlbaUpdateController.sdm_packages):
-            for alba_node in AlbaNodeList.get_albanodes():
-                AlbaUpdateController._logger.debug('{0}: Updating SDM'.format(alba_node.ip))
-                try:
-                    result = alba_node.client.execute_update(status=None)
-                    # Backwards compatibility
-                    if result and 'status' in result and result['status'] != 'done':
-                        counter = 0
-                        max_counter = 12
-                        while counter < max_counter:
-                            status = alba_node.client.execute_update(status=None).get('status')
-                            if status == 'done':
-                                break
-                            time.sleep(10)
-                            counter += 1
-                        if counter == max_counter:
-                            raise Exception('{0}: Failed to update SDM'.format(alba_node.ip))
-                except requests.ConnectionError as ce:
-                    if 'Connection aborted.' not in ce.message:  # This error is thrown due the post-update code of the SDM package which restarts the asd-manager service
-                        raise
-                AlbaUpdateController._logger.debug('{0}: Updated SDM'.format(alba_node.ip))
+        for pkg_name, pkg_info in package_info.iteritems():
+            if pkg_name in AlbaUpdateController.sdm_packages:
+                for alba_node in AlbaNodeList.get_albanodes():
+                    AlbaUpdateController._logger.debug('{0}: Updating SDM package {1} ({2} --> {3})'.format(alba_node.ip, pkg_name, pkg_info['installed'], pkg_info['candidate']))
+                    try:
+                        alba_node.client.execute_update(pkg_name)
+                    except requests.ConnectionError as ce:
+                        if 'Connection aborted.' not in ce.message:  # This error is thrown due the post-update code of the SDM package which restarts the asd-manager service
+                            raise
+                    AlbaUpdateController._logger.debug('{0}: Updated SDM package {1}'.format(alba_node.ip, pkg_name))
 
     @staticmethod
     @add_hooks('update', 'post_update_multi')
