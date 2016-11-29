@@ -219,9 +219,11 @@ class ASDManagerClient(object):
             return self._call(requests.get, 'update/package_information', timeout=120, clean=True)
         except NotFoundError:
             update_info = self._call(requests.get, 'update/information', timeout=120, clean=True)
-            return {'alba': {'openvstorage-sdm': {'candidate': update_info['version'],
-                                                  'installed': update_info['installed'],
-                                                  'services_to_restart': []}}}
+            if update_info['version']:
+                return {'alba': {'openvstorage-sdm': {'candidate': update_info['version'],
+                                                      'installed': update_info['installed'],
+                                                      'services_to_restart': []}}}
+            return {}
 
     def execute_update(self, package_name):
         """
