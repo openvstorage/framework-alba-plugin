@@ -57,6 +57,7 @@ class AlbaController(object):
     """
     ABM_PLUGIN = 'albamgr_plugin'
     NSM_PLUGIN = 'nsm_host_plugin'
+    ALBA_VERSION_GET = 'alba=`alba version --terse`'
     ARAKOON_PLUGIN_DIR = '/usr/lib/alba'
     ALBA_MAINTENANCE_SERVICE_PREFIX = 'alba-maintenance'
     CONFIG_ALBA_BACKEND_KEY = '/ovs/alba/backends/{0}'
@@ -499,7 +500,7 @@ class AlbaController(object):
                                                              cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM,
                                                              ip=storagerouter.ip,
                                                              base_dir=partition.folder,
-                                                             plugins={AlbaController.ABM_PLUGIN: 'alba=`alba version --terse`'})
+                                                             plugins={AlbaController.ABM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                     AlbaController.link_plugins(client=clients[storagerouter],
                                                 data_dir=partition.folder,
                                                 plugins=[AlbaController.ABM_PLUGIN],
@@ -544,7 +545,7 @@ class AlbaController(object):
                                                              cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                              ip=storagerouter.ip,
                                                              base_dir=partition.folder,
-                                                             plugins={AlbaController.NSM_PLUGIN: 'alba=`alba version --terse`'})
+                                                             plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                     AlbaController.link_plugins(client=clients[storagerouter],
                                                 data_dir=partition.folder,
                                                 plugins=[AlbaController.NSM_PLUGIN],
@@ -947,7 +948,7 @@ class AlbaController(object):
                                                                              cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                                              ip=storagerouter.ip,
                                                                              base_dir=partition.folder,
-                                                                             plugins={AlbaController.NSM_PLUGIN: 'alba=`alba version --terse`'})
+                                                                             plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                                 first_ip = storagerouter.ip
                                 metadata = nsm_result['metadata']
                             else:
