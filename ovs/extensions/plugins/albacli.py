@@ -76,9 +76,7 @@ class AlbaCLI(object):
             cmd_list = ['/usr/bin/alba', command, '--config={0}'.format(config), '--to-json']
             for key, value in named_params.iteritems():
                 cmd_list.append('--{0}={1}'.format(key, value))
-            for extra_param in extra_params:
-                cmd_list.append('{0}'.format(extra_param))
-
+            cmd_list.extend(extra_params)
             cmd_string = ' '.join(cmd_list)
             debug_log.append('Command: {0}'.format(cmd_string))
 
@@ -120,7 +118,7 @@ class AlbaCLI(object):
                 try:
                     output = json.loads(cpe.output)
                 except Exception:
-                    raise Exception('Failed to JSON decode. Output: {0}\nCommand: {1}'.format(cpe.output, cmd_string))
+                    raise RuntimeError('Executing command {0} failed with output {1}'.format(cmd_string, cpe.output))
 
             if output['success'] is True:
                 return output['result']
