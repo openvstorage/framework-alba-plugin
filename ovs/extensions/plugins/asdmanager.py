@@ -231,7 +231,7 @@ class ASDManagerClient(object):
         :return: None
         """
         try:
-            return self._call(requests.post, 'update/execute/{0}'.format(package_name), timeout=300)
+            return self._call(requests.post, 'update/install/{0}'.format(package_name), timeout=300)
         except NotFoundError:
             # Backwards compatibility
             status = self._call(requests.post, 'update/execute/started', timeout=300).get('status', 'done')
