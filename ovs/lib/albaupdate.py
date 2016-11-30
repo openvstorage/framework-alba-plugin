@@ -55,7 +55,7 @@ class AlbaUpdateController(object):
         Called by ScheduledTaskController.refresh_package_information() every hour
 
         Retrieve information about the currently installed versions of the core packages
-        Retrieve information about the versions to which each package can potentially be upgraded
+        Retrieve information about the versions to which each package can potentially be updated
         If installed version is different from candidate version --> store this information in model
 
         Additionally check the services with a 'run' file
