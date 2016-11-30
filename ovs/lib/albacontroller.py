@@ -107,7 +107,7 @@ class AlbaController(object):
             if disk_guid is not None and disk_guid not in disks:
                 disks[disk_guid] = AlbaDisk(disk_guid)
             alba_disk = disks.get(disk_guid)
-            AlbaCLI.run(command='claim-osd', config=config, long_id=osd_id, to_json=True)
+            AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': osd_id})
             osd = AlbaOSD()
             osd.osd_id = osd_id
             osd.osd_type = AlbaOSD.OSD_TYPES.ALBA_BACKEND if alba_disk is None else AlbaOSD.OSD_TYPES.ASD
@@ -135,7 +135,7 @@ class AlbaController(object):
         last_exception = None
         for osd_id in osd_ids:
             try:
-                AlbaCLI.run(command='purge-osd', config=config, long_id=osd_id, to_json=True)
+                AlbaCLI.run(command='purge-osd', config=config, named_params={'long-id': osd_id})
             except Exception as ex:
                 if 'Albamgr_protocol.Protocol.Error.Osd_unknown' not in ex.message:
                     AlbaController._logger.exception('Error purging OSD {0}'.format(osd_id))
@@ -205,7 +205,7 @@ class AlbaController(object):
         with open(temp_config_file, 'wb') as data_file:
             data_file.write(json.dumps(preset))
             data_file.flush()
-        AlbaCLI.run(command='create-preset', config=config, to_json=True, input_url=temp_config_file, extra_params=[name])
+        AlbaCLI.run(command='create-preset', config=config, named_params={'input-url': temp_config_file}, extra_params=[name])
         alba_backend.invalidate_dynamics()
         for filename in [temp_key_file, temp_config_file]:
             if filename and os.path.exists(filename) and os.path.isfile(filename):
@@ -225,7 +225,7 @@ class AlbaController(object):
         alba_backend = AlbaBackend(alba_backend_guid)
         AlbaController._logger.debug('Deleting preset {0}'.format(name))
         config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend)))
-        AlbaCLI.run(command='delete-preset', config=config, to_json=True, extra_params=[name])
+        AlbaCLI.run(command='delete-preset', config=config, extra_params=[name])
         alba_backend.invalidate_dynamics()
 
     @staticmethod
@@ -252,7 +252,7 @@ class AlbaController(object):
         with open(temp_config_file, 'wb') as data_file:
             data_file.write(json.dumps(preset))
             data_file.flush()
-        AlbaCLI.run(command='update-preset', config=config, to_json=True, input_url=temp_config_file, extra_params=[name])
+        AlbaCLI.run(command='update-preset', config=config, named_params={'input-url': temp_config_file}, extra_params=[name])
         alba_backend.invalidate_dynamics()
         for filename in [temp_key_file, temp_config_file]:
             if filename and os.path.exists(filename) and os.path.isfile(filename):
@@ -279,7 +279,7 @@ class AlbaController(object):
 
         alba_backend = AlbaBackend(alba_backend_guid)
         config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend)))
-        alba_backend.alba_id = AlbaCLI.run(command='get-alba-id', config=config, to_json=True, attempts=5)['id']
+        alba_backend.alba_id = AlbaCLI.run(command='get-alba-id', config=config, named_params={'attempts': 5})['id']
         alba_backend.save()
         if not Configuration.exists(AlbaController.CONFIG_DEFAULT_NSM_HOSTS_KEY):
             Configuration.set(AlbaController.CONFIG_DEFAULT_NSM_HOSTS_KEY, 1)
@@ -294,7 +294,7 @@ class AlbaController(object):
         # Enable LRU
         masters = StorageRouterList.get_masters()
         redis_endpoint = 'redis://{0}:6379/alba_lru_{1}'.format(masters[0].ip, alba_backend.guid)
-        AlbaCLI.run(command='update-maintenance-config', config=config, set_lru_cache_eviction=redis_endpoint)
+        AlbaCLI.run(command='update-maintenance-config', config=config, named_params={'set-lru-cache-eviction': redis_endpoint})
 
         # Mark the backend as "running"
         alba_backend.backend.status = 'RUNNING'
@@ -1012,7 +1012,7 @@ class AlbaController(object):
         while True:
             try:
                 config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend)))
-                safety_data = AlbaCLI.run(command='get-disk-safety', config=config, to_json=True, extra_params=extra_parameters)
+                safety_data = AlbaCLI.run(command='get-disk-safety', config=config, extra_params=extra_parameters)
                 break
             except Exception as ex:
                 if len(extra_parameters) > 1 and 'unknown osd' in ex.message:
@@ -1051,7 +1051,7 @@ class AlbaController(object):
         if service_capacity == 0:
             return float('inf')
         config = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(nsm_service.alba_backend.abm_services[0].service.name))
-        hosts_data = AlbaCLI.run(command='list-nsm-hosts', config=config, to_json=True)
+        hosts_data = AlbaCLI.run(command='list-nsm-hosts', config=config)
         host = [host for host in hosts_data if host['id'] == nsm_service.service.name][0]
         usage = host['namespaces_count']
         return round(usage / service_capacity * 100.0, 5)
@@ -1108,7 +1108,7 @@ class AlbaController(object):
         # This will be up to 2 minutes
         # Reason for trying multiple times is because after a cluster has been shrunk or extended,
         # master might not be known, thus updating config might fail
-        AlbaCLI.run(command='update-abm-client-config', config=abm_config_file, attempts=8, client=client)
+        AlbaCLI.run(command='update-abm-client-config', config=abm_config_file, named_params={'attempts': 8}, client=client)
 
     @staticmethod
     def _model_service(service_name, service_type, ports, storagerouter, junction_type, backend, number=None):
@@ -1180,7 +1180,7 @@ class AlbaController(object):
         added = False
         claimed = False
         config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=AlbaBackend(alba_backend_guid).backend)))
-        all_osds = AlbaCLI.run(command='list-all-osds', config=config, to_json=True)
+        all_osds = AlbaCLI.run(command='list-all-osds', config=config)
         linked_alba_id = metadata['backend_info']['linked_alba_id']
         for osd in all_osds:
             if osd.get('long_id') == linked_alba_id:
@@ -1213,11 +1213,10 @@ class AlbaController(object):
             try:
                 AlbaCLI.run(command='add-osd',
                             config=config,
-                            prefix=alba_backend_guid,
-                            preset=metadata['backend_info']['linked_preset'],
-                            node_id=metadata['backend_info']['linked_guid'],
-                            to_json=True,
-                            alba_osd_config_url='file://{0}'.format(remote_arakoon_config))
+                            named_params={'prefix': alba_backend_guid,
+                                          'preset': metadata['backend_info']['linked_preset'],
+                                          'node-id': metadata['backend_info']['linked_guid'],
+                                          'alba-osd-config-url': 'file://{0}'.format(remote_arakoon_config)})
             finally:
                 os.remove(remote_arakoon_config)
 

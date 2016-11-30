@@ -79,8 +79,8 @@ class VirtualAlbaBackend(object):
         """
         key = VirtualAlbaBackend._key_from_config(**kwargs)
         data = VirtualAlbaBackend._get_data(**kwargs)
-        if 'set_lru_cache_eviction' in kwargs:
-            data['lru_cache_eviction'] = kwargs['set_lru_cache_eviction']
+        if 'set-lru-cache-eviction' in kwargs:
+            data['lru_cache_eviction'] = kwargs['set-lru-cache-eviction']
             VirtualAlbaBackend.run_log[key].append(['update_maintenance_config', 'set_lru_cache_eviction'])
 
     @staticmethod
