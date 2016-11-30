@@ -94,10 +94,11 @@ class AlbaUpdateController(object):
             default_entry = {'candidate': None,
                              'installed': None,
                              'services_to_restart': []}
+
             #                       component:    package_name: services_with_run_file
             for component, info in {'framework': {'arakoon': framework_arakoons,
                                                   'openvstorage-backend': []},
-                                    'alba': {'alba': arakoon_services,
+                                    'alba': {'alba': [],
                                              'arakoon': arakoon_services}}.iteritems():
                 component_info = {}
                 for package_name, services in info.iteritems():
@@ -383,7 +384,7 @@ class AlbaUpdateController(object):
             services_to_restart.update(update_information.get('framework', {}).get('services_post_update', set()))
 
         # Restart Arakoon (and other services)
-        for service_name in services_to_restart:
+        for service_name in sorted(services_to_restart):
             if not service_name.startswith('ovs-arakoon-'):
                 UpdateController.change_services_state(services=[service_name], ssh_clients=[client], action='restart')
             else:
