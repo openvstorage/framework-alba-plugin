@@ -138,7 +138,7 @@ class AlbaBackend(DataObject):
             interval = Configuration.get('/ovs/alba/backends/global_gui_error_interval')
         config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name))
         asds = {}
-        for found_osd in AlbaCLI.run(command='list-all-osds', config=config, to_json=True):
+        for found_osd in AlbaCLI.run(command='list-all-osds', config=config):
             asds[found_osd['long_id']] = found_osd
         for node_data in storage_map.values():
             for _disk in node_data.values():
@@ -222,7 +222,7 @@ class AlbaBackend(DataObject):
             return []  # No ABM services yet, so backend not fully installed yet
 
         config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name))
-        return AlbaCLI.run(command='show-namespaces', config=config, max=-1, to_json=True)[1]
+        return AlbaCLI.run(command='show-namespaces', config=config, named_params={'max': -1})[1]
 
     def _usages(self):
         """
@@ -255,7 +255,7 @@ class AlbaBackend(DataObject):
                         if asd_info['status'] in ['claimed', 'warning']:
                             asds[node.node_id] += 1
         config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name))
-        presets = AlbaCLI.run(command='list-presets', config=config, to_json=True)
+        presets = AlbaCLI.run(command='list-presets', config=config)
         preset_dict = {}
         for preset in presets:
             preset_dict[preset['name']] = preset
@@ -328,7 +328,7 @@ class AlbaBackend(DataObject):
 
         try:
             config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name))
-            raw_statistics = AlbaCLI.run(command='asd-multistatistics', long_id=','.join(asd_ids), config=config, to_json=True)
+            raw_statistics = AlbaCLI.run(command='asd-multistatistics', config=config, named_params={'long-id': ','.join(asd_ids)})
         except RuntimeError:
             return statistics
         for asd_id, stats in raw_statistics.iteritems():
