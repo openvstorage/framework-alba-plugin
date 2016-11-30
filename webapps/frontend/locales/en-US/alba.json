@@ -241,6 +241,10 @@
         "policyinfo": "Policies displayed in bold will be used when writing new data",
         "unavailable": "Unavailable"
     },
+    "updates": {
+        "component_alba": "Alba",
+        "title": "Alba"
+    },
     "wizards": {
         "add_alba_node": {
             "asd_ips": "Below IPs will be used for datatransfer",
@@ -375,6 +379,16 @@
             "success": "Success",
             "success_msg": "Successfully unlinked __backend_to_unlink__ from __global_backend__",
             "title": "Unlink Backend"
+        },
+        "update": {
+            "downtime": {
+                "backend": "ALBA Backend"
+            },
+            "prerequisites": {
+                "general": "Following prerequisites are unmet:",
+                "alba_node_unresponsive": "ASD manager client is unresponsive on node"
+            },
+            "title": "Update"
         }
     }
 }
