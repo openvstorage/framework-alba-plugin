@@ -452,6 +452,7 @@ class AlbaBackend(DataObject):
                         'sizes': usage_info,
                         'devices': device_info,
                         'scaling': self.scaling,
+                        'domain_info': dict((backend_domain.domain.guid, backend_domain.domain.name) for backend_domain in self.backend.domains),
                         'backend_guid': self.backend.guid}
 
         # Calculate device information

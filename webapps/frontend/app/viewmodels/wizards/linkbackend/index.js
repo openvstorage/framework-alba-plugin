@@ -39,6 +39,8 @@ define([
         data.albaPreset(undefined);
         data.clientId('');
         data.clientSecret('');
+        data.domain(undefined);
+        data.domains([]);
         data.host('');
         data.localHost(true);
         data.port(80);

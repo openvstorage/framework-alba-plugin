@@ -18,8 +18,8 @@ define([
     'jquery', 'knockout',
     'ovs/api', 'ovs/shared', 'ovs/generic',
     './data',
-    '../../containers/albabackend'
-], function($, ko, api, shared, generic, data, AlbaBackend) {
+    '../../containers/albabackend', '../../containers/domain'
+], function($, ko, api, shared, generic, data, AlbaBackend, Domain) {
     "use strict";
     return function() {
         var self = this;
@@ -29,12 +29,35 @@ define([
         self.shared = shared;
 
         // Observables
-        self.albaBackendLoading = ko.observable(false);
-        self.albaPresetMap      = ko.observable({});
-        self.invalidAlbaInfo    = ko.observable(false);
+        self.albaPresetMap        = ko.observable({});
+        self.albaBackendDomainMap = ko.observable({});
+        self.loadingAlbaBackends  = ko.observable(true);
+        self.loadingDomains       = ko.observable(true);
+        self.invalidAlbaInfo      = ko.observable(false);
 
         // Handles
         self.loadAlbaBackendsHandle = undefined;
+        self.loadDomainsHandle      = undefined;
+
+        self.data.albaBackend.subscribe(function(backend) {
+            if (backend !== undefined && self.albaBackendDomainMap().hasOwnProperty(backend.guid())) {
+                var domainGuids = self.albaBackendDomainMap()[backend.guid()];
+                $.each(self.data.domains(), function(index, domain) {
+                    if (domainGuids.contains(domain.guid())) {
+                        self.data.domain(domain);
+                        return false;
+                    }
+                });
+            }
+        });
+        self.data.localHost.subscribe(function(local) {
+            if (local === false) {
+                if (self.data.host() === '' || self.data.clientId() === '' || self.data.clientSecret() === '' || self.data.port() === 1) {
+                    return;
+                }
+            }
+            self.loadAlbaBackends();
+        });
 
         // Computed
         self.isPresetAvailable = ko.computed(function() {
@@ -48,31 +71,38 @@ define([
             }
             return presetAvailable;
         });
+        self.selectedDomainLinkedToBackend = ko.computed(function() {
+            if (self.data.domain() !== undefined && self.data.albaBackend() !== undefined && self.albaBackendDomainMap().hasOwnProperty(self.data.albaBackend().guid())) {
+                return self.albaBackendDomainMap()[self.data.albaBackend().guid()].contains(self.data.domain().guid());
+            }
+        });
+        self.loadingInformation = ko.computed(function() {
+            return self.loadingAlbaBackends() || self.loadingDomains();
+        });
         self.canContinue = ko.computed(function() {
-            var valid = true, reasons = [], fields = [];
-            if (self.invalidAlbaInfo()) {
-                valid = false;
-                reasons.push($.t('alba:wizards.link_backend.invalid_alba_info'));
-                fields.push('clientid');
-                fields.push('clientsecret');
-                fields.push('host');
+            var reasons = [], fields = [];
+            if (self.loadingInformation() === false) {
+                if (self.invalidAlbaInfo()) {
+                    reasons.push($.t('alba:wizards.link_backend.invalid_alba_info'));
+                    fields.push('clientid');
+                    fields.push('clientsecret');
+                    fields.push('host');
+                } else {
+                    if (self.data.albaBackend() === undefined && self.loadingAlbaBackends() === false) {
+                        reasons.push($.t('alba:wizards.link_backend.choose_backend'));
+                        fields.push('backend');
+                    }
+                    if (self.data.albaBackend() !== undefined && self.data.albaPreset() === undefined) {
+                        reasons.push($.t('alba:wizards.link_backend.choose_preset'));
+                        fields.push('preset');
+                    }
+                }
+                if (!self.isPresetAvailable()) {
+                    reasons.push($.t('alba:wizards.link_backend.alba_preset_unavailable'));
+                    fields.push('preset');
+                }
             }
-            if (self.data.albaBackend() === undefined && self.albaBackendLoading()) {
-                valid = false;
-                reasons.push($.t('alba:wizards.link_backend.choose_backend'));
-                fields.push('backend');
-            }
-            if (self.data.albaBackend() !== undefined && self.data.albaPreset() === undefined) {
-                valid = false;
-                reasons.push($.t('alba:wizards.link_backend.choose_preset'));
-                fields.push('preset');
-            }
-            if (!self.isPresetAvailable()) {
-                valid = false;
-                reasons.push($.t('alba:wizards.link_backend.alba_preset_unavailable'));
-                fields.push('preset');
-            }
-            return { value: valid, reasons: reasons, fields: fields };
+            return { value: reasons.length === 0, reasons: reasons, fields: fields };
         });
 
         // Functions
@@ -86,6 +116,7 @@ define([
                         password: self.data.clientSecret()
                     },
                     backend_info: {
+                        domain_guid: self.data.domain() === undefined ? null : self.data.domain().guid(),
                         linked_guid: self.data.albaBackend().guid(),
                         linked_name: self.data.albaBackend().name(),
                         linked_preset: self.data.albaPreset().name,
@@ -124,7 +155,7 @@ define([
             return $.Deferred(function(albaDeferred) {
                 generic.xhrAbort(self.loadAlbaBackendsHandle);
                 self.invalidAlbaInfo(false);
-                self.albaBackendLoading(true);
+                self.loadingAlbaBackends(true);
 
                 var relay = '', remoteInfo = {},
                     getData = {
@@ -147,7 +178,11 @@ define([
                                 calls.push(
                                     api.get(relay + 'alba/backends/' + item.linked_guid + '/', { queryparams: getData })
                                         .then(function(data) {
-                                            var alreadyLinked = false;
+                                            var alreadyLinked = false, albaBackendDomainMap = {};
+                                            if (self.data.localHost()) {  // We only care about domains for backends on the local system
+                                                albaBackendDomainMap[data.guid] = generic.keys(data.local_summary['domain_info']);
+                                                $.extend(self.albaBackendDomainMap(), albaBackendDomainMap);
+                                            }
                                             $.each(data.linked_backend_guids, function(index, guid) {
                                                 if (self.data.target().linkedBackendGuids().contains(guid)) {
                                                     alreadyLinked = true;
@@ -197,32 +232,70 @@ define([
                                     self.data.albaBackend(undefined);
                                     self.data.albaPreset(undefined);
                                 }
-                                self.albaBackendLoading(false);
                             })
                             .done(albaDeferred.resolve)
                             .fail(function() {
                                 self.data.albaBackends([]);
                                 self.data.albaBackend(undefined);
                                 self.data.albaPreset(undefined);
-                                self.albaBackendLoading(false);
                                 self.invalidAlbaInfo(true);
                                 albaDeferred.reject();
+                            })
+                            .always(function() {
+                                self.loadingAlbaBackends(false);
                             });
                     })
                     .fail(function() {
                         self.data.albaBackends([]);
                         self.data.albaBackend(undefined);
                         self.data.albaPreset(undefined);
-                        self.albaBackendLoading(false);
+                        self.loadingAlbaBackends(false);
                         self.invalidAlbaInfo(true);
                         albaDeferred.reject();
                     });
+            }).promise();
+        };
+        self.loadDomains = function() {
+            return $.Deferred(function(deferred) {
+                if (generic.xhrCompleted(self.loadDomainsHandle)) {
+                    self.loadingDomains(true);
+                    self.loadDomainsHandle = api.get('domains', {queryparams: {sort: 'name', contents: ''}})
+                        .done(function(data) {
+                            var guids = [], ddata = {};
+                            $.each(data.data, function(index, item) {
+                                guids.push(item.guid);
+                                ddata[item.guid] = item;
+                            });
+                            generic.crossFiller(
+                                guids, self.data.domains,
+                                function(guid) {
+                                    return new Domain(guid);
+                                }, 'guid'
+                            );
+                            $.each(self.data.domains(), function(index, domain) {
+                                if (ddata.hasOwnProperty(domain.guid())) {
+                                    domain.fillData(ddata[domain.guid()]);
+                                }
+                            });
+                            self.data.domains.sort(function(dom1, dom2) {
+                                return dom1.name() < dom2.name() ? -1 : 1;
+                            });
+                            deferred.resolve();
+                        })
+                        .fail(deferred.reject)
+                        .always(function() {
+                            self.loadingDomains(false);
+                        });
+                } else {
+                    deferred.reject();
+                }
             }).promise();
         };
 
         // Durandal
         self.activate = function() {
             self.loadAlbaBackends();
+            self.loadDomains();
         };
     };
 });
