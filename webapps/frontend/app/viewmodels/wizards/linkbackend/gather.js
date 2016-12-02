@@ -51,12 +51,9 @@ define([
             }
         });
         self.data.localHost.subscribe(function(local) {
-            if (local === false) {
-                if (self.data.host() === '' || self.data.clientId() === '' || self.data.clientSecret() === '' || self.data.port() === 1) {
-                    return;
-                }
+            if (local === true || (self.data.host() !== '' && self.data.clientId() !== '' && self.data.clientSecret() !== '' && self.data.port() !== 1)) {
+                self.loadAlbaBackends();
             }
-            self.loadAlbaBackends();
         });
 
         // Computed
@@ -72,6 +69,9 @@ define([
             return presetAvailable;
         });
         self.selectedDomainLinkedToBackend = ko.computed(function() {
+            if (!self.data.localHost()) {
+                return true;
+            }
             if (self.data.domain() !== undefined && self.data.albaBackend() !== undefined && self.albaBackendDomainMap().hasOwnProperty(self.data.albaBackend().guid())) {
                 return self.albaBackendDomainMap()[self.data.albaBackend().guid()].contains(self.data.domain().guid());
             }
@@ -108,20 +108,25 @@ define([
         // Functions
         self.finish = function() {
             return $.Deferred(function(deferred) {
+                var backend_connection_info = {'host': '',
+                                               'port': 80,
+                                               'username': '',
+                                               'password': ''};
+                if (!self.data.localHost()) {
+                    backend_connection_info.host = self.data.host();
+                    backend_connection_info.port = self.data.port();
+                    backend_connection_info.username = self.data.clientId();
+                    backend_connection_info.password = self.data.clientSecret();
+                }
                 var postData = {
-                    backend_connection_info: {
-                        host: self.data.host(),
-                        port: self.data.port(),
-                        username: self.data.clientId(),
-                        password: self.data.clientSecret()
-                    },
                     backend_info: {
                         domain_guid: self.data.domain() === undefined ? null : self.data.domain().guid(),
                         linked_guid: self.data.albaBackend().guid(),
                         linked_name: self.data.albaBackend().name(),
                         linked_preset: self.data.albaPreset().name,
                         linked_alba_id: self.data.albaBackend().albaId()
-                    }
+                    },
+                    backend_connection_info: backend_connection_info,
                 };
                 generic.alertInfo(
                     $.t('alba:wizards.link_backend.started'),
@@ -133,14 +138,23 @@ define([
                 deferred.resolve();
                 api.post('alba/backends/' + self.data.target().guid() + '/link_alba_backends', {data: {metadata: postData}})
                     .then(self.shared.tasks.wait)
-                    .done(function() {
-                        generic.alertSuccess(
-                            $.t('alba:wizards.link_backend.success'),
-                            $.t('alba:wizards.link_backend.success_msg', {
-                                global_backend: self.data.target().name(),
-                                backend_to_link: self.data.albaBackend().name()
-                            })
-                        );
+                    .done(function(data) {
+                        if (data === true) {
+                            generic.alertSuccess(
+                                $.t('alba:wizards.link_backend.success'),
+                                $.t('alba:wizards.link_backend.success_msg', {
+                                    global_backend: self.data.target().name(),
+                                    backend_to_link: self.data.albaBackend().name()
+                                })
+                            );
+                        } else {
+                            generic.alertWarning(
+                                $.t('alba:wizards.link_backend.in_progress'),
+                                $.t('alba:wizards.link_backend.in_progress_msg', {
+                                    backend: self.data.albaBackend().name()
+                                })
+                            );
+                        }
                     })
                     .fail(function(error) {
                         error = generic.extractErrorMessage(error);
@@ -294,8 +308,8 @@ define([
 
         // Durandal
         self.activate = function() {
-            self.loadAlbaBackends();
-            self.loadDomains();
+            self.loadAlbaBackends()
+                .then(self.loadDomains());
         };
     };
 });

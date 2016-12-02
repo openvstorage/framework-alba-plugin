@@ -425,6 +425,8 @@ class AlbaBackend(DataObject):
                 alba_backend_guid = backend_info['linked_guid']
                 return_value[alba_backend_guid] = {'name': backend_info['linked_name'],
                                                    'error': '',
+                                                   'domain': None if osd.domain is None else {'guid': osd.domain_guid,
+                                                                                              'name': osd.domain.name},
                                                    'preset': backend_info['linked_preset'],
                                                    'osd_id': backend_info['linked_alba_id'],
                                                    'local_ip': connection_host in cluster_ips,
@@ -452,7 +454,7 @@ class AlbaBackend(DataObject):
                         'sizes': usage_info,
                         'devices': device_info,
                         'scaling': self.scaling,
-                        'domain_info': dict((backend_domain.domain.guid, backend_domain.domain.name) for backend_domain in self.backend.domains),
+                        'domain_info': dict((backend_domain.domain_guid, backend_domain.domain.name) for backend_domain in self.backend.domains),
                         'backend_guid': self.backend.guid}
 
         # Calculate device information
