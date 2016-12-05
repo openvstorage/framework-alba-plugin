@@ -29,7 +29,7 @@ from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.generic.system import System
 from ovs.extensions.generic.toolbox import Toolbox
 from ovs.extensions.packages.package import PackageManager
-from ovs.lib.albacontroller import AlbaController
+from ovs.lib.alba import AlbaController
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.lib.update import UpdateController
 from ovs.log.log_handler import LogHandler
@@ -52,7 +52,7 @@ class AlbaUpdateController(object):
     @add_hooks('update', 'get_package_info_multi')
     def get_package_information_alba_plugin_storage_routers(client, package_info):
         """
-        Called by ScheduledTaskController.refresh_package_information() every hour
+        Called by GenericController.refresh_package_information() every hour
 
         Retrieve information about the currently installed versions of the core packages
         Retrieve information about the versions to which each package can potentially be updated
@@ -152,7 +152,7 @@ class AlbaUpdateController(object):
     @add_hooks('update', 'get_package_info_single')
     def get_package_information_alba_plugin_storage_nodes(information):
         """
-        Called by ScheduledTaskController.refresh_package_information() every hour
+        Called by GenericController.refresh_package_information() every hour
 
         Retrieve and store the package information for all AlbaNodes
         :return: None

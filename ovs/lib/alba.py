@@ -33,6 +33,7 @@ from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albadisk import AlbaDisk
+from ovs.dal.hybrids.backend import Backend
 from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.domain import Domain
 from ovs.dal.hybrids.j_abmservice import ABMService
@@ -278,7 +279,7 @@ class AlbaController(object):
         :type alba_backend_guid: str
         :return: None
         """
-        from ovs.lib.albanodecontroller import AlbaNodeController
+        from ovs.lib.albanode import AlbaNodeController
 
         try:
             AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
@@ -724,7 +725,7 @@ class AlbaController(object):
         if storage_router.alba_node is not None:
             alba_node = storage_router.alba_node
             if complete_removal is True:
-                from ovs.lib.albanodecontroller import AlbaNodeController
+                from ovs.lib.albanode import AlbaNodeController
                 AlbaNodeController.remove_node(node_guid=storage_router.alba_node.guid)
                 AlbaController.checkup_maintenance_agents()
             else:
@@ -1433,6 +1434,40 @@ class AlbaController(object):
 
             AlbaController._logger.info('Finished service worklog for {0}'.format(name))
 
+    @staticmethod
+    @celery.task(name='alba.verify_namespaces', schedule=Schedule(minute='0', hour='0', day_of_month='1', month_of_year='*/3'))
+    def verify_namespaces():
+        """
+        Verify namespaces for all backends
+        """
+        AlbaController._logger.info('Verify namespace task scheduling started')
+
+        verification_factor = Configuration.get('/ovs/alba/backends/verification_factor', default=10)
+        for albabackend in AlbaBackendList.get_albabackends():
+            backend_name = albabackend.abm_services[0].service.name if albabackend.abm_services else albabackend.name + '-abm'
+            config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(backend_name))
+            namespaces = AlbaCLI.run(command='list-namespaces', config=config)
+            for namespace in namespaces:
+                ns_name = namespace['name']
+                AlbaController._logger.info('Scheduled namespace {0} for verification'.format(ns_name))
+                AlbaCLI.run(command='verify-namespace',
+                            config=config,
+                            named_params={'factor': verification_factor},
+                            extra_params=[ns_name, '{0}_{1}'.format(albabackend.name, ns_name)])
+
+        AlbaController._logger.info('Verify namespace task scheduling finished')
+
+    @staticmethod
+    @add_hooks('backend', 'domains-update')
+    def post_backend_domains_updated(backend_guid):
+        """
+        Execute this functionality when the Backend Domains have been updated
+        :param backend_guid: Guid of the Backend to be updated
+        :type backend_guid: str
+        :return: None
+        """
+        backend = Backend(backend_guid)
+        backend.alba_backend.invalidate_dynamics('local_summary')
 
 if __name__ == '__main__':
     try:

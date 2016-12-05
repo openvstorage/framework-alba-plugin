@@ -309,7 +309,7 @@ define([
         // Durandal
         self.activate = function() {
             self.loadAlbaBackends()
-                .then(self.loadDomains());
+                .then(self.loadDomains);
         };
     };
 });
