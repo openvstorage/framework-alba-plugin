@@ -29,10 +29,13 @@ import tempfile
 from ConfigParser import RawConfigParser
 from StringIO import StringIO
 from ovs.celery_run import celery
+from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albadisk import AlbaDisk
+from ovs.dal.hybrids.backend import Backend
 from ovs.dal.hybrids.diskpartition import DiskPartition
+from ovs.dal.hybrids.domain import Domain
 from ovs.dal.hybrids.j_abmservice import ABMService
 from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.service import Service as DalService
@@ -100,6 +103,14 @@ class AlbaController(object):
         :return: None
         """
         alba_backend = AlbaBackend(alba_backend_guid)
+        domain = None
+        domain_guid = metadata['backend_info']['domain_guid'] if metadata is not None else None
+        if domain_guid is not None:
+            try:
+                domain = Domain(domain_guid)
+            except ObjectNotFoundException:
+                AlbaController._logger.warning('Provided Domain with guid {0} has been deleted in the meantime'.format(domain_guid))
+
         config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend)))
         disks = {}
 
@@ -109,6 +120,7 @@ class AlbaController(object):
             alba_disk = disks.get(disk_guid)
             AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': osd_id})
             osd = AlbaOSD()
+            osd.domain = domain
             osd.osd_id = osd_id
             osd.osd_type = AlbaOSD.OSD_TYPES.ALBA_BACKEND if alba_disk is None else AlbaOSD.OSD_TYPES.ASD
             osd.metadata = metadata
@@ -267,7 +279,7 @@ class AlbaController(object):
         :type alba_backend_guid: str
         :return: None
         """
-        from ovs.lib.albanodecontroller import AlbaNodeController
+        from ovs.lib.albanode import AlbaNodeController
 
         try:
             AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
@@ -713,7 +725,7 @@ class AlbaController(object):
         if storage_router.alba_node is not None:
             alba_node = storage_router.alba_node
             if complete_removal is True:
-                from ovs.lib.albanodecontroller import AlbaNodeController
+                from ovs.lib.albanode import AlbaNodeController
                 AlbaNodeController.remove_node(node_guid=storage_router.alba_node.guid)
                 AlbaController.checkup_maintenance_agents()
             else:
@@ -1170,59 +1182,61 @@ class AlbaController(object):
                                                                                            'port': (int, {'min': 1, 'max': 65535}),
                                                                                            'username': (str, None),
                                                                                            'password': (str, None)}),
-                                                        'backend_info': (dict, {'linked_guid': (str, Toolbox.regex_guid),
+                                                        'backend_info': (dict, {'domain_guid': (str, Toolbox.regex_guid, False),
+                                                                                'linked_guid': (str, Toolbox.regex_guid),
                                                                                 'linked_name': (str, Toolbox.regex_vpool),
                                                                                 'linked_preset': (str, Toolbox.regex_preset),
                                                                                 'linked_alba_id': (str, Toolbox.regex_guid)})},
                                        actual_params=metadata)
 
         # Verify OSD has already been added
-        added = False
         claimed = False
         config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=AlbaBackend(alba_backend_guid).backend)))
         all_osds = AlbaCLI.run(command='list-all-osds', config=config)
         linked_alba_id = metadata['backend_info']['linked_alba_id']
         for osd in all_osds:
             if osd.get('long_id') == linked_alba_id:
-                added = True
+                if osd.get('decommissioned') is True:
+                    return False
+
                 claimed = osd.get('alba_id') is not None
                 break
 
         # Add the OSD
-        if added is False:
-            # Retrieve remote arakoon configuration
-            connection_info = metadata['backend_connection_info']
-            ovs_client = OVSClient(ip=connection_info['host'], port=connection_info['port'], credentials=(connection_info['username'], connection_info['password']))
-            task_id = ovs_client.get('/alba/backends/{0}/get_config_metadata'.format(metadata['backend_info']['linked_guid']))
-            successful, arakoon_config = ovs_client.wait_for_task(task_id, timeout=300)
-            if successful is False:
-                raise RuntimeError('Could not load metadata from environment {0}'.format(ovs_client.ip))
+        # Retrieve remote arakoon configuration
+        connection_info = metadata['backend_connection_info']
+        ovs_client = OVSClient(ip=connection_info['host'], port=connection_info['port'], credentials=(connection_info['username'], connection_info['password']))
+        task_id = ovs_client.get('/alba/backends/{0}/get_config_metadata'.format(metadata['backend_info']['linked_guid']))
+        successful, arakoon_config = ovs_client.wait_for_task(task_id, timeout=300)
+        if successful is False:
+            raise RuntimeError('Could not load metadata from environment {0}'.format(ovs_client.ip))
 
-            # Write arakoon configuration to file
-            raw_config = RawConfigParser()
-            for section in arakoon_config:
-                raw_config.add_section(section)
-                for key, value in arakoon_config[section].iteritems():
-                    raw_config.set(section, key, value)
-            config_io = StringIO()
-            raw_config.write(config_io)
-            remote_arakoon_config = '/opt/OpenvStorage/arakoon_config_temp'
-            with open(remote_arakoon_config, 'w') as arakoon_cfg:
-                arakoon_cfg.write(config_io.getvalue())
+        # Write arakoon configuration to file
+        raw_config = RawConfigParser()
+        for section in arakoon_config:
+            raw_config.add_section(section)
+            for key, value in arakoon_config[section].iteritems():
+                raw_config.set(section, key, value)
+        config_io = StringIO()
+        raw_config.write(config_io)
+        remote_arakoon_config = '/opt/OpenvStorage/arakoon_config_temp'
+        with open(remote_arakoon_config, 'w') as arakoon_cfg:
+            arakoon_cfg.write(config_io.getvalue())
 
-            try:
-                AlbaCLI.run(command='add-osd',
-                            config=config,
-                            named_params={'prefix': alba_backend_guid,
-                                          'preset': metadata['backend_info']['linked_preset'],
-                                          'node-id': metadata['backend_info']['linked_guid'],
-                                          'alba-osd-config-url': 'file://{0}'.format(remote_arakoon_config)})
-            finally:
-                os.remove(remote_arakoon_config)
+        try:
+            AlbaCLI.run(command='add-osd',
+                        config=config,
+                        named_params={'prefix': alba_backend_guid,
+                                      'preset': metadata['backend_info']['linked_preset'],
+                                      'node-id': metadata['backend_info']['linked_guid'],
+                                      'alba-osd-config-url': 'file://{0}'.format(remote_arakoon_config)})
+        finally:
+            os.remove(remote_arakoon_config)
 
         if claimed is False:
             # Claim and update model
             AlbaController.add_units(alba_backend_guid=alba_backend_guid, osds={linked_alba_id: None}, metadata=metadata)
+        return True
 
     @staticmethod
     @celery.task(name='alba.unlink_alba_backends')
@@ -1420,6 +1434,40 @@ class AlbaController(object):
 
             AlbaController._logger.info('Finished service worklog for {0}'.format(name))
 
+    @staticmethod
+    @celery.task(name='alba.verify_namespaces', schedule=Schedule(minute='0', hour='0', day_of_month='1', month_of_year='*/3'))
+    def verify_namespaces():
+        """
+        Verify namespaces for all backends
+        """
+        AlbaController._logger.info('Verify namespace task scheduling started')
+
+        verification_factor = Configuration.get('/ovs/alba/backends/verification_factor', default=10)
+        for albabackend in AlbaBackendList.get_albabackends():
+            backend_name = albabackend.abm_services[0].service.name if albabackend.abm_services else albabackend.name + '-abm'
+            config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(backend_name))
+            namespaces = AlbaCLI.run(command='list-namespaces', config=config)
+            for namespace in namespaces:
+                ns_name = namespace['name']
+                AlbaController._logger.info('Scheduled namespace {0} for verification'.format(ns_name))
+                AlbaCLI.run(command='verify-namespace',
+                            config=config,
+                            named_params={'factor': verification_factor},
+                            extra_params=[ns_name, '{0}_{1}'.format(albabackend.name, ns_name)])
+
+        AlbaController._logger.info('Verify namespace task scheduling finished')
+
+    @staticmethod
+    @add_hooks('backend', 'domains-update')
+    def post_backend_domains_updated(backend_guid):
+        """
+        Execute this functionality when the Backend Domains have been updated
+        :param backend_guid: Guid of the Backend to be updated
+        :type backend_guid: str
+        :return: None
+        """
+        backend = Backend(backend_guid)
+        backend.alba_backend.invalidate_dynamics('local_summary')
 
 if __name__ == '__main__':
     try:

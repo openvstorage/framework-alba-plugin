@@ -27,7 +27,7 @@ from ovs.dal.datalist import DataList
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.extensions.generic.configuration import Configuration
-from ovs.lib.albanodecontroller import AlbaNodeController
+from ovs.lib.albanode import AlbaNodeController
 
 
 class AlbaNodeViewSet(viewsets.ViewSet):

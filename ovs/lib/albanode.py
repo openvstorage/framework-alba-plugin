@@ -30,7 +30,7 @@ from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.asdmanager import InvalidCredentialsError
 from ovs.log.log_handler import LogHandler
-from ovs.lib.albacontroller import AlbaController
+from ovs.lib.alba import AlbaController
 from ovs.lib.disk import DiskController
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.lib.helpers.decorators import ensure_single
