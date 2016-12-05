@@ -29,7 +29,7 @@ from ovs.extensions.generic.system import System
 from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
 from ovs.extensions.storage.persistentfactory import PersistentFactory
 from ovs.extensions.storage.volatilefactory import VolatileFactory
-from ovs.lib.albacontroller import AlbaController
+from ovs.lib.alba import AlbaController
 from ovs.lib.tests.helpers import Helper
 
 

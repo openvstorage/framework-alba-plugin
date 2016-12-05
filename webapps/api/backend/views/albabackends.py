@@ -27,7 +27,7 @@ from api.backend.serializers.serializers import FullSerializer
 from api.backend.toolbox import Toolbox
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albabackendlist import AlbaBackendList
-from ovs.lib.albacontroller import AlbaController
+from ovs.lib.alba import AlbaController
 
 
 class AlbaBackendViewSet(viewsets.ViewSet):

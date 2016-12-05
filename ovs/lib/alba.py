@@ -29,10 +29,13 @@ import tempfile
 from ConfigParser import RawConfigParser
 from StringIO import StringIO
 from ovs.celery_run import celery
+from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albadisk import AlbaDisk
+from ovs.dal.hybrids.backend import Backend
 from ovs.dal.hybrids.diskpartition import DiskPartition
+from ovs.dal.hybrids.domain import Domain
 from ovs.dal.hybrids.j_abmservice import ABMService
 from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.service import Service as DalService
@@ -45,9 +48,7 @@ from ovs.extensions.api.client import OVSClient
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
-from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.plugins.albacli import AlbaCLI
-from ovs.extensions.services.service import ServiceManager
 from ovs.lib.helpers.decorators import add_hooks, ensure_single
 from ovs.lib.helpers.toolbox import Toolbox, Schedule
 from ovs.log.log_handler import LogHandler
@@ -59,9 +60,9 @@ class AlbaController(object):
     """
     ABM_PLUGIN = 'albamgr_plugin'
     NSM_PLUGIN = 'nsm_host_plugin'
+    ALBA_VERSION_GET = 'alba=`alba version --terse`'
     ARAKOON_PLUGIN_DIR = '/usr/lib/alba'
     ALBA_MAINTENANCE_SERVICE_PREFIX = 'alba-maintenance'
-    ALBA_REBALANCER_SERVICE_PREFIX = 'alba-rebalancer'
     CONFIG_ALBA_BACKEND_KEY = '/ovs/alba/backends/{0}'
     CONFIG_DEFAULT_NSM_HOSTS_KEY = CONFIG_ALBA_BACKEND_KEY.format('default_nsm_hosts')
     NR_OF_AGENTS_CONFIG_KEY = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
@@ -102,6 +103,14 @@ class AlbaController(object):
         :return: None
         """
         alba_backend = AlbaBackend(alba_backend_guid)
+        domain = None
+        domain_guid = metadata['backend_info'].get('domain_guid') if metadata is not None else None
+        if domain_guid is not None:
+            try:
+                domain = Domain(domain_guid)
+            except ObjectNotFoundException:
+                AlbaController._logger.warning('Provided Domain with guid {0} has been deleted in the meantime'.format(domain_guid))
+
         config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend)))
         disks = {}
 
@@ -109,8 +118,9 @@ class AlbaController(object):
             if disk_guid is not None and disk_guid not in disks:
                 disks[disk_guid] = AlbaDisk(disk_guid)
             alba_disk = disks.get(disk_guid)
-            AlbaCLI.run(command='claim-osd', config=config, long_id=osd_id, to_json=True)
+            AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': osd_id})
             osd = AlbaOSD()
+            osd.domain = domain
             osd.osd_id = osd_id
             osd.osd_type = AlbaOSD.OSD_TYPES.ALBA_BACKEND if alba_disk is None else AlbaOSD.OSD_TYPES.ASD
             osd.metadata = metadata
@@ -137,7 +147,7 @@ class AlbaController(object):
         last_exception = None
         for osd_id in osd_ids:
             try:
-                AlbaCLI.run(command='purge-osd', config=config, long_id=osd_id, to_json=True)
+                AlbaCLI.run(command='purge-osd', config=config, named_params={'long-id': osd_id})
             except Exception as ex:
                 if 'Albamgr_protocol.Protocol.Error.Osd_unknown' not in ex.message:
                     AlbaController._logger.exception('Error purging OSD {0}'.format(osd_id))
@@ -207,7 +217,7 @@ class AlbaController(object):
         with open(temp_config_file, 'wb') as data_file:
             data_file.write(json.dumps(preset))
             data_file.flush()
-        AlbaCLI.run(command='create-preset', config=config, to_json=True, input_url=temp_config_file, extra_params=[name])
+        AlbaCLI.run(command='create-preset', config=config, named_params={'input-url': temp_config_file}, extra_params=[name])
         alba_backend.invalidate_dynamics()
         for filename in [temp_key_file, temp_config_file]:
             if filename and os.path.exists(filename) and os.path.isfile(filename):
@@ -227,7 +237,7 @@ class AlbaController(object):
         alba_backend = AlbaBackend(alba_backend_guid)
         AlbaController._logger.debug('Deleting preset {0}'.format(name))
         config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend)))
-        AlbaCLI.run(command='delete-preset', config=config, to_json=True, extra_params=[name])
+        AlbaCLI.run(command='delete-preset', config=config, extra_params=[name])
         alba_backend.invalidate_dynamics()
 
     @staticmethod
@@ -254,7 +264,7 @@ class AlbaController(object):
         with open(temp_config_file, 'wb') as data_file:
             data_file.write(json.dumps(preset))
             data_file.flush()
-        AlbaCLI.run(command='update-preset', config=config, to_json=True, input_url=temp_config_file, extra_params=[name])
+        AlbaCLI.run(command='update-preset', config=config, named_params={'input-url': temp_config_file}, extra_params=[name])
         alba_backend.invalidate_dynamics()
         for filename in [temp_key_file, temp_config_file]:
             if filename and os.path.exists(filename) and os.path.isfile(filename):
@@ -269,7 +279,7 @@ class AlbaController(object):
         :type alba_backend_guid: str
         :return: None
         """
-        from ovs.lib.albanodecontroller import AlbaNodeController
+        from ovs.lib.albanode import AlbaNodeController
 
         try:
             AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
@@ -281,7 +291,7 @@ class AlbaController(object):
 
         alba_backend = AlbaBackend(alba_backend_guid)
         config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend)))
-        alba_backend.alba_id = AlbaCLI.run(command='get-alba-id', config=config, to_json=True, attempts=5)['id']
+        alba_backend.alba_id = AlbaCLI.run(command='get-alba-id', config=config, named_params={'attempts': 5})['id']
         alba_backend.save()
         if not Configuration.exists(AlbaController.CONFIG_DEFAULT_NSM_HOSTS_KEY):
             Configuration.set(AlbaController.CONFIG_DEFAULT_NSM_HOSTS_KEY, 1)
@@ -296,7 +306,7 @@ class AlbaController(object):
         # Enable LRU
         masters = StorageRouterList.get_masters()
         redis_endpoint = 'redis://{0}:6379/alba_lru_{1}'.format(masters[0].ip, alba_backend.guid)
-        AlbaCLI.run(command='update-maintenance-config', config=config, set_lru_cache_eviction=redis_endpoint)
+        AlbaCLI.run(command='update-maintenance-config', config=config, named_params={'set-lru-cache-eviction': redis_endpoint})
 
         # Mark the backend as "running"
         alba_backend.backend.status = 'RUNNING'
@@ -502,7 +512,7 @@ class AlbaController(object):
                                                              cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM,
                                                              ip=storagerouter.ip,
                                                              base_dir=partition.folder,
-                                                             plugins=[AlbaController.ABM_PLUGIN])
+                                                             plugins={AlbaController.ABM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                     AlbaController.link_plugins(client=clients[storagerouter],
                                                 data_dir=partition.folder,
                                                 plugins=[AlbaController.ABM_PLUGIN],
@@ -547,7 +557,7 @@ class AlbaController(object):
                                                              cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                              ip=storagerouter.ip,
                                                              base_dir=partition.folder,
-                                                             plugins=[AlbaController.NSM_PLUGIN])
+                                                             plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                     AlbaController.link_plugins(client=clients[storagerouter],
                                                 data_dir=partition.folder,
                                                 plugins=[AlbaController.NSM_PLUGIN],
@@ -715,7 +725,7 @@ class AlbaController(object):
         if storage_router.alba_node is not None:
             alba_node = storage_router.alba_node
             if complete_removal is True:
-                from ovs.lib.albanodecontroller import AlbaNodeController
+                from ovs.lib.albanode import AlbaNodeController
                 AlbaNodeController.remove_node(node_guid=storage_router.alba_node.guid)
                 AlbaController.checkup_maintenance_agents()
             else:
@@ -950,7 +960,7 @@ class AlbaController(object):
                                                                              cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                                              ip=storagerouter.ip,
                                                                              base_dir=partition.folder,
-                                                                             plugins=[AlbaController.NSM_PLUGIN])
+                                                                             plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                                 first_ip = storagerouter.ip
                                 metadata = nsm_result['metadata']
                             else:
@@ -1014,7 +1024,7 @@ class AlbaController(object):
         while True:
             try:
                 config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=alba_backend.backend)))
-                safety_data = AlbaCLI.run(command='get-disk-safety', config=config, to_json=True, extra_params=extra_parameters)
+                safety_data = AlbaCLI.run(command='get-disk-safety', config=config, extra_params=extra_parameters)
                 break
             except Exception as ex:
                 if len(extra_parameters) > 1 and 'unknown osd' in ex.message:
@@ -1053,7 +1063,7 @@ class AlbaController(object):
         if service_capacity == 0:
             return float('inf')
         config = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(nsm_service.alba_backend.abm_services[0].service.name))
-        hosts_data = AlbaCLI.run(command='list-nsm-hosts', config=config, to_json=True)
+        hosts_data = AlbaCLI.run(command='list-nsm-hosts', config=config)
         host = [host for host in hosts_data if host['id'] == nsm_service.service.name][0]
         usage = host['namespaces_count']
         return round(usage / service_capacity * 100.0, 5)
@@ -1110,7 +1120,7 @@ class AlbaController(object):
         # This will be up to 2 minutes
         # Reason for trying multiple times is because after a cluster has been shrunk or extended,
         # master might not be known, thus updating config might fail
-        AlbaCLI.run(command='update-abm-client-config', config=abm_config_file, attempts=8, client=client)
+        AlbaCLI.run(command='update-abm-client-config', config=abm_config_file, named_params={'attempts': 8}, client=client)
 
     @staticmethod
     def _model_service(service_name, service_type, ports, storagerouter, junction_type, backend, number=None):
@@ -1133,212 +1143,6 @@ class AlbaController(object):
         junction_service.alba_backend = backend
         junction_service.save()
         return junction_service
-
-    @staticmethod
-    @add_hooks('update', 'metadata')
-    def get_metadata_sdm(client):
-        """
-        Retrieve information about the SDM packages
-        :param client: SSHClient on which to retrieve the metadata
-        :type client: SSHClient
-        :return: Information about services to restart,
-                                   packages to update,
-                                   information about potential downtime
-                                   information about unmet prerequisites
-        :rtype: dict
-        """
-        other_storage_router_ips = [sr.ip for sr in StorageRouterList.get_storagerouters() if sr.ip != client.ip]
-        version = ''
-        for node in AlbaNodeList.get_albanodes():
-            if node.ip in other_storage_router_ips:
-                continue
-            try:
-                candidate = node.client.get_update_information()
-                if candidate.get('version'):
-                    version = candidate['version']
-                    break
-            except ValueError as ve:
-                if 'No JSON object could be decoded' in ve.message:
-                    version = 'Remote ASD'
-        return {'framework': [{'name': 'openvstorage-sdm',
-                               'version': version,
-                               'services': [],
-                               'packages': [],
-                               'downtime': [],
-                               'namespace': 'alba',
-                               'prerequisites': []}]}
-
-    @staticmethod
-    @add_hooks('update', 'metadata')
-    def get_metadata_alba(client):
-        """
-        Retrieve ALBA packages and services which ALBA depends upon
-        Also check the arakoon clusters to be able to warn the customer for potential downtime
-        :param client: SSHClient on which to retrieve the metadata
-        :type client: SSHClient
-        :return: Information about services to restart,
-                                   packages to update,
-                                   information about potential downtime
-                                   information about unmet prerequisites
-        :rtype: dict
-        """
-        downtime = []
-        alba_services = set()
-        arakoon_cluster_services = set()
-        for albabackend in AlbaBackendList.get_albabackends():
-            alba_services.add('{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, albabackend.backend.name))
-            arakoon_cluster_services.add('arakoon-{0}'.format(albabackend.abm_services[0].service.name))
-            arakoon_cluster_services.update(['arakoon-{0}'.format(service.service.name) for service in albabackend.nsm_services])
-            if len(albabackend.abm_services) < 3:
-                downtime.append(('alba', 'backend', albabackend.backend.name))
-                continue  # No need to check other services for this backend since downtime is a fact
-
-            nsm_service_info = {}
-            for service in albabackend.nsm_services:
-                if service.service.name not in nsm_service_info:
-                    nsm_service_info[service.service.name] = 0
-                nsm_service_info[service.service.name] += 1
-            if min(nsm_service_info.values()) < 3:
-                downtime.append(('alba', 'backend', albabackend.backend.name))
-
-        core_info = PackageManager.verify_update_required(packages=['openvstorage-backend-core', 'openvstorage-backend-webapps'],
-                                                          services=['watcher-framework', 'memcached'],
-                                                          client=client)
-        alba_info = PackageManager.verify_update_required(packages=['alba'],
-                                                          services=list(alba_services),
-                                                          client=client)
-        arakoon_info = PackageManager.verify_update_required(packages=['arakoon'],
-                                                             services=list(arakoon_cluster_services),
-                                                             client=client)
-
-        return {'framework': [{'name': 'openvstorage-backend',
-                               'version': core_info['version'],
-                               'services': core_info['services'],
-                               'packages': core_info['packages'],
-                               'downtime': [],
-                               'namespace': 'alba',
-                               'prerequisites': []},
-                              {'name': 'alba',
-                               'version': alba_info['version'],
-                               'services': alba_info['services'],
-                               'packages': alba_info['packages'],
-                               'downtime': downtime,
-                               'namespace': 'alba',
-                               'prerequisites': []},
-                              {'name': 'arakoon',
-                               'version': arakoon_info['version'],
-                               'services': [],
-                               'packages': arakoon_info['packages'],
-                               'downtime': downtime,
-                               'namespace': 'alba',
-                               'prerequisites': []}]}
-
-    @staticmethod
-    @add_hooks('update', 'postupgrade')
-    def upgrade_sdm(client):
-        """
-        Upgrade the openvstorage-sdm packages
-        :param client: SSHClient to 1 of the master nodes (On which the update is initiated)
-        :type client: SSHClient
-        :return: None
-        """
-        storagerouter_ips = [sr.ip for sr in StorageRouterList.get_storagerouters()]
-        other_storagerouter_ips = [ip for ip in storagerouter_ips if ip != client.ip]
-
-        nodes_to_upgrade = []
-        all_nodes_to_upgrade = []
-        for node in AlbaNodeList.get_albanodes():
-            version_info = node.client.get_update_information()
-            # Some odd information we get back here, but we don't change it because backwards compatibility
-            # Pending updates: SDM  ASD
-            #                   Y    Y    -> installed = 1.0, version = 1.1
-            #                   Y    N    -> installed = 1.0, version = 1.1
-            #                   N    Y    -> installed = 1.0, version = 1.0  (They are equal, but there's an ASD update pending)
-            #                   N    N    -> installed = 1.0, version =      (No version? This means there's no update)
-            pending = version_info['version']
-            installed = version_info['installed']
-            if pending != '':  # If there is any update (SDM or ASD)
-                if pending.startswith('1.6.') and installed.startswith('1.5.'):
-                    # 2.6 to 2.7 upgrade
-                    if node.ip not in storagerouter_ips:
-                        AlbaController._logger.warning('A non-hyperconverged node with pending upgrade from 2.6 (1.5) to 2.7 (1.6) was detected. No upgrade possible')
-                        return
-                all_nodes_to_upgrade.append(node)
-                if node.ip not in other_storagerouter_ips:
-                    nodes_to_upgrade.append(node)
-
-        for node in nodes_to_upgrade:
-            AlbaController._logger.info('{0}: Upgrading SDM'.format(node.ip))
-            counter = 0
-            max_counter = 12
-            status = 'started'
-            while True and counter < max_counter:
-                counter += 1
-                try:
-                    status = node.client.execute_update(status).get('status')
-                    if status == 'done':
-                        break
-                except Exception as ex:
-                    AlbaController._logger.warning('Attempt {0} to update SDM failed, trying again'.format(counter))
-                    if counter == max_counter:
-                        AlbaController._logger.error('{0}: Error during update: {1}'.format(node.ip, ex.message))
-                    time.sleep(10)
-            if status != 'done':
-                AlbaController._logger.error('{0}: Failed to perform SDM update. Please check the appropriate logfile on the node'.format(node.ip))
-                raise Exception('Status after upgrade is "{0}"'.format(status))
-            node.client.restart_services()
-            all_nodes_to_upgrade.remove(node)
-
-        for alba_backend in AlbaBackendList.get_albabackends():
-            service_name = '{0}_{1}'.format(AlbaController.ALBA_MAINTENANCE_SERVICE_PREFIX, alba_backend.backend.name)
-            if ServiceManager.has_service(service_name, client=client) is True:
-                if ServiceManager.get_service_status(service_name, client=client)[0] is True:
-                    ServiceManager.stop_service(service_name, client=client)
-                ServiceManager.remove_service(service_name, client=client)
-
-        AlbaController.checkup_maintenance_agents.delay()
-
-    @staticmethod
-    @add_hooks('update', 'postupgrade')
-    def restart_arakoon_clusters(client):
-        """
-        Restart all arakoon clusters after arakoon and/or alba package upgrade
-        :param client: SSHClient to 1 of the master nodes (On which the update is initiated)
-        :type client: SSHClient
-        :return: None
-        """
-        services = []
-        for alba_backend in AlbaBackendList.get_albabackends():
-            services.append('arakoon-{0}'.format(alba_backend.abm_services[0].service.name))
-            services.extend(list(set(['arakoon-{0}'.format(service.service.name) for service in alba_backend.nsm_services])))
-
-        info = PackageManager.verify_update_required(packages=['arakoon'],
-                                                     services=services,
-                                                     client=client)
-        for service in info['services']:
-            cluster_name = service.lstrip('arakoon-')
-            AlbaController._logger.info('Restarting cluster {0}'.format(cluster_name), print_msg=True)
-            ArakoonInstaller.restart_cluster(cluster_name=cluster_name,
-                                             master_ip=client.ip,
-                                             filesystem=False)
-        else:  # In case no arakoon clusters are restarted, we check if alba has been updated and still restart clusters
-            proxies = []
-            this_sr = StorageRouterList.get_by_ip(client.ip)
-            for sr in StorageRouterList.get_storagerouters():
-                for service in sr.services:
-                    if service.type.name == ServiceType.SERVICE_TYPES.ALBA_PROXY and service.storagerouter_guid == this_sr.guid:
-                        proxies.append(service.name)
-            if proxies:
-                info = PackageManager.verify_update_required(packages=['alba'],
-                                                             services=proxies,
-                                                             client=client)
-                if info['services']:
-                    for service in services:
-                        cluster_name = service.lstrip('arakoon-')
-                        AlbaController._logger.info('Restarting cluster {0} because of ALBA update'.format(cluster_name), print_msg=True)
-                        ArakoonInstaller.restart_cluster(cluster_name=cluster_name,
-                                                         master_ip=client.ip,
-                                                         filesystem=False)
 
     @staticmethod
     @add_hooks('setup', ['firstnode', 'extranode'])  # Arguments: cluster_ip and for extranode also master_ip
@@ -1364,25 +1168,6 @@ class AlbaController(object):
                 Configuration.set(key.format(machine_id), 9)
 
     @staticmethod
-    @add_hooks('update', 'postupgrade')
-    def upgrade_alba_plugin(client):
-        """
-        Upgrade the ALBA plugin
-        :param client: SSHClient to connect to for upgrade
-        :type client: SSHClient
-        :return: None
-        """
-        from ovs.dal.lists.albabackendlist import AlbaBackendList
-        alba_backends = AlbaBackendList.get_albabackends()
-        for alba_backend in alba_backends:
-            alba_backend_name = alba_backend.backend.name
-            service_name = '{0}_{1}'.format(AlbaController.ALBA_REBALANCER_SERVICE_PREFIX, alba_backend_name)
-            if ServiceManager.has_service(service_name, client=client) is True:
-                if ServiceManager.get_service_status(service_name, client=client)[0] is True:
-                    ServiceManager.stop_service(service_name, client=client)
-                ServiceManager.remove_service(service_name, client=client)
-
-    @staticmethod
     @celery.task(name='alba.link_alba_backends')
     def link_alba_backends(alba_backend_guid, metadata):
         """
@@ -1397,60 +1182,61 @@ class AlbaController(object):
                                                                                            'port': (int, {'min': 1, 'max': 65535}),
                                                                                            'username': (str, None),
                                                                                            'password': (str, None)}),
-                                                        'backend_info': (dict, {'linked_guid': (str, Toolbox.regex_guid),
+                                                        'backend_info': (dict, {'domain_guid': (str, Toolbox.regex_guid, False),
+                                                                                'linked_guid': (str, Toolbox.regex_guid),
                                                                                 'linked_name': (str, Toolbox.regex_vpool),
                                                                                 'linked_preset': (str, Toolbox.regex_preset),
                                                                                 'linked_alba_id': (str, Toolbox.regex_guid)})},
                                        actual_params=metadata)
 
         # Verify OSD has already been added
-        added = False
         claimed = False
         config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(AlbaController.get_abm_service_name(backend=AlbaBackend(alba_backend_guid).backend)))
-        all_osds = AlbaCLI.run(command='list-all-osds', config=config, to_json=True)
+        all_osds = AlbaCLI.run(command='list-all-osds', config=config)
         linked_alba_id = metadata['backend_info']['linked_alba_id']
         for osd in all_osds:
             if osd.get('long_id') == linked_alba_id:
-                added = True
+                if osd.get('decommissioned') is True:
+                    return False
+
                 claimed = osd.get('alba_id') is not None
                 break
 
         # Add the OSD
-        if added is False:
-            # Retrieve remote arakoon configuration
-            connection_info = metadata['backend_connection_info']
-            ovs_client = OVSClient(ip=connection_info['host'], port=connection_info['port'], credentials=(connection_info['username'], connection_info['password']))
-            task_id = ovs_client.get('/alba/backends/{0}/get_config_metadata'.format(metadata['backend_info']['linked_guid']))
-            successful, arakoon_config = ovs_client.wait_for_task(task_id, timeout=300)
-            if successful is False:
-                raise RuntimeError('Could not load metadata from environment {0}'.format(ovs_client.ip))
+        # Retrieve remote arakoon configuration
+        connection_info = metadata['backend_connection_info']
+        ovs_client = OVSClient(ip=connection_info['host'], port=connection_info['port'], credentials=(connection_info['username'], connection_info['password']))
+        task_id = ovs_client.get('/alba/backends/{0}/get_config_metadata'.format(metadata['backend_info']['linked_guid']))
+        successful, arakoon_config = ovs_client.wait_for_task(task_id, timeout=300)
+        if successful is False:
+            raise RuntimeError('Could not load metadata from environment {0}'.format(ovs_client.ip))
 
-            # Write arakoon configuration to file
-            raw_config = RawConfigParser()
-            for section in arakoon_config:
-                raw_config.add_section(section)
-                for key, value in arakoon_config[section].iteritems():
-                    raw_config.set(section, key, value)
-            config_io = StringIO()
-            raw_config.write(config_io)
-            remote_arakoon_config = '/opt/OpenvStorage/arakoon_config_temp'
-            with open(remote_arakoon_config, 'w') as arakoon_cfg:
-                arakoon_cfg.write(config_io.getvalue())
+        # Write arakoon configuration to file
+        raw_config = RawConfigParser()
+        for section in arakoon_config:
+            raw_config.add_section(section)
+            for key, value in arakoon_config[section].iteritems():
+                raw_config.set(section, key, value)
+        config_io = StringIO()
+        raw_config.write(config_io)
+        remote_arakoon_config = '/opt/OpenvStorage/arakoon_config_temp'
+        with open(remote_arakoon_config, 'w') as arakoon_cfg:
+            arakoon_cfg.write(config_io.getvalue())
 
-            try:
-                AlbaCLI.run(command='add-osd',
-                            config=config,
-                            prefix=alba_backend_guid,
-                            preset=metadata['backend_info']['linked_preset'],
-                            node_id=metadata['backend_info']['linked_guid'],
-                            to_json=True,
-                            alba_osd_config_url='file://{0}'.format(remote_arakoon_config))
-            finally:
-                os.remove(remote_arakoon_config)
+        try:
+            AlbaCLI.run(command='add-osd',
+                        config=config,
+                        named_params={'prefix': alba_backend_guid,
+                                      'preset': metadata['backend_info']['linked_preset'],
+                                      'node-id': metadata['backend_info']['linked_guid'],
+                                      'alba-osd-config-url': 'file://{0}'.format(remote_arakoon_config)})
+        finally:
+            os.remove(remote_arakoon_config)
 
         if claimed is False:
             # Claim and update model
             AlbaController.add_units(alba_backend_guid=alba_backend_guid, osds={linked_alba_id: None}, metadata=metadata)
+        return True
 
     @staticmethod
     @celery.task(name='alba.unlink_alba_backends')
@@ -1648,6 +1434,40 @@ class AlbaController(object):
 
             AlbaController._logger.info('Finished service worklog for {0}'.format(name))
 
+    @staticmethod
+    @celery.task(name='alba.verify_namespaces', schedule=Schedule(minute='0', hour='0', day_of_month='1', month_of_year='*/3'))
+    def verify_namespaces():
+        """
+        Verify namespaces for all backends
+        """
+        AlbaController._logger.info('Verify namespace task scheduling started')
+
+        verification_factor = Configuration.get('/ovs/alba/backends/verification_factor', default=10)
+        for albabackend in AlbaBackendList.get_albabackends():
+            backend_name = albabackend.abm_services[0].service.name if albabackend.abm_services else albabackend.name + '-abm'
+            config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(backend_name))
+            namespaces = AlbaCLI.run(command='list-namespaces', config=config)
+            for namespace in namespaces:
+                ns_name = namespace['name']
+                AlbaController._logger.info('Scheduled namespace {0} for verification'.format(ns_name))
+                AlbaCLI.run(command='verify-namespace',
+                            config=config,
+                            named_params={'factor': verification_factor},
+                            extra_params=[ns_name, '{0}_{1}'.format(albabackend.name, ns_name)])
+
+        AlbaController._logger.info('Verify namespace task scheduling finished')
+
+    @staticmethod
+    @add_hooks('backend', 'domains-update')
+    def post_backend_domains_updated(backend_guid):
+        """
+        Execute this functionality when the Backend Domains have been updated
+        :param backend_guid: Guid of the Backend to be updated
+        :type backend_guid: str
+        :return: None
+        """
+        backend = Backend(backend_guid)
+        backend.alba_backend.invalidate_dynamics('local_summary')
 
 if __name__ == '__main__':
     try:

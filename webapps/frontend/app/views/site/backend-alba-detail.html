@@ -185,6 +185,7 @@ but WITHOUT ANY WARRANTY of any kind.
                         <tr>
                             <th data-i18n="alba:detail.status" style="width: 30px;"></th>
                             <th data-i18n="alba:detail.name"></th>
+                            <th data-i18n="alba:detail.domain" style="width: 150px;"></th>
                             <th data-i18n="alba:detail.scaling" style="width: 100px;"></th>
                             <th data-i18n="alba:detail.preset" style="width: 100px;"></th>
                             <th data-i18n="alba:detail.health" style="width: 100px;"></th>
@@ -227,6 +228,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                         </a>
                                     <!-- /ko -->
                                 </td>
+                                <td data-bind="text: (domain === null || domain === undefined) ? '-' : domain.name"></td>
                                 <td data-bind="text: error === '' ? scaling : '-'"></td>
                                 <td data-bind="text: error === '' ? preset : '-'"></td>
                                 <td>

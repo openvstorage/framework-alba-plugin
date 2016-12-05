@@ -21,6 +21,7 @@ import time
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albadisk import AlbaDisk
+from ovs.dal.hybrids.domain import Domain
 from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.extensions.storage.volatilefactory import VolatileFactory
 
@@ -35,7 +36,8 @@ class AlbaOSD(DataObject):
                     Property('osd_type', OSD_TYPES.keys(), doc='Type of OSD (ASD, ALBA_BACKEND)'),
                     Property('metadata', dict, mandatory=False, doc='Additional information about this OSD, such as connection information (if OSD is an ALBA backend')]
     __relations = [Relation('alba_backend', AlbaBackend, 'osds', doc='The AlbaBackend that claimed the OSD'),
-                   Relation('alba_disk', AlbaDisk, 'osds', mandatory=False, doc='The AlbaDisk to which the OSD belongs')]
+                   Relation('alba_disk', AlbaDisk, 'osds', mandatory=False, doc='The AlbaDisk to which the OSD belongs'),
+                   Relation('domain', Domain, 'osds', mandatory=False, doc='The Domain in which the OSD resides')]
     __dynamics = [Dynamic('statistics', dict, 5, locked=True)]
 
     def _statistics(self, dynamic):

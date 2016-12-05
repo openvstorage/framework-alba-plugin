@@ -129,6 +129,7 @@
             "success": "The backend is deleted",
             "warning": "You are about to delete this Backend, are you sure?"
         },
+        "domain": "Domain",
         "errors": {
             "backend_deleted": "This Backend has been deleted",
             "not_allowed": "The credentials stored in this ALBA Backend's metadata are not allowed to retrieve this information",
@@ -241,6 +242,10 @@
         "policyinfo": "Policies displayed in bold will be used when writing new data",
         "unavailable": "Unavailable"
     },
+    "updates": {
+        "component_alba": "Alba",
+        "title": "Alba"
+    },
     "wizards": {
         "add_alba_node": {
             "asd_ips": "Below IPs will be used for datatransfer",
@@ -320,16 +325,22 @@
             "choose_preset": "A preset needs to be selected",
             "client_id": "Client ID:",
             "client_secret": "Client Secret:",
+            "domain": "Domain:",
+            "domain_not_configured": "The selected Domain is not part of the selected Backend",
             "error_msg": "Failed to link Backends: __error__",
             "host": "Host (FQDN/IP):",
+            "in_progress": "Warning",
+            "in_progress_msg": "Previously linked Backend is still being removed",
             "invalid_alba_info": "Invalid connection info or credentials",
             "linked_backend_guids_failure": "Information about 1 or more previously linked ALBA Backends could not be loaded. To be able to continue, please investigate and fix the issue.",
-            "no_backends": "No backends found",
+            "loading_information": "Loading information",
+            "no_backends": "No Backends found",
+            "no_domains": "No Domains found",
             "port": "Port:",
             "started": "Started",
-            "started_msg": "Linking __global_backend__ to __backend_to_link__",
+            "started_msg": "Linking __backend_to_link__ to __global_backend__",
             "success": "Success",
-            "success_msg": "Successfully linked __global_backend__ to __backend_to_link__",
+            "success_msg": "Successfully linked __backend_to_link__ to __global_backend__",
             "title": "Link Backend",
             "use_local": "Link Local Backend:"
         },
@@ -375,6 +386,16 @@
             "success": "Success",
             "success_msg": "Successfully unlinked __backend_to_unlink__ from __global_backend__",
             "title": "Unlink Backend"
+        },
+        "update": {
+            "downtime": {
+                "backend": "ALBA Backend"
+            },
+            "prerequisites": {
+                "general": "Following prerequisites are unmet:",
+                "alba_node_unresponsive": "ASD manager client is unresponsive on node"
+            },
+            "title": "Update"
         }
     }
 }

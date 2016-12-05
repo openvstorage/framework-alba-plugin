@@ -46,6 +46,13 @@ class InvalidCredentialsError(RuntimeError):
     pass
 
 
+class NotFoundError(RuntimeError):
+    """
+    Method not found error
+    """
+    pass
+
+
 class ASDManagerClient(object):
     """
     ASD Manager Client
@@ -85,6 +92,8 @@ class ASDManagerClient(object):
         if data is not None:
             kwargs['data'] = data
         response = method(**kwargs)
+        if response.status_code == 404:
+            raise NotFoundError('URL not found: {0}'.format(kwargs['url']))
         try:
             data = response.json()
         except:
@@ -194,20 +203,49 @@ class ASDManagerClient(object):
         """
         return self._call(requests.post, 'disks/{0}/asds/{1}/delete'.format(disk_id, asd_id), timeout=60)
 
-    def get_update_information(self):
+    def list_asd_services(self):
         """
-        Checks whether update for openvstorage-sdm package is available
+        Retrieve the ASD service names and their currently running version
+        """
+        return self._call(requests.get, 'asds/services', timeout=60, clean=True)['services']
+
+    def get_package_information(self):
+        """
+        Retrieve the package information for this ALBA node
         :return: Latest available version and services which require a restart
         """
-        return self._call(requests.get, 'update/information', timeout=120, clean=True)
+        # For backwards compatibility we first attempt to retrieve using the newest API
+        try:
+            return self._call(requests.get, 'update/package_information', timeout=120, clean=True)
+        except NotFoundError:
+            update_info = self._call(requests.get, 'update/information', timeout=120, clean=True)
+            if update_info['version']:
+                return {'alba': {'openvstorage-sdm': {'candidate': update_info['version'],
+                                                      'installed': update_info['installed'],
+                                                      'services_to_restart': []}}}
+            return {}
 
-    def execute_update(self, status):
+    def execute_update(self, package_name):
         """
         Execute an update
-        :param status: Status of update
         :return: None
         """
-        return self._call(requests.post, 'update/execute/{0}'.format(status))
+        try:
+            return self._call(requests.post, 'update/install/{0}'.format(package_name), timeout=300)
+        except NotFoundError:
+            # Backwards compatibility
+            status = self._call(requests.post, 'update/execute/started', timeout=300).get('status', 'done')
+            if status != 'done':
+                counter = 0
+                max_counter = 12
+                while counter < max_counter:
+                    status = self._call(requests.post, 'update/execute/{0}'.format(status), timeout=300).get('status', 'done')
+                    if status == 'done':
+                        break
+                    time.sleep(10)
+                    counter += 1
+                if counter == max_counter:
+                    raise Exception('Failed to update SDM')
 
     def restart_services(self):
         """
@@ -241,7 +279,7 @@ class ASDManagerClient(object):
         Retrieve configured maintenance services from asd manager
         :return: dict of services
         """
-        return self._call(requests.get, 'maintenance')['services']
+        return self._call(requests.get, 'maintenance', clean=True)['services']
 
     def _refresh(self):
         self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)

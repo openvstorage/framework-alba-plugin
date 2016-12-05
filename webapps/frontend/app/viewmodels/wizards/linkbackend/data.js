@@ -25,6 +25,8 @@ define(['knockout'], function(ko){
             albaPreset:   ko.observable(),
             clientId:     ko.observable('').extend({removeWhiteSpaces: null}),
             clientSecret: ko.observable('').extend({removeWhiteSpaces: null}),
+            domain:       ko.observable(),
+            domains:      ko.observableArray([]),
             host:         ko.observable('').extend({regex: hostRegex}),
             localHost:    ko.observable(true),
             port:         ko.observable(80).extend({numeric: {min: 1, max: 65536}}),
@@ -39,13 +41,7 @@ define(['knockout'], function(ko){
         wizardData.clientSecret.subscribe(resetAlbaBackends);
         wizardData.host.subscribe(resetAlbaBackends);
         wizardData.port.subscribe(resetAlbaBackends);
-        wizardData.localHost.subscribe(function() {
-            wizardData.host('');
-            wizardData.port(80);
-            wizardData.clientId('');
-            wizardData.clientSecret('');
-            resetAlbaBackends();
-        });
+        wizardData.localHost.subscribe(resetAlbaBackends);
         wizardData.enhancedPresets = ko.computed(function(){
             if (wizardData.albaBackend() === undefined){
                 wizardData.albaPreset(undefined);

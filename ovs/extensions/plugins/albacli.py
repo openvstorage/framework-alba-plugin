@@ -31,30 +31,54 @@ class AlbaCLI(object):
     Wrapper for 'alba' command line interface
     """
     @staticmethod
-    def run(command, **kwargs):
+    def run(command, config=None, named_params=None, extra_params=None, client=None, debug=False):
         """
         Executes a command on ALBA
+        When --to-json is NOT passed:
+            * An error occurs --> exitcode != 0
+            * It worked --> exitcode == 0
+
+        When --to-json is passed:
+            * An errors occurs during verification of parameters passed  -> exitcode != 0
+            * An error occurs while executing the command --> exitcode == 0 (error in json output)
+            * It worked --> exitcode == 0
+
+        :param command: The command to execute, eg: 'list-namespaces'
+        :type command: str
+        :param config: The configuration location to be used, eg: 'arakoon://config/ovs/arakoon/ovsdb/config?ini=%2Fopt%2FOpenvStorage%2Fconfig%2Farakoon_cacc.ini'
+        :type config: str
+        :param named_params: Additional parameters to be given to the command, eg: {'long-id': ','.join(asd_ids)}
+        :type named_params: dict
+        :param extra_params: Additional parameters to be given to the command, eg: [name]
+        :type extra_params: list
+        :param client: A client on which to execute the command
+        :type client: ovs.extensions.generic.sshclient.SSHClient
+        :param debug: Log additional output
+        :type debug: bool
+        :return: The output of the command
+        :rtype: dict
         """
-        logger = LogHandler.get('extensions', name='albacli')
+        if named_params is None:
+            named_params = {}
+        if extra_params is None:
+            extra_params = []
+
+        logger = LogHandler.get('extensions', name='alba-cli')
         if os.environ.get('RUNNING_UNITTESTS') == 'True':
             # For the unittest, all commands are passed to a mocked Alba
             from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
-            return getattr(VirtualAlbaBackend, command.replace('-', '_'))(**kwargs)
+            named_params.update({'config': config})
+            named_params.update({'extra_params': extra_params})
+            return getattr(VirtualAlbaBackend, command.replace('-', '_'))(**named_params)
 
-        debug = kwargs.pop('debug') if 'debug' in kwargs else False
-        client = kwargs.pop('client') if 'client' in kwargs else None
-        to_json = kwargs.pop('to_json') if 'to_json' in kwargs else False
-        extra_params = kwargs.pop('extra_params') if 'extra_params' in kwargs else []
         debug_log = []
         try:
-            cmd_list = ['/usr/bin/alba', command]
-            for key, value in kwargs.iteritems():
-                cmd_list.append('--{0}={1}'.format(key.replace('_', '-'), value))
-            if to_json is True:
-                cmd_list.append('--to-json')
-            for extra_param in extra_params:
-                cmd_list.append('{0}'.format(extra_param))
-
+            cmd_list = ['/usr/bin/alba', command, '--to-json']
+            if config is not None:
+                cmd_list.append('--config={0}'.format(config))
+            for key, value in named_params.iteritems():
+                cmd_list.append('--{0}={1}'.format(key, value))
+            cmd_list.extend(extra_params)
             cmd_string = ' '.join(cmd_list)
             debug_log.append('Command: {0}'.format(cmd_string))
 
@@ -81,26 +105,27 @@ class AlbaCLI(object):
                     if exit_code != 0:  # Raise same error as check_output
                         raise CalledProcessError(exit_code, cmd_string, output)
                 else:
-                    if debug:
+                    if debug is True:
                         output, stderr = client.run(cmd_list, debug=True)
                         debug_log.append('stderr: {0}'.format(stderr))
                     else:
                         output = client.run(cmd_list, debug=False).strip()
                     debug_log.append('stdout: {0}'.format(output))
-            except CalledProcessError as ex:
-                if to_json is True:
-                    output = json.loads(ex.output)
-                    raise RuntimeError(output.get('error', {}).get('message'))
-                raise
-            duration = time.time() - start
-            if duration > 0.5:
-                logger.warning('AlbaCLI call {0} took {1}s'.format(command, round(duration, 2)))
-            if to_json is True:
+
                 output = json.loads(output)
-                if output['success'] is True:
-                    return output['result']
-                raise RuntimeError(output['error']['message'])
-            return output
+                duration = time.time() - start
+                if duration > 0.5:
+                    logger.warning('AlbaCLI call {0} took {1}s'.format(command, round(duration, 2)))
+            except CalledProcessError as cpe:
+                try:
+                    output = json.loads(cpe.output)
+                except Exception:
+                    raise RuntimeError('Executing command {0} failed with output {1}'.format(cmd_string, cpe.output))
+
+            if output['success'] is True:
+                return output['result']
+            raise RuntimeError(output['error']['message'])
+
         except Exception as ex:
             logger.exception('Error: {0}'.format(ex))
             # In case there's an exception, we always log
