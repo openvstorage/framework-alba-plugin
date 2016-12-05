@@ -104,7 +104,7 @@ class AlbaController(object):
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         domain = None
-        domain_guid = metadata['backend_info']['domain_guid'] if metadata is not None else None
+        domain_guid = metadata['backend_info'].get('domain_guid') if metadata is not None else None
         if domain_guid is not None:
             try:
                 domain = Domain(domain_guid)
