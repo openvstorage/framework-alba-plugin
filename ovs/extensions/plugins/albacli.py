@@ -31,7 +31,7 @@ class AlbaCLI(object):
     Wrapper for 'alba' command line interface
     """
     @staticmethod
-    def run(command, config, named_params=None, extra_params=None, client=None, debug=False):
+    def run(command, config=None, named_params=None, extra_params=None, client=None, debug=False):
         """
         Executes a command on ALBA
         When --to-json is NOT passed:
@@ -73,7 +73,9 @@ class AlbaCLI(object):
 
         debug_log = []
         try:
-            cmd_list = ['/usr/bin/alba', command, '--config={0}'.format(config), '--to-json']
+            cmd_list = ['/usr/bin/alba', command, '--to-json']
+            if config is not None:
+                cmd_list.append('--config={0}'.format(config))
             for key, value in named_params.iteritems():
                 cmd_list.append('--{0}={1}'.format(key, value))
             cmd_list.extend(extra_params)
