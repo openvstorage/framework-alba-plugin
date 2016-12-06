@@ -171,7 +171,7 @@ class AlbaController(object):
         :type compression: str
         :param policies: Policies for the preset
         :type policies: list
-        :param encryption: Encryption for the preset (none | aec-cbc-256)
+        :param encryption: Encryption for the preset (none | aec-cbc-256 | aes-ctr-256)
         :type encryption: str
         :param fragment_size: Size of a fragment in bytes (e.g. 1048576)
         :type fragment_size: int
@@ -204,7 +204,7 @@ class AlbaController(object):
                   'in_use': False,
                   'name': name}
 
-        if encryption in ['aes-cbc-256']:
+        if encryption in ['aes-cbc-256', 'aes-ctr-256']:
             encryption_key = ''.join(random.choice(chr(random.randint(32, 126))) for _ in range(32))
             temp_key_file = tempfile.mktemp()
             with open(temp_key_file, 'wb') as temp_file:
