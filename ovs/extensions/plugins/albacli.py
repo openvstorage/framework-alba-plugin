@@ -106,10 +106,10 @@ class AlbaCLI(object):
                         raise CalledProcessError(exit_code, cmd_string, output)
                 else:
                     if debug is True:
-                        output, stderr = client.run(cmd_list, debug=True)
+                        output, stderr = client.run(cmd_list, return_stderr=True)
                         debug_log.append('stderr: {0}'.format(stderr))
                     else:
-                        output = client.run(cmd_list, debug=False).strip()
+                        output = client.run(cmd_list).strip()
                     debug_log.append('stdout: {0}'.format(output))
 
                 output = json.loads(output)
