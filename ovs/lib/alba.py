@@ -988,19 +988,21 @@ class AlbaController(object):
                                 break
                         # Creating a new NSM cluster
                         first_ip = None
-                        metadata = None
                         for storagerouter in storagerouters:
                             nsm_storagerouter[storagerouter] += 1
                             storagerouter.invalidate_dynamics(['partition_config'])
                             partition = DiskPartition(storagerouter.partition_config[DiskPartition.ROLES.DB][0])
                             if first_ip is None:
+                                first_ip = storagerouter.ip
                                 nsm_result = ArakoonInstaller.create_cluster(cluster_name=nsm_cluster_name,
                                                                              cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                                              ip=storagerouter.ip,
                                                                              base_dir=partition.folder,
                                                                              plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
-                                first_ip = storagerouter.ip
-                                metadata = nsm_result['metadata']
+                                ArakoonInstaller.claim_cluster(cluster_name=nsm_cluster_name,
+                                                               master_ip=first_ip,
+                                                               filesystem=False,
+                                                               metadata=nsm_result['metadata'])
                             else:
                                 nsm_result = ArakoonInstaller.extend_cluster(master_ip=first_ip,
                                                                              new_ip=storagerouter.ip,
@@ -1020,11 +1022,6 @@ class AlbaController(object):
                         ArakoonInstaller.start_cluster(cluster_name=nsm_cluster_name,
                                                        master_ip=first_ip,
                                                        filesystem=False)
-                        if metadata is not None:
-                            ArakoonInstaller.claim_cluster(cluster_name=nsm_cluster_name,
-                                                           master_ip=first_ip,
-                                                           filesystem=False,
-                                                           metadata=metadata)
                         AlbaController.register_nsm(abm_name=abm_cluster_name,
                                                     nsm_name=nsm_cluster_name,
                                                     ip=storagerouters[0].ip)
