@@ -18,7 +18,6 @@
 Module for AlbaUpdateController
 """
 import copy
-import time
 import requests
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.albanodelist import AlbaNodeList
@@ -81,15 +80,25 @@ class AlbaUpdateController(object):
                 raise RuntimeError('Failed to retrieve the installed and candidate versions for packages: {0}'.format(', '.join(AlbaUpdateController.all_alba_plugin_packages)))
 
             # Retrieve Arakoon information
-            cacc_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name='cacc', filesystem=True, ip=client.ip)
-            framework_arakoons = ['arakoon-{0}'.format(cacc_metadata['cluster_name']),
-                                  'arakoon-{0}'.format(ArakoonClusterConfig.get_cluster_name('ovsdb'))]
+            framework_arakoons = []
+            for cluster in ['cacc', 'ovsdb']:
+                cluster_name = ArakoonClusterConfig.get_cluster_name(cluster)
+                if cluster_name is None:
+                    continue
+
+                if cluster == 'cacc':
+                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, filesystem=True, ip=client.ip)
+                else:
+                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
+
+                if arakoon_metadata['internal'] is True:
+                    framework_arakoons.append(ArakoonInstaller.get_service_name_for_cluster(cluster_name=arakoon_metadata['cluster_name']))
 
             storagerouter = StorageRouterList.get_by_ip(client.ip)
             arakoon_services = []
             for service in storagerouter.services:
                 if service.type.name == ServiceType.SERVICE_TYPES.ALBA_MGR or service.type.name == ServiceType.SERVICE_TYPES.NS_MGR:
-                    arakoon_services.append('arakoon-{0}'.format(service.name))
+                    arakoon_services.append(service.name)
 
             default_entry = {'candidate': None,
                              'installed': None,
@@ -258,12 +267,16 @@ class AlbaUpdateController(object):
                     if service.type.name not in [ServiceType.SERVICE_TYPES.ALBA_MGR, ServiceType.SERVICE_TYPES.NS_MGR]:
                         continue
 
-                    if Configuration.exists('/ovs/arakoon/{0}/config'.format(service.name), raw=True) is False:
+                    if service.type.name == ServiceType.SERVICE_TYPES.ALBA_MGR:
+                        cluster_name = AlbaController.get_abm_cluster_name(alba_backend=service.abm_service.alba_backend)
+                    else:
+                        cluster_name = AlbaController.get_nsm_cluster_name(alba_backend=service.nsm_service.alba_backend, number=service.nsm_service.number)
+                    if Configuration.exists('/ovs/arakoon/{0}/config'.format(cluster_name), raw=True) is False:
                         continue
-                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=service.name)
+                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
                     if arakoon_metadata['internal'] is True:
-                        arakoon_services.append('ovs-arakoon-{0}'.format(service.name))
-                        config = ArakoonClusterConfig(cluster_id=service.name, filesystem=False)
+                        arakoon_services.append('ovs-{0}'.format(service.name))
+                        config = ArakoonClusterConfig(cluster_id=cluster_name, filesystem=False)
                         config.load_config()
                         if len(config.nodes) < 3:
                             if service.type.name == ServiceType.SERVICE_TYPES.NS_MGR:
