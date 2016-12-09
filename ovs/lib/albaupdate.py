@@ -43,6 +43,7 @@ class AlbaUpdateController(object):
     sdm_packages = {'alba', 'openvstorage-sdm'}
     alba_plugin_packages = {'alba', 'arakoon', 'openvstorage-backend'}
     all_alba_plugin_packages = sdm_packages.union(alba_plugin_packages)
+    alba_plugin_packages_with_binaries = {'alba', 'arakoon'}
 
     #########
     # HOOKS #
@@ -74,6 +75,7 @@ class AlbaUpdateController(object):
             if client.username != 'root':
                 raise RuntimeError('Only the "root" user can retrieve the package information')
 
+            binaries = PackageManager.get_binary_versions(client=client, package_names=AlbaUpdateController.alba_plugin_packages_with_binaries)
             installed = PackageManager.get_installed_versions(client=client, package_names=AlbaUpdateController.all_alba_plugin_packages)
             candidate = PackageManager.get_candidate_versions(client=client, package_names=AlbaUpdateController.all_alba_plugin_packages)
             if set(installed.keys()) != set(AlbaUpdateController.all_alba_plugin_packages) or set(candidate.keys()) != set(AlbaUpdateController.all_alba_plugin_packages):
@@ -95,10 +97,10 @@ class AlbaUpdateController(object):
                     framework_arakoons.append(ArakoonInstaller.get_service_name_for_cluster(cluster_name=arakoon_metadata['cluster_name']))
 
             storagerouter = StorageRouterList.get_by_ip(client.ip)
-            arakoon_services = []
+            alba_arakoons = []
             for service in storagerouter.services:
                 if service.type.name == ServiceType.SERVICE_TYPES.ALBA_MGR or service.type.name == ServiceType.SERVICE_TYPES.NS_MGR:
-                    arakoon_services.append(service.name)
+                    alba_arakoons.append(service.name)
 
             default_entry = {'candidate': None,
                              'installed': None,
@@ -107,36 +109,32 @@ class AlbaUpdateController(object):
             #                       component:    package_name: services_with_run_file
             for component, info in {'framework': {'arakoon': framework_arakoons,
                                                   'openvstorage-backend': []},
-                                    'alba': {'alba': [],
-                                             'arakoon': arakoon_services}}.iteritems():
+                                    'alba': {'alba': alba_arakoons,
+                                             'arakoon': alba_arakoons}}.iteritems():
                 component_info = {}
                 for package_name, services in info.iteritems():
                     for service in services:
                         service = Toolbox.remove_prefix(service, 'ovs-')
-                        asd_version_file = '/opt/asd-manager/run/{0}.version'.format(service)
-                        ovs_version_file = '/opt/OpenvStorage/run/{0}.version'.format(service)
-                        if client.file_exists(asd_version_file) is True:
-                            version_file = asd_version_file
-                            running_versions = client.file_read(asd_version_file).strip()
-                        elif client.file_exists(ovs_version_file) is True:
-                            version_file = ovs_version_file
-                            running_versions = client.file_read(ovs_version_file).strip()
-                        else:
-                            AlbaUpdateController._logger.warning('Failed to find a version file in /opt/asd-manager/run or /opt/OpenvStorage/run for service {0}'.format(service))
+                        version_file = '/opt/OpenvStorage/run/{0}.version'.format(service)
+                        if not client.file_exists(version_file):
+                            AlbaUpdateController._logger.warning('{0}: Failed to find a version file in /opt/OpenvStorage/run for service {1}'.format(client.ip, service))
                             continue
-
+                        running_versions = client.file_read(version_file).strip()
                         for version in running_versions.split(';'):
                             version = version.strip()
                             running_version = None
                             if '=' in version:
                                 package_name = version.split('=')[0]
                                 running_version = version.split('=')[1]
-                                if package_name not in UpdateController.all_core_packages:
-                                    raise ValueError('Unknown package dependency found in {0}'.format(version_file))
                             elif version:
                                 running_version = version
 
-                            if running_version is not None and running_version != candidate[package_name]:
+                            if package_name not in UpdateController.all_core_packages:
+                                raise ValueError('Unknown package dependency found in {0}'.format(version_file))
+                            if package_name not in binaries:
+                                raise RuntimeError('Binary version for package {0} was not retrieved'.format(package_name))
+
+                            if running_version is not None and running_version != binaries[package_name]:
                                 if package_name not in component_info:
                                     component_info[package_name] = copy.deepcopy(default_entry)
                                 component_info[package_name]['installed'] = running_version
@@ -402,8 +400,8 @@ class AlbaUpdateController(object):
                 UpdateController.change_services_state(services=[service_name], ssh_clients=[client], action='restart')
             else:
                 cluster_name = ArakoonClusterConfig.get_cluster_name(Toolbox.remove_prefix(service_name, 'ovs-arakoon-'))
-                if cluster_name == 'cacc':
-                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, filesystem=True, ip=System.get_my_storagerouter().ip)
+                if cluster_name == 'config':
+                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name='cacc', filesystem=True, ip=System.get_my_storagerouter().ip)
                 else:
                     arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
                 if arakoon_metadata['internal'] is True:
