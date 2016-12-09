@@ -18,6 +18,7 @@
 Module for AlbaUpdateController
 """
 import copy
+import inspect
 import requests
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.albanodelist import AlbaNodeList
@@ -112,13 +113,14 @@ class AlbaUpdateController(object):
                                     'alba': {'alba': alba_arakoons,
                                              'arakoon': alba_arakoons}}.iteritems():
                 component_info = {}
-                for package_name, services in info.iteritems():
+                for package, services in info.iteritems():
                     for service in services:
                         service = Toolbox.remove_prefix(service, 'ovs-')
                         version_file = '/opt/OpenvStorage/run/{0}.version'.format(service)
                         if not client.file_exists(version_file):
                             AlbaUpdateController._logger.warning('{0}: Failed to find a version file in /opt/OpenvStorage/run for service {1}'.format(client.ip, service))
                             continue
+                        package_name = package
                         running_versions = client.file_read(version_file).strip()
                         for version in running_versions.split(';'):
                             version = version.strip()
@@ -138,13 +140,13 @@ class AlbaUpdateController(object):
                                 if package_name not in component_info:
                                     component_info[package_name] = copy.deepcopy(default_entry)
                                 component_info[package_name]['installed'] = running_version
-                                component_info[package_name]['candidate'] = candidate[package_name]
+                                component_info[package_name]['candidate'] = binaries[package_name]
                                 component_info[package_name]['services_to_restart'].append('ovs-{0}'.format(service))
 
-                    if installed[package_name] != candidate[package_name] and package_name not in component_info:
-                        component_info[package_name] = copy.deepcopy(default_entry)
-                        component_info[package_name]['installed'] = installed[package_name]
-                        component_info[package_name]['candidate'] = candidate[package_name]
+                    if installed[package] != candidate[package] and package not in component_info:
+                        component_info[package] = copy.deepcopy(default_entry)
+                        component_info[package]['installed'] = installed[package]
+                        component_info[package]['candidate'] = candidate[package]
                 if component_info:
                     if component not in package_info[client.ip]:
                         package_info[client.ip][component] = {}
@@ -332,40 +334,66 @@ class AlbaUpdateController(object):
 
     @staticmethod
     @add_hooks('update', 'package_install_multi')
-    def package_install_alba_plugin(client, package_info):
+    def package_install_alba_plugin(client, package_info, components):
         """
         Update the Alba plugin packages
         :param client: Client on which to execute update the packages
         :type client: SSHClient
         :param package_info: Information about the packages (installed, candidate)
         :type package_info: dict
+        :param components: Components which have been selected for update
+        :type components: list
         :return: None
         """
+        if 'framework' not in components and 'alba' not in components:
+            return
+
+        packages_to_install = {}
         for pkg_name, pkg_info in package_info.iteritems():
             if pkg_name in AlbaUpdateController.alba_plugin_packages:
-                AlbaUpdateController._logger.debug('{0}: Updating Alba plugin package {1} ({2} --> {3})'.format(client.ip, pkg_name, pkg_info['installed'], pkg_info['candidate']))
-                PackageManager.install(package_name=pkg_name, client=client)
-                AlbaUpdateController._logger.debug('{0}: Updated Alba plugin package {1}'.format(client.ip, pkg_name))
+                packages_to_install[pkg_name] = pkg_info
+        if not packages_to_install:
+            return
+
+        AlbaUpdateController._logger.debug('{0}: Executing hook {1}'.format(client.ip, inspect.currentframe().f_code.co_name))
+        for pkg_name, pkg_info in packages_to_install.iteritems():
+            AlbaUpdateController._logger.debug('{0}: Updating Alba plugin package {1} ({2} --> {3})'.format(client.ip, pkg_name, pkg_info['installed'], pkg_info['candidate']))
+            PackageManager.install(package_name=pkg_name, client=client)
+            AlbaUpdateController._logger.debug('{0}: Updated Alba plugin package {1}'.format(client.ip, pkg_name))
+        AlbaUpdateController._logger.debug('{0}: Executed hook {1}'.format(client.ip, inspect.currentframe().f_code.co_name))
 
     @staticmethod
     @add_hooks('update', 'package_install_single')
-    def package_install_sdm(package_info):
+    def package_install_sdm(package_info, components):
         """
         Update the SDM packages
         :param package_info: Information about the packages (installed, candidate)
         :type package_info: dict
+        :param components: Components which have been selected for update
+        :type components: list
         :return: None
         """
+        if 'alba' not in components:
+            return
+
+        packages_to_install = {}
         for pkg_name, pkg_info in package_info.iteritems():
             if pkg_name in AlbaUpdateController.sdm_packages:
-                for alba_node in AlbaNodeList.get_albanodes():
-                    AlbaUpdateController._logger.debug('{0}: Updating SDM package {1} ({2} --> {3})'.format(alba_node.ip, pkg_name, pkg_info['installed'], pkg_info['candidate']))
-                    try:
-                        alba_node.client.execute_update(pkg_name)
-                    except requests.ConnectionError as ce:
-                        if 'Connection aborted.' not in ce.message:  # This error is thrown due the post-update code of the SDM package which restarts the asd-manager service
-                            raise
-                    AlbaUpdateController._logger.debug('{0}: Updated SDM package {1}'.format(alba_node.ip, pkg_name))
+                packages_to_install[pkg_name] = pkg_info
+        if not packages_to_install:
+            return
+
+        AlbaUpdateController._logger.debug('Executing hook {0}'.format(inspect.currentframe().f_code.co_name))
+        for pkg_name, pkg_info in packages_to_install.iteritems():
+            for alba_node in AlbaNodeList.get_albanodes():
+                AlbaUpdateController._logger.debug('{0}: Updating SDM package {1} ({2} --> {3})'.format(alba_node.ip, pkg_name, pkg_info['installed'], pkg_info['candidate']))
+                try:
+                    alba_node.client.execute_update(pkg_name)
+                except requests.ConnectionError as ce:
+                    if 'Connection aborted.' not in ce.message:  # This error is thrown due the post-update code of the SDM package which restarts the asd-manager service
+                        raise
+                AlbaUpdateController._logger.debug('{0}: Updated SDM package {1}'.format(alba_node.ip, pkg_name))
+        AlbaUpdateController._logger.debug('Executed hook {0}'.format(inspect.currentframe().f_code.co_name))
 
     @staticmethod
     @add_hooks('update', 'post_update_multi')
@@ -395,19 +423,22 @@ class AlbaUpdateController(object):
             services_to_restart.update(update_information.get('framework', {}).get('services_post_update', set()))
 
         # Restart Arakoon (and other services)
-        for service_name in sorted(services_to_restart):
-            if not service_name.startswith('ovs-arakoon-'):
-                UpdateController.change_services_state(services=[service_name], ssh_clients=[client], action='restart')
-            else:
-                cluster_name = ArakoonClusterConfig.get_cluster_name(Toolbox.remove_prefix(service_name, 'ovs-arakoon-'))
-                if cluster_name == 'config':
-                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name='cacc', filesystem=True, ip=System.get_my_storagerouter().ip)
+        if services_to_restart:
+            AlbaUpdateController._logger.debug('{0}: Executing hook {1}'.format(client.ip, inspect.currentframe().f_code.co_name))
+            for service_name in sorted(services_to_restart):
+                if not service_name.startswith('ovs-arakoon-'):
+                    UpdateController.change_services_state(services=[service_name], ssh_clients=[client], action='restart')
                 else:
-                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
-                if arakoon_metadata['internal'] is True:
-                    AlbaUpdateController._logger.debug('{0}: Restarting arakoon node {1}'.format(client.ip, cluster_name))
-                    ArakoonInstaller.restart_node(cluster_name=cluster_name,
-                                                  client=client)
+                    cluster_name = ArakoonClusterConfig.get_cluster_name(Toolbox.remove_prefix(service_name, 'ovs-arakoon-'))
+                    if cluster_name == 'config':
+                        arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name='cacc', filesystem=True, ip=System.get_my_storagerouter().ip)
+                    else:
+                        arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
+                    if arakoon_metadata['internal'] is True:
+                        AlbaUpdateController._logger.debug('{0}: Restarting arakoon node {1}'.format(client.ip, cluster_name))
+                        ArakoonInstaller.restart_node(cluster_name=cluster_name,
+                                                      client=client)
+            AlbaUpdateController._logger.debug('{0}: Executed hook {1}'.format(client.ip, inspect.currentframe().f_code.co_name))
 
     @staticmethod
     @add_hooks('update', 'post_update_single')
@@ -425,11 +456,13 @@ class AlbaUpdateController(object):
             return
 
         # Update ALBA nodes
+        AlbaUpdateController._logger.debug('Executing hook {0}'.format(inspect.currentframe().f_code.co_name))
         for node in AlbaNodeList.get_albanodes():
             if node.client.get_package_information():
                 AlbaUpdateController._logger.debug('{0}: Restarting services'.format(node.ip))
                 node.client.restart_services()
 
         # Renew maintenance services
-        AlbaUpdateController._logger.debug('{0}: Checkup maintenance agents'.format(System.get_my_storagerouter().ip))
+        AlbaUpdateController._logger.debug('Checkup maintenance agents')
         AlbaController.checkup_maintenance_agents.delay()
+        AlbaUpdateController._logger.debug('Executed hook {0}'.format(inspect.currentframe().f_code.co_name))
