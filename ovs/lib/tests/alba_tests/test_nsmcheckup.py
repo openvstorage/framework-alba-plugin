@@ -174,6 +174,8 @@ class NSMCheckup(unittest.TestCase):
 
         SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend-nsm_1/db'] = None
         SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend-nsm_1/db'] = None
+        SSHClient._run_returns['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend-nsm_1/config -catchup-only'] = None
+        SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend-nsm_1/config -catchup-only'] = None
         VirtualAlbaBackend.run_log['backend-abm'] = []
         AlbaController.nsm_checkup(min_nsms=2)
 
@@ -196,6 +198,8 @@ class NSMCheckup(unittest.TestCase):
 
         SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend-nsm_2/db'] = None
         SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend-nsm_2/db'] = None
+        SSHClient._run_returns['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend-nsm_2/config -catchup-only'] = None
+        SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend-nsm_2/config -catchup-only'] = None
         VirtualAlbaBackend.run_log['backend-abm'] = []
         AlbaController.nsm_checkup()
 
