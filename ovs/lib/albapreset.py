@@ -70,7 +70,7 @@ class AlbaPresetController(object):
         if encryption not in encryption_options:
             raise ValueError('Invalid encryption format specified, please choose from: "{0}"'.format('", "'.join(encryption_options)))
 
-        if fragment_size is not None and (not isinstance(fragment_size, int) or not 0 < fragment_size <= 1024 ** 3):
+        if fragment_size is not None and (not isinstance(fragment_size, int) or not 16 <= fragment_size <= 1024 ** 3):
             raise ValueError('Fragment size should be a positive integer smaller than 1 GiB')
 
         AlbaPresetController._validate_policies_param(policies=policies)
@@ -130,6 +130,7 @@ class AlbaPresetController(object):
         :type name: str
         :return: None
         """
+        # VALIDATIONS
         alba_backend = AlbaBackend(alba_backend_guid)
         preset_default_map = dict((preset['name'], preset['is_default']) for preset in alba_backend.presets)
         if name not in preset_default_map:
@@ -139,6 +140,7 @@ class AlbaPresetController(object):
         if preset_default_map[name] is True:
             raise RuntimeError('Cannot delete the default preset')
 
+        # DELETE PRESET
         AlbaPresetController._logger.debug('Deleting preset {0}'.format(name))
         config = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(AlbaController.get_abm_cluster_name(alba_backend=alba_backend)))
         AlbaCLI.run(command='delete-preset', config=config, extra_params=[name])
