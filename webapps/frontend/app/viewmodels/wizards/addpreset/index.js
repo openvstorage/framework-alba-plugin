@@ -46,7 +46,7 @@ define([
                 self.data.accepted(false);
             }
             self.data.compression(options.currentPreset.compression);
-            self.data.encryption(options.currentPreset.encryption);
+            self.data.encryption(options.currentPreset.encryption[0]);
             self.data.policies([]);
             if (options.currentPreset.policies) {
                 $.each(options.currentPreset.policies, function (index, policy) {

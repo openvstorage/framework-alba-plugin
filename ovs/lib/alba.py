@@ -20,12 +20,10 @@ AlbaController module
 
 import os
 import re
-import json
 import time
 import string
 import random
 import requests
-import tempfile
 from ConfigParser import RawConfigParser
 from StringIO import StringIO
 from ovs.celery_run import celery
@@ -62,7 +60,6 @@ class AlbaController(object):
     NSM_PLUGIN = 'nsm_host_plugin'
     ALBA_VERSION_GET = 'alba=`alba version --terse`'
     ARAKOON_PLUGIN_DIR = '/usr/lib/alba'
-    ALBA_MAINTENANCE_SERVICE_PREFIX = 'alba-maintenance'
     CONFIG_ALBA_BACKEND_KEY = '/ovs/alba/backends/{0}'
     CONFIG_DEFAULT_NSM_HOSTS_KEY = CONFIG_ALBA_BACKEND_KEY.format('default_nsm_hosts')
     NR_OF_AGENTS_CONFIG_KEY = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
@@ -185,118 +182,6 @@ class AlbaController(object):
             if len(osd_ids) == 1:
                 raise last_exception
             raise RuntimeError('Error processing one or more OSDs: {0}'.format(failed_osds))
-
-    @staticmethod
-    @celery.task(name='alba.add_preset')
-    def add_preset(alba_backend_guid, name, compression, policies, encryption, fragment_size=None):
-        """
-        Adds a preset to Alba
-        :param alba_backend_guid: Guid of the ALBA backend
-        :type alba_backend_guid: str
-        :param name: Name of the preset
-        :type name: str
-        :param compression: Compression type for the preset (none | snappy | bzip2)
-        :type compression: str
-        :param policies: Policies for the preset
-        :type policies: list
-        :param encryption: Encryption for the preset (none | aec-cbc-256 | aes-ctr-256)
-        :type encryption: str
-        :param fragment_size: Size of a fragment in bytes (e.g. 1048576)
-        :type fragment_size: int
-        :return: None
-        """
-        temp_key_file = None
-
-        alba_backend = AlbaBackend(alba_backend_guid)
-        if name in [preset['name'] for preset in alba_backend.presets]:
-            raise RuntimeError('Preset name {0} already exists'.format(name))
-
-        if fragment_size is None:
-            fragment_size = 16 * 1024 ** 2
-        else:
-            try:
-                fragment_size = int(fragment_size)
-            except ValueError:
-                fragment_size = 16 * 1024 ** 2
-
-        AlbaController._logger.debug('Adding preset {0} with compression {1} and policies {2}'.format(name, compression, policies))
-        preset = {'compression': compression,
-                  'object_checksum': {'default': ['crc-32c'],
-                                      'verify_upload': True,
-                                      'allowed': [['none'], ['sha-1'], ['crc-32c']]},
-                  'osds': ['all'],
-                  'fragment_size': fragment_size,
-                  'policies': policies,
-                  'fragment_checksum': ['crc-32c'],
-                  'fragment_encryption': ['none'],
-                  'in_use': False,
-                  'name': name}
-
-        if encryption in ['aes-cbc-256', 'aes-ctr-256']:
-            encryption_key = ''.join(random.choice(chr(random.randint(32, 126))) for _ in range(32))
-            temp_key_file = tempfile.mktemp()
-            with open(temp_key_file, 'wb') as temp_file:
-                temp_file.write(encryption_key)
-                temp_file.flush()
-            preset['fragment_encryption'] = ['{0}'.format(encryption), '{0}'.format(temp_key_file)]
-
-        config = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(AlbaController.get_abm_cluster_name(alba_backend=alba_backend)))
-        temp_config_file = tempfile.mktemp()
-        with open(temp_config_file, 'wb') as data_file:
-            data_file.write(json.dumps(preset))
-            data_file.flush()
-        AlbaCLI.run(command='create-preset', config=config, named_params={'input-url': temp_config_file}, extra_params=[name])
-        alba_backend.invalidate_dynamics()
-        for filename in [temp_key_file, temp_config_file]:
-            if filename and os.path.exists(filename) and os.path.isfile(filename):
-                os.remove(filename)
-
-    @staticmethod
-    @celery.task(name='alba.delete_preset')
-    def delete_preset(alba_backend_guid, name):
-        """
-        Deletes a preset from the Alba backend
-        :param alba_backend_guid: Guid of the ALBA backend
-        :type alba_backend_guid: str
-        :param name: Name of the preset
-        :type name: str
-        :return: None
-        """
-        alba_backend = AlbaBackend(alba_backend_guid)
-        AlbaController._logger.debug('Deleting preset {0}'.format(name))
-        config = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(AlbaController.get_abm_cluster_name(alba_backend=alba_backend)))
-        AlbaCLI.run(command='delete-preset', config=config, extra_params=[name])
-        alba_backend.invalidate_dynamics()
-
-    @staticmethod
-    @celery.task(name='alba.update_preset')
-    def update_preset(alba_backend_guid, name, policies):
-        """
-        Updates policies for an existing preset to Alba
-        :param alba_backend_guid: Guid of the ALBA backend
-        :type alba_backend_guid: str
-        :param name: Name of backend
-        :type name: str
-        :param policies: New policy list to be sent to alba
-        :type policies: list
-        :return: None
-        """
-        temp_key_file = None
-
-        alba_backend = AlbaBackend(alba_backend_guid)
-        AlbaController._logger.debug('Adding preset {0} with policies {1}'.format(name, policies))
-        preset = {'policies': policies}
-
-        config = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(AlbaController.get_abm_cluster_name(alba_backend=alba_backend)))
-        temp_config_file = tempfile.mktemp()
-        with open(temp_config_file, 'wb') as data_file:
-            data_file.write(json.dumps(preset))
-            data_file.flush()
-        AlbaCLI.run(command='update-preset', config=config, named_params={'input-url': temp_config_file}, extra_params=[name])
-        alba_backend.invalidate_dynamics()
-        for filename in [temp_key_file, temp_config_file]:
-            if filename and os.path.exists(filename) and os.path.isfile(filename):
-                os.remove(filename)
 
     @staticmethod
     @celery.task(name='alba.add_cluster')
