@@ -65,8 +65,6 @@ class AlbaNode(DataObject):
         partition_device_map = {}
         for disk_id, disk_info in disk_data.iteritems():
             entry = {'name': disk_id,
-                     'status': 'unknown',
-                     'status_detail': '',
                      'asds': {}}
             entry.update(disk_info)
             if disk_info['state'] == 'ok':
@@ -81,6 +79,24 @@ class AlbaNode(DataObject):
                     partition_device_map[partition_alias] = disk_id
             else:
                 partition_device_map[disk_id] = disk_id
+
+        # Model Disk information
+        for disk in self.disks:
+            found = False
+            for disk_id, disk_info in stack.iteritems():
+                if any(alias in disk.aliases for alias in disk_info['aliases']):
+                    found = True
+            if found is False and len(disk.aliases) > 0:
+                disk_id = disk.aliases[0].split('/')[-1]
+                stack[disk_id] = {'available': False,
+                                  'name': disk_id,
+                                  'asds': {},
+                                  'status': 'error',
+                                  'status_detail': 'missing',
+                                  'aliases': disk.aliases,
+                                  'device': disk.aliases[0],
+                                  'partition_aliasses': [],
+                                  'node_id': self.node_id}
 
         # Live ASD information
         try:

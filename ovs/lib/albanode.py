@@ -25,7 +25,7 @@ from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
-from ovs.dal.lists.diskpartitionlist import DiskPartitionList
+from ovs.dal.lists.disklist import DiskList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.asdmanager import InvalidCredentialsError
@@ -194,13 +194,9 @@ class AlbaNodeController(object):
         device_id = device_alias.split('/')[-1]
         offline_node = False
         try:
-            all_disks = node.client.get_disks()
-            if device_id not in all_disks:
-                raise RuntimeError('Disk {0} not available on node {1}'.format(device_alias, node.guid))
-            mountpoint = all_disks[device_id]['mountpoint']
+            _ = node.client.get_disks()
         except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
             AlbaNodeController._logger.warning('Could not connect to node {0} to validate disks'.format(node.guid))
-            mountpoint = None
             offline_node = True
 
         for backend in AlbaBackendList.get_albabackends():
@@ -220,13 +216,12 @@ class AlbaNodeController(object):
                 for osd in model_disk.osds:
                     osd.delete()
                 model_disk.delete()
-        if mountpoint is not None:
-            for partition in DiskPartitionList.get_partitions():
-                if partition.mountpoint == mountpoint:
+        for disk in DiskList.get_disks():
+            if device_alias in disk.aliases:
+                for partition in disk.partitions:
                     partition.roles = []
                     partition.mountpoint = None
                     partition.save()
-                    break
         node.invalidate_dynamics()
         if node.storagerouter is not None:
             DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
@@ -302,7 +297,7 @@ class AlbaNodeController(object):
             if disk_data == {}:
                 raise RuntimeError('Failed to find disk for partition with alias {0}'.format(partition_alias))
         else:
-            AlbaNodeController._logger.warning('Alba purge osd {0} without safety validations (node down)'.format(asd_id))
+            AlbaNodeController._logger.warning('Could not remove ASD from remote node (node down)'.format(asd_id))
 
         if Configuration.exists(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True):
             Configuration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(asd_id), raw=True)
