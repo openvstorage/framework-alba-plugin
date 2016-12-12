@@ -126,8 +126,8 @@ class Alba(unittest.TestCase):
         })
         node = structure['alba_nodes'][1]
         backend = structure['alba_backends'][1]
-        VirtualAlbaBackend.data['backend_1_abm'] = {}
-        VirtualAlbaBackend.data['backend_1_abm']['osds'] = []
+        VirtualAlbaBackend.data['backend_1-abm'] = {}
+        VirtualAlbaBackend.data['backend_1-abm']['osds'] = []
 
         # Validate local_stack when the node is alive, but not returning any data
         ASDManagerClient.test_exceptions[node] = {}
@@ -199,7 +199,7 @@ class Alba(unittest.TestCase):
         self.assertDictEqual(backend._local_stack(), expected)
 
         # Validate with claimed OSD
-        VirtualAlbaBackend.data['backend_1_abm']['osds'] = [{'node_id': 'node_1',
+        VirtualAlbaBackend.data['backend_1-abm']['osds'] = [{'node_id': 'node_1',
                                                              'long_id': 'alba_osd_1',
                                                              'id': 1,
                                                              'read': [],
