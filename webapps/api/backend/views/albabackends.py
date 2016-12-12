@@ -28,6 +28,7 @@ from api.backend.toolbox import Toolbox
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.lib.alba import AlbaController
+from ovs.lib.albapreset import AlbaPresetController
 
 
 class AlbaBackendViewSet(viewsets.ViewSet):
@@ -183,7 +184,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :param fragment_size: Size of a fragment in bytes
         :type fragment_size: int
         """
-        return AlbaController.add_preset.delay(albabackend.guid, name, compression, policies, encryption, fragment_size)
+        return AlbaPresetController.add_preset.delay(albabackend.guid, name, compression, policies, encryption, fragment_size)
 
     @action()
     @log()
@@ -198,7 +199,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :param name: Name of preset to delete
         :type name: str
         """
-        return AlbaController.delete_preset.delay(albabackend.guid, name)
+        return AlbaPresetController.delete_preset.delay(albabackend.guid, name)
 
     @action()
     @log()
@@ -215,7 +216,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :param policies: Policies to set
         :type policies: list
         """
-        return AlbaController.update_preset.delay(albabackend.guid, name, policies)
+        return AlbaPresetController.update_preset.delay(albabackend.guid, name, policies)
 
     @link()
     @log()

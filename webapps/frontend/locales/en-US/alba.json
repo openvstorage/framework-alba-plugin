@@ -19,6 +19,7 @@
         "disksloading": "Disks are being loaded...",
         "encryptions": {
             "aes-cbc-256": "aes-cbc-256",
+            "aes-ctr-256": "aes-ctr-256",
             "none": "No encryption"
         },
         "getss": "Gets/s",

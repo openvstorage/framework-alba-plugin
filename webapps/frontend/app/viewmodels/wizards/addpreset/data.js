@@ -27,7 +27,7 @@ define(['durandal/app', 'knockout', 'jquery'], function(app, ko, $){
             name:               ko.observable('').extend({ regex: nameRegex }),
             compressionOptions: ko.observableArray(['snappy', 'bz2', 'none']),
             compression:        ko.observable('snappy'),
-            encryptionOptions:  ko.observableArray(['aes-cbc-256', 'none']),
+            encryptionOptions:  ko.observableArray(['aes-ctr-256', 'aes-cbc-256', 'none']),
             encryption:         ko.observable('none'),
             policies:           ko.observableArray([]),
             currentPresets:     ko.observableArray([]),
