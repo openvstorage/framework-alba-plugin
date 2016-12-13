@@ -193,12 +193,15 @@ class AlbaNodeController(object):
         node_id = node.node_id
         device_id = device_alias.split('/')[-1]
         offline_node = False
+
+        # Verify client connectivity
         try:
             _ = node.client.get_disks()
         except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
             AlbaNodeController._logger.warning('Could not connect to node {0} to validate disks'.format(node.guid))
             offline_node = True
 
+        # Retrieve ASD information for the ALBA Disk
         for backend in AlbaBackendList.get_albabackends():
             local_stack = backend.local_stack
             if node_id in local_stack and device_id in local_stack[node_id]:
@@ -207,21 +210,31 @@ class AlbaNodeController(object):
             if (offline_node is False and asd_info.get('status') != 'available') or (offline_node is True and asd_info.get('status_detail') == 'nodedown'):
                 AlbaNodeController._logger.error('Disk {0} has still non-available ASDs on node {1}'.format(device_alias, node.ip))
                 raise RuntimeError('Disk {0} on ALBA node {1} has still some non-available ASDs'.format(device_alias, node_id))
+
+        # Retrieve the Disk from the framework model matching the ALBA Disk
+        disk_to_clear = None
+        for disk in DiskList.get_disks():
+            if device_alias in disk.aliases:
+                disk_to_clear = disk
+                break
+
+        # Remove the ALBA Disk making use of the ASD Manager Client
         if offline_node is False:
-            result = node.client.remove_disk(disk_id=device_id)
+            result = node.client.remove_disk(disk_id=device_id, partition_aliases=disk_to_clear.partitions[0].aliases if len(disk_to_clear.partitions) > 0 else [])
             if result['_success'] is False:
                 raise RuntimeError('Error removing disk {0}: {1}'.format(device_alias, result['_error']))
+
+        # Clean the model
         for model_disk in node.disks:
             if device_alias in model_disk.aliases:
                 for osd in model_disk.osds:
                     osd.delete()
                 model_disk.delete()
-        for disk in DiskList.get_disks():
-            if device_alias in disk.aliases:
-                for partition in disk.partitions:
-                    partition.roles = []
-                    partition.mountpoint = None
-                    partition.save()
+        if disk_to_clear is not None:
+            for partition in disk_to_clear.partitions:
+                partition.roles = []
+                partition.mountpoint = None
+                partition.save()
         node.invalidate_dynamics()
         if node.storagerouter is not None:
             DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)

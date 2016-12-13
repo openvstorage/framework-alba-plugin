@@ -95,7 +95,7 @@ class AlbaNode(DataObject):
                                   'status_detail': 'missing',
                                   'aliases': disk.aliases,
                                   'device': disk.aliases[0],
-                                  'partition_aliasses': [],
+                                  'partition_aliases': [],
                                   'node_id': self.node_id}
 
         # Live ASD information
