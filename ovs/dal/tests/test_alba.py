@@ -211,6 +211,7 @@ class Alba(unittest.TestCase):
         }, structure)
         disk = structure['alba_disks'][1]
         osd = structure['alba_osds'][1]
+        ASDManagerClient.test_results[node]['get_disks']['alba_disk_1'].update({'aliases': ['/dev/alba_disk_1']})
         expected['node_1']['alba_disk_1'].update({'guid': disk.guid,
                                                   'aliases': disk.aliases})
         expected['node_1']['alba_disk_1']['asds']['alba_osd_1'].update({'alba_backend_guid': backend.guid,
