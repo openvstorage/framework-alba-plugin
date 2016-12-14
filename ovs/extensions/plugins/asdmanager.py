@@ -18,6 +18,7 @@
 Generic module for calling the ASD-Manager
 """
 import os
+import json
 import time
 import base64
 import inspect
@@ -153,7 +154,9 @@ class ASDManagerClient(object):
         :param partition_aliases: Aliases of the partition of the disk (required for missing disks)
         :type partition_aliases: list
         """
-        return self._call(requests.post, 'disks/{0}/delete'.format(disk_id), timeout=60, data={'partition_aliases': '["{0}"]'.format('", "'.join(partition_aliases))})
+        if partition_aliases is None:
+            partition_aliases = []
+        return self._call(requests.post, 'disks/{0}/delete'.format(disk_id), timeout=60, data={'partition_aliases': json.dumps(partition_aliases)})
 
     def restart_disk(self, disk_id):
         """
