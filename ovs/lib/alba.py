@@ -545,7 +545,7 @@ class AlbaController(object):
                     current_services[alba_backend]['abm'].append(abm_service)
 
     @staticmethod
-    @add_hooks('setup', 'demote')
+    @add_hooks('nodetype', 'demote')
     def on_demote(cluster_ip, master_ip, offline_node_ips=None):
         """
         A node is being demoted
@@ -628,7 +628,7 @@ class AlbaController(object):
                     service.delete()
 
     @staticmethod
-    @add_hooks('setup', 'remove')
+    @add_hooks('noderemoval', 'remove')
     def on_remove(cluster_ip, complete_removal):
         """
         A node is removed
@@ -666,7 +666,7 @@ class AlbaController(object):
             service.delete()
 
     @staticmethod
-    @add_hooks('setup', 'validate_asd_removal')
+    @add_hooks('noderemoval', 'validate_asd_removal')
     def validate_removal(storage_router_ip):
         """
         Do some validations before removing a node
@@ -1070,7 +1070,7 @@ class AlbaController(object):
         return junction_service
 
     @staticmethod
-    @add_hooks('setup', ['firstnode', 'extranode'])  # Arguments: cluster_ip and for extranode also master_ip
+    @add_hooks('nodeinstallation', ['firstnode', 'extranode'])  # Arguments: cluster_ip and for extranode also master_ip
     @add_hooks('plugin', ['postinstall'])  # Arguments: ip
     def _add_base_configuration(*args, **kwargs):
         _ = args, kwargs

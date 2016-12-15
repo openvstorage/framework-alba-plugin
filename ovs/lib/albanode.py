@@ -421,7 +421,7 @@ class AlbaNodeController(object):
             backend.invalidate_dynamics()
 
     @staticmethod
-    @add_hooks('setup', ['firstnode', 'extranode'])
+    @add_hooks('nodeinstallation', ['firstnode', 'extranode'])
     @add_hooks('plugin', ['postinstall'])
     def model_albanodes(**kwargs):
         """
