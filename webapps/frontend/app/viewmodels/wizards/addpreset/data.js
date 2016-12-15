@@ -17,7 +17,7 @@
 define(['durandal/app', 'knockout', 'jquery'], function(app, ko, $){
     "use strict";
     var nameRegex, singleton;
-    nameRegex = /^[0-9a-zA-Z][a-zA-Z0-9]{1,18}[a-zA-Z0-9]$/;
+    nameRegex = /^[0-9a-zA-Z][a-zA-Z0-9-_]{1,18}[a-zA-Z0-9]$/;
     singleton = function() {
         var data = {
             backend:            ko.observable(),
