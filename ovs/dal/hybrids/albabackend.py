@@ -136,7 +136,7 @@ class AlbaBackend(DataObject):
             interval = Configuration.get(backend_interval_key)
         else:
             interval = Configuration.get('/ovs/alba/backends/global_gui_error_interval')
-        config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name))
+        config = Configuration.get_configuration_path('/ovs/arakoon/{0}-abm/config'.format(self.name))
         asds = {}
         for found_osd in AlbaCLI.run(command='list-all-osds', config=config):
             asds[found_osd['long_id']] = found_osd
@@ -221,7 +221,7 @@ class AlbaBackend(DataObject):
         if len(self.abm_services) == 0:
             return []  # No ABM services yet, so backend not fully installed yet
 
-        config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name))
+        config = Configuration.get_configuration_path('/ovs/arakoon/{0}-abm/config'.format(self.name))
         return AlbaCLI.run(command='show-namespaces', config=config, named_params={'max': -1})[1]
 
     def _usages(self):
@@ -254,7 +254,7 @@ class AlbaBackend(DataObject):
                     for asd_info in disk['asds'].values():
                         if asd_info['status'] in ['claimed', 'warning']:
                             asds[node.node_id] += 1
-        config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name))
+        config = Configuration.get_configuration_path('/ovs/arakoon/{0}-abm/config'.format(self.name))
         presets = AlbaCLI.run(command='list-presets', config=config)
         preset_dict = {}
         for preset in presets:
@@ -327,7 +327,7 @@ class AlbaBackend(DataObject):
             return statistics
 
         try:
-            config = Configuration.get_configuration_path('/ovs/arakoon/{0}/config'.format(self.abm_services[0].service.name))
+            config = Configuration.get_configuration_path('/ovs/arakoon/{0}-abm/config'.format(self.name))
             raw_statistics = AlbaCLI.run(command='asd-multistatistics', config=config, named_params={'long-id': ','.join(asd_ids)})
         except RuntimeError:
             return statistics

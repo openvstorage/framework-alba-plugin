@@ -19,6 +19,7 @@
         "disksloading": "Disks are being loaded...",
         "encryptions": {
             "aes-cbc-256": "aes-cbc-256",
+            "aes-ctr-256": "aes-ctr-256",
             "none": "No encryption"
         },
         "getss": "Gets/s",
@@ -278,7 +279,7 @@
                 "encryption": "Encryption",
                 "name": "Name",
                 "policies": "Policies",
-                "invalidname": "Invalid name (should be between 3 and 20 letters and/or numbers)",
+                "invalidname": "Name should be between 3 and 20 letters, numbers, dashes and underscores (not start and end with dashes or underscores)",
                 "insufficientpolicies": "There should be at least one policy",
                 "duplicatename": "Name already exists",
                 "replication": "Replication copies",
