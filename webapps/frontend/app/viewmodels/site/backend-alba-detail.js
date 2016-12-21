@@ -106,19 +106,6 @@ define([
         self.showActions = ko.computed(function() {
             return self.showDetails() && !['installing', 'new'].contains(self.backend().status()) && self.albaBackend().scaling() !== undefined;
         });
-        self.albaBackendStatus = ko.computed(function() {
-            var status = 'green';
-            $.each(self.remoteStack(), function(_, remoteStack) {
-                if (remoteStack.error === 'unknown') {
-                    status = 'red';
-                    return false;
-                } else if (remoteStack.error === 'not_allowed') {
-                    status = 'orange';
-                    return true;
-                }
-            });
-            return status;
-        });
 
         // Functions
         self.refresh = function() {
@@ -128,7 +115,7 @@ define([
         self.load = function() {
             return $.Deferred(function (deferred) {
                 var backend = self.backend(), backendType;
-                backend.load()
+                backend.load('live_status')
                     .then(function(backendData) {
                         if (backend.backendType() === undefined) {
                             backendType = new BackendType(backend.backendTypeGuid());
@@ -346,17 +333,17 @@ define([
                 )
                     .done(function(answer) {
                         if (answer === $.t('ovs:generic.yes')) {
-                            generic.alertSuccess(
+                            generic.alertInfo(
                                 $.t('alba:detail.delete.started'),
-                                $.t('alba:detail.delete.started_msg')
+                                $.t('alba:detail.delete.started_msg', {what: self.albaBackend().name()})
                             );
                             router.navigate(self.shared.routing.loadHash('backends'));
                             api.del('alba/backends/' + self.albaBackend().guid())
                                 .then(self.shared.tasks.wait)
                                 .done(function() {
                                     generic.alertSuccess(
-                                        $.t('alba:detail.delete.complete'),
-                                        $.t('alba:detail.delete.success')
+                                        $.t('alba:detail.delete.success'),
+                                        $.t('alba:detail.delete.success_msg', {what: self.albaBackend().name()})
                                     );
                                     deferred.resolve();
                                 })

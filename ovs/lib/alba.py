@@ -139,6 +139,20 @@ class AlbaController(object):
         config = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(AlbaController.get_abm_cluster_name(alba_backend=alba_backend)))
         disks = {}
 
+        service_deployed = False
+        for alba_node in AlbaNodeList.get_albanodes():
+            try:
+                for service_name in alba_node.client.list_maintenance_services():
+                    if re.match('^alba-maintenance_{0}-[a-zA-Z0-9]{{16}}$'.format(alba_backend.name), service_name):
+                        service_deployed = True
+                        break
+            except:
+                pass
+            if service_deployed is True:
+                break
+        if service_deployed is False:
+            raise Exception('No maintenance agents have been deployed for ALBA Backend {0}'.format(alba_backend.name))
+
         for osd_id, disk_guid in osds.iteritems():
             if disk_guid is not None and disk_guid not in disks:
                 disks[disk_guid] = AlbaDisk(disk_guid)
@@ -227,6 +241,7 @@ class AlbaController(object):
 
         AlbaNodeController.model_albanodes()
         AlbaController.checkup_maintenance_agents.delay()
+        alba_backend.invalidate_dynamics('live_status')
 
     @staticmethod
     @celery.task(name='alba.remove_cluster')
