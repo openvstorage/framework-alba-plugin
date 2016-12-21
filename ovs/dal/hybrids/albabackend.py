@@ -17,6 +17,7 @@
 """
 AlbaBackend module
 """
+import re
 import copy
 import time
 from threading import Lock, Thread
@@ -51,13 +52,13 @@ class AlbaBackend(DataObject):
                   Dynamic('asd_statistics', dict, 5, locked=True),
                   Dynamic('linked_backend_guids', set, 30),
                   Dynamic('remote_stack', dict, 60),
-                  Dynamic('local_summary', dict, 10)]
+                  Dynamic('local_summary', dict, 10),
+                  Dynamic('live_status', str, 30)]
 
     def _local_stack(self):
         """
         Returns a live list of all disks known to this AlbaBackend
         """
-        from ovs.dal.lists.albanodelist import AlbaNodeList
         from ovs.dal.lists.albabackendlist import AlbaBackendList
 
         if len(self.abm_services) == 0:
@@ -493,3 +494,75 @@ class AlbaBackend(DataObject):
                     device_info['green'] += 1
 
         return return_value
+
+    def _live_status(self):
+        """
+        Retrieve the live status of the ALBA Backend to be displayed in the 'Backends' page in the GUI based on:
+            - Maintenance agents presence
+            - Maintenance agents status
+            - Disk statuses
+        :return: Status as reported by the plugin
+        :rtype: str
+        """
+        if self.backend.status == 'INSTALLING':
+            return 'installing'
+
+        # Verify failed disks
+        devices = self.local_summary['devices']
+        if devices['red'] > 0:
+            return 'failure'
+
+        # Verify remote OSDs
+        remote_errors = False
+        for remote_info in self.remote_stack.itervalues():
+            if remote_info['error'] == 'unknown':
+                return 'failure'
+            if remote_info['error'] == 'not_allowed':
+                remote_errors = True
+
+        # Retrieve ASD and maintenance service information
+        services_for_this_backend = {}
+        nodes_used_by_this_backend = set()
+        for node in AlbaNodeList.get_albanodes():
+            for disk in node.disks:
+                for osd in disk.osds:
+                    if osd.alba_backend_guid == self.guid:
+                        nodes_used_by_this_backend.add(node)
+
+            try:
+                for service_name in node.client.list_maintenance_services():
+                    if re.match('^alba-maintenance_{0}-[a-zA-Z0-9]{{16}}$'.format(self.name), service_name):
+                        services_for_this_backend[service_name] = node
+            except:
+                pass
+
+        if len(services_for_this_backend) == 0:
+            return 'failure'
+
+        # Verify maintenance agents status
+        for service_name, node in services_for_this_backend.iteritems():
+            try:
+                service_status = node.client.get_service_status(name=service_name)
+                if service_status is None or service_status[0] is False:
+                    return 'failure'
+            except:
+                pass
+
+        # Verify maintenance agents presence
+        config_key = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'.format(self.guid)
+        expected_services = 3
+        if Configuration.exists(config_key):
+            expected_services = Configuration.get(config_key)
+
+        expected_services = min(expected_services, len(nodes_used_by_this_backend)) or 1
+        if len(services_for_this_backend) < expected_services:
+            return 'warning'
+
+        # Verify local and remote OSDs
+        if devices['orange'] > 0:
+            return 'warning'
+
+        if remote_errors is True:
+            return 'warning'
+
+        return 'running'

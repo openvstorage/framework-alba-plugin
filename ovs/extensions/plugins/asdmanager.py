@@ -286,6 +286,16 @@ class ASDManagerClient(object):
         """
         return self._call(requests.get, 'maintenance', clean=True)['services']
 
+    def get_service_status(self, name):
+        """
+        Retrieve the status of the service specified
+        :param name: Name of the service to check
+        :type name: str
+        :return: Status of the service
+        :rtype: str
+        """
+        return self._call(requests.get, 'service_status/{0}'.format(name))['status']
+
     def _refresh(self):
         self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
         self._base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}

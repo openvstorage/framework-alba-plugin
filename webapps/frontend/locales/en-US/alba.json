@@ -123,11 +123,11 @@
         "title": "Open vStorage Backend",
         "used": "Used",
         "delete": {
-            "complete": "Deleted",
             "failed": "The backend could not be deleted: __why__",
             "started": "Deleting",
-            "started_msg": "The backend is being deleted",
-            "success": "The backend is deleted",
+            "started_msg": "Backend __what__ is being deleted",
+            "success": "Deleted",
+            "success_msg": "Backend __what__ has been deleted",
             "warning": "You are about to delete this Backend, are you sure?"
         },
         "domain": "Domain",
