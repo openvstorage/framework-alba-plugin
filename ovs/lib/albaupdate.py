@@ -334,7 +334,7 @@ class AlbaUpdateController(object):
 
     @staticmethod
     @add_hooks('update', 'package_install_multi')
-    def package_install_alba_plugin(client, package_info, components):
+    def package_install_alba_plugin(client, package_info, components=None):
         """
         Update the Alba plugin packages
         :param client: Client on which to execute update the packages
@@ -345,6 +345,9 @@ class AlbaUpdateController(object):
         :type components: list
         :return: None
         """
+        if components is None:
+            components = ['framework', 'alba']
+
         if 'framework' not in components and 'alba' not in components:
             return
 
@@ -364,7 +367,7 @@ class AlbaUpdateController(object):
 
     @staticmethod
     @add_hooks('update', 'package_install_single')
-    def package_install_sdm(package_info, components):
+    def package_install_sdm(package_info, components=None):
         """
         Update the SDM packages
         :param package_info: Information about the packages (installed, candidate)
@@ -373,6 +376,9 @@ class AlbaUpdateController(object):
         :type components: list
         :return: None
         """
+        if components is None:
+            components = ['alba']
+
         if 'alba' not in components:
             return
 
