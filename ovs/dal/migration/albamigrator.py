@@ -19,7 +19,6 @@ ALBA migration module
 """
 
 from ovs.dal.hybrids.backendtype import BackendType
-from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.backendtypelist import BackendTypeList
 
 
@@ -48,6 +47,7 @@ class ALBAMigrator(object):
         working_version = previous_version
 
         if working_version == 0:
+            from ovs.dal.hybrids.servicetype import ServiceType
             # Initial version:
             # * Add any basic configuration or model entries
 
