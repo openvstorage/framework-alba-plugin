@@ -29,7 +29,7 @@ class ALBAMigrator(object):
     """
 
     identifier = 'alba'
-    THIS_VERSION = 11
+    THIS_VERSION = 12
 
     def __init__(self):
         """ Init method """
@@ -113,5 +113,14 @@ class ALBAMigrator(object):
                     if 'name' in alba_disk._data:
                         alba_disk.aliases = ['/dev/disk/by-id/{0}'.format(alba_disk._data['name'])]
                         alba_disk.save()
+
+            # Rename of arakoon services
+            from ovs.dal.hybrids.servicetype import ServiceType
+            from ovs.dal.lists.servicelist import ServiceList
+            for service in ServiceList.get_services():
+                if service.type.name == ServiceType.SERVICE_TYPES.ALBA_MGR or service.type.name == ServiceType.SERVICE_TYPES.NS_MGR:
+                    if not service.name.startswith('arakoon-'):
+                        service.name = 'arakoon-{0}'.format(service.name)
+                        service.save()
 
         return ALBAMigrator.THIS_VERSION
