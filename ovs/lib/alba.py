@@ -535,7 +535,6 @@ class AlbaController(object):
                 for storagerouter, partition in available_storagerouters.iteritems():
                     if storagerouter.ip in current_ips[alba_backend]['abm']:
                         continue
-
                     result = ArakoonInstaller.extend_cluster(master_ip=current_ips[alba_backend]['abm'][0],
                                                              new_ip=storagerouter.ip,
                                                              cluster_name=abm_cluster_name,
