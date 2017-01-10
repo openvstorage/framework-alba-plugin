@@ -231,8 +231,13 @@ class AlbaController(object):
             raise
 
         # Enable LRU
-        masters = StorageRouterList.get_masters()
-        redis_endpoint = 'redis://{0}:6379/alba_lru_{1}'.format(masters[0].ip, alba_backend.guid)
+        key = AlbaController.CONFIG_ALBA_BACKEND_KEY.format('lru_redis')
+        if Configuration.exists(key, raw=True):
+            endpoint = Configuration.get(key, raw=True).strip().strip('/')
+        else:
+            masters = StorageRouterList.get_masters()
+            endpoint = 'redis://{0}:6379'.format(masters[0].ip)
+        redis_endpoint = '{0}/alba_lru_{1}'.format(endpoint, alba_backend.guid)
         AlbaCLI.run(command='update-maintenance-config', config=config, named_params={'set-lru-cache-eviction': redis_endpoint})
 
         # Mark the backend as "running"
@@ -535,7 +540,6 @@ class AlbaController(object):
                 for storagerouter, partition in available_storagerouters.iteritems():
                     if storagerouter.ip in current_ips[alba_backend]['abm']:
                         continue
-
                     result = ArakoonInstaller.extend_cluster(master_ip=current_ips[alba_backend]['abm'][0],
                                                              new_ip=storagerouter.ip,
                                                              cluster_name=abm_cluster_name,
