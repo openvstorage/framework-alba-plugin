@@ -1,0 +1,36 @@
+<!--
+Copyright (C) 2016 iNuron NV
+
+This file is part of Open vStorage Open Source Edition (OSE),
+as available from
+
+      http://www.openvstorage.org and
+      http://www.openvstorage.com.
+
+This file is free software; you can redistribute it and/or modify it
+under the terms of the GNU Affero General Public License v3 (GNU AGPLv3)
+as published by the Free Software Foundation, in version 3 as it comes
+in the LICENSE.txt file of the Open vStorage OSE distribution.
+
+Open vStorage is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY of any kind.
+-->
+<section>
+    <div data-bind="visible: storageNodes().length > 0">
+        <span data-i18n="alba:support.storage_nodes"></span>:<br />
+        <ul data-bind="foreach: storageNodes">
+            <li style="margin-top: 2px;">
+                <span data-bind="text: ip()"></span>&nbsp; &nbsp;
+                <span>
+                    <button type="button" class="btn btn-mini btn-default hand" id="buttonDownload"
+                            data-bind="click: downloadLogfiles,
+                                       enable: $root.shared.user.roles().contains('manage') && downLoadingLogs() === false,
+                                       tooltip: downloadLogState()">
+                        <span class="hand fa" data-bind="visible: downLoadingLogs() === false" data-i18n="[html]alba:icons.download"></span>
+                        <span class="hand fa fa-spin" data-bind="visible: downLoadingLogs() === true" data-i18n="[html]alba:icons.loading"></span>
+                    </button>
+                </span>
+            </li>
+        </ul>
+    </div>
+</section>

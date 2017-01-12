@@ -124,6 +124,12 @@ class ASDManagerClient(object):
         """
         return self._call(requests.get, '')
 
+    def get_logs(self):
+        """
+        Retrieve the logs from the node
+        """
+        return self._call(requests.get, 'collect_logs', timeout=60)
+
     def get_disks(self):
         """
         Gets the node's disk states

@@ -23,11 +23,13 @@ from ovs.celery_run import celery
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.diskpartition import DiskPartition
+from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.disklist import DiskList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.generic.sshclient import SSHClient
 from ovs.extensions.plugins.asdmanager import InvalidCredentialsError
 from ovs.log.log_handler import LogHandler
 from ovs.lib.alba import AlbaController
@@ -445,3 +447,26 @@ class AlbaNodeController(object):
                 node.password = main_config['password']
                 node.storagerouter = StorageRouterList.get_by_ip(main_config['ip'])
                 node.save()
+
+    @staticmethod
+    @celery.task(name='albanode.get_logfiles')
+    def get_logfiles(albanode_guid, local_storagerouter_guid):
+        """
+        Collects logs, moves them to a web-accessible location and returns log tgz's filename
+        :param albanode_guid: Alba Node guid to retrieve log files on
+        :type albanode_guid: str
+        :param local_storagerouter_guid: Guid of the StorageRouter on which the collect logs was initiated, eg: through the GUI
+        :type local_storagerouter_guid: str
+        :return: Name of tgz containing the logs
+        :rtype: str
+        """
+        web_path = '/opt/OpenvStorage/webapps/frontend/downloads'
+        alba_node = AlbaNode(albanode_guid)
+        logfile_name = alba_node.client.get_logs()['filename']
+        download_url = 'https://{0}:{1}@{2}:{3}/downloads/{4}'.format(alba_node.username, alba_node.password, alba_node.ip, alba_node.port, logfile_name)
+
+        client = SSHClient(endpoint=StorageRouter(local_storagerouter_guid), username='root')
+        client.dir_create(web_path)
+        client.run(['wget', download_url, '--directory-prefix', web_path, '--no-check-certificate'])
+        client.run(['chmod', '666', '{0}/{1}'.format(web_path, logfile_name)])
+        return logfile_name

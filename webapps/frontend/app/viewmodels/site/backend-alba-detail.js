@@ -282,7 +282,7 @@ define([
                         return a.storageRouter().name() < b.storageRouter().name() ? -1 : 1;
                     }
                     if (a.storageRouter() === undefined && b.storageRouter() === undefined) {
-                        return a.ip() < b.ip() ? -1 : 1;
+                        return generic.ipSort(a.ip(), b.ip());
                     }
                     return a.storageRouter() !== undefined ? -1 : 1;
                 });
