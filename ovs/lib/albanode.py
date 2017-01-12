@@ -445,3 +445,19 @@ class AlbaNodeController(object):
                 node.password = main_config['password']
                 node.storagerouter = StorageRouterList.get_by_ip(main_config['ip'])
                 node.save()
+
+    @staticmethod
+    @add_hooks('storage_nodes', 'load')
+    def load_storage_nodes():
+        """
+        Retrieve information about nodes solely being used for storage
+        :return: IP:port and node ID of all ALBA nodes which IP is not among the StorageRouters
+        :rtype: dict
+        """
+        storage_nodes = {}
+        storagerouter_ips = [sr.ip for sr in StorageRouterList.get_storagerouters()]
+        for alba_node in AlbaNodeList.get_albanodes():
+            if alba_node.ip in storagerouter_ips:
+                continue
+            storage_nodes[alba_node.ip] = alba_node.node_id
+        return storage_nodes
