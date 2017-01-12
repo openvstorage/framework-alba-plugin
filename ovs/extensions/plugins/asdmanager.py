@@ -128,7 +128,7 @@ class ASDManagerClient(object):
         """
         Retrieve the logs from the node
         """
-        return self._call(requests.get, 'collect_logs')
+        return self._call(requests.get, 'collect_logs', timeout=60)
 
     def get_disks(self):
         """
