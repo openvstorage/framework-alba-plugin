@@ -24,6 +24,11 @@ define(['jquery'], function($) {
         dashboards: [
             'dashboard-alba'
         ],
+        pages: {
+            'support': [
+                'support-alba'
+            ]
+        },
         wizards: {
             addbackend: 'alba'
         }

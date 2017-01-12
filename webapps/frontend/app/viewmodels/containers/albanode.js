@@ -28,22 +28,27 @@ define([
         self.albaBackend = albaBackend;
         self.parent      = parent;
 
+        // Handles
+        self.loadLogFilesHandle = undefined;
+
         // External dependencies
         self.storageRouter = ko.observable();
 
         // Observables
-        self.loaded            = ko.observable(false);
+        self.diskNames         = ko.observableArray([]);
+        self.disks             = ko.observableArray([]);
+        self.disksLoading      = ko.observable(true);
+        self.downLoadingLogs   = ko.observable(false);
+        self.downloadLogState  = ko.observable($.t('alba:support.download_logs'));
+        self.expanded          = ko.observable(true);
         self.guid              = ko.observable();
         self.ip                = ko.observable();
-        self.port              = ko.observable();
-        self.username          = ko.observable();
-        self.nodeID            = ko.observable(nodeID);
-        self.storageRouterGuid = ko.observable();
-        self.disks             = ko.observableArray([]);
-        self.diskNames         = ko.observableArray([]);
         self.ips               = ko.observableArray([]);
-        self.expanded          = ko.observable(true);
-        self.disksLoading      = ko.observable(true);
+        self.loaded            = ko.observable(false);
+        self.nodeID            = ko.observable(nodeID);
+        self.port              = ko.observable();
+        self.storageRouterGuid = ko.observable();
+        self.username          = ko.observable();
 
         // Computed
         self.canInitializeAll = ko.computed(function() {
@@ -92,6 +97,24 @@ define([
         });
 
         // Functions
+        self.downloadLogfiles = function () {
+            if (self.downLoadingLogs() === true) {
+                return;
+            }
+            self.downloadLogState($.t('alba:support.downloading_logs'));
+            if (generic.xhrCompleted(self.loadLogFilesHandle)) {
+                self.downLoadingLogs(true);
+                self.loadLogFilesHandle = api.get('alba/nodes/' + self.guid() + '/get_logfiles')
+                    .then(self.shared.tasks.wait)
+                    .done(function (data) {
+                        window.location.href = 'downloads/' + data;
+                    })
+                    .always(function () {
+                        self.downloadLogState($.t('alba:support.download_logs'));
+                        self.downLoadingLogs(false);
+                    });
+            }
+        };
         self.fillData = function(data) {
             self.guid(data.guid);
             self.ip(data.ip);
@@ -178,7 +201,7 @@ define([
                     });
             }).promise();
         };
-        self.claimOSDs = self.albaBackend.claimOSDs;
+        self.claimOSDs = self.albaBackend !== undefined ? self.albaBackend.claimOSDs : undefined;
         self.removeOSD = function(asd) {
             var matchingDisk = undefined;
             $.each(self.disks(), function(index, disk) {

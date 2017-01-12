@@ -19,7 +19,7 @@ Contains the AlbaNodeViewSet
 """
 
 from rest_framework import viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
 from api.backend.decorators import load, log, required_roles, return_list, return_object, return_task
 from api.backend.exceptions import HttpNotAcceptableException
@@ -236,3 +236,17 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type disk: str
         """
         return AlbaNodeController.restart_disk.delay(albanode.guid, disk)
+
+    @link()
+    @required_roles(['read', 'manage'])
+    @return_task()
+    @load(AlbaNode)
+    def get_logfiles(self, albanode, local_storagerouter):
+        """
+        Retrieve the logfiles of an ALBA node
+        :param albanode: ALBA node to restart a disk from
+        :type albanode: AlbaNode
+        :param local_storagerouter: The StorageRouter on which the call was initiated and on which the logs will end up
+        :type local_storagerouter: ovs.dal.hybrids.storagerouter.StorageRouter
+        """
+        return AlbaNodeController.get_logfiles.delay(albanode_guid=albanode.guid, local_storagerouter_guid=local_storagerouter.guid)
