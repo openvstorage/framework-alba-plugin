@@ -101,9 +101,9 @@ define([
             if (self.downLoadingLogs() === true) {
                 return;
             }
-            self.downloadLogState($.t('alba:support.downloading_logs'));
             if (generic.xhrCompleted(self.loadLogFilesHandle)) {
                 self.downLoadingLogs(true);
+                self.downloadLogState($.t('alba:support.downloading_logs'));
                 self.loadLogFilesHandle = api.get('alba/nodes/' + self.guid() + '/get_logfiles')
                     .then(self.shared.tasks.wait)
                     .done(function (data) {
