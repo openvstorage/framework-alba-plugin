@@ -309,7 +309,7 @@ class AlbaController(object):
         for node in AlbaNodeList.get_albanodes():
             try:
                 for service_name in node.client.list_maintenance_services():
-                    backend_name = service_name.split('_', 1)[1].rsplit('-', 1)[0]  # E.g. alba-maintenance_mybackend-a4f7e3c61
+                    backend_name = service_name.split('_', 1)[1].rsplit('-', 1)[0]  # E.g. alba-maintenance_my-backend-a4f7e3c61
                     if backend_name == albabackend.name:
                         node.client.remove_maintenance_service(service_name)
                         AlbaController._logger.info('Removed maintenance service {0} on {1}'.format(service_name, node.ip))
@@ -715,10 +715,10 @@ class AlbaController(object):
             safety = AlbaController.calculate_safety(alba_backend_guid=alba_backend_guid, removal_osd_ids=asd_ids)
             if safety['lost'] > 0:
                 confirm = True
-                messages.append('The removal of these StorageRouters will cause data loss on backend {0}'.format(alba_backend.name))
+                messages.append('The removal of this StorageRouter will cause data loss on backend {0}'.format(alba_backend.name))
             elif safety['critical'] > 0:
                 confirm = True
-                messages.append('The removal of these StorageRouters brings data at risk on backend {0}. Loosing more disks will cause data loss.'.format(alba_backend.name))
+                messages.append('The removal of this StorageRouter brings data at risk on backend {0}. Loosing more disks will cause data loss.'.format(alba_backend.name))
         return {'confirm': confirm,
                 'question': '\n'.join(sorted(messages)) + '\nAre you sure you want to continue?'}
 
@@ -803,7 +803,7 @@ class AlbaController(object):
                                         candidate_sr = storagerouter
                                         candidate_load = nsm_storagerouter[storagerouter]
                                 if candidate_sr is None or candidate_load is None:
-                                    raise RuntimeError('Could not determine a candidate storagerouter')
+                                    raise RuntimeError('Could not determine a candidate StorageRouter')
                                 current_srs.append(candidate_sr)
                                 available_srs.remove(candidate_sr)
                                 # Extend the cluster (configuration, services, ...)
@@ -1026,7 +1026,7 @@ class AlbaController(object):
         """
         nsm_config_file = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(nsm_name))
         abm_config_file = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(abm_name))
-        if ArakoonInstaller.wait_for_cluster(nsm_name, ip, filesystem=False) and ArakoonInstaller.wait_for_cluster(abm_name, ip, filesystem=False):
+        if ArakoonInstaller.wait_for_cluster(nsm_name, ip) and ArakoonInstaller.wait_for_cluster(abm_name, ip):
             client = SSHClient(ip)
             AlbaCLI.run(command='add-nsm-host', config=abm_config_file, extra_params=[nsm_config_file], client=client)
 
@@ -1044,7 +1044,7 @@ class AlbaController(object):
         """
         nsm_config_file = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(nsm_name))
         abm_config_file = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(abm_name))
-        if ArakoonInstaller.wait_for_cluster(nsm_name, ip, filesystem=False) and ArakoonInstaller.wait_for_cluster(abm_name, ip, filesystem=False):
+        if ArakoonInstaller.wait_for_cluster(nsm_name, ip) and ArakoonInstaller.wait_for_cluster(abm_name, ip):
             client = SSHClient(ip)
             AlbaCLI.run(command='update-nsm-host', config=abm_config_file, extra_params=[nsm_config_file], client=client)
 
@@ -1266,7 +1266,7 @@ class AlbaController(object):
                     available_node_map[backend_guid].add(node)
 
             for service_name in service_names:
-                backend_name, service_hash = service_name.split('_', 1)[1].rsplit('-', 1)  # E.g. alba-maintenance_mybackend-a4f7e3c61
+                backend_name, service_hash = service_name.split('_', 1)[1].rsplit('-', 1)  # E.g. alba-maintenance_my-backend-a4f7e3c61
                 AlbaController._logger.debug('* Maintenance {0} for {1} on {2}'.format(service_hash, backend_name, node.ip))
 
                 if backend_name not in service_map:
@@ -1282,7 +1282,7 @@ class AlbaController(object):
 
         for alba_backend in AlbaBackendList.get_albabackends():
             name = alba_backend.name
-            AlbaController._logger.info('Generating service worklog for {0}'.format(name))
+            AlbaController._logger.info('Generating service work log for {0}'.format(name))
             key = AlbaController.NR_OF_AGENTS_CONFIG_KEY.format(alba_backend.guid)
             if Configuration.exists(key):
                 required_nr = Configuration.get(key)
@@ -1362,7 +1362,7 @@ class AlbaController(object):
                         if _count(service_map[name]) == minimum:
                             break
 
-            AlbaController._logger.info('Applying service worklog for {0}'.format(name))
+            AlbaController._logger.info('Applying service work log for {0}'.format(name))
             for node, services in to_remove.iteritems():
                 for service_name in services:
                     if _remove_service(node, service_name, alba_backend):
@@ -1375,7 +1375,7 @@ class AlbaController(object):
                 else:
                     AlbaController._logger.warning('* Added service {0} on {1}: FAIL'.format(service_name, node.ip))
 
-            AlbaController._logger.info('Finished service worklog for {0}'.format(name))
+            AlbaController._logger.info('Finished service work log for {0}'.format(name))
 
     @staticmethod
     @celery.task(name='alba.verify_namespaces', schedule=Schedule(minute='0', hour='0', day_of_month='1', month_of_year='*/3'))
