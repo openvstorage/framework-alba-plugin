@@ -39,7 +39,7 @@ class AlbaBackend(DataObject):
     SCALINGS = DataObject.enumerator('Scaling', ['GLOBAL', 'LOCAL'])
 
     _logger = LogHandler.get('dal', 'albabackend', False)
-    __properties = [Property('alba_id', str, mandatory=False, doc='ALBA internal identifier'),
+    __properties = [Property('alba_id', str, mandatory=False, indexed=True, doc='ALBA internal identifier'),
                     Property('scaling', SCALINGS.keys(), doc='Scaling for an ALBA backend can be {0}'.format(' or '.join(SCALINGS.keys())))]
     __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic backend')]
     __dynamics = [Dynamic('local_stack', dict, 5),
