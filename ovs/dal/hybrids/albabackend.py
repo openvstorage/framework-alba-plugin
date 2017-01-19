@@ -523,7 +523,8 @@ class AlbaBackend(DataObject):
         # Retrieve ASD and maintenance service information
         services_for_this_backend = {}
         nodes_used_by_this_backend = set()
-        for node in AlbaNodeList.get_albanodes():
+        all_nodes = AlbaNodeList.get_albanodes()
+        for node in all_nodes:
             for disk in node.disks:
                 for osd in disk.osds:
                     if osd.alba_backend_guid == self.guid:
@@ -537,7 +538,7 @@ class AlbaBackend(DataObject):
                 pass
 
         if len(services_for_this_backend) == 0:
-            return 'failure'
+            return 'warning' if len(all_nodes) == 0 else 'failure'
 
         # Verify maintenance agents status
         for service_name, node in services_for_this_backend.iteritems():
