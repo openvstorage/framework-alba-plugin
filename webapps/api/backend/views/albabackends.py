@@ -317,7 +317,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :param albabackend: ALBA Backend to expand the amount of NSM Arakoon clusters
         :type albabackend: ovs.dal.hybrids.albabackend.AlbaBackend
         :param cluster_names: Names of the cluster to claim (Only applicable for externally managed NSM Arakoon clusters)
-        :type cluster_names: str
+        :type cluster_names: list or None
         :param amount: Amount of additional NSM clusters to deploy
         :type amount: int
         :return: Asynchronous result of a CeleryTask

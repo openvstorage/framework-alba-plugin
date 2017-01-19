@@ -749,15 +749,18 @@ class AlbaController(object):
         additional_nsm_names = []
         additional_nsm_amount = 0
         if additional_nsms is not None:
+            additional_nsm_names = additional_nsms.get('names', [])
+            additional_nsm_amount = additional_nsms.get('amount')
+
             if alba_backend_guid is None:
                 raise ValueError('Additional NSMs can only be configured for a specific ALBA Backend')
             if not isinstance(additional_nsms, dict):
                 raise ValueError("'additional_nsms' must be of type 'dict'")
-            if additional_nsms.get('amount') is None:
+            if not isinstance(additional_nsm_names, list):
+                raise ValueError("'additional_nsm_names' must be of type 'list'")
+            if additional_nsm_amount is None or not isinstance(additional_nsm_amount, int):
                 raise ValueError('Amount of additional NSM clusters to deploy must be specified and 0 or more')
 
-            additional_nsm_names = additional_nsms.get('names', [])
-            additional_nsm_amount = additional_nsms['amount']
             if min_nsms > 1 and additional_nsm_amount > 0:
                 raise ValueError("'min_nsms' and 'additional_nsms' are mutually exclusive")
 
@@ -777,7 +780,7 @@ class AlbaController(object):
             for nsm_service in alba_backend.nsm_services:
                 nsm_service_count.add(nsm_service.number)
             if len(nsm_service_count) + additional_nsm_amount > 50:
-                raise ValueError('The maximum of 50 NSM Arakoon clusters will be exceeded. Deployable cluster count: {0}'.format(50 - len(nsm_service_count)))
+                raise ValueError('The maximum of 50 NSM Arakoon clusters will be exceeded. Amount of clusters that can be deployed for this ALBA Backend: {0}'.format(50 - len(nsm_service_count)))
             if alba_backend.abm_services[0].service.is_internal is False:
                 unused_cluster_names = set([cluster_info['cluster_name'] for cluster_info in ArakoonInstaller.get_unused_arakoon_clusters(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM)])
                 if len(unused_cluster_names) < additional_nsm_amount:
