@@ -44,7 +44,7 @@ from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.api.client import OVSClient
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
-from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.lib.helpers.decorators import add_hooks, ensure_single
@@ -224,7 +224,7 @@ class AlbaController(object):
             Configuration.set(AlbaController.CONFIG_DEFAULT_NSM_HOSTS_KEY, 1)
         nsms = max(1, Configuration.get(AlbaController.CONFIG_DEFAULT_NSM_HOSTS_KEY))
         try:
-            AlbaController.nsm_checkup(backend_guid=alba_backend.guid, min_nsms=nsms)
+            AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, min_nsms=nsms)
         except Exception as ex:
             AlbaController._logger.exception('Failed NSM checkup during add cluster for backend {0}. {1}'.format(alba_backend.guid, ex))
             AlbaController.remove_cluster(alba_backend_guid=alba_backend.guid)
@@ -725,7 +725,7 @@ class AlbaController(object):
     @staticmethod
     @celery.task(name='alba.nsm_checkup', schedule=Schedule(minute='45', hour='*'))
     @ensure_single(task_name='alba.nsm_checkup', mode='CHAINED')
-    def nsm_checkup(allow_offline=False, backend_guid=None, min_nsms=None):
+    def nsm_checkup(allow_offline=False, alba_backend_guid=None, min_nsms=1, additional_nsms=None):
         """
         Validates the current NSM setup/configuration and takes actions where required.
         Assumptions:
@@ -734,20 +734,68 @@ class AlbaController(object):
 
         :param allow_offline: Ignore offline nodes
         :type allow_offline: bool
-        :param backend_guid: Run for a specific backend
-        :type backend_guid: str
+        :param alba_backend_guid: Run for a specific ALBA Backend
+        :type alba_backend_guid: str
         :param min_nsms: Minimum amount of NSM hosts that need to be provided
         :type min_nsms: int
+        :param additional_nsms: Information about the additional clusters to claim (and create for internally managed Arakoon clusters)
+        :type additional_nsms: dict
         :return: None
         """
-        alba_backends = AlbaBackendList.get_albabackends() if backend_guid is None else [AlbaBackend(backend_guid)]
+        # Validations
+        if min_nsms < 1:
+            raise ValueError('Minimum amount of NSM clusters must be 1 or more')
+
+        additional_nsm_names = []
+        additional_nsm_amount = 0
+        if additional_nsms is not None:
+            additional_nsm_names = additional_nsms.get('names', [])
+            additional_nsm_amount = additional_nsms.get('amount')
+
+            if alba_backend_guid is None:
+                raise ValueError('Additional NSMs can only be configured for a specific ALBA Backend')
+            if not isinstance(additional_nsms, dict):
+                raise ValueError("'additional_nsms' must be of type 'dict'")
+            if not isinstance(additional_nsm_names, list):
+                raise ValueError("'additional_nsm_names' must be of type 'list'")
+            if additional_nsm_amount is None or not isinstance(additional_nsm_amount, int):
+                raise ValueError('Amount of additional NSM clusters to deploy must be specified and 0 or more')
+
+            if min_nsms > 1 and additional_nsm_amount > 0:
+                raise ValueError("'min_nsms' and 'additional_nsms' are mutually exclusive")
+
+            for cluster_name in additional_nsm_names:
+                try:
+                    ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
+                except NotFoundException:
+                    raise ValueError('Arakoon cluster with name {0} does not exist'.format(cluster_name))
+
+        if alba_backend_guid is None:
+            alba_backends = AlbaBackendList.get_albabackends()
+        else:
+            alba_backend = AlbaBackend(alba_backend_guid)
+            alba_backends = [alba_backend]
+            nsm_service_count = set()
+            # Validate enough externally managed Arakoon clusters are available
+            for nsm_service in alba_backend.nsm_services:
+                nsm_service_count.add(nsm_service.number)
+            if len(nsm_service_count) + additional_nsm_amount > 50:
+                raise ValueError('The maximum of 50 NSM Arakoon clusters will be exceeded. Amount of clusters that can be deployed for this ALBA Backend: {0}'.format(50 - len(nsm_service_count)))
+            if alba_backend.abm_services[0].service.is_internal is False:
+                unused_cluster_names = set([cluster_info['cluster_name'] for cluster_info in ArakoonInstaller.get_unused_arakoon_clusters(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM)])
+                if len(unused_cluster_names) < additional_nsm_amount:
+                    raise ValueError('The amount of additional NSM Arakoon clusters to claim ({0}) exceeds the amount of available NSM Arakoon clusters ({1})'.format(additional_nsm_amount, len(unused_cluster_names)))
+                if set(additional_nsm_names).difference(unused_cluster_names):
+                    raise ValueError('Some of the provided cluster_names have already been claimed before')
+
+        # Create / extend clusters
+        safety = Configuration.get('/ovs/framework/plugins/alba/config|nsm.safety')
+        maxload = Configuration.get('/ovs/framework/plugins/alba/config|nsm.maxload')
         failed_backends = []
+        nsm_service_type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.NS_MGR)
         for alba_backend in alba_backends:
             try:
-                nsm_service_type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.NS_MGR)
-                safety = Configuration.get('/ovs/framework/plugins/alba/config|nsm.safety')
-                maxload = Configuration.get('/ovs/framework/plugins/alba/config|nsm.maxload')
-
+                # Gather information
                 abm_cluster_name = AlbaController.get_abm_cluster_name(alba_backend=alba_backend)
                 AlbaController._logger.debug('Ensuring NSM safety for backend {0}'.format(abm_cluster_name))
                 nsm_groups = {}
@@ -780,6 +828,7 @@ class AlbaController(object):
                             raise RuntimeError('Not all StorageRouters are reachable')
 
                 if len(nsm_storagerouter) > 0:
+                    # Extend existing NSM clusters if safety not met
                     for number, nsm_services in nsm_groups.iteritems():
                         AlbaController._logger.debug('Processing NSM {0}'.format(number))
                         # Check amount of nodes
@@ -838,10 +887,10 @@ class AlbaController(object):
                                 AlbaController._logger.debug('Node added')
 
                 # Load and minimum nsm hosts
-                nsms_to_add = 0
+                nsms_to_add = additional_nsm_amount
                 load_ok = min(nsm_loads.values()) < maxload
                 AlbaController._logger.debug('Currently {0} NSM hosts'.format(len(nsm_loads)))
-                if min_nsms is not None:
+                if min_nsms > 1:
                     AlbaController._logger.debug('Minimum {0} NSM hosts requested'.format(min_nsms))
                     nsms_to_add = max(0, min_nsms - len(nsm_loads))
                 if load_ok:
@@ -851,36 +900,43 @@ class AlbaController(object):
                     nsms_to_add = max(1, nsms_to_add)
                 if nsms_to_add > 0:
                     AlbaController._logger.debug('Trying to add {0} NSM hosts'.format(nsms_to_add))
+
+                # Deploy new NSM clusters
                 base_number = max(nsm_loads.keys()) + 1
-                for number in xrange(base_number, base_number + nsms_to_add):
-                    if len(nsm_storagerouter) == 0:
+                for count, number in enumerate(xrange(base_number, base_number + nsms_to_add)):
+                    if len(nsm_storagerouter) == 0:  # External clusters
                         AlbaController._logger.debug('Externally managed NSM arakoon cluster needs to be expanded')
-                        metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM)
+                        cluster_name = None
+                        if count < len(additional_nsm_names):
+                            cluster_name = additional_nsm_names[count]
+                        metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM, cluster_name=cluster_name)
                         if metadata is None:
                             AlbaController._logger.warning('Cannot claim additional NSM clusters, because no clusters are available')
                             break
-                        else:
-                            client = None
-                            masters = StorageRouterList.get_masters()
-                            for master in masters:
-                                try:
-                                    client = SSHClient(master)
-                                    break
-                                except UnableToConnectException:
-                                    continue
-                            if client is None:
-                                raise ValueError('Could not find an online master node')
-                            AlbaController._model_service(service_name=metadata['cluster_name'],
-                                                          service_type=nsm_service_type,
-                                                          ports=[],
-                                                          storagerouter=None,
-                                                          junction_type=NSMService,
-                                                          backend=alba_backend,
-                                                          number=number)
-                            AlbaController.register_nsm(abm_name=abm_cluster_name,
-                                                        nsm_name=metadata['cluster_name'],
-                                                        ip=client.ip)
-                    else:
+
+                        client = None
+                        masters = StorageRouterList.get_masters()
+                        for master in masters:
+                            try:
+                                client = SSHClient(master)
+                                break
+                            except UnableToConnectException:
+                                continue
+                        if client is None:
+                            raise ValueError('Could not find an online master node')
+                        cluster_name = metadata['cluster_name']
+                        AlbaController._model_service(service_name=cluster_name,
+                                                      service_type=nsm_service_type,
+                                                      ports=[],
+                                                      storagerouter=None,
+                                                      junction_type=NSMService,
+                                                      backend=alba_backend,
+                                                      number=number)
+                        AlbaController.register_nsm(abm_name=abm_cluster_name,
+                                                    nsm_name=cluster_name,
+                                                    ip=client.ip)
+                        AlbaController._logger.debug('Externally managed NSM Arakoon cluster expanded with cluster {0}'.format(cluster_name))
+                    else:  # Internal clusters
                         AlbaController._logger.debug('Adding new NSM')
                         # One of the NSM nodes is overloaded. This means the complete NSM is considered overloaded
                         # Figure out which StorageRouters are the least occupied
