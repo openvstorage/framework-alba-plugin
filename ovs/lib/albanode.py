@@ -98,10 +98,11 @@ class AlbaNodeController(object):
         except InvalidCredentialsError:
             AlbaNodeController._logger.warning('Failed to retrieve the maintenance services for ALBA node {0}'.format(node.node_id))
 
-        if Configuration.dir_exists('/ovs/alba/asdnodes/{0}'.format(node.node_id)):
-            Configuration.delete('/ovs/alba/asdnodes/{0}'.format(node.node_id))
-
         node.delete()
+        for alba_backend in AlbaBackendList.get_albabackends():
+            alba_backend.invalidate_dynamics(['live_status'])
+            alba_backend.backend.invalidate_dynamics(['live_status'])
+        AlbaController.checkup_maintenance_agents.delay()
 
     @staticmethod
     @celery.task(name='albanode.replace_node')

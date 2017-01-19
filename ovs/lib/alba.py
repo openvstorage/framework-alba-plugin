@@ -1363,17 +1363,23 @@ class AlbaController(object):
                             break
 
             AlbaController._logger.info('Applying service work log for {0}'.format(name))
+            made_changes = False
             for node, services in to_remove.iteritems():
                 for service_name in services:
                     if _remove_service(node, service_name, alba_backend):
+                        made_changes = True
                         AlbaController._logger.info('* Removed service {0} on {1}: OK'.format(service_name, node.ip))
                     else:
                         AlbaController._logger.warning('* Removed service {0} on {1}: FAIL'.format(service_name, node.ip))
             for node, service_name in to_add.iteritems():
                 if _add_service(node, service_name, alba_backend):
+                    made_changes = True
                     AlbaController._logger.info('* Added service {0} on {1}: OK'.format(service_name, node.ip))
                 else:
                     AlbaController._logger.warning('* Added service {0} on {1}: FAIL'.format(service_name, node.ip))
+            if made_changes is True:
+                alba_backend.invalidate_dynamics(['live_status'])
+                alba_backend.backend.invalidate_dynamics(['live_status'])
 
             AlbaController._logger.info('Finished service work log for {0}'.format(name))
 

@@ -456,6 +456,7 @@ define([
                 self.loadDomains();
                 return self.load()
                     .then(self.fetchNodes)
+                    .then(function() { self.fetchNodes(true); })
                     .then(self.loadASDOSDs)
                     .then(self.loadBackendOSDs)
                     .then(function() {
