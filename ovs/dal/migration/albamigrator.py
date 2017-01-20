@@ -28,7 +28,7 @@ class ALBAMigrator(object):
     """
 
     identifier = 'alba'
-    THIS_VERSION = 12
+    THIS_VERSION = 13
 
     def __init__(self):
         """ Init method """
