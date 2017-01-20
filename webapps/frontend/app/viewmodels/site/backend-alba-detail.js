@@ -282,7 +282,7 @@ define([
                         return a.storageRouter().name() < b.storageRouter().name() ? -1 : 1;
                     }
                     if (a.storageRouter() === undefined && b.storageRouter() === undefined) {
-                        return a.ip() < b.ip() ? -1 : 1;
+                        return generic.ipSort(a.ip(), b.ip());
                     }
                     return a.storageRouter() !== undefined ? -1 : 1;
                 });
@@ -456,6 +456,7 @@ define([
                 self.loadDomains();
                 return self.load()
                     .then(self.fetchNodes)
+                    .then(function() { self.fetchNodes(true); })
                     .then(self.loadASDOSDs)
                     .then(self.loadBackendOSDs)
                     .then(function() {

@@ -28,7 +28,7 @@ class ALBAMigrator(object):
     """
 
     identifier = 'alba'
-    THIS_VERSION = 12
+    THIS_VERSION = 13
 
     def __init__(self):
         """ Init method """
@@ -69,8 +69,7 @@ class ALBAMigrator(object):
 
         # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
         elif working_version < ALBAMigrator.THIS_VERSION:
-
-            # Migrate unique constraints
+            # Migrate unique constraints & indexes
             import hashlib
             from ovs.dal.helpers import HybridRunner, Descriptor
             from ovs.extensions.storage.persistentfactory import PersistentFactory
@@ -80,18 +79,35 @@ class ALBAMigrator(object):
                 cls = Descriptor().load(class_descriptor).get_object()
                 classname = cls.__name__.lower()
                 unique_key = 'ovs_unique_{0}_{{0}}_'.format(classname)
+                index_prefix = 'ovs_index_{0}|{{0}}|'.format(classname)
+                index_key = 'ovs_index_{0}|{{0}}|{{1}}'.format(classname)
                 uniques = []
+                indexes = []
                 # noinspection PyProtectedMember
                 for prop in cls._properties:
                     if prop.unique is True and len([k for k in client.prefix(unique_key.format(prop.name))]) == 0:
                         uniques.append(prop.name)
-                if len(uniques) > 0:
+                    if prop.indexed is True and len([k for k in client.prefix(index_prefix.format(prop.name))]) == 0:
+                        indexes.append(prop.name)
+                if len(uniques) > 0 or len(indexes) > 0:
                     prefix = 'ovs_data_{0}_'.format(classname)
-                    for key in client.prefix(prefix):
-                        data = client.get(key)
+                    for key, data in client.prefix_entries(prefix):
                         for property_name in uniques:
                             ukey = '{0}{1}'.format(unique_key.format(property_name), hashlib.sha1(str(data[property_name])).hexdigest())
                             client.set(ukey, key)
+                        for property_name in indexes:
+                            if property_name not in data:
+                                continue  # This is the case when there's a new indexed property added.
+                            ikey = index_key.format(property_name, hashlib.sha1(str(data[property_name])).hexdigest())
+                            index = list(client.get_multi([ikey], must_exist=False))[0]
+                            transaction = client.begin_transaction()
+                            if index is None:
+                                client.assert_value(ikey, None, transaction=transaction)
+                                client.set(ikey, [key], transaction=transaction)
+                            elif key not in index:
+                                client.assert_value(ikey, index[:], transaction=transaction)
+                                client.set(ikey, index + [key], transaction=transaction)
+                            client.apply_transaction(transaction)
 
             # Changes on AlbaNodes & AlbaDisks
             from ovs.dal.lists.albanodelist import AlbaNodeList

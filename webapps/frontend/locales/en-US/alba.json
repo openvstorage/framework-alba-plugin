@@ -1,4 +1,67 @@
 {
+    "dashboard": {
+        "title": "Backends",
+        "helptitle": "Help - Backends",
+        "helpcontent": "This panel displays the state of the Open vStorage Backends. It shows how many OSDs are in use by the backend, grouped by their state."
+    },
+    "dashboard_scalings": {
+        "GLOBAL": "Global Backends",
+        "LOCAL": "Local Backends"
+    },
+    "detail": {
+        "actions": "Actions",
+        "health": "Health",
+        "link_backend": "Link Backend",
+        "name": "Name",
+        "preset": "Preset",
+        "scaling": "Scaling",
+        "status": "Status",
+        "title": "Open vStorage Backend",
+        "used": "Used",
+        "delete": {
+            "failed": "The backend could not be deleted: __why__",
+            "started": "Deleting",
+            "started_msg": "Backend __what__ is being deleted",
+            "success": "Deleted",
+            "success_msg": "Backend __what__ has been deleted",
+            "warning": "You are about to delete this Backend, are you sure?"
+        },
+        "domain": "Domain",
+        "errors": {
+            "backend_deleted": "This Backend has been deleted",
+            "not_allowed": "The credentials stored in this ALBA Backend's metadata are not allowed to retrieve this information",
+            "unknown": "Something went wrong retrieving information about this Backend"
+        }
+    },
+    "disks" : {
+        "initialize": {
+            "complete": "Initialized",
+            "failed_multi": "Failed initializing disks: __why__",
+            "failed_single": "Failed initializing disk __what__: __why__",
+            "started": "Started",
+            "started_msg_multi": "The disks are being initialized",
+            "started_msg_single": "Disk __what__ is being initialized",
+            "success_multi": "The disks have been initialized",
+            "success_single": "Disk __what__ has been initialized"
+        },
+        "remove": {
+            "complete": "Removed",
+            "failed": "Failed removing disk __what__: __why__",
+            "started": "Started",
+            "started_msg": "Disk __what__ is being removed",
+            "success": "Disk __what__ has been removed"
+        },
+        "restart": {
+            "complete": "Restarted",
+            "failed": "Failed restarting disk __what__: __why__",
+            "started": "Started",
+            "started_msg": "Disk __what__ is being restarted",
+            "success": "Disk __what__ has been restarted"
+        }
+    },
+    "downtime": {
+        "backend": "Backend"
+    },
     "generic": {
         "addpolicy": "Add policy",
         "addpreset": "Add preset",
@@ -103,69 +166,6 @@
         "wayreplication": "-way replication:",
         "yes": "Yes"
     },
-    "dashboard": {
-        "title": "Backends",
-        "helptitle": "Help - Backends",
-        "helpcontent": "This panel displays the state of the Open vStorage Backends. It shows how many OSDs are in use by the backend, grouped by their state."
-    },
-    "dashboard_scalings": {
-        "GLOBAL": "Global Backends",
-        "LOCAL": "Local Backends"
-    },
-    "detail": {
-        "actions": "Actions",
-        "health": "Health",
-        "link_backend": "Link Backend",
-        "name": "Name",
-        "preset": "Preset",
-        "scaling": "Scaling",
-        "status": "Status",
-        "title": "Open vStorage Backend",
-        "used": "Used",
-        "delete": {
-            "failed": "The backend could not be deleted: __why__",
-            "started": "Deleting",
-            "started_msg": "Backend __what__ is being deleted",
-            "success": "Deleted",
-            "success_msg": "Backend __what__ has been deleted",
-            "warning": "You are about to delete this Backend, are you sure?"
-        },
-        "domain": "Domain",
-        "errors": {
-            "backend_deleted": "This Backend has been deleted",
-            "not_allowed": "The credentials stored in this ALBA Backend's metadata are not allowed to retrieve this information",
-            "unknown": "Something went wrong retrieving information about this Backend"
-        }
-    },
-    "disks" : {
-        "initialize": {
-            "complete": "Initialized",
-            "failed_multi": "Failed initializing disks: __why__",
-            "failed_single": "Failed initializing disk __what__: __why__",
-            "started": "Started",
-            "started_msg_multi": "The disks are being initialized",
-            "started_msg_single": "Disk __what__ is being initialized",
-            "success_multi": "The disks have been initialized",
-            "success_single": "Disk __what__ has been initialized"
-        },
-        "remove": {
-            "complete": "Removed",
-            "failed": "Failed removing disk __what__: __why__",
-            "started": "Started",
-            "started_msg": "Disk __what__ is being removed",
-            "success": "Disk __what__ has been removed"
-        },
-        "restart": {
-            "complete": "Restarted",
-            "failed": "Failed restarting disk __what__: __why__",
-            "started": "Started",
-            "started_msg": "Disk __what__ is being restarted",
-            "success": "Disk __what__ has been restarted"
-        }
-    },
-    "downtime": {
-        "backend": "Backend"
-    },
     "icons": {
         "claim": "&#xf140;",
         "collapse": "&#xf147;",
@@ -173,10 +173,12 @@
         "devices": "&#xf0a0;",
         "discover": "&#xf002;",
         "down": "&#xf078;",
+        "download": "&#xf019;",
         "expand": "&#xf196;",
         "external_link": "&#xf08e;",
         "initialize": "&#xf21e;",
         "inuse": "&#xf15b;",
+        "loading": "&#xf110;",
         "nics": "&#xf0ec;",
         "nodes": "&#xf233;",
         "notinuse": "&#xf016;",
@@ -242,6 +244,11 @@
         },
         "policyinfo": "Policies displayed in bold will be used when writing new data",
         "unavailable": "Unavailable"
+    },
+    "support": {
+        "download_logs": "Download logfiles",
+        "downloading_logs": "Collecting logfiles",
+        "storage_nodes": "Storage Nodes"
     },
     "updates": {
         "component_alba": "Alba",

@@ -1,9 +1,8 @@
 ## Configuration Management
 
 As Open vStorage is completely distributed it uses a distributed configuration management system.
-There are 2 option as configuration management system:
-* Arakoon, the preferred and advised system.
-* ETCD
+There is currently only 1 option as configuration management system:
+* Arakoon
 
 ### Set, get and list configuration keys
 The [OVS commandline](https://openvstorage.gitbooks.io/administration/content/Administration/usingthecli/configmgmt.html) allows to easily list and change the configuration parameters of the cluster:
