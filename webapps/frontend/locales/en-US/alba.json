@@ -327,7 +327,7 @@
         "link_backend": {
             "alba_backend": "Backend:",
             "alba_preset": "Preset:",
-            "alba_preset_unavailable": "The selected preset is not usable. To be able to make use of this vPool, please add a suitable policy or claim more ASDs for this backend",
+            "alba_preset_unavailable": "The selected preset is not usable. To be able to make use of this Backend, please add a suitable policy or claim more ASDs for this backend",
             "basic_info": "Select the Backend to link to this Global Backend",
             "choose_backend": "A Backend needs to be selected",
             "choose_preset": "A preset needs to be selected",
