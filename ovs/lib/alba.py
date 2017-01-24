@@ -1191,6 +1191,7 @@ class AlbaController(object):
 
         # Verify OSD has already been added
         claimed = False
+        added = False
         config = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(AlbaController.get_abm_cluster_name(alba_backend=AlbaBackend(alba_backend_guid))))
         all_osds = AlbaCLI.run(command='list-all-osds', config=config)
         linked_alba_id = metadata['backend_info']['linked_alba_id']
@@ -1199,43 +1200,46 @@ class AlbaController(object):
                 if osd.get('decommissioned') is True:
                     return False
 
+                added = True
                 claimed = osd.get('alba_id') is not None
                 break
 
-        # Add the OSD
-        # Retrieve remote arakoon configuration
-        connection_info = metadata['backend_connection_info']
-        ovs_client = OVSClient(ip=connection_info['host'], port=connection_info['port'], credentials=(connection_info['username'], connection_info['password']))
-        task_id = ovs_client.get('/alba/backends/{0}/get_config_metadata'.format(metadata['backend_info']['linked_guid']))
-        successful, arakoon_config = ovs_client.wait_for_task(task_id, timeout=300)
-        if successful is False:
-            raise RuntimeError('Could not load metadata from environment {0}'.format(ovs_client.ip))
+        if added is False:
+            # Add the OSD
+            # Retrieve remote arakoon configuration
+            connection_info = metadata['backend_connection_info']
+            ovs_client = OVSClient(ip=connection_info['host'], port=connection_info['port'], credentials=(connection_info['username'], connection_info['password']))
+            task_id = ovs_client.get('/alba/backends/{0}/get_config_metadata'.format(metadata['backend_info']['linked_guid']))
+            successful, arakoon_config = ovs_client.wait_for_task(task_id, timeout=300)
+            if successful is False:
+                raise RuntimeError('Could not load metadata from environment {0}'.format(ovs_client.ip))
 
-        # Write arakoon configuration to file
-        raw_config = RawConfigParser()
-        for section in arakoon_config:
-            raw_config.add_section(section)
-            for key, value in arakoon_config[section].iteritems():
-                raw_config.set(section, key, value)
-        config_io = StringIO()
-        raw_config.write(config_io)
-        remote_arakoon_config = '/opt/OpenvStorage/arakoon_config_temp'
-        with open(remote_arakoon_config, 'w') as arakoon_cfg:
-            arakoon_cfg.write(config_io.getvalue())
+            # Write arakoon configuration to file
+            raw_config = RawConfigParser()
+            for section in arakoon_config:
+                raw_config.add_section(section)
+                for key, value in arakoon_config[section].iteritems():
+                    raw_config.set(section, key, value)
+            config_io = StringIO()
+            raw_config.write(config_io)
+            remote_arakoon_config = '/opt/OpenvStorage/arakoon_config_temp'
+            with open(remote_arakoon_config, 'w') as arakoon_cfg:
+                arakoon_cfg.write(config_io.getvalue())
 
-        try:
-            AlbaCLI.run(command='add-osd',
-                        config=config,
-                        named_params={'prefix': alba_backend_guid,
-                                      'preset': metadata['backend_info']['linked_preset'],
-                                      'node-id': metadata['backend_info']['linked_guid'],
-                                      'alba-osd-config-url': 'file://{0}'.format(remote_arakoon_config)})
-        finally:
-            os.remove(remote_arakoon_config)
+            try:
+                AlbaCLI.run(command='add-osd',
+                            config=config,
+                            named_params={'prefix': alba_backend_guid,
+                                          'preset': metadata['backend_info']['linked_preset'],
+                                          'node-id': metadata['backend_info']['linked_guid'],
+                                          'alba-osd-config-url': 'file://{0}'.format(remote_arakoon_config)})
+            finally:
+                os.remove(remote_arakoon_config)
 
         if claimed is False:
             # Claim and update model
             AlbaController.add_units(alba_backend_guid=alba_backend_guid, osds={linked_alba_id: None}, metadata=metadata)
+
         return True
 
     @staticmethod
