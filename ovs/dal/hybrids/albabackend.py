@@ -220,7 +220,7 @@ class AlbaBackend(DataObject):
         Loads namespace data
         """
         if self.abm_cluster is None:
-            return {}  # No ABM cluster yet, so backend not fully installed yet
+            return []  # No ABM cluster yet, so backend not fully installed yet
 
         config = Configuration.get_configuration_path(self.abm_cluster.config_location)
         return AlbaCLI.run(command='show-namespaces', config=config, named_params={'max': -1})[1]
@@ -245,7 +245,7 @@ class AlbaBackend(DataObject):
         Returns the policies active on the node
         """
         if self.abm_cluster is None:
-            return {}  # No ABM cluster yet, so backend not fully installed yet
+            return []  # No ABM cluster yet, so backend not fully installed yet
 
         asds = {}
         if self.scaling != AlbaBackend.SCALINGS.GLOBAL:

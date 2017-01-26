@@ -24,7 +24,7 @@ from ovs.dal.hybrids.albabackend import AlbaBackend
 
 class NSMCluster(DataObject):
     """
-    The ABMCluster class represents the relation between an ALBA Backend and the Namespace Manager services.
+    The NSMCluster class represents the relation between an ALBA Backend and the Namespace Manager services.
     Each ALBA Backend has at least 1 Namespace Manager Arakoon cluster.
     Each NSM cluster has several services representing the nodes of the ALBA Namespace Manager Arakoon cluster.
     Examples:

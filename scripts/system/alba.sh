@@ -25,10 +25,10 @@ function show_help {
     echo "--------------------------"
     echo "Usage:"
     echo "  * Miscellaneous options:"
-    echo "    - alba help                       Show this help section"
+    echo "    - ovs alba help                       Show this help section"
     echo ""
     echo "  * Monitor options:"
-    echo "    - alba monitor clusters           Watch Open vStorage Arakoon clusters for the ALBA plugin"
+    echo "    - ovs alba monitor clusters           Watch Open vStorage Arakoon clusters for the ALBA plugin"
     echo ""
 }
 

@@ -63,8 +63,6 @@ class AlbaController(object):
     NSM_PLUGIN = 'nsm_host_plugin'
     ALBA_VERSION_GET = 'alba=`alba version --terse`'
     ARAKOON_PLUGIN_DIR = '/usr/lib/alba'
-    NS_MGR_SERVICE_TYPE = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.NS_MGR)
-    ALBA_MGR_SERVICE_TYPE = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.ALBA_MGR)
     CONFIG_ALBA_BACKEND_KEY = '/ovs/alba/backends/{0}'
     NR_OF_AGENTS_CONFIG_KEY = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
     CONFIG_DEFAULT_NSM_HOSTS_KEY = CONFIG_ALBA_BACKEND_KEY.format('default_nsm_hosts')
@@ -448,8 +446,7 @@ class AlbaController(object):
                 AlbaController._logger.info('Claimed {0} managed Arakoon cluster: {1}'.format('externally' if storagerouter is None else 'internally', abm_cluster_name))
                 AlbaController._update_abm_client_config(abm_name=abm_cluster_name,
                                                          ip=clients.keys()[0].ip)
-                AlbaController._model_service(service_type=AlbaController.ALBA_MGR_SERVICE_TYPE,
-                                              alba_backend=alba_backend,
+                AlbaController._model_service(alba_backend=alba_backend,
                                               cluster_name=abm_cluster_name,
                                               ports=ports,
                                               storagerouter=storagerouter)
@@ -492,8 +489,7 @@ class AlbaController(object):
                 AlbaController._register_nsm(abm_name=abm_cluster_name,
                                              nsm_name=nsm_cluster_name,
                                              ip=clients.keys()[0])
-                AlbaController._model_service(service_type=AlbaController.NS_MGR_SERVICE_TYPE,
-                                              alba_backend=alba_backend,
+                AlbaController._model_service(alba_backend=alba_backend,
                                               cluster_name=nsm_cluster_name,
                                               ports=ports,
                                               storagerouter=storagerouter,
@@ -519,8 +515,7 @@ class AlbaController(object):
                                                  data_dir=partition.folder,
                                                  plugins=[AlbaController.ABM_PLUGIN],
                                                  cluster_name=abm_cluster_name)
-                    AlbaController._model_service(service_type=AlbaController.ALBA_MGR_SERVICE_TYPE,
-                                                  alba_backend=alba_backend,
+                    AlbaController._model_service(alba_backend=alba_backend,
                                                   cluster_name=abm_cluster_name,
                                                   ports=[result['client_port'], result['messaging_port']],
                                                   storagerouter=storagerouter)
@@ -579,6 +574,7 @@ class AlbaController(object):
                     abm_service.delete()
                     abm_service.service.delete()
 
+                AlbaController._logger.info('Shrinking NSM for Backend {0}'.format(alba_backend.name))
                 for nsm_cluster in alba_backend.nsm_clusters:
                     nsm_service_ips = [nsm_service.service.storagerouter.ip for nsm_service in nsm_cluster.nsm_services]
                     if cluster_ip not in nsm_service_ips:
@@ -591,7 +587,6 @@ class AlbaController(object):
                         raise RuntimeError('No other available nodes found in the NSM cluster')
 
                     # Remove the node from the NSM
-                    AlbaController._logger.info('Shrinking NSM for Backend {0}'.format(alba_backend.name))
                     AlbaController._logger.info('* Shrink NSM cluster {0}'.format(nsm_cluster.name))
                     ArakoonInstaller.shrink_cluster(deleted_node_ip=cluster_ip,
                                                     remaining_node_ips=nsm_remaining_ips,
@@ -861,8 +856,7 @@ class AlbaController(object):
                                                              plugins=[AlbaController.NSM_PLUGIN],
                                                              cluster_name=nsm_cluster.name)
                                 AlbaController._logger.debug('  Model services')
-                                AlbaController._model_service(service_type=AlbaController.NS_MGR_SERVICE_TYPE,
-                                                              alba_backend=alba_backend,
+                                AlbaController._model_service(alba_backend=alba_backend,
                                                               cluster_name=nsm_cluster.name,
                                                               ports=[nsm_result['client_port'], nsm_result['messaging_port']],
                                                               storagerouter=candidate_sr,
@@ -916,8 +910,7 @@ class AlbaController(object):
                         if client is None:
                             raise ValueError('Could not find an online master node')
                         nsm_cluster_name = metadata['cluster_name']
-                        AlbaController._model_service(service_type=AlbaController.NS_MGR_SERVICE_TYPE,
-                                                      alba_backend=alba_backend,
+                        AlbaController._model_service(alba_backend=alba_backend,
                                                       cluster_name=nsm_cluster_name,
                                                       number=number)
                         AlbaController._register_nsm(abm_name=abm_cluster_name,
@@ -956,8 +949,7 @@ class AlbaController(object):
                                                          data_dir=partition.folder,
                                                          plugins=[AlbaController.NSM_PLUGIN],
                                                          cluster_name=nsm_cluster_name)
-                            AlbaController._model_service(service_type=AlbaController.NS_MGR_SERVICE_TYPE,
-                                                          alba_backend=alba_backend,
+                            AlbaController._model_service(alba_backend=alba_backend,
                                                           cluster_name=nsm_cluster_name,
                                                           ports=[nsm_result['client_port'], nsm_result['messaging_port']],
                                                           storagerouter=storagerouter,
@@ -1111,11 +1103,9 @@ class AlbaController(object):
         AlbaCLI.run(command='update-abm-client-config', config=abm_config_file, named_params={'attempts': 8}, client=client)
 
     @staticmethod
-    def _model_service(service_type, alba_backend, cluster_name, ports=None, storagerouter=None, number=None):
+    def _model_service(alba_backend, cluster_name, ports=None, storagerouter=None, number=None):
         """
         Adds service to the model
-        :param service_type: Type of service to add
-        :type service_type: AlbaController.ALBA_MGR_SERVICE_TYPE|AlbaController.NS_MGR_SERVICE_TYPE
         :param alba_backend: ALBA Backend with which the service is linked
         :type alba_backend: ovs.dal.hybrids.albabackend.AlbaBackend
         :param cluster_name: Name of the cluster the service belongs to
@@ -1132,15 +1122,15 @@ class AlbaController(object):
         if ports is None:
             ports = []
 
-        if service_type == AlbaController.ALBA_MGR_SERVICE_TYPE:
+        if number is None:  # Create ABM Service
             service_name = 'arakoon-{0}-abm'.format(alba_backend.name)
+            service_type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.ALBA_MGR)
             cluster = alba_backend.abm_cluster or ABMCluster()
             junction_service = ABMService()
-        else:
-            if number is None:
-                raise RuntimeError('A number needs to be specified')
+        else:  # Create NSM Service
             cluster = None
             service_name = 'arakoon-{0}-nsm_{1}'.format(alba_backend.name, number)
+            service_type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.NS_MGR)
             for nsm_cluster in alba_backend.nsm_clusters:
                 if nsm_cluster.number == number:
                     cluster = nsm_cluster
@@ -1162,7 +1152,7 @@ class AlbaController(object):
         service.storagerouter = storagerouter
         service.save()
 
-        if service_type == AlbaController.ALBA_MGR_SERVICE_TYPE:
+        if isinstance(junction_service, ABMService):
             junction_service.abm_cluster = cluster
         else:
             junction_service.nsm_cluster = cluster

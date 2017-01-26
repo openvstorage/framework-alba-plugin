@@ -26,6 +26,7 @@ from ovs.extensions.generic.system import System
 from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
 from ovs.extensions.storage.persistentfactory import PersistentFactory
 from ovs.extensions.storage.volatilefactory import VolatileFactory
+from ovs.lib.alba import AlbaController
 from ovs.lib.tests.helpers import Helper
 
 
@@ -94,8 +95,6 @@ class NSMCheckup(unittest.TestCase):
         alba_structure = AlbaDalHelper.build_service_structure(
             {'alba_backends': [1]}
         )
-
-        from ovs.lib.alba import AlbaController  # Import here after build service structure because of AlbaController.ALBA_MGR_SERVICE_TYPE requirement
 
         alba_backend = alba_structure['alba_backends'][1]
         storagerouter = structure['storagerouters'][1]
