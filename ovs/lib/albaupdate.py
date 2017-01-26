@@ -281,9 +281,9 @@ class AlbaUpdateController(object):
                         continue
 
                     if service.type.name == ServiceType.SERVICE_TYPES.ALBA_MGR:
-                        cluster_name = AlbaController.get_abm_cluster_name(alba_backend=service.abm_service.alba_backend)
+                        cluster_name = service.abm_service.abm_cluster.name
                     else:
-                        cluster_name = AlbaController.get_nsm_cluster_name(alba_backend=service.nsm_service.alba_backend, number=service.nsm_service.number)
+                        cluster_name = service.nsm_service.nsm_cluster.name
                     if Configuration.exists('/ovs/arakoon/{0}/config'.format(cluster_name), raw=True) is False:
                         continue
                     arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
@@ -293,9 +293,9 @@ class AlbaUpdateController(object):
                         config.load_config()
                         if len(config.nodes) < 3:
                             if service.type.name == ServiceType.SERVICE_TYPES.NS_MGR:
-                                arakoon_downtime.append(['backend', service.nsm_service.alba_backend.name])
+                                arakoon_downtime.append(['backend', service.nsm_service.nsm_cluster.alba_backend.name])
                             else:
-                                arakoon_downtime.append(['backend', service.abm_service.alba_backend.name])
+                                arakoon_downtime.append(['backend', service.abm_service.abm_cluster.alba_backend.name])
 
                 for package_name, package_info in storagerouter.package_information[key].iteritems():
                     if package_name not in AlbaUpdateController.alba_plugin_packages:

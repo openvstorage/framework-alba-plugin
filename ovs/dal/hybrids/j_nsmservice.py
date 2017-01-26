@@ -18,20 +18,21 @@
 NSMService module
 """
 from ovs.dal.dataobject import DataObject
-from ovs.dal.structures import Property, Relation
-from ovs.dal.hybrids.albabackend import AlbaBackend
+from ovs.dal.structures import Relation
+from ovs.dal.hybrids.albansmcluster import NSMCluster
 from ovs.dal.hybrids.service import Service
 
 
 class NSMService(DataObject):
     """
-    The NSMService class represents the junction table between the (namespacemanager)Service and AlbaBackend.
+    The NSMService class represents the junction table between the (Namespace Manager)Service and AlbaBackend.
+    Each ALBA NSM cluster can have several NSM services which each represent a Namespace Manager Arakoon cluster.
+    Each NSM service has 1 service representing a node of a Namespace Manager Arakoon cluster.
     Examples:
-    * my_alba_backend.nsm_services[0].service
-    * my_service.nsm_service.alba_backend
+    * my_alba_backend.nsm_clusters[0].nsm_services
+    * my_service.nsm_service.nsm_cluster.alba_backend
     """
-    __properties = [Property('number', int, doc='The number of the service in case there are more than one'),
-                    Property('capacity', int, default=50, doc='The capacity of this MDS, negative means infinite')]
-    __relations = [Relation('alba_backend', AlbaBackend, 'nsm_services'),
+    __properties = []
+    __relations = [Relation('nsm_cluster', NSMCluster, 'nsm_services'),
                    Relation('service', Service, 'nsm_service', onetoone=True)]
     __dynamics = []

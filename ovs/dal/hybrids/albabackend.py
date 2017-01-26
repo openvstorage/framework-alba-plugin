@@ -40,8 +40,8 @@ class AlbaBackend(DataObject):
 
     _logger = LogHandler.get('dal', 'albabackend', False)
     __properties = [Property('alba_id', str, mandatory=False, indexed=True, doc='ALBA internal identifier'),
-                    Property('scaling', SCALINGS.keys(), doc='Scaling for an ALBA backend can be {0}'.format(' or '.join(SCALINGS.keys())))]
-    __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic backend')]
+                    Property('scaling', SCALINGS.keys(), doc='Scaling for an ALBA Backend can be {0}'.format(' or '.join(SCALINGS.keys())))]
+    __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic Backend')]
     __dynamics = [Dynamic('local_stack', dict, 5),
                   Dynamic('statistics', dict, 5, locked=True),
                   Dynamic('ns_data', list, 60),
@@ -61,8 +61,8 @@ class AlbaBackend(DataObject):
         """
         from ovs.dal.lists.albabackendlist import AlbaBackendList
 
-        if len(self.abm_services) == 0:
-            return {}  # No ABM services yet, so backend not fully installed yet
+        if self.abm_cluster is None:
+            return {}  # No ABM cluster yet, so backend not fully installed yet
 
         alba_backend_map = {}
         for alba_backend in AlbaBackendList.get_albabackends():
@@ -137,7 +137,7 @@ class AlbaBackend(DataObject):
             interval = Configuration.get(backend_interval_key)
         else:
             interval = Configuration.get('/ovs/alba/backends/global_gui_error_interval')
-        config = Configuration.get_configuration_path('/ovs/arakoon/{0}-abm/config'.format(self.name))
+        config = Configuration.get_configuration_path(self.abm_cluster.config_location)
         asds = {}
         for found_osd in AlbaCLI.run(command='list-all-osds', config=config):
             asds[found_osd['long_id']] = found_osd
@@ -219,10 +219,10 @@ class AlbaBackend(DataObject):
         """
         Loads namespace data
         """
-        if len(self.abm_services) == 0:
-            return []  # No ABM services yet, so backend not fully installed yet
+        if self.abm_cluster is None:
+            return {}  # No ABM cluster yet, so backend not fully installed yet
 
-        config = Configuration.get_configuration_path('/ovs/arakoon/{0}-abm/config'.format(self.name))
+        config = Configuration.get_configuration_path(self.abm_cluster.config_location)
         return AlbaCLI.run(command='show-namespaces', config=config, named_params={'max': -1})[1]
 
     def _usages(self):
@@ -244,8 +244,8 @@ class AlbaBackend(DataObject):
         """
         Returns the policies active on the node
         """
-        if len(self.abm_services) == 0:
-            return []  # No ABM services yet, so backend not fully installed yet
+        if self.abm_cluster is None:
+            return {}  # No ABM cluster yet, so backend not fully installed yet
 
         asds = {}
         if self.scaling != AlbaBackend.SCALINGS.GLOBAL:
@@ -255,7 +255,7 @@ class AlbaBackend(DataObject):
                     for asd_info in disk['asds'].values():
                         if asd_info['status'] in ['claimed', 'warning']:
                             asds[node.node_id] += 1
-        config = Configuration.get_configuration_path('/ovs/arakoon/{0}-abm/config'.format(self.name))
+        config = Configuration.get_configuration_path(self.abm_cluster.config_location)
         presets = AlbaCLI.run(command='list-presets', config=config)
         preset_dict = {}
         for preset in presets:
@@ -303,13 +303,13 @@ class AlbaBackend(DataObject):
 
     def _available(self):
         """
-        Returns True if the backend can be used
+        Returns True if the Backend can be used
         """
         return self.backend.status == 'RUNNING'
 
     def _name(self):
         """
-        Returns the backend's name
+        Returns the Backend's name
         """
         return self.backend.name
 
@@ -320,15 +320,15 @@ class AlbaBackend(DataObject):
         from ovs.dal.hybrids.albaosd import AlbaOSD
 
         statistics = {}
-        if len(self.abm_services) == 0:
-            return statistics  # No ABM services yet, so backend not fully installed yet
+        if self.abm_cluster is None:
+            return statistics  # No ABM cluster yet, so backend not fully installed yet
 
         asd_ids = [osd.osd_id for osd in self.osds if osd.osd_type == AlbaOSD.OSD_TYPES.ASD]
         if len(asd_ids) == 0:
             return statistics
 
         try:
-            config = Configuration.get_configuration_path('/ovs/arakoon/{0}-abm/config'.format(self.name))
+            config = Configuration.get_configuration_path(self.abm_cluster.config_location)
             raw_statistics = AlbaCLI.run(command='asd-multistatistics', config=config, named_params={'long-id': ','.join(asd_ids)})
         except RuntimeError:
             return statistics
@@ -339,7 +339,7 @@ class AlbaBackend(DataObject):
 
     def _linked_backend_guids(self):
         """
-        Returns a list (recursively) of all ALBA backends linked to this ALBA backend based on the linked AlbaOSDs
+        Returns a list (recursively) of all ALBA backends linked to this ALBA Backend based on the linked AlbaOSDs
         :return: List of ALBA Backend guids
         :rtype: set
         """
@@ -361,10 +361,10 @@ class AlbaBackend(DataObject):
             except NotFoundException:
                 pass  # ALBA Backend has been deleted, we don't care we can't find the linked guids
             except ForbiddenException as fe:
-                AlbaBackend._logger.exception('Collecting remote ALBA backend information failed due to permission issues. {0}'.format(fe))
+                AlbaBackend._logger.exception('Collecting remote ALBA Backend information failed due to permission issues. {0}'.format(fe))
                 _exceptions.append('not_allowed')
             except Exception as ex:
-                AlbaBackend._logger.exception('Collecting remote ALBA backend information failed with error: {0}'.format(ex))
+                AlbaBackend._logger.exception('Collecting remote ALBA Backend information failed with error: {0}'.format(ex))
                 _exceptions.append('unknown')
 
         lock = Lock()
@@ -411,7 +411,7 @@ class AlbaBackend(DataObject):
                 return_value[_alba_backend_guid]['error'] = 'not_allowed'
             except Exception as ex:
                 return_value[_alba_backend_guid]['error'] = 'unknown'
-                AlbaBackend._logger.exception('Collecting remote ALBA backend information failed with error: {0}'.format(ex))
+                AlbaBackend._logger.exception('Collecting remote ALBA Backend information failed with error: {0}'.format(ex))
 
         # Retrieve local summaries of all related OSDs of type ALBA_BACKEND
         lock = Lock()

@@ -15,24 +15,23 @@
 # but WITHOUT ANY WARRANTY of any kind.
 
 """
-ABMService module
+ABMCluster module
 """
 from ovs.dal.dataobject import DataObject
-from ovs.dal.structures import Relation
-from ovs.dal.hybrids.albaabmcluster import ABMCluster
-from ovs.dal.hybrids.service import Service
+from ovs.dal.structures import Property, Relation
+from ovs.dal.hybrids.albabackend import AlbaBackend
 
 
-class ABMService(DataObject):
+class ABMCluster(DataObject):
     """
-    The ABMService class represents the junction table between the (ALBA Manager)Service and the ALBA Manager Arakoon cluster.
-    Each ALBA ABM cluster can have several ABM services which each represent an ALBA Manager Arakoon cluster.
-    This ABM cluster has 1 service representing a node of the ALBA Manager Arakoon cluster.
+    The ABMCluster class represents the relation between an ALBA Backend and the ABM services.
+    Each ALBA Backend has 1 ABM cluster.
+    This ABM cluster has several services representing the nodes of the ALBA Manager Arakoon cluster.
     Examples:
     * my_alba_backend.abm_cluster.abm_services
     * my_service.abm_service.abm_cluster.alba_backend
     """
-    __properties = []
-    __relations = [Relation('abm_cluster', ABMCluster, 'abm_services'),
-                   Relation('service', Service, 'abm_service', onetoone=True)]
+    __properties = [Property('name', str, unique=True, doc='Name of the ALBA Manager Arakoon cluster'),
+                    Property('config_location', str, unique=True, doc='Location of the ALBA Manager Arakoon configuration')]
+    __relations = [Relation('alba_backend', AlbaBackend, 'abm_cluster', onetoone=True)]
     __dynamics = []
