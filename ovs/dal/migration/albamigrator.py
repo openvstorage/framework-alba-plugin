@@ -69,7 +69,6 @@ class ALBAMigrator(object):
 
         # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
         elif working_version < ALBAMigrator.THIS_VERSION:
-            # Migrate unique constraints & indexes
             import hashlib
             from ovs.dal.helpers import HybridRunner, Descriptor
             from ovs.dal.hybrids.albaabmcluster import ABMCluster
@@ -89,6 +88,7 @@ class ALBAMigrator(object):
             from ovs.extensions.plugins.albacli import AlbaCLI
             from ovs.extensions.storage.persistentfactory import PersistentFactory
 
+            # Migrate unique constraints & indexes
             client = PersistentFactory.get_client()
             hybrid_structure = HybridRunner.get_hybrids()
             for class_descriptor in hybrid_structure.values():
@@ -157,110 +157,133 @@ class ALBAMigrator(object):
             #############################################
             # Introduction of ABMCluster and NSMCluster #
             #############################################
-            # Retrieve ABM and NSM clusters
-            abm_cluster_info = []
-            nsm_cluster_info = []
-            for cluster_name in Configuration.list('/ovs/arakoon'):
-                try:
-                    metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
-                    if metadata['cluster_type'] == ServiceType.ARAKOON_CLUSTER_TYPES.ABM:
-                        abm_cluster_info.append(metadata)
-                    elif metadata['cluster_type'] == ServiceType.ARAKOON_CLUSTER_TYPES.NSM:
-                        nsm_cluster_info.append(metadata)
-                except NotFoundException:
-                    continue
+            # Verify presence of unchanged ALBA Backends
+            alba_backends = AlbaBackendList.get_albabackends()
+            changes_required = False
+            for alba_backend in alba_backends:
+                if alba_backend.abm_cluster is None or len(alba_backend.nsm_clusters) == 0:
+                    changes_required = True
+                    break
 
-            # Retrieve NSM Arakoon cluster information
-            cluster_arakoon_map = {}
-            for cluster_info in abm_cluster_info + nsm_cluster_info:
-                cluster_name = cluster_info['cluster_name']
-                arakoon_config = ArakoonClusterConfig(cluster_id=cluster_name, filesystem=False)
-                arakoon_config.load_config()
-                cluster_arakoon_map[cluster_name] = arakoon_config.export()
-
-            storagerouter_map = dict((storagerouter.machine_id, storagerouter) for storagerouter in StorageRouterList.get_storagerouters())
-            alba_backend_id_map = dict((alba_backend.alba_id, alba_backend) for alba_backend in AlbaBackendList.get_albabackends())
-            for cluster_info in abm_cluster_info:
-                internal = cluster_info['internal']
-                cluster_name = cluster_info['cluster_name']
-                config_location = Configuration.get_configuration_path(key=ArakoonInstaller.CONFIG_KEY.format(cluster_name))
-                try:
-                    alba_id = AlbaCLI.run(command='get-alba-id', config=config_location, named_params={'attempts': 3})['id']
-                    nsm_hosts = AlbaCLI.run(command='list-nsm-hosts', config=config_location, named_params={'attempts': 3})
-                except RuntimeError:
-                    continue
-
-                alba_backend = alba_backend_id_map.get(alba_id)
-                if alba_backend is None:  # ALBA Backend with ID not found in model
-                    continue
-                if alba_backend.abm_cluster is not None and len(alba_backend.nsm_clusters) > 0:  # Clusters already exist
-                    continue
-
-                # Create ABM Cluster
-                if alba_backend.abm_cluster is None:
-                    abm_cluster = ABMCluster()
-                    abm_cluster.name = cluster_name
-                    abm_cluster.alba_backend = alba_backend
-                    abm_cluster.config_location = '/ovs/arakoon/{0}/config'.format(cluster_name)
-                    abm_cluster.save()
-                else:
-                    abm_cluster = alba_backend.abm_cluster
-
-                # Create ABM Services
-                abm_arakoon_config = cluster_arakoon_map[cluster_name]
-                abm_arakoon_config.pop('global')
-                arakoon_nodes = abm_arakoon_config.keys()
-                if set(arakoon_nodes).difference(set(storagerouter_map.keys())):
-                    continue
-                services_to_create = 1 if internal is False else len(arakoon_nodes)
-                for index in range(services_to_create):
-                    arakoon_node_config = abm_arakoon_config[arakoon_nodes[index]]
-                    service = Service()
-                    service.name = 'arakoon-{0}-abm'.format(alba_backend.name)
-                    service.type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.ALBA_MGR)
-                    service.ports = [] if internal is False else [arakoon_node_config['client_port'], arakoon_node_config['messaging_port']]
-                    service.storagerouter = None if internal is False else storagerouter_map[arakoon_nodes[index]]
-                    service.save()
-
-                    abm_service = ABMService()
-                    abm_service.service = service
-                    abm_service.abm_cluster = abm_cluster
-                    abm_service.save()
-
-                # Create NSM Clusters
-                for cluster_index, nsm_host in enumerate(sorted(nsm_hosts, key=lambda host: Toolbox.advanced_sort(host['cluster_id'], '_'))):
-                    nsm_cluster_name = nsm_host['cluster_id']
-                    nsm_arakoon_config = cluster_arakoon_map.get(nsm_cluster_name)
-                    if nsm_arakoon_config is None:
+            if changes_required:
+                # Retrieve ABM and NSM clusters
+                abm_cluster_info = []
+                nsm_cluster_info = []
+                for cluster_name in Configuration.list('/ovs/arakoon'):
+                    try:
+                        metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
+                        if metadata['cluster_type'] == ServiceType.ARAKOON_CLUSTER_TYPES.ABM:
+                            abm_cluster_info.append(metadata)
+                        elif metadata['cluster_type'] == ServiceType.ARAKOON_CLUSTER_TYPES.NSM:
+                            nsm_cluster_info.append(metadata)
+                    except NotFoundException:
                         continue
 
-                    number = cluster_index if internal is False else int(nsm_cluster_name.split('_')[-1])
-                    nsm_cluster = NSMCluster()
-                    nsm_cluster.name = nsm_cluster_name
-                    nsm_cluster.number = number
-                    nsm_cluster.alba_backend = alba_backend
-                    nsm_cluster.config_location = '/ovs/arakoon/{0}/config'.format(nsm_cluster_name)
-                    nsm_cluster.save()
+                # Retrieve NSM Arakoon cluster information
+                cluster_arakoon_map = {}
+                for cluster_info in abm_cluster_info + nsm_cluster_info:
+                    cluster_name = cluster_info['cluster_name']
+                    arakoon_config = ArakoonClusterConfig(cluster_id=cluster_name, filesystem=False)
+                    arakoon_config.load_config()
+                    cluster_arakoon_map[cluster_name] = arakoon_config.export()
 
-                    # Create NSM Services
-                    nsm_arakoon_config.pop('global')
-                    arakoon_nodes = nsm_arakoon_config.keys()
-                    if set(arakoon_nodes).difference(set(storagerouter_map.keys())):
+                storagerouter_map = dict((storagerouter.machine_id, storagerouter) for storagerouter in StorageRouterList.get_storagerouters())
+                alba_backend_id_map = dict((alba_backend.alba_id, alba_backend) for alba_backend in alba_backends)
+                for cluster_info in abm_cluster_info:
+                    internal = cluster_info['internal']
+                    cluster_name = cluster_info['cluster_name']
+                    config_location = Configuration.get_configuration_path(key=ArakoonInstaller.CONFIG_KEY.format(cluster_name))
+                    try:
+                        alba_id = AlbaCLI.run(command='get-alba-id', config=config_location, named_params={'attempts': 3})['id']
+                        nsm_hosts = AlbaCLI.run(command='list-nsm-hosts', config=config_location, named_params={'attempts': 3})
+                    except RuntimeError:
                         continue
-                    services_to_create = 1 if internal is False else len(arakoon_nodes)
-                    for service_index in range(services_to_create):
-                        arakoon_node_config = nsm_arakoon_config[arakoon_nodes[service_index]]
+
+                    alba_backend = alba_backend_id_map.get(alba_id)
+                    if alba_backend is None:  # ALBA Backend with ID not found in model
+                        continue
+                    if alba_backend.abm_cluster is not None and len(alba_backend.nsm_clusters) > 0:  # Clusters already exist
+                        continue
+
+                    # Create ABM Cluster
+                    if alba_backend.abm_cluster is None:
+                        abm_cluster = ABMCluster()
+                        abm_cluster.name = cluster_name
+                        abm_cluster.alba_backend = alba_backend
+                        abm_cluster.config_location = ArakoonInstaller.CONFIG_KEY.format(cluster_name)
+                        abm_cluster.save()
+                    else:
+                        abm_cluster = alba_backend.abm_cluster
+
+                    # Create ABM Services
+                    abm_arakoon_config = cluster_arakoon_map[cluster_name]
+                    abm_arakoon_config.pop('global')
+                    arakoon_nodes = abm_arakoon_config.keys()
+                    if internal is False:
+                        services_to_create = 1
+                    else:
+                        if set(arakoon_nodes).difference(set(storagerouter_map.keys())):
+                            continue
+                        services_to_create = len(arakoon_nodes)
+                    for index in range(services_to_create):
                         service = Service()
-                        service.name = 'arakoon-{0}-nsm_{1}'.format(alba_backend.name, number)
-                        service.type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.NS_MGR)
-                        service.ports = [] if internal is False else [arakoon_node_config['client_port'], arakoon_node_config['messaging_port']]
-                        service.storagerouter = None if internal is False else storagerouter_map[arakoon_nodes[service_index]]
+                        service.name = 'arakoon-{0}-abm'.format(alba_backend.name)
+                        service.type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.ALBA_MGR)
+                        if internal is True:
+                            arakoon_node_config = abm_arakoon_config[arakoon_nodes[index]]
+                            service.ports = [arakoon_node_config['client_port'], arakoon_node_config['messaging_port']]
+                            service.storagerouter = storagerouter_map[arakoon_nodes[index]]
+                        else:
+                            service.ports = []
+                            service.storagerouter = None
                         service.save()
 
-                        nsm_service = NSMService()
-                        nsm_service.service = service
-                        nsm_service.nsm_cluster = nsm_cluster
-                        nsm_service.save()
+                        abm_service = ABMService()
+                        abm_service.service = service
+                        abm_service.abm_cluster = abm_cluster
+                        abm_service.save()
+
+                    # Create NSM Clusters
+                    for cluster_index, nsm_host in enumerate(sorted(nsm_hosts, key=lambda host: Toolbox.advanced_sort(host['cluster_id'], '_'))):
+                        nsm_cluster_name = nsm_host['cluster_id']
+                        nsm_arakoon_config = cluster_arakoon_map.get(nsm_cluster_name)
+                        if nsm_arakoon_config is None:
+                            continue
+
+                        number = cluster_index if internal is False else int(nsm_cluster_name.split('_')[-1])
+                        nsm_cluster = NSMCluster()
+                        nsm_cluster.name = nsm_cluster_name
+                        nsm_cluster.number = number
+                        nsm_cluster.alba_backend = alba_backend
+                        nsm_cluster.config_location = ArakoonInstaller.CONFIG_KEY.format(nsm_cluster_name)
+                        nsm_cluster.save()
+
+                        # Create NSM Services
+                        nsm_arakoon_config.pop('global')
+                        arakoon_nodes = nsm_arakoon_config.keys()
+                        if internal is False:
+                            services_to_create = 1
+                        else:
+                            if set(arakoon_nodes).difference(set(storagerouter_map.keys())):
+                                continue
+                            services_to_create = len(arakoon_nodes)
+                        for service_index in range(services_to_create):
+                            service = Service()
+                            service.name = 'arakoon-{0}-nsm_{1}'.format(alba_backend.name, number)
+                            service.type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.NS_MGR)
+                            if internal is True:
+                                arakoon_node_config = nsm_arakoon_config[arakoon_nodes[service_index]]
+                                service.ports = [arakoon_node_config['client_port'], arakoon_node_config['messaging_port']]
+                                service.storagerouter = storagerouter_map[arakoon_nodes[service_index]]
+                            else:
+                                service.ports = []
+                                service.storagerouter = None
+                            service.save()
+
+                            nsm_service = NSMService()
+                            nsm_service.service = service
+                            nsm_service.nsm_cluster = nsm_cluster
+                            nsm_service.save()
 
             # Clean up all junction services no longer linked to an ALBA Backend
             all_nsm_services = [service.nsm_service for service in ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.NS_MGR).services if service.nsm_service.nsm_cluster is None]
