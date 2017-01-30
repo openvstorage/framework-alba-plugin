@@ -25,10 +25,8 @@ import random
 import tempfile
 from ovs.celery_run import celery
 from ovs.dal.hybrids.albabackend import AlbaBackend
-from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.albacli import AlbaCLI
-from ovs.lib.alba import AlbaController
 from ovs.lib.helpers.toolbox import Toolbox
 from ovs.log.log_handler import LogHandler
 
@@ -103,7 +101,7 @@ class AlbaPresetController(object):
             preset['fragment_encryption'] = ['{0}'.format(encryption), '{0}'.format(temp_key_file)]
 
         # Dump preset content on filesystem
-        config = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(AlbaController.get_abm_cluster_name(alba_backend=alba_backend)))
+        config = Configuration.get_configuration_path(alba_backend.abm_cluster.config_location)
         temp_config_file = tempfile.mktemp()
         with open(temp_config_file, 'wb') as data_file:
             data_file.write(json.dumps(preset))
@@ -142,7 +140,7 @@ class AlbaPresetController(object):
 
         # DELETE PRESET
         AlbaPresetController._logger.debug('Deleting preset {0}'.format(name))
-        config = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(AlbaController.get_abm_cluster_name(alba_backend=alba_backend)))
+        config = Configuration.get_configuration_path(alba_backend.abm_cluster.config_location)
         AlbaCLI.run(command='delete-preset', config=config, extra_params=[name])
         alba_backend.invalidate_dynamics()
 
@@ -168,7 +166,7 @@ class AlbaPresetController(object):
 
         # UPDATE PRESET
         AlbaPresetController._logger.debug('Updating preset {0} with policies {1}'.format(name, policies))
-        config = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(AlbaController.get_abm_cluster_name(alba_backend=alba_backend)))
+        config = Configuration.get_configuration_path(alba_backend.abm_cluster.config_location)
         temp_config_file = tempfile.mktemp()
         with open(temp_config_file, 'wb') as data_file:
             data_file.write(json.dumps({'policies': policies}))

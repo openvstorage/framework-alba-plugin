@@ -17,13 +17,16 @@
 """
 Helper module
 """
+from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.albanode import AlbaNode
+from ovs.dal.hybrids.albansmcluster import NSMCluster
 from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.hybrids.backend import Backend
 from ovs.dal.hybrids.backendtype import BackendType
 from ovs.dal.hybrids.j_abmservice import ABMService
+from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.service import Service
 from ovs.dal.hybrids.servicetype import ServiceType
 
@@ -45,12 +48,14 @@ class Helper(object):
         """
         if previous_structure is None:
             previous_structure = {}
+        alba_osds = previous_structure.get('alba_osds', {})
+        alba_nodes = previous_structure.get('alba_nodes', {})
+        alba_disks = previous_structure.get('alba_disks', {})
         backend_types = previous_structure.get('backend_types', {})
         service_types = previous_structure.get('service_types', {})
         alba_backends = previous_structure.get('alba_backends', {})
-        alba_nodes = previous_structure.get('alba_nodes', {})
-        alba_disks = previous_structure.get('alba_disks', {})
-        alba_osds = previous_structure.get('alba_osds', {})
+        alba_abm_clusters = previous_structure.get('alba_abm_clusters', {})
+        alba_nsm_clusters = previous_structure.get('alba_nsm_clusters', {})
 
         if 1 not in backend_types:
             backend_type = BackendType()
@@ -63,6 +68,11 @@ class Helper(object):
             service_type.name = 'AlbaManager'
             service_type.save()
             service_types[1] = service_type
+        if 2 not in service_types:
+            service_type = ServiceType()
+            service_type.name = 'NamespaceManager'
+            service_type.save()
+            service_types[2] = service_type
         for ab_id in structure.get('alba_backends', ()):
             if ab_id not in alba_backends:
                 backend = Backend()
@@ -74,15 +84,55 @@ class Helper(object):
                 alba_backend.scaling = AlbaBackend.SCALINGS.LOCAL
                 alba_backend.save()
                 alba_backends[ab_id] = alba_backend
-                service = Service()
-                service.name = 'backend_{0}_abm'.format(ab_id)
-                service.type = service_types[1]
-                service.ports = []
-                service.save()
-                abm_service = ABMService()
-                abm_service.service = service
-                abm_service.alba_backend = alba_backend
+        for ab_id in structure.get('alba_abm_clusters', ()):
+            if ab_id not in alba_abm_clusters:
+                if ab_id not in alba_backends:
+                    raise ValueError('Non-existing ALBA Backend ID provided')
+                alba_backend = alba_backends[ab_id]
+                abm_cluster = ABMCluster()
+                abm_cluster.name = '{0}-abm'.format(alba_backend.name)
+                abm_cluster.alba_backend = alba_backend
+                abm_cluster.config_location = '/ovs/arakoon/{0}-abm/config'.format(alba_backend.name)
+                abm_cluster.save()
+                abm_service = Service()
+                abm_service.name = 'arakoon-{0}-abm'.format(alba_backend.name)
+                abm_service.type = service_types[1]
+                abm_service.ports = []
+                abm_service.storagerouter = None
                 abm_service.save()
+                abm_junction_service = ABMService()
+                abm_junction_service.service = abm_service
+                abm_junction_service.abm_cluster = abm_cluster
+                abm_junction_service.save()
+                alba_abm_clusters[ab_id] = abm_cluster
+        for ab_id, amount in structure.get('alba_nsm_clusters', ()):
+            if ab_id not in alba_nsm_clusters or amount != len(alba_nsm_clusters[ab_id]):
+                if ab_id not in alba_backends:
+                    raise ValueError('Non-existing ALBA Backend ID provided')
+                alba_backend = alba_backends[ab_id]
+                alba_nsm_clusters[ab_id] = []
+                nsm_clusters = dict((nsm_cluster.number, nsm_cluster) for nsm_cluster in alba_backend.nsm_clusters)
+                for number in range(amount):
+                    if number in nsm_clusters:
+                        alba_nsm_clusters[ab_id].append(nsm_clusters[number])
+                        continue
+                    nsm_cluster = NSMCluster()
+                    nsm_cluster.name = '{0}-nsm_{1}'.format(alba_backend.name, number)
+                    nsm_cluster.number = number
+                    nsm_cluster.alba_backend = alba_backend
+                    nsm_cluster.config_location = '/ovs/arakoon/{0}-nsm_{1}/config'.format(alba_backend.name, number)
+                    nsm_cluster.save()
+                    nsm_service = Service()
+                    nsm_service.name = 'arakoon-{0}-nsm_{1}'.format(alba_backend.name, number)
+                    nsm_service.type = service_types[2]
+                    nsm_service.ports = []
+                    nsm_service.storagerouter = None
+                    nsm_service.save()
+                    nsm_junction_service = NSMService()
+                    nsm_junction_service.service = nsm_service
+                    nsm_junction_service.nsm_cluster = nsm_cluster
+                    nsm_junction_service.save()
+                    alba_nsm_clusters[ab_id].append(nsm_cluster)
         for an_id in structure.get('alba_nodes', []):
             if an_id not in alba_nodes:
                 alba_node = AlbaNode()
@@ -109,9 +159,11 @@ class Helper(object):
                 osd.alba_disk = alba_disks[ad_id]
                 osd.save()
                 alba_osds[ao_id] = osd
-        return {'backend_types': backend_types,
-                'service_types': service_types,
-                'alba_backends': alba_backends,
+        return {'alba_osds': alba_osds,
                 'alba_nodes': alba_nodes,
                 'alba_disks': alba_disks,
-                'alba_osds': alba_osds}
+                'backend_types': backend_types,
+                'service_types': service_types,
+                'alba_backends': alba_backends,
+                'alba_abm_clusters': alba_abm_clusters,
+                'alba_nsm_clusters': alba_nsm_clusters}
