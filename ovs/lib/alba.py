@@ -49,7 +49,7 @@ from ovs.extensions.api.client import OVSClient
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
-from ovs.extensions.plugins.albacli import AlbaCLI
+from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 from ovs.lib.helpers.decorators import add_hooks, ensure_single
 from ovs.lib.helpers.toolbox import Toolbox, Schedule
 from ovs.log.log_handler import LogHandler
@@ -119,8 +119,8 @@ class AlbaController(object):
             alba_disk = disks.get(disk_guid)
             try:
                 AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': osd_id})
-            except RuntimeError as rte:
-                if 'This OSD is already claimed by alba instance' in rte.message:
+            except AlbaError as ae:
+                if ae.error_code == 11:
                     AlbaController._logger.warning('OSD with ID {0} for disk {1} has already been claimed'.format(osd_id, disk_guid))
                     unclaimed_osds.append(osd_id)
                     continue
