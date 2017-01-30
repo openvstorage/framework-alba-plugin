@@ -201,13 +201,17 @@
         "claim": {
             "complete": "Claimed",
             "failed": "Failed claiming ASD__multi__: __why__",
+            "failed_already_claimed": "Failure",
+            "failed_already_claimed_all": "All of the requested OSDs to claim have already been claimed by another ALBA Backend",
             "started": "Started",
             "started_msg_multi": "The ASDs are being claimed",
             "started_msg_single": "ASD __what__ is being claimed",
             "success_multi": "The ASDs have been claimed",
             "success_single": "ASD __what__ has been claimed",
             "title": "Claim ASD__multi__",
-            "warning": "Are you sure you want to claim the following ASD__multi__? __what__"
+            "warning": "Are you sure you want to claim the following ASD__multi__? __what__",
+            "warning_already_claimed": "Warning",
+            "warning_already_claimed_some": "__actual__ out of __requested__ OSDs had already been claimed by another ALBA Backend"
         },
         "restart": {
             "complete": "Restarted",
