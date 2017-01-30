@@ -26,6 +26,18 @@ from subprocess import Popen, PIPE, CalledProcessError
 from ovs.log.log_handler import LogHandler
 
 
+class AlbaError(RuntimeError):
+    """
+    Thrown when ALBA command was able to be executed, but execution of the command failed for whatever reason
+    For more information about specific ALBA error codes, see: https://github.com/openvstorage/alba/blob/master/ocaml/src/albamgr_protocol.ml#L1473-L1504
+    Currently used error codes:
+        11 - OSD already claimed
+    """
+    def __init__(self, message, error_code):
+        super(AlbaError, self).__init__(message)
+        self.error_code = error_code
+
+
 class AlbaCLI(object):
     """
     Wrapper for 'alba' command line interface
@@ -124,7 +136,7 @@ class AlbaCLI(object):
 
             if output['success'] is True:
                 return output['result']
-            raise RuntimeError(output['error']['message'])
+            raise AlbaError(output['error']['message'], output['error']['exception_code'])
 
         except Exception as ex:
             logger.exception('Error: {0}'.format(ex))

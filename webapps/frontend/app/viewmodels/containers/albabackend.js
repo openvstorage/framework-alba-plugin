@@ -213,17 +213,31 @@ define([
                                 data: { osds: asdData }
                             })
                                 .then(self.shared.tasks.wait)
-                                .done(function() {
-                                    if (allAsds.length === 1) {
-                                        generic.alertSuccess(
-                                            $.t('alba:osds.claim.complete'),
-                                            $.t('alba:osds.claim.success_single', {what: allAsds[0].osdID()})
-                                        );
+                                .done(function(data) {
+                                    if (data.length === 0) {
+                                        if (allAsds.length === 1) {
+                                            generic.alertSuccess(
+                                                $.t('alba:osds.claim.complete'),
+                                                $.t('alba:osds.claim.success_single', {what: allAsds[0].osdID()})
+                                            );
+                                        } else {
+                                            generic.alertSuccess(
+                                                $.t('alba:osds.claim.complete'),
+                                                $.t('alba:osds.claim.success_multi')
+                                            );
+                                        }
                                     } else {
-                                        generic.alertSuccess(
-                                            $.t('alba:osds.claim.complete'),
-                                            $.t('alba:osds.claim.success_multi')
-                                        );
+                                        if (allAsds.length === 1 || allAsds.length === data.length) {
+                                            generic.alertError(
+                                                $.t('alba:osds.claim.failed_already_claimed'),
+                                                $.t('alba:osds.claim.failed_already_claimed_all')
+                                            );
+                                        } else {
+                                            generic.alertWarning(
+                                                $.t('alba:osds.claim.warning_already_claimed'),
+                                                $.t('alba:osds.claim.warning_already_claimed_some', {requested: allAsds.length, actual: data.length})
+                                            );
+                                        }
                                     }
                                     $.each(allAsds, function(index, asd) {
                                         asd.ignoreNext(true);

@@ -49,7 +49,7 @@ from ovs.extensions.api.client import OVSClient
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
-from ovs.extensions.plugins.albacli import AlbaCLI
+from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 from ovs.lib.helpers.decorators import add_hooks, ensure_single
 from ovs.lib.helpers.toolbox import Toolbox, Schedule
 from ovs.log.log_handler import LogHandler
@@ -80,7 +80,8 @@ class AlbaController(object):
         :type osds: dict
         :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
         :type metadata: dict
-        :return: None
+        :return: The OSD IDs that could not be claimed because they had already been claimed by another ALBA Backend
+        :rtype: list
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         if alba_backend.abm_cluster is None:
@@ -111,11 +112,18 @@ class AlbaController(object):
         if service_deployed is False:
             raise Exception('No maintenance agents have been deployed for ALBA Backend {0}'.format(alba_backend.name))
 
+        unclaimed_osds = []
         for osd_id, disk_guid in osds.iteritems():
             if disk_guid is not None and disk_guid not in disks:
                 disks[disk_guid] = AlbaDisk(disk_guid)
             alba_disk = disks.get(disk_guid)
-            AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': osd_id})
+            try:
+                AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': osd_id})
+            except AlbaError as ae:
+                if ae.error_code == 11:
+                    AlbaController._logger.warning('OSD with ID {0} for disk {1} has already been claimed'.format(osd_id, disk_guid))
+                    unclaimed_osds.append(osd_id)
+                    continue
             osd = AlbaOSD()
             osd.domain = domain
             osd.osd_id = osd_id
@@ -126,6 +134,7 @@ class AlbaController(object):
             osd.save()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
+        return unclaimed_osds
 
     @staticmethod
     @celery.task(name='alba.remove_units')
@@ -1191,7 +1200,9 @@ class AlbaController(object):
         :type alba_backend_guid: str
         :param metadata: Metadata about the linked ALBA Backend
         :type metadata: dict
-        :return: None
+        :return: Returns True if the linking of the ALBA Backends went successfully or
+                 False if the ALBA Backend to link is in 'decommissioned' state
+        :rtype: bool
         """
         Toolbox.verify_required_params(required_params={'backend_connection_info': (dict, {'host': (str, Toolbox.regex_ip),
                                                                                            'port': (int, {'min': 1, 'max': 65535}),
