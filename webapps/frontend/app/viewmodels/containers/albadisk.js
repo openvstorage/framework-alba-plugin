@@ -38,6 +38,7 @@ define([
         self.nodeID       = ko.observable();
         self.osds         = ko.observableArray([]);
         self.processing   = ko.observable(false);
+        self.size         = ko.observable();
         self.status       = ko.observable();
         self.statusDetail = ko.observable();
         self.usage        = ko.observable();
@@ -75,11 +76,12 @@ define([
                 self.status(data.status);
                 self.nodeID(data.node_id);
                 generic.trySet(self.guid, data, 'guid');
-                generic.trySet(self.aliases, data, 'aliases');
-                generic.trySet(self.statusDetail, data, 'status_detail');
+                generic.trySet(self.size, data, 'size');
                 generic.trySet(self.usage, data, 'usage');
                 generic.trySet(self.device, data, 'device');
+                generic.trySet(self.aliases, data, 'aliases');
                 generic.trySet(self.mountpoint, data, 'mountpoint');
+                generic.trySet(self.statusDetail, data, 'status_detail');
                 if (self.aliases().length > 0) {
                     self.alias(self.aliases()[0]);
                 }
