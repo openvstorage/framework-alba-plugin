@@ -387,7 +387,7 @@ class AlbaBackend(DataObject):
 
     def _remote_stack(self):
         """
-        Live list of information about remote linked OSDs of type ALBA BACKEND
+        Live list of information about remote linked OSDs of type ALBA Backend
         :return: Information about all linked OSDs
         :rtype: dict
         """
