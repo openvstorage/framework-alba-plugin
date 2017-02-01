@@ -83,7 +83,7 @@ class AlbaController(object):
         :return: The OSD IDs that could not be claimed because they had already been claimed by another ALBA Backend
         :rtype: list
         """
-        from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
+        from ovs.extensions.plugins.albacli import AlbaError
 
         alba_backend = AlbaBackend(alba_backend_guid)
         if alba_backend.abm_cluster is None:
