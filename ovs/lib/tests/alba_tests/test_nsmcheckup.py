@@ -47,6 +47,7 @@ class NSMCheckup(unittest.TestCase):
         cls.volatile = VolatileFactory.get_client()
         cls.volatile.clean()
 
+        VirtualAlbaBackend.clean()
         Configuration.set('/ovs/framework/logging|path', '/var/log/ovs')
         Configuration.set('/ovs/framework/logging|level', 'DEBUG')
         Configuration.set('/ovs/framework/logging|default_file', 'generic')
@@ -58,6 +59,7 @@ class NSMCheckup(unittest.TestCase):
         Tear down changes made during setUpClass
         """
         Configuration._unittest_data = {}
+        VirtualAlbaBackend.clean()
 
         cls.persistent = PersistentFactory.get_client()
         cls.persistent.clean()
@@ -72,6 +74,7 @@ class NSMCheckup(unittest.TestCase):
         self.persistent.clean()
         self.volatile.clean()
         self.maxDiff = None
+        VirtualAlbaBackend.clean()
 
     def tearDown(self):
         """
@@ -79,6 +82,7 @@ class NSMCheckup(unittest.TestCase):
         """
         self.persistent.clean()
         self.volatile.clean()
+        VirtualAlbaBackend.clean()
 
     def test_nsm_checkup(self):
         """
