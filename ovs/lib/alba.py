@@ -49,7 +49,7 @@ from ovs.extensions.api.client import OVSClient
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
-from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
+from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.lib.helpers.decorators import add_hooks, ensure_single
 from ovs.lib.helpers.toolbox import Toolbox, Schedule
 from ovs.log.log_handler import LogHandler
@@ -83,6 +83,8 @@ class AlbaController(object):
         :return: The OSD IDs that could not be claimed because they had already been claimed by another ALBA Backend
         :rtype: list
         """
+        from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
+
         alba_backend = AlbaBackend(alba_backend_guid)
         if alba_backend.abm_cluster is None:
             raise ValueError('ALBA Backend {0} does not have an ABM cluster registered'.format(alba_backend.name))
