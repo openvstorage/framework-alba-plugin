@@ -348,35 +348,39 @@ class AlbaUpdateController(object):
 
     @staticmethod
     @add_hooks('update', 'package_install_multi')
-    def _get_packages_to_install_alba_plugin(client, package_info, components=None):
+    def _package_install_alba_plugin(client, package_info, components=None):
         """
         Update the Alba plugin packages
-        :param client: Unused
+        :param client: Client on which to execute update the packages
         :type client: SSHClient
         :param package_info: Information about the packages (installed, candidate)
         :type package_info: dict
         :param components: Components which have been selected for update
         :type components: list
-        :return: Information about the ALBA plugin packages to be installed
-        :rtype: dict
+        :return: Boolean indicating whether to continue with the update or not
+        :rtype: bool
         """
-        _ = client  # Backwards compatibility (Was used until Fargo 2.7.11.1-1)
         if components is None:
             components = ['framework']
 
         if 'framework' not in components:
-            return {}
+            return True
 
-        packages_to_install = {}
+        packages_updated = []
+        continue_after_failure = True
         for pkg_name in AlbaUpdateController._packages_alba_plugin['framework']:
-            if pkg_name in package_info:
+            if pkg_name in package_info and pkg_name not in packages_updated:
                 pkg_info = package_info[pkg_name]
-                if pkg_name in AlbaUpdateController._packages_alba_plugin_blocking:
-                    pkg_info['blocking'] = True
-                else:
-                    pkg_info['blocking'] = False
-                packages_to_install[pkg_name] = pkg_info
-        return packages_to_install
+                try:
+                    AlbaUpdateController._logger.debug('{0}: Updating package {1} ({2} --> {3})'.format(client.ip, pkg_name, pkg_info['installed'], pkg_info['candidate']))
+                    PackageManager.install(package_name=pkg_name, client=client)
+                    packages_updated.append(pkg_name)
+                    AlbaUpdateController._logger.debug('{0}: Updated package {1}'.format(client.ip, pkg_name))
+                except Exception as ex:
+                    AlbaUpdateController._logger.debug('{0}: Updating package {1} failed. {2}'.format(client.ip, pkg_name, ex))
+                    if pkg_name in AlbaUpdateController._packages_alba_plugin_blocking:
+                        continue_after_failure = False
+        return continue_after_failure
 
     @staticmethod
     @add_hooks('update', 'package_install_single')
@@ -387,14 +391,15 @@ class AlbaUpdateController(object):
         :type package_info: dict
         :param components: Components which have been selected for update
         :type components: list
-        :return: None
+        :return: Boolean indicating whether to continue with the update or not
+        :rtype: bool
         """
         _ = package_info
         if components is None:
             components = ['alba']
 
         if 'alba' not in components:
-            return
+            return True
 
         # Refresh the package information for all ALBA nodes and update accordingly
         AlbaUpdateController._get_package_information_alba_plugin_storage_nodes(information={})
@@ -411,6 +416,8 @@ class AlbaUpdateController(object):
                         if 'Connection aborted.' not in ce.message:  # This error is thrown due the post-update code of the SDM package which restarts the asd-manager service
                             raise
                     AlbaUpdateController._logger.debug('{0}: Updated package {1}'.format(alba_node.ip, pkg_name))
+        return True
+
     @staticmethod
     @add_hooks('update', 'post_update_multi')
     def _post_update_alba_plugin_framework(client, components):
