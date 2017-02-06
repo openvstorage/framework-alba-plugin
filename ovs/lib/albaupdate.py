@@ -42,17 +42,18 @@ class AlbaUpdateController(object):
     """
     _logger = LogHandler.get('update', name='alba-plugin')
     _logger.logger.propagate = False
-    sdm_packages = {'alba', 'openvstorage-sdm'}
-    alba_plugin_packages = {'alba', 'arakoon', 'openvstorage-backend'}
-    all_alba_plugin_packages = sdm_packages.union(alba_plugin_packages)
-    alba_plugin_packages_with_binaries = {'alba', 'arakoon'}
+    _packages_alba_plugin = {'alba': {'alba', 'openvstorage-sdm'},
+                             'framework': {'alba', 'arakoon', 'openvstorage-backend'}}
+    _packages_alba_plugin_all = _packages_alba_plugin['alba'].union(_packages_alba_plugin['framework'])
+    _packages_alba_plugin_binaries = {'alba', 'arakoon'}
+    _packages_alba_plugin_blocking = _packages_alba_plugin['framework'].difference(_packages_alba_plugin_binaries)
 
     #########
     # HOOKS #
     #########
     @staticmethod
     @add_hooks('update', 'get_package_info_multi')
-    def get_package_information_alba_plugin_storage_routers(client, package_info):
+    def _get_package_information_alba_plugin_storage_routers(client, package_info):
         """
         Called by GenericController.refresh_package_information() every hour
 
@@ -77,11 +78,11 @@ class AlbaUpdateController(object):
             if client.username != 'root':
                 raise RuntimeError('Only the "root" user can retrieve the package information')
 
-            binaries = PackageManager.get_binary_versions(client=client, package_names=AlbaUpdateController.alba_plugin_packages_with_binaries)
-            installed = PackageManager.get_installed_versions(client=client, package_names=AlbaUpdateController.all_alba_plugin_packages)
-            candidate = PackageManager.get_candidate_versions(client=client, package_names=AlbaUpdateController.all_alba_plugin_packages)
-            if set(installed.keys()) != set(AlbaUpdateController.all_alba_plugin_packages) or set(candidate.keys()) != set(AlbaUpdateController.all_alba_plugin_packages):
-                raise RuntimeError('Failed to retrieve the installed and candidate versions for packages: {0}'.format(', '.join(AlbaUpdateController.all_alba_plugin_packages)))
+            binaries = PackageManager.get_binary_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_binaries)
+            installed = PackageManager.get_installed_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_all)
+            candidate = PackageManager.get_candidate_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_all)
+            if set(installed.keys()) != set(AlbaUpdateController._packages_alba_plugin_all) or set(candidate.keys()) != set(AlbaUpdateController._packages_alba_plugin_all):
+                raise RuntimeError('Failed to retrieve the installed and candidate versions for packages: {0}'.format(', '.join(AlbaUpdateController._packages_alba_plugin_all)))
 
             # Retrieve Arakoon information
             framework_arakoons = []
@@ -144,7 +145,7 @@ class AlbaUpdateController(object):
                             elif version:
                                 running_version = version
 
-                            if package_name not in UpdateController.all_core_packages:
+                            if package_name not in UpdateController.packages_core_all:
                                 raise ValueError('Unknown package dependency found in {0}'.format(version_file))
                             if package_name not in binaries:
                                 raise RuntimeError('Binary version for package {0} was not retrieved'.format(package_name))
@@ -172,7 +173,7 @@ class AlbaUpdateController(object):
 
     @staticmethod
     @add_hooks('update', 'get_package_info_single')
-    def get_package_information_alba_plugin_storage_nodes(information):
+    def _get_package_information_alba_plugin_storage_nodes(information):
         """
         Called by GenericController.refresh_package_information() every hour
 
@@ -196,7 +197,7 @@ class AlbaUpdateController(object):
 
     @staticmethod
     @add_hooks('update', 'merge_package_info')
-    def merge_package_information_alba_plugin():
+    def _merge_package_information_alba_plugin():
         """
         Retrieve the package information for the ALBA plugin, so the core code can merge it all together
         :return: Package information for ALBA nodes
@@ -205,7 +206,7 @@ class AlbaUpdateController(object):
 
     @staticmethod
     @add_hooks('update', 'information')
-    def get_update_information_alba_plugin(information):
+    def _get_update_information_alba_plugin(information):
         """
         Called when the 'Update' button in the GUI is pressed
         This call collects additional information about the packages which can be updated
@@ -298,7 +299,7 @@ class AlbaUpdateController(object):
                                 arakoon_downtime.append(['backend', service.abm_service.abm_cluster.alba_backend.name])
 
                 for package_name, package_info in storagerouter.package_information[key].iteritems():
-                    if package_name not in AlbaUpdateController.alba_plugin_packages:
+                    if package_name not in AlbaUpdateController._packages_alba_plugin['framework']:
                         continue  # Only gather information for the core packages
 
                     information[key]['services_post_update'].update(package_info.pop('services_to_restart'))
@@ -336,7 +337,7 @@ class AlbaUpdateController(object):
 
             for alba_node in AlbaNodeList.get_albanodes():
                 for package_name, package_info in alba_node.package_information.get(key, {}).iteritems():
-                    if package_name not in AlbaUpdateController.sdm_packages:
+                    if package_name not in AlbaUpdateController._packages_alba_plugin['alba']:
                         continue  # Only gather information for the SDM packages
 
                     information[key]['services_post_update'].update(package_info.pop('services_to_restart'))
@@ -347,76 +348,72 @@ class AlbaUpdateController(object):
 
     @staticmethod
     @add_hooks('update', 'package_install_multi')
-    def package_install_alba_plugin(client, package_info, components=None):
+    def _get_packages_to_install_alba_plugin(client, package_info, components=None):
         """
         Update the Alba plugin packages
-        :param client: Client on which to execute update the packages
+        :param client: Unused
         :type client: SSHClient
         :param package_info: Information about the packages (installed, candidate)
         :type package_info: dict
         :param components: Components which have been selected for update
         :type components: list
-        :return: None
+        :return: Information about the ALBA plugin packages to be installed
+        :rtype: dict
         """
+        _ = client  # Backwards compatibility (Was used until Fargo 2.7.11.1-1)
         if components is None:
-            components = ['framework', 'alba']
+            components = ['framework']
 
-        if 'framework' not in components and 'alba' not in components:
-            return
+        if 'framework' not in components:
+            return {}
 
         packages_to_install = {}
-        for pkg_name, pkg_info in package_info.iteritems():
-            if pkg_name in AlbaUpdateController.alba_plugin_packages:
+        for pkg_name in AlbaUpdateController._packages_alba_plugin['framework']:
+            if pkg_name in package_info:
+                pkg_info = package_info[pkg_name]
+                if pkg_name in AlbaUpdateController._packages_alba_plugin_blocking:
+                    pkg_info['blocking'] = True
+                else:
+                    pkg_info['blocking'] = False
                 packages_to_install[pkg_name] = pkg_info
-        if not packages_to_install:
-            return
-
-        AlbaUpdateController._logger.debug('{0}: Executing hook {1}'.format(client.ip, inspect.currentframe().f_code.co_name))
-        for pkg_name, pkg_info in packages_to_install.iteritems():
-            AlbaUpdateController._logger.debug('{0}: Updating Alba plugin package {1} ({2} --> {3})'.format(client.ip, pkg_name, pkg_info['installed'], pkg_info['candidate']))
-            PackageManager.install(package_name=pkg_name, client=client)
-            AlbaUpdateController._logger.debug('{0}: Updated Alba plugin package {1}'.format(client.ip, pkg_name))
-        AlbaUpdateController._logger.debug('{0}: Executed hook {1}'.format(client.ip, inspect.currentframe().f_code.co_name))
+        return packages_to_install
 
     @staticmethod
     @add_hooks('update', 'package_install_single')
-    def package_install_sdm(package_info, components=None):
+    def _package_install_sdm(package_info, components=None):
         """
         Update the SDM packages
-        :param package_info: Information about the packages (installed, candidate)
+        :param package_info: Unused
         :type package_info: dict
         :param components: Components which have been selected for update
         :type components: list
         :return: None
         """
+        _ = package_info
         if components is None:
             components = ['alba']
 
         if 'alba' not in components:
             return
 
-        packages_to_install = {}
-        for pkg_name, pkg_info in package_info.iteritems():
-            if pkg_name in AlbaUpdateController.sdm_packages:
-                packages_to_install[pkg_name] = pkg_info
-        if not packages_to_install:
-            return
+        # Refresh the package information for all ALBA nodes and update accordingly
+        AlbaUpdateController._get_package_information_alba_plugin_storage_nodes(information={})
 
-        AlbaUpdateController._logger.debug('Executing hook {0}'.format(inspect.currentframe().f_code.co_name))
-        for pkg_name, pkg_info in packages_to_install.iteritems():
-            for alba_node in AlbaNodeList.get_albanodes():
-                AlbaUpdateController._logger.debug('{0}: Updating SDM package {1} ({2} --> {3})'.format(alba_node.ip, pkg_name, pkg_info['installed'], pkg_info['candidate']))
-                try:
-                    alba_node.client.execute_update(pkg_name)
-                except requests.ConnectionError as ce:
-                    if 'Connection aborted.' not in ce.message:  # This error is thrown due the post-update code of the SDM package which restarts the asd-manager service
-                        raise
-                AlbaUpdateController._logger.debug('{0}: Updated SDM package {1}'.format(alba_node.ip, pkg_name))
-        AlbaUpdateController._logger.debug('Executed hook {0}'.format(inspect.currentframe().f_code.co_name))
-
+        for alba_node in AlbaNodeList.get_albanodes():
+            for component, packages_info in alba_node.package_information.iteritems():
+                if component != 'alba':
+                    continue
+                for pkg_name, pkg_info in packages_info.iteritems():
+                    AlbaUpdateController._logger.debug('{0}: Updating package {1} ({2} --> {3})'.format(alba_node.ip, pkg_name, pkg_info['installed'], pkg_info['candidate']))
+                    try:
+                        alba_node.client.execute_update(pkg_name)
+                    except requests.ConnectionError as ce:
+                        if 'Connection aborted.' not in ce.message:  # This error is thrown due the post-update code of the SDM package which restarts the asd-manager service
+                            raise
+                    AlbaUpdateController._logger.debug('{0}: Updated package {1}'.format(alba_node.ip, pkg_name))
     @staticmethod
     @add_hooks('update', 'post_update_multi')
-    def post_update_alba_plugin_framework(client, components):
+    def _post_update_alba_plugin_framework(client, components):
         """
         Execute functionality after the openvstorage-backend core packages have been updated
         For framework:
@@ -434,7 +431,7 @@ class AlbaUpdateController(object):
         if 'framework' not in components and 'alba' not in components:
             return
 
-        update_information = AlbaUpdateController.get_update_information_alba_plugin({})
+        update_information = AlbaUpdateController._get_update_information_alba_plugin({})
         services_to_restart = set()
         if 'alba' in components:
             services_to_restart.update(update_information.get('alba', {}).get('services_post_update', set()))
@@ -468,7 +465,7 @@ class AlbaUpdateController(object):
 
     @staticmethod
     @add_hooks('update', 'post_update_single')
-    def post_update_alba_plugin_alba(components):
+    def _post_update_alba_plugin_alba(components):
         """
         Execute some functionality after the ALBA plugin packages have been updated
         For alba:
