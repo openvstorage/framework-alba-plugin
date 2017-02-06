@@ -1,10 +1,10 @@
 {
     "package_name": "openvstorage-backend",
     "product_name": "Open vStorage ALBA Backend",
-    "source_contents": "--transform 's,^,{0}-{1}/,' --exclude='*__init__.py' ovs webapps scripts/install *.txt",
+    "source_contents": "--transform 's,^,{0}-{1}/,' --exclude='*__init__.py' ovs webapps scripts/install scripts/system *.txt",
     "version": {
         "major": 1,
         "minor": 7,
-        "patch": 10
+        "patch": 11
     }
 }

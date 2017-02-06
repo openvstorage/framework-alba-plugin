@@ -433,20 +433,26 @@ but WITHOUT ANY WARRANTY of any kind.
                                                                         <span data-bind="shortText: device(), maxLength: 25, middle: true"></span>
                                                                     </a>
                                                                 </li>
+                                                                <li>
+                                                                    <a>
+                                                                        <span data-i18n="ovs:generic.size"></span>:
+                                                                        <span data-bind="text: $root.formatBytes(size())"></span>
+                                                                    </a>
+                                                                </li>
+                                                                <!-- /ko -->
+                                                                <!-- ko if: status() !== 'unavailable' && status() !== 'uninitialized' && usage() !== undefined -->
+                                                                    <li>
+                                                                        <a>
+                                                                            <span data-i18n="ovs:generic.usage"></span>: <span data-bind="text: $root.formatBytes(usage().used)"></span>
+                                                                            - <span data-bind="text: $root.formatPercentage(usage().used / usage().size)"></span>
+                                                                        </a>
+                                                                    </li>
                                                                 <!-- /ko -->
                                                                 <!-- ko if: mountpoint() !== undefined && mountpoint() !== null -->
                                                                     <li>
                                                                         <a>
                                                                             <span data-i18n="alba:generic.mountpoint"></span>:
                                                                             <span data-bind="shortText: mountpoint(), maxLength: 28, middle: true"></span>
-                                                                        </a>
-                                                                    </li>
-                                                                <!-- /ko -->
-                                                                <!-- ko if: status() !== 'unavailable' && status() !== 'uninitialized' && usage() !== undefined -->
-                                                                    <li>
-                                                                        <a>
-                                                                            <span data-i18n="ovs:generic.usage"></span>: <span data-bind="text: $root.formatBytes(usage().used)"></span> / <span data-bind="text: $root.formatBytes(usage().size)"></span>
-                                                                            - <span data-bind="text: $root.formatPercentage(usage().used / usage().size)"></span>
                                                                         </a>
                                                                     </li>
                                                                 <!-- /ko -->

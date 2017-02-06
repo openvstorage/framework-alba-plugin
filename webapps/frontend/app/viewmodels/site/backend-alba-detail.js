@@ -332,7 +332,7 @@ define([
                 }
                 app.showMessage(
                     $.t('alba:detail.delete.warning'),
-                    $.t('ovs:generic.areyousure'),
+                    $.t('ovs:generic.are_you_sure'),
                     [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
                 )
                     .done(function(answer) {
@@ -369,7 +369,7 @@ define([
             return $.Deferred(function(deferred) {
                 app.showMessage(
                     $.t('alba:presets.delete.warning', { what: name }),
-                    $.t('ovs:generic.areyousure'),
+                    $.t('ovs:generic.are_you_sure'),
                     [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
                 )
                     .done(function(answer) {

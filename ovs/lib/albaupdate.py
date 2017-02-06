@@ -25,6 +25,7 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.services.service import ServiceManager
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.generic.system import System
 from ovs.extensions.generic.toolbox import Toolbox
@@ -116,11 +117,23 @@ class AlbaUpdateController(object):
                 for package, services in info.iteritems():
                     for service in services:
                         service = Toolbox.remove_prefix(service, 'ovs-')
-                        version_file = '/opt/OpenvStorage/run/{0}.version'.format(service)
-                        if not client.file_exists(version_file):
-                            AlbaUpdateController._logger.warning('{0}: Failed to find a version file in /opt/OpenvStorage/run for service {1}'.format(client.ip, service))
+                        if not ServiceManager.has_service(service, client):
+                            # There's no service, so no need to restart it
                             continue
                         package_name = package
+                        version_file = '/opt/OpenvStorage/run/{0}.version'.format(service)
+                        if not client.file_exists(version_file):
+                            # The .version file was not found, so we don't know whether to restart it or not. Let's choose the safest option
+                            AlbaUpdateController._logger.warning('{0}: Failed to find a version file in /opt/OpenvStorage/run for service {1}'.format(client.ip, service))
+                            if package_name not in binaries:
+                                raise RuntimeError('Binary version for package {0} was not retrieved'.format(package_name))
+                            if package_name not in component_info:
+                                component_info[package_name] = copy.deepcopy(default_entry)
+                            component_info[package_name]['installed'] = '{0}-reboot'.format(binaries[package_name])
+                            component_info[package_name]['candidate'] = binaries[package_name]
+                            component_info[package_name]['services_to_restart'].append(service)
+                            continue
+                        # The .version file exists. Base restart requirement on its content
                         running_versions = client.file_read(version_file).strip()
                         for version in running_versions.split(';'):
                             version = version.strip()
@@ -268,9 +281,9 @@ class AlbaUpdateController(object):
                         continue
 
                     if service.type.name == ServiceType.SERVICE_TYPES.ALBA_MGR:
-                        cluster_name = AlbaController.get_abm_cluster_name(alba_backend=service.abm_service.alba_backend)
+                        cluster_name = service.abm_service.abm_cluster.name
                     else:
-                        cluster_name = AlbaController.get_nsm_cluster_name(alba_backend=service.nsm_service.alba_backend, number=service.nsm_service.number)
+                        cluster_name = service.nsm_service.nsm_cluster.name
                     if Configuration.exists('/ovs/arakoon/{0}/config'.format(cluster_name), raw=True) is False:
                         continue
                     arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
@@ -280,9 +293,9 @@ class AlbaUpdateController(object):
                         config.load_config()
                         if len(config.nodes) < 3:
                             if service.type.name == ServiceType.SERVICE_TYPES.NS_MGR:
-                                arakoon_downtime.append(['backend', service.nsm_service.alba_backend.name])
+                                arakoon_downtime.append(['backend', service.nsm_service.nsm_cluster.alba_backend.name])
                             else:
-                                arakoon_downtime.append(['backend', service.abm_service.alba_backend.name])
+                                arakoon_downtime.append(['backend', service.abm_service.abm_cluster.alba_backend.name])
 
                 for package_name, package_info in storagerouter.package_information[key].iteritems():
                     if package_name not in AlbaUpdateController.alba_plugin_packages:

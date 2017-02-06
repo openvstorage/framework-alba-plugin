@@ -78,6 +78,8 @@ class Alba(unittest.TestCase):
         """
         structure = Helper.build_service_structure({
             'alba_backends': [1],
+            'alba_abm_clusters': [1],
+            'alba_nsm_clusters': [(1, 1)],  # (<abackend_id>, <amount_of_nsm_clusters>)
             'alba_nodes': [1],
             'alba_disks': [(1, 1)],  # (<adisk_id>, <anode_id>)
             'alba_osds': [(1, 1, 1)]  # (<osd_id>, <adisk_id>, <abackend_id>)
@@ -122,6 +124,8 @@ class Alba(unittest.TestCase):
 
         structure = Helper.build_service_structure({
             'alba_backends': [1],
+            'alba_abm_clusters': [1],
+            'alba_nsm_clusters': [(1, 1)],  # (<abackend_id>, <amount_of_nsm_clusters>)
             'alba_nodes': [1]
         })
         node = structure['alba_nodes'][1]

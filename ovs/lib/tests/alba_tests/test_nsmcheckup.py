@@ -19,13 +19,7 @@ NSMCheckup test module
 """
 import copy
 import unittest
-from ovs.dal.hybrids.albabackend import AlbaBackend
-from ovs.dal.hybrids.backend import Backend
-from ovs.dal.hybrids.backendtype import BackendType
-from ovs.dal.hybrids.j_nsmservice import NSMService
-from ovs.dal.hybrids.service import Service
-from ovs.dal.hybrids.servicetype import ServiceType
-from ovs.dal.lists.servicetypelist import ServiceTypeList
+from ovs.dal.tests.alba_helpers import Helper as AlbaDalHelper
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient
 from ovs.extensions.generic.system import System
@@ -53,6 +47,7 @@ class NSMCheckup(unittest.TestCase):
         cls.volatile = VolatileFactory.get_client()
         cls.volatile.clean()
 
+        VirtualAlbaBackend.clean()
         Configuration.set('/ovs/framework/logging|path', '/var/log/ovs')
         Configuration.set('/ovs/framework/logging|level', 'DEBUG')
         Configuration.set('/ovs/framework/logging|default_file', 'generic')
@@ -64,6 +59,7 @@ class NSMCheckup(unittest.TestCase):
         Tear down changes made during setUpClass
         """
         Configuration._unittest_data = {}
+        VirtualAlbaBackend.clean()
 
         cls.persistent = PersistentFactory.get_client()
         cls.persistent.clean()
@@ -78,6 +74,7 @@ class NSMCheckup(unittest.TestCase):
         self.persistent.clean()
         self.volatile.clean()
         self.maxDiff = None
+        VirtualAlbaBackend.clean()
 
     def tearDown(self):
         """
@@ -85,6 +82,7 @@ class NSMCheckup(unittest.TestCase):
         """
         self.persistent.clean()
         self.volatile.clean()
+        VirtualAlbaBackend.clean()
 
     def test_nsm_checkup(self):
         """
@@ -98,29 +96,16 @@ class NSMCheckup(unittest.TestCase):
         structure = Helper.build_service_structure(
             {'storagerouters': [1]}
         )
+        alba_structure = AlbaDalHelper.build_service_structure(
+            {'alba_backends': [1]}
+        )
 
-        for service_type_info in [ServiceType.SERVICE_TYPES.NS_MGR, ServiceType.SERVICE_TYPES.ALBA_MGR]:
-            service_type = ServiceType()
-            service_type.name = service_type_info
-            service_type.save()
-        backend_type = BackendType()
-        backend_type.code = 'alba'
-        backend_type.name = 'ALBA'
-        backend_type.save()
-        backend = Backend()
-        backend.name = 'backend'
-        backend.backend_type = backend_type
-        backend.save()
-        alba_backend = AlbaBackend()
-        alba_backend.backend = backend
-        alba_backend.scaling = 'LOCAL'
-        alba_backend.save()
-
+        alba_backend = alba_structure['alba_backends'][1]
         storagerouter = structure['storagerouters'][1]
         System._machine_id = {storagerouter.ip: '1'}
 
-        SSHClient._run_returns['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend-abm/db'] = None
-        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend-nsm_0/db'] = None
+        SSHClient._run_returns['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
+        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_0/db'] = None
 
         VirtualAlbaBackend.run_log = {}
         AlbaController.add_cluster(alba_backend.guid)
@@ -131,16 +116,16 @@ class NSMCheckup(unittest.TestCase):
 
         # Validate single node NSM cluster
         self._validate_nsm([['1']])
-        self.assertListEqual(VirtualAlbaBackend.run_log['backend-abm'], [['update_abm_client_config'],
-                                                                         ['add_nsm_host', 'backend-nsm_0'],
-                                                                         ['update_maintenance_config', 'set_lru_cache_eviction']])
+        self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [['update_abm_client_config'],
+                                                                           ['add_nsm_host', 'backend_1-nsm_0'],
+                                                                           ['update_maintenance_config', 'set_lru_cache_eviction']])
 
-        VirtualAlbaBackend.run_log['backend-abm'] = []
+        VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.nsm_checkup()
 
         # Running the NSM checkup should not change anything after an add_cluster
         self._validate_nsm([['1']])
-        self.assertListEqual(VirtualAlbaBackend.run_log['backend-abm'], [])
+        self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [])
 
         structure = Helper.build_service_structure(
             {'storagerouters': [2]},
@@ -148,82 +133,82 @@ class NSMCheckup(unittest.TestCase):
         )
         System._machine_id = {storagerouter.ip: '1',
                               structure['storagerouters'][2].ip: '2'}
-        VirtualAlbaBackend.run_log['backend-abm'] = []
+        VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.nsm_checkup()
 
         # There should still be one NSM, since the safety is still at 1
         self._validate_nsm([['1']])
-        self.assertListEqual(VirtualAlbaBackend.run_log['backend-abm'], [])
+        self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [])
 
         Configuration.set('/ovs/framework/plugins/alba/config|nsm.safety', 2)
-        VirtualAlbaBackend.run_log['backend-abm'] = []
+        VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.nsm_checkup()
 
         # There should still be one NSM, since the ABM isn't extended yet
         self._validate_nsm([['1']])
-        self.assertListEqual(VirtualAlbaBackend.run_log['backend-abm'], [])
+        self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [])
 
-        SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend-abm/config -catchup-only'] = None
-        SSHClient._run_returns['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend-abm/db'] = None
-        VirtualAlbaBackend.run_log['backend-abm'] = []
+        SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-abm/config -catchup-only'] = None
+        SSHClient._run_returns['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
+        VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.manual_alba_arakoon_checkup(alba_backend.guid)
 
-        self.assertListEqual(VirtualAlbaBackend.run_log['backend-abm'], [['update_abm_client_config']])
+        self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [['update_abm_client_config']])
 
-        SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend-nsm_0/config -catchup-only'] = None
-        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend-nsm_0/db'] = None
-        VirtualAlbaBackend.run_log['backend-abm'] = []
+        SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_0/config -catchup-only'] = None
+        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_0/db'] = None
+        VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.nsm_checkup()
 
         # Now that the ABM was extended, the NSM should also be extended
         self._validate_nsm([['1', '2']])
-        self.assertListEqual(VirtualAlbaBackend.run_log['backend-abm'], [['update_nsm_host', 'backend-nsm_0']])
+        self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [['update_nsm_host', 'backend_1-nsm_0']])
 
-        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend-nsm_1/db'] = None
-        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend-nsm_1/db'] = None
-        SSHClient._run_returns['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend-nsm_1/config -catchup-only'] = None
-        SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend-nsm_1/config -catchup-only'] = None
-        VirtualAlbaBackend.run_log['backend-abm'] = []
+        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_1/db'] = None
+        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_1/db'] = None
+        SSHClient._run_returns['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_1/config -catchup-only'] = None
+        SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_1/config -catchup-only'] = None
+        VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.nsm_checkup(min_nsms=2)
 
         # A second NSM cluster (running on two nodes) should be added
         self._validate_nsm([['1', '2'],
                             ['1', '2']])
-        self.assertListEqual(VirtualAlbaBackend.run_log['backend-abm'], [['add_nsm_host', 'backend-nsm_1']])
+        self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [['add_nsm_host', 'backend_1-nsm_1']])
 
-        VirtualAlbaBackend.data['backend-abm']['nsms'][0]['namespaces_count'] = 25
+        VirtualAlbaBackend.data['backend_1-abm']['nsms'][0]['namespaces_count'] = 25
 
-        VirtualAlbaBackend.run_log['backend-abm'] = []
+        VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.nsm_checkup()
 
         # Nothing should be happened, since there's still a non-overloaded NSM
         self._validate_nsm([['1', '2'],
                             ['1', '2']])
-        self.assertListEqual(VirtualAlbaBackend.run_log['backend-abm'], [])
+        self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [])
 
-        VirtualAlbaBackend.data['backend-abm']['nsms'][1]['namespaces_count'] = 25
+        VirtualAlbaBackend.data['backend_1-abm']['nsms'][1]['namespaces_count'] = 25
 
-        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend-nsm_2/db'] = None
-        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend-nsm_2/db'] = None
-        SSHClient._run_returns['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend-nsm_2/config -catchup-only'] = None
-        SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend-nsm_2/config -catchup-only'] = None
-        VirtualAlbaBackend.run_log['backend-abm'] = []
+        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_2/db'] = None
+        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_2/db'] = None
+        SSHClient._run_returns['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_2/config -catchup-only'] = None
+        SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_2/config -catchup-only'] = None
+        VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.nsm_checkup()
 
         # A third NSM cluster (running on two nodes) should be added
         self._validate_nsm([['1', '2'],
                             ['1', '2'],
                             ['1', '2']])
-        self.assertListEqual(VirtualAlbaBackend.run_log['backend-abm'], [['add_nsm_host', 'backend-nsm_2']])
+        self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [['add_nsm_host', 'backend_1-nsm_2']])
 
-        VirtualAlbaBackend.run_log['backend-abm'] = []
+        VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.nsm_checkup()
 
         # Running the checkup should not change anything
         self._validate_nsm([['1', '2'],
                             ['1', '2'],
                             ['1', '2']])
-        self.assertListEqual(VirtualAlbaBackend.run_log['backend-abm'], [])
+        self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [])
 
         # Validate additional nsms logic
         with self.assertRaises(ValueError):
@@ -238,14 +223,12 @@ class NSMCheckup(unittest.TestCase):
             AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, additional_nsms={'amount': 1, 'names': ['non-existing-cluster']})  # non-existing cluster names should raise
 
         # Add some additional internally managed NSMs
-        current_nsms = set()
-        for nsm_service in alba_backend.nsm_services:
-            current_nsms.add(nsm_service.number)
+        current_nsms = [nsm_cluster.number for nsm_cluster in alba_backend.nsm_clusters]
         for x in range(len(current_nsms), len(current_nsms) + 2):
-            SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend-nsm_{0}/db'.format(x)] = None
-            SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend-nsm_{0}/db'.format(x)] = None
-            SSHClient._run_returns['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend-nsm_{0}/config -catchup-only'.format(x)] = None
-            SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend-nsm_{0}/config -catchup-only'.format(x)] = None
+            SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_{0}/db'.format(x)] = None
+            SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_{0}/db'.format(x)] = None
+            SSHClient._run_returns['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_{0}/config -catchup-only'.format(x)] = None
+            SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_{0}/config -catchup-only'.format(x)] = None
         AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, additional_nsms={'amount': 2})
         self._validate_nsm([['1', '2'],
                             ['1', '2'],
@@ -254,45 +237,35 @@ class NSMCheckup(unittest.TestCase):
                             ['1', '2']])
 
         # Validate a maximum of 50 NSMs can be deployed
-        current_nsms = set()
-        for nsm_service in alba_backend.nsm_services:
-            current_nsms.add(nsm_service.number)
-        service_type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.NS_MGR)
-        nsm_services = []
-        for x in range(len(current_nsms), 50):
-            service = Service()
-            service.name = 'backend_nsm_{0}'.format(x)
-            service.type = service_type
-            service.ports = []
-            service.save()
-            nsm_service = NSMService()
-            nsm_service.number = x
-            nsm_service.service = service
-            nsm_service.alba_backend = alba_backend
-            nsm_service.save()
-            nsm_services.append(nsm_service)
+        current_nsms = [nsm_cluster.number for nsm_cluster in alba_backend.nsm_clusters]
+        alba_structure = AlbaDalHelper.build_service_structure(
+            structure={'alba_nsm_clusters': [(1, 50)]},  # (<abackend_id>, <amount_of_nsm_clusters>)
+            previous_structure=alba_structure
+        )
         with self.assertRaises(ValueError):
             AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, additional_nsms={'amount': 1})  # Maximum of NSM clusters will now be exceeded
 
         # Basic externally managed NSM checkup validation
-        for nsm_service in nsm_services:
-            nsm_service.delete()
-            nsm_service.service.delete()
-        for abm_service in alba_backend.abm_services:
-            abm_service.service.storagerouter = None
-            abm_service.service.save()
-            abm_service.service.invalidate_dynamics('is_internal')
+        for nsm_cluster in alba_structure['alba_nsm_clusters'][1][len(current_nsms):]:
+            for nsm_service in nsm_cluster.nsm_services:
+                nsm_service.delete()
+                nsm_service.service.delete()
+            nsm_cluster.delete()
+
+        alba_backend.abm_cluster.abm_services[0].service.storagerouter = None
+        alba_backend.abm_cluster.abm_services[0].service.save()
+        alba_backend.abm_cluster.abm_services[0].service.invalidate_dynamics('is_internal')
         with self.assertRaises(ValueError):
             AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, additional_nsms={'amount': 1})  # No unused externally managed clusters are available
         with self.assertRaises(ValueError):
-            AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, additional_nsms={'amount': 0, 'names': ['backend-nsm_0']})  # The provided cluster_name to claim has already been claimed
+            AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, additional_nsms={'amount': 0, 'names': ['backend_1-nsm_0']})  # The provided cluster_name to claim has already been claimed
 
     def _validate_nsm(self, config):
         nsm_layout = {}
-        self.assertEqual(len(VirtualAlbaBackend.data['backend-abm']['nsms']), len(config))
+        self.assertEqual(len(VirtualAlbaBackend.data['backend_1-abm']['nsms']), len(config))
         for i in xrange(len(config)):
-            expected = copy.deepcopy(VirtualAlbaBackend.data['backend-abm']['nsms'][i])
-            expected['id'] = 'backend-nsm_{0}'.format(i)
-            self.assertDictEqual(VirtualAlbaBackend.data['backend-abm']['nsms'][i], expected)
-            nsm_layout['backend-nsm_{0}'.format(i)] = config[i]
-        self.assertDictEqual(VirtualAlbaBackend._get_nsm_state('backend-abm'), nsm_layout)
+            expected = copy.deepcopy(VirtualAlbaBackend.data['backend_1-abm']['nsms'][i])
+            expected['id'] = 'backend_1-nsm_{0}'.format(i)
+            self.assertDictEqual(VirtualAlbaBackend.data['backend_1-abm']['nsms'][i], expected)
+            nsm_layout['backend_1-nsm_{0}'.format(i)] = config[i]
+        self.assertDictEqual(VirtualAlbaBackend._get_nsm_state('backend_1-abm'), nsm_layout)

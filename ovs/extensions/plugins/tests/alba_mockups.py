@@ -30,6 +30,15 @@ class VirtualAlbaBackend(object):
     statistics = None
 
     @staticmethod
+    def clean():
+        """
+        Clean everything related to the ALBA tests
+        """
+        VirtualAlbaBackend.data = {}
+        VirtualAlbaBackend.run_log = {}
+        VirtualAlbaBackend.statistics = None
+
+    @staticmethod
     def update_abm_client_config(**kwargs):
         """
         Updates the internal configuration based on external configuration
