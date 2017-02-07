@@ -364,7 +364,7 @@ class AlbaUpdateController(object):
             components = ['framework']
 
         if 'framework' not in components:
-            return True
+            return False
 
         abort = False
         packages_updated = []
