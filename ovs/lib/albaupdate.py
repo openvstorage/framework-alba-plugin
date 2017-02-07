@@ -366,8 +366,8 @@ class AlbaUpdateController(object):
         if 'framework' not in components:
             return True
 
+        abort = False
         packages_updated = []
-        continue_after_failure = True
         for pkg_name in AlbaUpdateController._packages_alba_plugin['framework']:
             if pkg_name in package_info and pkg_name not in packages_updated:
                 pkg_info = package_info[pkg_name]
@@ -379,8 +379,8 @@ class AlbaUpdateController(object):
                 except Exception as ex:
                     AlbaUpdateController._logger.debug('{0}: Updating package {1} failed. {2}'.format(client.ip, pkg_name, ex))
                     if pkg_name in AlbaUpdateController._packages_alba_plugin_blocking:
-                        continue_after_failure = False
-        return continue_after_failure
+                        abort = True
+        return abort
 
     @staticmethod
     @add_hooks('update', 'package_install_single')
@@ -399,7 +399,7 @@ class AlbaUpdateController(object):
             components = ['alba']
 
         if 'alba' not in components:
-            return True
+            return False
 
         # Refresh the package information for all ALBA nodes and update accordingly
         AlbaUpdateController._get_package_information_alba_plugin_storage_nodes(information={})
@@ -416,7 +416,7 @@ class AlbaUpdateController(object):
                         if 'Connection aborted.' not in ce.message:  # This error is thrown due the post-update code of the SDM package which restarts the asd-manager service
                             raise
                     AlbaUpdateController._logger.debug('{0}: Updated package {1}'.format(alba_node.ip, pkg_name))
-        return True
+        return False
 
     @staticmethod
     @add_hooks('update', 'post_update_multi')
