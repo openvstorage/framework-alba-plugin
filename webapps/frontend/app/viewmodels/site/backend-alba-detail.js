@@ -341,7 +341,7 @@ define([
                                 $.t('alba:detail.delete.started'),
                                 $.t('alba:detail.delete.started_msg', {what: self.albaBackend().name()})
                             );
-                            router.navigate(self.shared.routing.loadHash('backends'));
+                            router.navigateBack();
                             api.del('alba/backends/' + self.albaBackend().guid())
                                 .then(self.shared.tasks.wait)
                                 .done(function() {
