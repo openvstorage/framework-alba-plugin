@@ -21,13 +21,10 @@ import time
 import requests
 import unittest
 from ovs.dal.hybrids.albaosd import AlbaOSD
-from ovs.dal.tests.alba_helpers import Helper
-from ovs.extensions.generic import fakesleep
+from ovs.dal.tests.alba_helpers import AlbaHelper
 from ovs.extensions.plugins.asdmanager import ASDManagerClient
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
-from ovs.extensions.storage.persistentfactory import PersistentFactory
-from ovs.extensions.storage.volatilefactory import VolatileFactory
 
 
 class Alba(unittest.TestCase):
@@ -38,36 +35,17 @@ class Alba(unittest.TestCase):
     need to be mocked
     """
 
-    @classmethod
-    def setUpClass(cls):
-        """
-        Sets up the unittest, mocking a certain set of 3rd party libraries and extensions.
-        This makes sure the unittests can be executed without those libraries installed
-        """
-        cls.volatile = VolatileFactory.get_client()
-        cls.volatile.clean()
-        cls.persistent = PersistentFactory.get_client()
-        cls.persistent.clean()
-        fakesleep.monkey_patch()
-
     def setUp(self):
         """
         (Re)Sets the stores on every test
         """
-        self.volatile.clean()
-        self.persistent.clean()
-        self.maxDiff = None
+        AlbaHelper.setup(fake_sleep=True)
 
-    @classmethod
-    def tearDownClass(cls):
+    def tearDown(self):
         """
         Clean up the unittest
         """
-        fakesleep.monkey_restore()
-        cls.volatile = VolatileFactory.get_client()
-        cls.volatile.clean()
-        cls.persistent = PersistentFactory.get_client()
-        cls.persistent.clean()
+        AlbaHelper.teardown(fake_sleep=True)
 
     def test_asd_statistics(self):
         """
@@ -76,7 +54,7 @@ class Alba(unittest.TestCase):
         * Collapse certain keys
         * Calculate correct per-second, average, total, min and max values
         """
-        structure = Helper.build_service_structure({
+        structure = AlbaHelper.build_service_structure({
             'alba_backends': [1],
             'alba_abm_clusters': [1],
             'alba_nsm_clusters': [(1, 1)],  # (<abackend_id>, <amount_of_nsm_clusters>)
@@ -122,7 +100,7 @@ class Alba(unittest.TestCase):
         """
         Configuration.set('/ovs/alba/backends/global_gui_error_interval', 1)
 
-        structure = Helper.build_service_structure({
+        structure = AlbaHelper.build_service_structure({
             'alba_backends': [1],
             'alba_abm_clusters': [1],
             'alba_nsm_clusters': [(1, 1)],  # (<abackend_id>, <amount_of_nsm_clusters>)
@@ -209,7 +187,7 @@ class Alba(unittest.TestCase):
                                                              'read': [],
                                                              'write': [],
                                                              'errors': []}]
-        structure = Helper.build_service_structure({
+        structure = AlbaHelper.build_service_structure({
             'alba_disks': [(1, 1)],
             'alba_osds': [(1, 1, 1)]
         }, structure)

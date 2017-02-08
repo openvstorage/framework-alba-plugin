@@ -15,8 +15,9 @@
 # but WITHOUT ANY WARRANTY of any kind.
 
 """
-Helper module
+AlbaHelper module
 """
+from ovs.dal.tests.helpers import Helper
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albadisk import AlbaDisk
@@ -29,12 +30,32 @@ from ovs.dal.hybrids.j_abmservice import ABMService
 from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.service import Service
 from ovs.dal.hybrids.servicetype import ServiceType
+from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
 
 
-class Helper(object):
+class AlbaHelper(object):
     """
-    This class contains functionality used by a bunch of tests
+    This class contains functionality used by all UnitTests related to the DAL
     """
+    @staticmethod
+    def setup(**kwargs):
+        """
+        Execute several actions before starting a new UnitTest
+        :param kwargs: Additional key word arguments
+        :type kwargs: dict
+        """
+        Helper.setup(**kwargs)
+        VirtualAlbaBackend.clean()
+
+    @staticmethod
+    def teardown(**kwargs):
+        """
+        Execute several actions when ending a UnitTest
+        :param kwargs: Additional key word arguments
+        :type kwargs: dict
+        """
+        Helper.teardown(**kwargs)
+        VirtualAlbaBackend.clean()
 
     @staticmethod
     def build_service_structure(structure, previous_structure=None):

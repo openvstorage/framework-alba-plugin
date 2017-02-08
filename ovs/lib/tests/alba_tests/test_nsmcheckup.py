@@ -19,70 +19,34 @@ NSMCheckup test module
 """
 import copy
 import unittest
-from ovs.dal.tests.alba_helpers import Helper as AlbaDalHelper
+from ovs.dal.tests.alba_helpers import AlbaHelper
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient
 from ovs.extensions.generic.system import System
 from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
-from ovs.extensions.storage.persistentfactory import PersistentFactory
-from ovs.extensions.storage.volatilefactory import VolatileFactory
 from ovs.lib.alba import AlbaController
 from ovs.lib.tests.helpers import Helper
 
 
 class NSMCheckup(unittest.TestCase):
     """
-    This test class will validate the various scenarios of the MDSService logic
+    This test class will validate the various scenarios of the ALBA NSM logic
     """
-
-    @classmethod
-    def setUpClass(cls):
+    def setUp(self):
         """
-        Sets up the unittest, mocking a certain set of 3rd party libraries and extensions.
-        This makes sure the unittests can be executed without those libraries installed
+        (Re)Sets the stores on every test
         """
-        cls.persistent = PersistentFactory.get_client()
-        cls.persistent.clean()
-
-        cls.volatile = VolatileFactory.get_client()
-        cls.volatile.clean()
-
-        VirtualAlbaBackend.clean()
+        AlbaHelper.setup()
         Configuration.set('/ovs/framework/logging|path', '/var/log/ovs')
         Configuration.set('/ovs/framework/logging|level', 'DEBUG')
         Configuration.set('/ovs/framework/logging|default_file', 'generic')
         Configuration.set('/ovs/framework/logging|default_name', 'logger')
 
-    @classmethod
-    def tearDownClass(cls):
-        """
-        Tear down changes made during setUpClass
-        """
-        Configuration._unittest_data = {}
-        VirtualAlbaBackend.clean()
-
-        cls.persistent = PersistentFactory.get_client()
-        cls.persistent.clean()
-
-        cls.volatile = VolatileFactory.get_client()
-        cls.volatile.clean()
-
-    def setUp(self):
-        """
-        (Re)Sets the stores on every test
-        """
-        self.persistent.clean()
-        self.volatile.clean()
-        self.maxDiff = None
-        VirtualAlbaBackend.clean()
-
     def tearDown(self):
         """
         Clean up test suite
         """
-        self.persistent.clean()
-        self.volatile.clean()
-        VirtualAlbaBackend.clean()
+        AlbaHelper.teardown()
 
     def test_nsm_checkup(self):
         """
@@ -93,12 +57,8 @@ class NSMCheckup(unittest.TestCase):
         Configuration.set('/ovs/framework/hosts/1/ports|arakoon', [10000, 10100])
         Configuration.set('/ovs/framework/hosts/2/ports|arakoon', [10000, 10100])
 
-        structure = Helper.build_service_structure(
-            {'storagerouters': [1]}
-        )
-        alba_structure = AlbaDalHelper.build_service_structure(
-            {'alba_backends': [1]}
-        )
+        structure = Helper.build_service_structure(structure={'storagerouters': [1]})
+        alba_structure = AlbaHelper.build_service_structure(structure={'alba_backends': [1]})
 
         alba_backend = alba_structure['alba_backends'][1]
         storagerouter = structure['storagerouters'][1]
@@ -238,7 +198,7 @@ class NSMCheckup(unittest.TestCase):
 
         # Validate a maximum of 50 NSMs can be deployed
         current_nsms = [nsm_cluster.number for nsm_cluster in alba_backend.nsm_clusters]
-        alba_structure = AlbaDalHelper.build_service_structure(
+        alba_structure = AlbaHelper.build_service_structure(
             structure={'alba_nsm_clusters': [(1, 50)]},  # (<abackend_id>, <amount_of_nsm_clusters>)
             previous_structure=alba_structure
         )
