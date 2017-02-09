@@ -30,6 +30,7 @@ from ovs.dal.hybrids.j_abmservice import ABMService
 from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.service import Service
 from ovs.dal.hybrids.servicetype import ServiceType
+from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
 
 
@@ -84,16 +85,21 @@ class AlbaHelper(object):
             backend_type.name = 'ALBA'
             backend_type.save()
             backend_types[1] = backend_type
-        if 1 not in service_types:
-            service_type = ServiceType()
-            service_type.name = 'AlbaManager'
-            service_type.save()
-            service_types[1] = service_type
-        if 2 not in service_types:
-            service_type = ServiceType()
-            service_type.name = 'NamespaceManager'
-            service_type.save()
-            service_types[2] = service_type
+
+        if 'AlbaManager' not in service_types:
+            service_type = ServiceTypeList.get_by_name('AlbaManager')
+            if service_type is None:
+                service_type = ServiceType()
+                service_type.name = 'AlbaManager'
+                service_type.save()
+            service_types['AlbaManager'] = service_type
+        if 'NamespaceManager' not in service_types:
+            service_type = ServiceTypeList.get_by_name('NamespaceManager')
+            if service_type is None:
+                service_type = ServiceType()
+                service_type.name = 'NamespaceManager'
+                service_type.save()
+            service_types['NamespaceManager'] = service_type
         for ab_id in structure.get('alba_backends', ()):
             if ab_id not in alba_backends:
                 backend = Backend()
@@ -117,7 +123,7 @@ class AlbaHelper(object):
                 abm_cluster.save()
                 abm_service = Service()
                 abm_service.name = 'arakoon-{0}-abm'.format(alba_backend.name)
-                abm_service.type = service_types[1]
+                abm_service.type = service_types['AlbaManager']
                 abm_service.ports = []
                 abm_service.storagerouter = None
                 abm_service.save()
@@ -145,7 +151,7 @@ class AlbaHelper(object):
                     nsm_cluster.save()
                     nsm_service = Service()
                     nsm_service.name = 'arakoon-{0}-nsm_{1}'.format(alba_backend.name, number)
-                    nsm_service.type = service_types[2]
+                    nsm_service.type = service_types['NamespaceManager']
                     nsm_service.ports = []
                     nsm_service.storagerouter = None
                     nsm_service.save()
