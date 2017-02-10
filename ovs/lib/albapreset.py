@@ -27,7 +27,7 @@ from ovs.celery_run import celery
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.albacli import AlbaCLI
-from ovs.lib.helpers.toolbox import Toolbox
+from ovs.lib.helpers.toolbox import LibToolbox
 from ovs.log.log_handler import LogHandler
 
 
@@ -57,7 +57,7 @@ class AlbaPresetController(object):
         :return: None
         """
         # VALIDATIONS
-        if not re.match(Toolbox.regex_preset, name):
+        if not re.match(LibToolbox.regex_preset, name):
             raise ValueError('Invalid preset name specified')
 
         compression_options = ['snappy', 'bz2', 'none']

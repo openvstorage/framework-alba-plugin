@@ -24,7 +24,7 @@ from rest_framework.permissions import IsAuthenticated
 from api.backend.decorators import load, log, required_roles, return_list, return_object, return_task, return_simple
 from api.backend.exceptions import HttpForbiddenException, HttpNotAcceptableException
 from api.backend.serializers.serializers import FullSerializer
-from api.backend.toolbox import Toolbox
+from api.backend.toolbox import BackendToolbox
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.lib.alba import AlbaController
@@ -42,9 +42,9 @@ class AlbaBackendViewSet(viewsets.ViewSet):
 
     def _validate_access(self, albabackend, request):
         _ = self
-        if not Toolbox.access_granted(request.client,
-                                      user_rights=albabackend.backend.user_rights,
-                                      client_rights=albabackend.backend.client_rights):
+        if not BackendToolbox.access_granted(request.client,
+                                             user_rights=albabackend.backend.user_rights,
+                                             client_rights=albabackend.backend.client_rights):
             raise HttpForbiddenException(error_description='The requesting client has no access to this AlbaBackend',
                                          error='no_ownership')
 
@@ -63,9 +63,9 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         backends = AlbaBackendList.get_albabackends()
         allowed_backends = []
         for alba_backend in backends:
-            if Toolbox.access_granted(request.client,
-                                      user_rights=alba_backend.backend.user_rights,
-                                      client_rights=alba_backend.backend.client_rights):
+            if BackendToolbox.access_granted(request.client,
+                                             user_rights=alba_backend.backend.user_rights,
+                                             client_rights=alba_backend.backend.client_rights):
                 allowed_backends.append(alba_backend)
         return allowed_backends
 

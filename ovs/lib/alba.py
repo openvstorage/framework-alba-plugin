@@ -51,7 +51,7 @@ from ovs.extensions.generic.configuration import Configuration, NotFoundExceptio
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.lib.helpers.decorators import add_hooks, ensure_single
-from ovs.lib.helpers.toolbox import Toolbox, Schedule
+from ovs.lib.helpers.toolbox import LibToolbox, Schedule
 from ovs.log.log_handler import LogHandler
 
 
@@ -1207,16 +1207,16 @@ class AlbaController(object):
                  False if the ALBA Backend to link is in 'decommissioned' state
         :rtype: bool
         """
-        Toolbox.verify_required_params(required_params={'backend_connection_info': (dict, {'host': (str, Toolbox.regex_ip),
-                                                                                           'port': (int, {'min': 1, 'max': 65535}),
-                                                                                           'username': (str, None),
-                                                                                           'password': (str, None)}),
-                                                        'backend_info': (dict, {'domain_guid': (str, Toolbox.regex_guid, False),
-                                                                                'linked_guid': (str, Toolbox.regex_guid),
-                                                                                'linked_name': (str, Toolbox.regex_vpool),
-                                                                                'linked_preset': (str, Toolbox.regex_preset),
-                                                                                'linked_alba_id': (str, Toolbox.regex_guid)})},
-                                       actual_params=metadata)
+        LibToolbox.verify_required_params(required_params={'backend_connection_info': (dict, {'host': (str, LibToolbox.regex_ip),
+                                                                                              'port': (int, {'min': 1, 'max': 65535}),
+                                                                                              'username': (str, None),
+                                                                                              'password': (str, None)}),
+                                                           'backend_info': (dict, {'domain_guid': (str, LibToolbox.regex_guid, False),
+                                                                                   'linked_guid': (str, LibToolbox.regex_guid),
+                                                                                   'linked_name': (str, LibToolbox.regex_vpool),
+                                                                                   'linked_preset': (str, LibToolbox.regex_preset),
+                                                                                   'linked_alba_id': (str, LibToolbox.regex_guid)})},
+                                          actual_params=metadata)
 
         alba_backend = AlbaBackend(alba_backend_guid)
         if alba_backend.abm_cluster is None:
