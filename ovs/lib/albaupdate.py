@@ -28,7 +28,7 @@ from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.services.service import ServiceManager
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.generic.system import System
-from ovs.extensions.generic.toolbox import Toolbox
+from ovs.extensions.generic.toolbox import ExtensionsToolbox
 from ovs.extensions.packages.package import PackageManager
 from ovs.lib.alba import AlbaController
 from ovs.lib.helpers.decorators import add_hooks
@@ -117,7 +117,7 @@ class AlbaUpdateController(object):
                 component_info = {}
                 for package, services in info.iteritems():
                     for service in services:
-                        service = Toolbox.remove_prefix(service, 'ovs-')
+                        service = ExtensionsToolbox.remove_prefix(service, 'ovs-')
                         if not ServiceManager.has_service(service, client):
                             # There's no service, so no need to restart it
                             continue
@@ -453,7 +453,7 @@ class AlbaUpdateController(object):
                 if not service_name.startswith('ovs-arakoon-'):
                     UpdateController.change_services_state(services=[service_name], ssh_clients=[client], action='restart')
                 else:
-                    cluster_name = ArakoonClusterConfig.get_cluster_name(Toolbox.remove_prefix(service_name, 'ovs-arakoon-'))
+                    cluster_name = ArakoonClusterConfig.get_cluster_name(ExtensionsToolbox.remove_prefix(service_name, 'ovs-arakoon-'))
                     if cluster_name == 'config':
                         filesystem = True
                         arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name='cacc', filesystem=True, ip=local_ip)

@@ -51,7 +51,7 @@ from ovs.extensions.generic.configuration import Configuration, NotFoundExceptio
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.lib.helpers.decorators import add_hooks, ensure_single
-from ovs.lib.helpers.toolbox import Toolbox, Schedule
+from ovs.lib.helpers.toolbox import Schedule, Toolbox
 from ovs.log.log_handler import LogHandler
 
 
