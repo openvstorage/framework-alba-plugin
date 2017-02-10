@@ -85,7 +85,6 @@
             "aes-ctr-256": "aes-ctr-256",
             "none": "No encryption"
         },
-        "getss": "Gets/s",
         "health": "Health",
         "initialize": "Initialize",
         "initializeall": "Initialize all uninitialized disks",
@@ -98,7 +97,6 @@
         "nodisks": "No disks available",
         "osds": "ASDs",
         "presets": "Presets",
-        "putss": "Puts/s",
         "refresh": "Refresh",
         "register": "Add node",
         "remove": "Remove",
@@ -161,7 +159,6 @@
             "service_failure": "Service failure",
             "unknown": "Unknown"
         },
-        "statistics": "Statistics",
         "unknown": "Unknown/external",
         "wayreplication": "-way replication:",
         "yes": "Yes"

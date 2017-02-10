@@ -56,21 +56,18 @@ but WITHOUT ANY WARRANTY of any kind.
                         <thead>
                             <tr>
                                 <th data-i18n="alba:generic.details" colspan="2"></th>
-                                <th data-i18n="alba:generic.statistics" colspan="2"></th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr style="height: 1px;">
                                 <td style="width: 15%;" data-i18n="ovs:generic.backend_type"></td>
-                                <td style="width: 20%;">
+                                <td style="width: 50%;">
                                     <span data-bind="lazyloader: { item: $root.backend().backendType, loadedObservable: 'loaded', undefinedLoading: false }">
                                         <span data-part="lazy-entry"
                                               data-bind="translate: 'ovs:generic.backendtypes.' + item().code()"></span>
                                     </span>
                                 </td>
-                                <td style="width: 15%;" data-i18n="alba:generic.putss"></td>
-                                <td style="width: 15%;"><span data-bind="text: writeIOps"></span></td>
                                 <td rowspan="5">
                                     <div data-bind="if: $root.showActions() && $root.albaBackend().scaling() !== 'GLOBAL'">
                                         <div data-bind="pie: usage()"></div>
@@ -79,13 +76,12 @@ but WITHOUT ANY WARRANTY of any kind.
                             </tr>
                             <tr style="height: 1px;">
                                 <td style="width: 15%;" data-i18n="alba:generic.scaling"></td>
-                                <td style="width: 20%;" data-bind="text: scaling()"></td>
-                                <td style="width: 15%;" data-i18n="alba:generic.getss"></td>
-                                <td style="width: 15%;"><span data-bind="text: readIOps"></span></td>
+                                <td style="width: 50%;" data-bind="text: scaling()"></td>
+                                <td>&nbsp;</td>
                             </tr>
                             <tr style="height: 1px;">
                                 <td style="width: 15%;" data-i18n="ovs:generic.status"></td>
-                                <td style="width: 20%;">
+                                <td style="width: 50%;">
                                     <div data-bind="status: {
                                                         colors: {
                                                             red: $root.backend().liveStatus() === 'failure',
@@ -97,11 +93,11 @@ but WITHOUT ANY WARRANTY of any kind.
                                                     }, tooltip: 'ovs:generic.states.backend.' + $root.backend().liveStatus()"
                                          style="width: 14px; height: 14px;"></div>
                                 </td>
-                                <td colspan="2">&nbsp;</td>
+                                <td>&nbsp;</td>
                             </tr>
                             <tr>
                                 <td style="width: 15%; padding-top: 2px; height: 1px;" data-i18n="alba:generic.health"></td>
-                                <td style="width: 20%; padding-top: 2px;">
+                                <td style="width: 50%; padding-top: 2px;">
                                     <span class="label label-success pointer"
                                           data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + $root.localSummary().scaling.toLowerCase() + '.claimed'),
                                                      text: ($root.localSummary() === undefined ? 0 : $root.localSummary().devices.green)"></span>&nbsp;
@@ -112,11 +108,11 @@ but WITHOUT ANY WARRANTY of any kind.
                                           data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + $root.localSummary().scaling.toLowerCase() + '.error'),
                                                      text: ($root.localSummary() === undefined ? 0 : $root.localSummary().devices.red)"></span>
                                 </td>
-                                <td colspan="4">&nbsp;</td>
+                                <td>&nbsp;</td>
                             </tr>
                             <tr>
                                 <td style="width: 15%; padding-top: 7px; vertical-align: top;" data-i18n="ovs:generic.domains"></td>
-                                <td style="width: 20%; padding-top: 7px; padding-bottom: 2px; vertical-align: top;" colspan="3">
+                                <td style="width: 50%; padding-top: 7px; padding-bottom: 2px; vertical-align: top;" colspan="3">
                                     <span data-bind="dropdown: {
                                                          items: $root.domainGuids, target: $root.backend().domainGuids,
                                                          text: function(guid) {
@@ -124,7 +120,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                                          }, enabled: $root.backend().edit, small: true, emptyisloading: false
                                                      }"></span>
                                 </td>
-                                <td colspan="4">&nbsp;</td>
+                                <td>&nbsp;</td>
                             </tr>
                         </tbody>
                     </table>
