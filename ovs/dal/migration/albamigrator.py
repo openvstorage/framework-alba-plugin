@@ -84,7 +84,7 @@ class ALBAMigrator(object):
             from ovs.dal.lists.storagerouterlist import StorageRouterList
             from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
             from ovs.extensions.generic.configuration import Configuration, NotFoundException
-            from ovs.extensions.generic.toolbox import Toolbox
+            from ovs.extensions.generic.toolbox import ExtensionsToolbox
             from ovs.extensions.plugins.albacli import AlbaCLI
             from ovs.extensions.storage.persistentfactory import PersistentFactory
 
@@ -244,7 +244,7 @@ class ALBAMigrator(object):
                         abm_service.save()
 
                     # Create NSM Clusters
-                    for cluster_index, nsm_host in enumerate(sorted(nsm_hosts, key=lambda host: Toolbox.advanced_sort(host['cluster_id'], '_'))):
+                    for cluster_index, nsm_host in enumerate(sorted(nsm_hosts, key=lambda host: ExtensionsToolbox.advanced_sort(host['cluster_id'], '_'))):
                         nsm_cluster_name = nsm_host['cluster_id']
                         nsm_arakoon_config = cluster_arakoon_map.get(nsm_cluster_name)
                         if nsm_arakoon_config is None:
