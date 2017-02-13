@@ -78,8 +78,6 @@ class ALBAMigrator(object):
             from ovs.dal.hybrids.service import Service
             from ovs.dal.hybrids.servicetype import ServiceType
             from ovs.dal.lists.albabackendlist import AlbaBackendList
-            from ovs.dal.lists.albanodelist import AlbaNodeList
-            from ovs.dal.lists.servicelist import ServiceList
             from ovs.dal.lists.servicetypelist import ServiceTypeList
             from ovs.dal.lists.storagerouterlist import StorageRouterList
             from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
@@ -124,35 +122,6 @@ class ALBAMigrator(object):
                                 client.assert_value(ikey, index[:], transaction=transaction)
                                 client.set(ikey, index + [key], transaction=transaction)
                             client.apply_transaction(transaction)
-
-            # Changes on AlbaNodes & AlbaDisks
-            storagerouter_guids = []
-            for alba_node in AlbaNodeList.get_albanodes():
-                # StorageRouter - AlbaNode 1-to-many relation changes to 1-to-1
-                if alba_node.storagerouter_guid is not None:
-                    if alba_node.storagerouter_guid in storagerouter_guids:
-                        alba_node.storagerouter = None
-                        alba_node.save()
-                    else:
-                        storagerouter_guids.append(alba_node.storagerouter_guid)
-                # Complete rework of the way we detect devices to assign roles or use as ASD
-                # Allow loop-, raid-, nvme-, ??-devices and logical volumes as ASD
-                # More info: https://github.com/openvstorage/framework/issues/792
-                for alba_disk in alba_node.disks:
-                    if alba_disk.aliases is not None:
-                        continue
-                    # noinspection PyProtectedMember
-                    alba_disk_data = alba_disk._data
-                    if 'name' in alba_disk_data:
-                        alba_disk.aliases = ['/dev/disk/by-id/{0}'.format(alba_disk_data['name'])]
-                        alba_disk.save()
-
-            # Rename of arakoon services
-            for service in ServiceList.get_services():
-                if service.type.name == ServiceType.SERVICE_TYPES.ALBA_MGR or service.type.name == ServiceType.SERVICE_TYPES.NS_MGR:
-                    if not service.name.startswith('arakoon-'):
-                        service.name = 'arakoon-{0}'.format(service.name)
-                        service.save()
 
             #############################################
             # Introduction of ABMCluster and NSMCluster #
