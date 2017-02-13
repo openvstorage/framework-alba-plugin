@@ -28,7 +28,6 @@ from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.services.service import ServiceManager
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.generic.system import System
-from ovs.extensions.generic.toolbox import ExtensionsToolbox
 from ovs.extensions.packages.package import PackageManager
 from ovs.lib.alba import AlbaController
 from ovs.lib.helpers.decorators import add_hooks
@@ -74,6 +73,8 @@ class AlbaUpdateController(object):
         :return: Package information
         :rtype: dict
         """
+        from ovs.extensions.generic.toolbox import ExtensionsToolbox
+
         try:
             if client.username != 'root':
                 raise RuntimeError('Only the "root" user can retrieve the package information')
@@ -437,6 +438,8 @@ class AlbaUpdateController(object):
         """
         if 'framework' not in components and 'alba' not in components:
             return
+
+        from ovs.extensions.generic.toolbox import ExtensionsToolbox
 
         update_information = AlbaUpdateController._get_update_information_alba_plugin({})
         services_to_restart = set()
