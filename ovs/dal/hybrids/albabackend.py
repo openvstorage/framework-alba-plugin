@@ -543,7 +543,7 @@ class AlbaBackend(DataObject):
 
         zero_services = False
         if len(services_for_this_backend) == 0:
-            if len(all_nodes) == 0:
+            if len(all_nodes) > 0:
                 return 'failure'
             zero_services = True
 
