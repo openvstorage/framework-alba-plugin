@@ -198,9 +198,9 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <td>
                                     <div data-bind="status: {
                                                         colors: {
-                                                            green: error === '',
-                                                            orange: error === 'not_allowed',
-                                                            red: error !== '' && error !== 'not_allowed',
+                                                            green: live_status === 'running' && error === '',
+                                                            orange: live_status === 'warning' || error === 'not_allowed',
+                                                            red: live_status === 'failure' || (error !== '' && error !== 'not_allowed'),
                                                         },
                                                         defaultColor: 'green'
                                                     }, tooltip: error === '' ? '' : $.t('alba:detail.errors.' + error)"
