@@ -402,9 +402,10 @@ class AlbaBackend(DataObject):
 
             try:
                 info = client.get('/alba/backends/{0}/'.format(_alba_backend_guid),
-                                  params={'contents': 'local_summary'})
+                                  params={'contents': 'local_summary,live_status'})
                 with lock:
                     return_value[_alba_backend_guid].update(info['local_summary'])
+                    return_value[_alba_backend_guid]['live_status'] = info['live_status']
             except NotFoundException:
                 return_value[_alba_backend_guid]['error'] = 'backend_deleted'
             except ForbiddenException:
@@ -514,11 +515,14 @@ class AlbaBackend(DataObject):
 
         # Verify remote OSDs
         remote_errors = False
+        linked_backend_warning = False
         for remote_info in self.remote_stack.itervalues():
-            if remote_info['error'] == 'unknown':
+            if remote_info['error'] == 'unknown' or remote_info['live_status'] == 'failure':
                 return 'failure'
             if remote_info['error'] == 'not_allowed':
                 remote_errors = True
+            if remote_info['live_status'] == 'warning':
+                linked_backend_warning = True
 
         # Retrieve ASD and maintenance service information
         services_for_this_backend = {}
@@ -537,8 +541,11 @@ class AlbaBackend(DataObject):
             except:
                 pass
 
+        zero_services = False
         if len(services_for_this_backend) == 0:
-            return 'warning' if len(all_nodes) == 0 else 'failure'
+            if len(all_nodes) > 0:
+                return 'failure'
+            zero_services = True
 
         # Verify maintenance agents status
         for service_name, node in services_for_this_backend.iteritems():
@@ -563,7 +570,7 @@ class AlbaBackend(DataObject):
         if devices['orange'] > 0:
             return 'warning'
 
-        if remote_errors is True:
+        if remote_errors is True or linked_backend_warning is True or zero_services is True:
             return 'warning'
 
         return 'running'
