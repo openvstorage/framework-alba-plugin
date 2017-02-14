@@ -223,7 +223,8 @@ class AlbaNodeController(object):
 
         # Remove the ALBA Disk making use of the ASD Manager Client
         if offline_node is False:
-            result = node.client.remove_disk(disk_id=device_id, partition_aliases=disk_to_clear.partitions[0].aliases if len(disk_to_clear.partitions) > 0 else [])
+            partition_aliases = None if disk_to_clear is None or len(disk_to_clear.partitions) == 0 else disk_to_clear.partitions[0].aliases
+            result = node.client.remove_disk(disk_id=device_id, partition_aliases=partition_aliases)
             if result['_success'] is False:
                 raise RuntimeError('Error removing disk {0}: {1}'.format(device_alias, result['_error']))
 

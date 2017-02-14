@@ -51,7 +51,7 @@ from ovs.extensions.generic.configuration import Configuration, NotFoundExceptio
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.lib.helpers.decorators import add_hooks, ensure_single
-from ovs.lib.helpers.toolbox import Toolbox, Schedule
+from ovs.lib.helpers.toolbox import Schedule, Toolbox
 from ovs.log.log_handler import LogHandler
 
 
@@ -770,7 +770,8 @@ class AlbaController(object):
                     raise ValueError('Arakoon cluster with name {0} does not exist'.format(cluster_name))
 
         if alba_backend_guid is None:
-            alba_backends = AlbaBackendList.get_albabackends()
+            alba_backends = [alba_backend for alba_backend in AlbaBackendList.get_albabackends()
+                             if alba_backend.backend.status == 'RUNNING']
         else:
             alba_backend = AlbaBackend(alba_backend_guid)
             alba_backends = [alba_backend]

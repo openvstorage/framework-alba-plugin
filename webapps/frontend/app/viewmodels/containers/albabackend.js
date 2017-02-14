@@ -42,11 +42,9 @@ define([
         self.localSummary       = ko.observable();
         self.name               = ko.observable();
         self.presets            = ko.observableArray([]);
-        self.readIOps           = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
         self.scaling            = ko.observable();
         self.totalSize          = ko.observable();
         self.usage              = ko.observable([]);
-        self.writeIOps          = ko.observable(0).extend({ smooth: {} }).extend({ format: generic.formatNumber });
 
         // Computed
         self.enhancedPresets = ko.computed(function() {
@@ -130,10 +128,6 @@ define([
                 self.backendGuid(data.backend_guid);
                 self.backend(new Backend(data.backend_guid));
             }
-            if (data.hasOwnProperty('statistics')) {
-                self.readIOps(data.statistics.multi_get.n_ps);
-                self.writeIOps(data.statistics.apply.n_ps);
-            }
             if (data.hasOwnProperty('linked_backend_guids')) {
                 self.linkedBackendGuids(data.linked_backend_guids);
             }
@@ -159,7 +153,7 @@ define([
         };
         self.load = function(contents) {
             if (contents === undefined) {
-                contents = '_dynamics,-ns_data,_relations';
+                contents = '_dynamics,-statistics,-ns_data,_relations';
             }
             return $.Deferred(function(deferred) {
                 self.loading(true);
