@@ -30,7 +30,7 @@ class VirtualAlbaBackend(object):
     statistics = None
 
     @staticmethod
-    def clean():
+    def _clean():
         """
         Clean everything related to the ALBA tests
         """
