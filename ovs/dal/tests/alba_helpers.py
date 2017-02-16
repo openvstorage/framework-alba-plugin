@@ -15,9 +15,8 @@
 # but WITHOUT ANY WARRANTY of any kind.
 
 """
-AlbaHelper module
+AlbaDalHelper module
 """
-from ovs.dal.tests.helpers import Helper
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albadisk import AlbaDisk
@@ -31,10 +30,12 @@ from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.service import Service
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.servicetypelist import ServiceTypeList
+from ovs.dal.tests.helpers import DalHelper
 from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
+from ovs.lib.alba import AlbaController
 
 
-class AlbaHelper(object):
+class AlbaDalHelper(object):
     """
     This class contains functionality used by all UnitTests related to the DAL
     """
@@ -45,8 +46,12 @@ class AlbaHelper(object):
         :param kwargs: Additional key word arguments
         :type kwargs: dict
         """
-        Helper.setup(**kwargs)
-        VirtualAlbaBackend.clean()
+        DalHelper.setup(**kwargs)
+
+        # noinspection PyProtectedMember
+        VirtualAlbaBackend._clean()
+        # noinspection PyProtectedMember
+        AlbaController._add_base_configuration()
 
     @staticmethod
     def teardown(**kwargs):
@@ -55,15 +60,16 @@ class AlbaHelper(object):
         :param kwargs: Additional key word arguments
         :type kwargs: dict
         """
-        Helper.teardown(**kwargs)
-        VirtualAlbaBackend.clean()
+        DalHelper.teardown(**kwargs)
+        # noinspection PyProtectedMember
+        VirtualAlbaBackend._clean()
 
     @staticmethod
-    def build_service_structure(structure, previous_structure=None):
+    def build_dal_structure(structure, previous_structure=None):
         """
         Builds a service structure
         Example:
-            structure = Helper.build_service_structure({
+            structure = AlbaDalHelper.build_service_structure({
                 'alba_backends': [1],
                 'alba_nodes': [1]
             })

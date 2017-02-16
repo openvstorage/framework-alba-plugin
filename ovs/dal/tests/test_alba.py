@@ -21,9 +21,8 @@ import time
 import requests
 import unittest
 from ovs.dal.hybrids.albaosd import AlbaOSD
-from ovs.dal.tests.alba_helpers import AlbaHelper
+from ovs.dal.tests.alba_helpers import AlbaDalHelper
 from ovs.extensions.plugins.asdmanager import ASDManagerClient
-from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
 
 
@@ -39,13 +38,13 @@ class Alba(unittest.TestCase):
         """
         (Re)Sets the stores on every test
         """
-        AlbaHelper.setup(fake_sleep=True)
+        AlbaDalHelper.setup(fake_sleep=True)
 
     def tearDown(self):
         """
         Clean up the unittest
         """
-        AlbaHelper.teardown(fake_sleep=True)
+        AlbaDalHelper.teardown(fake_sleep=True)
 
     def test_asd_statistics(self):
         """
@@ -54,7 +53,7 @@ class Alba(unittest.TestCase):
         * Collapse certain keys
         * Calculate correct per-second, average, total, min and max values
         """
-        structure = AlbaHelper.build_service_structure({
+        structure = AlbaDalHelper.build_dal_structure({
             'alba_backends': [1],
             'alba_abm_clusters': [1],
             'alba_nsm_clusters': [(1, 1)],  # (<abackend_id>, <amount_of_nsm_clusters>)
@@ -98,9 +97,7 @@ class Alba(unittest.TestCase):
         """
         Validates whether the local_stack dynamic returns expected values
         """
-        Configuration.set('/ovs/alba/backends/global_gui_error_interval', 1)
-
-        structure = AlbaHelper.build_service_structure({
+        structure = AlbaDalHelper.build_dal_structure({
             'alba_backends': [1],
             'alba_abm_clusters': [1],
             'alba_nsm_clusters': [(1, 1)],  # (<abackend_id>, <amount_of_nsm_clusters>)
@@ -187,7 +184,7 @@ class Alba(unittest.TestCase):
                                                              'read': [],
                                                              'write': [],
                                                              'errors': []}]
-        structure = AlbaHelper.build_service_structure({
+        structure = AlbaDalHelper.build_dal_structure({
             'alba_disks': [(1, 1)],
             'alba_osds': [(1, 1, 1)]
         }, structure)

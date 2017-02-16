@@ -99,12 +99,16 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         if version < 3:
             request.DATA['scaling'] = 'LOCAL'
+
+        abm_cluster = request.DATA.pop('abm_cluster', None)
+        nsm_clusters = request.DATA.pop('nsm_clusters', [])
+
         serializer = FullSerializer(AlbaBackend, instance=AlbaBackend(), data=request.DATA, allow_passwords=True)
         alba_backend = serializer.deserialize()
         alba_backend.save()
         alba_backend.backend.status = 'INSTALLING'
         alba_backend.backend.save()
-        AlbaController.add_cluster.delay(alba_backend.guid)
+        AlbaController.add_cluster.delay(alba_backend.guid, abm_cluster, nsm_clusters)
         return alba_backend
 
     @log()
