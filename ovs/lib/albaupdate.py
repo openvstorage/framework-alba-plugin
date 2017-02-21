@@ -93,7 +93,7 @@ class AlbaUpdateController(object):
                     continue
 
                 if cluster == 'cacc':
-                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, filesystem=True, ip=client.ip)
+                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, ip=client.ip)
                 else:
                     arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
 
@@ -231,13 +231,14 @@ class AlbaUpdateController(object):
                 continue
 
             if cluster == 'cacc':
-                arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, filesystem=True, ip=System.get_my_storagerouter().ip)
+                local_ip = System.get_my_storagerouter().ip
+                arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, ip=local_ip)
             else:
+                local_ip = None
                 arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
 
             if arakoon_metadata['internal'] is True:
-                config = ArakoonClusterConfig(cluster_id=cluster_name, filesystem=(cluster == 'cacc'))
-                config.load_config(System.get_my_storagerouter().ip if cluster == 'cacc' else None)
+                config = ArakoonClusterConfig(cluster_id=cluster_name, ip=local_ip)
                 if cluster == 'ovsdb':
                     arakoon_ovs_info['down'] = len(config.nodes) < 3
                     arakoon_ovs_info['name'] = arakoon_metadata['cluster_name']
@@ -291,8 +292,7 @@ class AlbaUpdateController(object):
                     arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
                     if arakoon_metadata['internal'] is True:
                         arakoon_services.append('ovs-{0}'.format(service.name))
-                        config = ArakoonClusterConfig(cluster_id=cluster_name, filesystem=False)
-                        config.load_config()
+                        config = ArakoonClusterConfig(cluster_id=cluster_name)
                         if len(config.nodes) < 3:
                             if service.type.name == ServiceType.SERVICE_TYPES.NS_MGR:
                                 arakoon_downtime.append(['backend', service.nsm_service.nsm_cluster.alba_backend.name])
@@ -458,15 +458,13 @@ class AlbaUpdateController(object):
                 else:
                     cluster_name = ArakoonClusterConfig.get_cluster_name(ExtensionsToolbox.remove_prefix(service_name, 'ovs-arakoon-'))
                     if cluster_name == 'config':
-                        filesystem = True
-                        arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name='cacc', filesystem=True, ip=local_ip)
+                        master_ip = StorageRouterList.get_masters()[0].ip  # Any master node should be part of the internal 'cacc' cluster
+                        arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name='cacc', ip=local_ip)
                     else:
-                        filesystem = False
+                        master_ip = None
                         arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
                     if arakoon_metadata['internal'] is True:
-                        master_ip = StorageRouterList.get_masters()[0].ip  # Any master node should be part of the internal 'cacc' cluster
-                        config = ArakoonClusterConfig(cluster_id=cluster_name, filesystem=filesystem)
-                        config.load_config(ip=master_ip)
+                        config = ArakoonClusterConfig(cluster_id=cluster_name, ip=master_ip)
                         if local_ip in [node.ip for node in config.nodes]:
                             AlbaUpdateController._logger.debug('{0}: Restarting arakoon node {1}'.format(client.ip, cluster_name))
                             ArakoonInstaller.restart_node(cluster_name=cluster_name,

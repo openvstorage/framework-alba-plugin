@@ -152,8 +152,7 @@ class ALBAMigrator(object):
                 cluster_arakoon_map = {}
                 for cluster_info in abm_cluster_info + nsm_cluster_info:
                     cluster_name = cluster_info['cluster_name']
-                    arakoon_config = ArakoonClusterConfig(cluster_id=cluster_name, filesystem=False)
-                    arakoon_config.load_config()
+                    arakoon_config = ArakoonClusterConfig(cluster_id=cluster_name)
                     cluster_arakoon_map[cluster_name] = arakoon_config.export()
 
                 storagerouter_map = dict((storagerouter.machine_id, storagerouter) for storagerouter in StorageRouterList.get_storagerouters())
@@ -161,7 +160,7 @@ class ALBAMigrator(object):
                 for cluster_info in abm_cluster_info:
                     internal = cluster_info['internal']
                     cluster_name = cluster_info['cluster_name']
-                    config_location = Configuration.get_configuration_path(key=ArakoonInstaller.CONFIG_KEY.format(cluster_name))
+                    config_location = Configuration.get_configuration_path(key=ArakoonClusterConfig.CONFIG_KEY.format(cluster_name))
                     try:
                         alba_id = AlbaCLI.run(command='get-alba-id', config=config_location, named_params={'attempts': 3})['id']
                         nsm_hosts = AlbaCLI.run(command='list-nsm-hosts', config=config_location, named_params={'attempts': 3})
@@ -179,7 +178,7 @@ class ALBAMigrator(object):
                         abm_cluster = ABMCluster()
                         abm_cluster.name = cluster_name
                         abm_cluster.alba_backend = alba_backend
-                        abm_cluster.config_location = ArakoonInstaller.CONFIG_KEY.format(cluster_name)
+                        abm_cluster.config_location = ArakoonClusterConfig.CONFIG_KEY.format(cluster_name)
                         abm_cluster.save()
                     else:
                         abm_cluster = alba_backend.abm_cluster
@@ -224,7 +223,7 @@ class ALBAMigrator(object):
                         nsm_cluster.name = nsm_cluster_name
                         nsm_cluster.number = number
                         nsm_cluster.alba_backend = alba_backend
-                        nsm_cluster.config_location = ArakoonInstaller.CONFIG_KEY.format(nsm_cluster_name)
+                        nsm_cluster.config_location = ArakoonClusterConfig.CONFIG_KEY.format(nsm_cluster_name)
                         nsm_cluster.save()
 
                         # Create NSM Services
