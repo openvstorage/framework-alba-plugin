@@ -492,7 +492,7 @@ class AlbaController(object):
                             AlbaController._logger.warning('Arakoon cluster {0} has been claimed by another process, reverting...'.format(nsm_cluster))
                             for md in metadatas:
                                 ArakoonInstaller.unclaim_cluster(cluster_name=md['cluster_name'])
-                            ArakoonInstaller.delete_cluster(cluster_name=abm_cluster_name)
+                            ArakoonInstaller.unclaim_cluster(cluster_name=abm_cluster_name)
                             raise ValueError('Arakoon cluster {0} has been claimed by another process'.format(nsm_cluster))
                         metadatas.append(metadata)
                 else:
