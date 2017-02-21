@@ -59,9 +59,9 @@ class AlbaController(object):
     """
     Contains all BLL related to ALBA
     """
-    _ALBA_VERSION_GET = 'alba=`alba version --terse`'
-    ABM_PLUGIN = {'albamgr_plugin': _ALBA_VERSION_GET}
-    NSM_PLUGIN = {'nsm_host_plugin': _ALBA_VERSION_GET}
+    ABM_PLUGIN = 'albamgr_plugin'
+    NSM_PLUGIN = 'nsm_host_plugin'
+    ALBA_VERSION_GET = 'alba=`alba version --terse`'
 
     ARAKOON_PLUGIN_DIR = '/usr/lib/alba'
     CONFIG_ALBA_BACKEND_KEY = '/ovs/alba/backends/{0}'
@@ -404,16 +404,23 @@ class AlbaController(object):
                                              nsm_clusters=nsm_clusters)
 
     @staticmethod
-    @add_hooks('arakoon', 'link_plugins')
-    def _link_plugins(**kwargs):
+    def _link_plugins(client, data_dir, plugins, cluster_name):
         """
         Create symlinks for the Arakoon plugins to the correct (mounted) partition
+        :param client: SSHClient to execute this on
+        :type client: SSHClient
+        :param data_dir: Directory on which the DB partition resides
+        :type data_dir: str
+        :param plugins: Plugins to symlink
+        :type plugins: list
+        :param cluster_name: Name of the Arakoon cluster
+        :type cluster_name: str
+        :return: None
+        :rtype: NoneType
         """
-        client = kwargs['client']
-        data_dir = kwargs['data_dir']
         data_dir = '' if data_dir == '/' else data_dir
-        for plugin in kwargs['plugins']:
-            client.run(['ln', '-s', '{0}/{1}.cmxs'.format(AlbaController.ARAKOON_PLUGIN_DIR, plugin), '{0}/arakoon/{1}/db'.format(data_dir, kwargs['cluster_name'])])
+        for plugin in plugins:
+            client.run(['ln', '-s', '{0}/{1}.cmxs'.format(AlbaController.ARAKOON_PLUGIN_DIR, plugin), '{0}/arakoon/{1}/db'.format(data_dir, cluster_name)])
 
     @staticmethod
     @ensure_single(task_name='alba.alba_arakoon_checkup')
@@ -451,9 +458,13 @@ class AlbaController(object):
                                                              cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM,
                                                              ip=storagerouter.ip,
                                                              base_dir=partition.folder,
-                                                             plugins=AlbaController.ABM_PLUGIN)
+                                                             plugins={AlbaController.ABM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                     ports = result['ports']
                     metadata = result['metadata']
+                    AlbaController._link_plugins(client=clients[storagerouter],
+                                                 data_dir=partition.folder,
+                                                 plugins=[AlbaController.ABM_PLUGIN],
+                                                 cluster_name=abm_cluster_name)
                     ArakoonInstaller.start_cluster(metadata=metadata)
                 else:
                     ports = []
@@ -497,9 +508,13 @@ class AlbaController(object):
                                                                  cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                                  ip=storagerouter.ip,
                                                                  base_dir=partition.folder,
-                                                                 plugins=AlbaController.NSM_PLUGIN)
+                                                                 plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                         ports = result['ports']
                         metadata = result['metadata']
+                        AlbaController._link_plugins(client=clients[storagerouter],
+                                                     data_dir=partition.folder,
+                                                     plugins=[AlbaController.NSM_PLUGIN],
+                                                     cluster_name=nsm_cluster_name)
                         ArakoonInstaller.start_cluster(metadata=metadata)
                     metadatas = [metadata]
 
@@ -529,8 +544,11 @@ class AlbaController(object):
                         continue
                     result = ArakoonInstaller.extend_cluster(cluster_name=abm_cluster_name,
                                                              new_ip=storagerouter.ip,
-                                                             base_dir=partition.folder,
-                                                             plugins=AlbaController.ABM_PLUGIN)
+                                                             base_dir=partition.folder)
+                    AlbaController._link_plugins(client=clients[storagerouter],
+                                                 data_dir=partition.folder,
+                                                 plugins=[AlbaController.ABM_PLUGIN],
+                                                 cluster_name=abm_cluster_name)
                     AlbaController._model_service(alba_backend=alba_backend,
                                                   cluster_name=abm_cluster_name,
                                                   ports=result['ports'],
@@ -862,8 +880,12 @@ class AlbaController(object):
                                 partition = DiskPartition(candidate_sr.partition_config[DiskPartition.ROLES.DB][0])
                                 nsm_result = ArakoonInstaller.extend_cluster(cluster_name=nsm_cluster.name,
                                                                              new_ip=candidate_sr.ip,
-                                                                             base_dir=partition.folder,
-                                                                             plugins=AlbaController.NSM_PLUGIN)
+                                                                             base_dir=partition.folder)
+                                AlbaController._logger.debug('  Linking plugin')
+                                AlbaController._link_plugins(client=clients[candidate_sr],
+                                                             data_dir=partition.folder,
+                                                             plugins=[AlbaController.NSM_PLUGIN],
+                                                             cluster_name=nsm_cluster.name)
                                 AlbaController._logger.debug('  Model services')
                                 AlbaController._model_service(alba_backend=alba_backend,
                                                               cluster_name=nsm_cluster.name,
@@ -947,12 +969,15 @@ class AlbaController(object):
                                                                              cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                                              ip=storagerouter.ip,
                                                                              base_dir=partition.folder,
-                                                                             plugins=AlbaController.NSM_PLUGIN)
+                                                                             plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                             else:
                                 nsm_result = ArakoonInstaller.extend_cluster(cluster_name=nsm_cluster_name,
                                                                              new_ip=storagerouter.ip,
-                                                                             base_dir=partition.folder,
-                                                                             plugins=AlbaController.NSM_PLUGIN)
+                                                                             base_dir=partition.folder)
+                            AlbaController._link_plugins(client=clients[storagerouter],
+                                                         data_dir=partition.folder,
+                                                         plugins=[AlbaController.NSM_PLUGIN],
+                                                         cluster_name=nsm_cluster_name)
                             AlbaController._model_service(alba_backend=alba_backend,
                                                           cluster_name=nsm_cluster_name,
                                                           ports=nsm_result['ports'],

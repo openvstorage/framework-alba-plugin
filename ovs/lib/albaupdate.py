@@ -238,7 +238,7 @@ class AlbaUpdateController(object):
                 arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
 
             if arakoon_metadata['internal'] is True:
-                config = ArakoonClusterConfig(cluster_id=cluster_name, ip=local_ip)
+                config = ArakoonClusterConfig(cluster_id=cluster_name, source_ip=local_ip)
                 if cluster == 'ovsdb':
                     arakoon_ovs_info['down'] = len(config.nodes) < 3
                     arakoon_ovs_info['name'] = arakoon_metadata['cluster_name']
@@ -450,7 +450,6 @@ class AlbaUpdateController(object):
 
         # Restart Arakoon (and other services)
         if services_to_restart:
-            local_ip = System.get_my_storagerouter().ip
             AlbaUpdateController._logger.debug('{0}: Executing hook {1}'.format(client.ip, inspect.currentframe().f_code.co_name))
             for service_name in sorted(services_to_restart):
                 if not service_name.startswith('ovs-arakoon-'):
@@ -459,15 +458,15 @@ class AlbaUpdateController(object):
                     cluster_name = ArakoonClusterConfig.get_cluster_name(ExtensionsToolbox.remove_prefix(service_name, 'ovs-arakoon-'))
                     if cluster_name == 'config':
                         master_ip = StorageRouterList.get_masters()[0].ip  # Any master node should be part of the internal 'cacc' cluster
-                        arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name='cacc', ip=local_ip)
+                        arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name='cacc', ip=master_ip)
                     else:
                         master_ip = None
                         arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
                     if arakoon_metadata['internal'] is True:
-                        config = ArakoonClusterConfig(cluster_id=cluster_name, ip=master_ip)
-                        if local_ip in [node.ip for node in config.nodes]:
+                        config = ArakoonClusterConfig(cluster_id=cluster_name, source_ip=master_ip)
+                        if client.ip in [node.ip for node in config.nodes]:
                             AlbaUpdateController._logger.debug('{0}: Restarting arakoon node {1}'.format(client.ip, cluster_name))
-                            ArakoonInstaller.restart_node(cluster_name=cluster_name,
+                            ArakoonInstaller.restart_node(metadata=arakoon_metadata,
                                                           client=client)
             AlbaUpdateController._logger.debug('{0}: Executed hook {1}'.format(client.ip, inspect.currentframe().f_code.co_name))
 
