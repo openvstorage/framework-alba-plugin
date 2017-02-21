@@ -87,21 +87,24 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_object(AlbaBackend, mode='created')
     @load()
-    def create(self, request, version):
+    def create(self, request, version, abm_cluster=None, nsm_clusters=None):
         """
         Creates an AlbaBackend
         :param request: Data regarding ALBA backend to create
         :type request: request
         :param version: version requested by the client
         :type version: int
+        :param abm_cluster: ABM cluster to claim for this new ALBA Backend
+        :type abm_cluster: str
+        :param nsm_clusters: NSM clusters to claim for this new ALBA Backend
+        :type nsm_clusters: list
         :return: The newly created ALBA Backend object
         :rtype: ovs.dal.hybrids.albabackend.AlbaBackend
         """
         if version < 3:
             request.DATA['scaling'] = 'LOCAL'
-
-        abm_cluster = request.DATA.pop('abm_cluster', None)
-        nsm_clusters = request.DATA.pop('nsm_clusters', [])
+        if nsm_clusters is None:
+            nsm_clusters = []
 
         serializer = FullSerializer(AlbaBackend, instance=AlbaBackend(), data=request.DATA, allow_passwords=True)
         alba_backend = serializer.deserialize()

@@ -131,7 +131,7 @@ class AlbaGeneric(unittest.TestCase):
         self.assertEqual(first=raise_info.exception.message,
                          second='Could not find an Arakoon cluster with name: non-existing-abm-cluster')
 
-
+        # Recreate ALBA Backend with Arakoon clusters
         AlbaDalHelper.setup()  # Clear everything
         ovs_structure = DalHelper.build_dal_structure(structure={'storagerouters': [1]})
         alba_structure = AlbaDalHelper.build_dal_structure(structure={'alba_backends': [1]})
@@ -149,13 +149,8 @@ class AlbaGeneric(unittest.TestCase):
                                                    ip=sr_1.ip,
                                                    base_dir=DalHelper.CLUSTER_DIR.format(cluster_name),
                                                    internal=False)
-            ArakoonInstaller.claim_cluster(cluster_name=cluster_name,
-                                           master_ip=sr_1.ip,
-                                           filesystem=False,
-                                           metadata=info['metadata'])
-            ArakoonInstaller.unclaim_cluster(cluster_name=cluster_name,
-                                             master_ip=sr_1.ip,
-                                             filesystem=False)
+            ArakoonInstaller.start_cluster(metadata=info['metadata'])
+            ArakoonInstaller.unclaim_cluster(cluster_name=cluster_name)
         AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=ab_1.guid, nsm_clusters=['manual-nsm-1', 'manual-nsm-3'], abm_cluster='manual-abm-2')
 
         # Validate the correct clusters have been claimed by the manual checkup
