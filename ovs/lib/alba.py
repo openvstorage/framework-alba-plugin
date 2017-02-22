@@ -668,7 +668,6 @@ class AlbaController(object):
             if complete_removal is True:
                 from ovs.lib.albanode import AlbaNodeController
                 AlbaNodeController.remove_node(node_guid=storage_router.alba_node.guid)
-                AlbaController.checkup_maintenance_agents()
             else:
                 alba_node.storagerouter = None
                 alba_node.save()
