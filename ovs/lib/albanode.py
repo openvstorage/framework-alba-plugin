@@ -54,6 +54,7 @@ class AlbaNodeController(object):
         :param node_id: ID of the ALBA node
         :type node_id: str
         :return: None
+        :rtype: NoneType
         """
         node = AlbaNodeList.get_albanode_by_node_id(node_id)
         if node is None:
@@ -83,6 +84,7 @@ class AlbaNodeController(object):
         :param node_guid: Guid of the ALBA node to remove
         :type node_guid: str
         :return: None
+        :rtype: NoneType
         """
         node = AlbaNode(node_guid)
         for disk in node.disks:
@@ -114,6 +116,7 @@ class AlbaNodeController(object):
         :param new_node_id: ID of the new ALBA node
         :type new_node_id: str
         :return: None
+        :rtype: NoneType
         """
         AlbaNodeController.remove_node(node_guid=old_node_guid)
         AlbaNodeController.register(node_id=new_node_id)
@@ -127,7 +130,7 @@ class AlbaNodeController(object):
         :type node_guid: str
         :param disks: Disks to initialize  (key: device_alias, value: amount of ASDs to deploy)
         :type disks: dict
-        :return: Dict of all failures with as key the Diskname, and as value the error
+        :return: Dict of all failures with as key the disk name, and as value the error
         :rtype: dict
         """
         node = AlbaNode(node_guid)
@@ -190,19 +193,20 @@ class AlbaNodeController(object):
         :param device_alias: Alias of the device to remove  (eg: /dev/disk/by-path/pci-0000:03:00.0-sas-0x5000c29f4cf04566-lun-0)
         :type device_alias: str
         :return: None
+        :rtype: NoneType
         """
         asds = {}
         node = AlbaNode(node_guid)
         node_id = node.node_id
         device_id = device_alias.split('/')[-1]
-        offline_node = False
+        online_node = True
 
         # Verify client connectivity
         try:
             _ = node.client.get_disks()
         except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
             AlbaNodeController._logger.warning('Could not connect to node {0} to validate disks'.format(node.guid))
-            offline_node = True
+            online_node = False
 
         # Retrieve ASD information for the ALBA Disk
         for backend in AlbaBackendList.get_albabackends():
@@ -210,7 +214,7 @@ class AlbaNodeController(object):
             if node_id in local_stack and device_id in local_stack[node_id]:
                 asds.update(local_stack[node_id][device_id]['asds'])
         for asd_info in asds.values():
-            if (offline_node is False and asd_info.get('status') != 'available') or (offline_node is True and asd_info.get('status_detail') == 'nodedown'):
+            if (online_node is True and asd_info.get('status') != 'available') or (online_node is False and asd_info.get('status_detail') == 'nodedown'):
                 AlbaNodeController._logger.error('Disk {0} has still non-available ASDs on node {1}'.format(device_alias, node.ip))
                 raise RuntimeError('Disk {0} on ALBA node {1} has still some non-available ASDs'.format(device_alias, node_id))
 
@@ -222,7 +226,7 @@ class AlbaNodeController(object):
                 break
 
         # Remove the ALBA Disk making use of the ASD Manager Client
-        if offline_node is False:
+        if online_node is True:
             partition_aliases = None if disk_to_clear is None or len(disk_to_clear.partitions) == 0 else disk_to_clear.partitions[0].aliases
             result = node.client.remove_disk(disk_id=device_id, partition_aliases=partition_aliases)
             if result['_success'] is False:
@@ -240,7 +244,7 @@ class AlbaNodeController(object):
                 partition.mountpoint = None
                 partition.save()
         node.invalidate_dynamics()
-        if node.storagerouter is not None:
+        if node.storagerouter is not None and online_node is True:
             DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
 
     @staticmethod
@@ -258,6 +262,7 @@ class AlbaNodeController(object):
         :return: Aliases of the disk on which the ASD was removed
         :rtype: list
         """
+        # Retrieve corresponding OSD in model
         node = AlbaNode(node_guid)
         AlbaNodeController._logger.debug('Removing ASD {0} at node {1}'.format(asd_id, node.ip))
         model_osd = None
@@ -273,18 +278,20 @@ class AlbaNodeController(object):
         else:
             alba_backend = None
 
-        asds = {}
+        # Retrieve corresponding alias for ASD
+        online_node = True
+        partition_alias = None
         try:
-            asds = node.client.get_asds()
+            for alias, asd_ids in node.client.get_asds().iteritems():
+                if asd_id in asd_ids:
+                    partition_alias = alias
+                    break
         except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
             AlbaNodeController._logger.warning('Could not connect to node {0} to validate ASD'.format(node.guid))
-        partition_alias = None
-        for alias, asd_ids in asds.iteritems():
-            if asd_id in asd_ids:
-                partition_alias = alias
-                break
+            online_node = False
 
-        if alba_backend is not None:
+        # Calculate safety and purge the ASD
+        if alba_backend is not None and online_node is True:
             if expected_safety is None:
                 AlbaNodeController._logger.warning('Skipping safety check for ASD {0} on backend {1} - this is dangerous'.format(asd_id, alba_backend.guid))
             else:
@@ -298,9 +305,12 @@ class AlbaNodeController(object):
             AlbaNodeController._logger.debug('Purging ASD {0} on backend {1}'.format(asd_id, alba_backend.guid))
             AlbaController.remove_units(alba_backend_guid=alba_backend.guid,
                                         osd_ids=[asd_id])
+        elif alba_backend is not None and online_node is False:
+            AlbaNodeController._logger.warning('Node {0} with IP {1} is offline. Cannot purge ASD {2}'.format(node.guid, node.ip, asd_id))
         else:
             AlbaNodeController._logger.warning('Could not match ASD {0} to any backend. Cannot purge'.format(asd_id))
 
+        # Delete the ASD
         disk_data = None
         if partition_alias is not None:
             AlbaNodeController._logger.debug('Removing ASD {0} from disk {1}'.format(asd_id, partition_alias))
@@ -316,6 +326,7 @@ class AlbaNodeController(object):
         else:
             AlbaNodeController._logger.warning('Could not remove ASD from remote node (node down)'.format(asd_id))
 
+        # Clean configuration management and model
         if Configuration.exists(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True):
             Configuration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(asd_id), raw=True)
 
@@ -324,7 +335,7 @@ class AlbaNodeController(object):
         if alba_backend is not None:
             alba_backend.invalidate_dynamics()
             alba_backend.backend.invalidate_dynamics()
-        if node.storagerouter is not None:
+        if node.storagerouter is not None and online_node is True:
             DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
 
         return [] if disk_data is None else disk_data.get('aliases', [])
@@ -341,6 +352,7 @@ class AlbaNodeController(object):
         :param expected_safety: Expected safety after having reset the disk
         :type expected_safety: dict
         :return: None
+        :rtype: NoneType
         """
         node = AlbaNode(node_guid)
         disk_aliases = AlbaNodeController.remove_asd(node_guid=node_guid,
@@ -366,6 +378,7 @@ class AlbaNodeController(object):
         :param asd_id: ID of the ASD to restart
         :type asd_id: str
         :return: None
+        :rtype: NoneType
         """
         node = AlbaNode(node_guid)
         try:
@@ -406,6 +419,7 @@ class AlbaNodeController(object):
         :param device_alias: Alias of the device to restart  (eg: /dev/disk/by-path/pci-0000:03:00.0-sas-0x5000c29f4cf04566-lun-0)
         :type device_alias: str
         :return: None
+        :rtype: NoneType
         """
         node = AlbaNode(node_guid)
         device_id = device_alias.split('/')[-1]
@@ -433,6 +447,7 @@ class AlbaNodeController(object):
         :param kwargs: Kwargs containing information regarding the node
         :type kwargs: dict
         :return: None
+        :rtype: NoneType
         """
         _ = kwargs
         if Configuration.dir_exists('/ovs/alba/asdnodes'):
