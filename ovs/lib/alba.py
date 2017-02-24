@@ -367,7 +367,7 @@ class AlbaController(object):
         return config.export()
 
     @staticmethod
-    @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=Schedule(minute='30', hour='*'))
+    @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=Schedule(minute='30', hour='*'), bind=True)
     def scheduled_alba_arakoon_checkup():
         """
         Makes sure the volumedriver Arakoon is on all available master nodes
@@ -376,7 +376,7 @@ class AlbaController(object):
         AlbaController._alba_arakoon_checkup()
 
     @staticmethod
-    @celery.task(name='alba.manual_alba_arakoon_checkup')
+    @celery.task(name='alba.manual_alba_arakoon_checkup', bind=True)
     def manual_alba_arakoon_checkup(alba_backend_guid, nsm_clusters, abm_cluster=None):
         """
         Creates a new Arakoon cluster if required and extends cluster if possible on all available master nodes
@@ -741,7 +741,7 @@ class AlbaController(object):
                 'question': '\n'.join(sorted(messages)) + '\nAre you sure you want to continue?'}
 
     @staticmethod
-    @celery.task(name='alba.nsm_checkup', schedule=Schedule(minute='45', hour='*'))
+    @celery.task(name='alba.nsm_checkup', schedule=Schedule(minute='45', hour='*'), bind=True)
     @ensure_single(task_name='alba.nsm_checkup', mode='CHAINED')
     def nsm_checkup(allow_offline=False, alba_backend_guid=None, min_nsms=1, additional_nsms=None):
         """
@@ -1314,7 +1314,7 @@ class AlbaController(object):
         parent.backend.invalidate_dynamics()
 
     @staticmethod
-    @celery.task(name='alba.checkup_maintenance_agents', schedule=Schedule(minute='0', hour='*'))
+    @celery.task(name='alba.checkup_maintenance_agents', schedule=Schedule(minute='0', hour='*'), bind=True)
     @ensure_single(task_name='alba.checkup_maintenance_agents', mode='CHAINED')
     def checkup_maintenance_agents():
         """

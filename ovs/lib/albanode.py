@@ -183,7 +183,7 @@ class AlbaNodeController(object):
         return failures
 
     @staticmethod
-    @celery.task(name='albanode.remove_disk')
+    @celery.task(name='albanode.remove_disk', bind=True)
     @ensure_single(task_name='albanode.remove_disk', mode='CHAINED')
     def remove_disk(node_guid, device_alias):
         """
@@ -209,8 +209,9 @@ class AlbaNodeController(object):
             online_node = False
 
         # Retrieve ASD information for the ALBA Disk
-        for backend in AlbaBackendList.get_albabackends():
-            local_stack = backend.local_stack
+        all_alba_backends = AlbaBackendList.get_albabackends()
+        for alba_backend in all_alba_backends:
+            local_stack = alba_backend.local_stack
             if node_id in local_stack and device_id in local_stack[node_id]:
                 asds.update(local_stack[node_id][device_id]['asds'])
         for asd_info in asds.values():
@@ -243,12 +244,14 @@ class AlbaNodeController(object):
                 partition.roles = []
                 partition.mountpoint = None
                 partition.save()
+        for alba_backend in all_alba_backends:
+            alba_backend.invalidate_dynamics('local_stack')
         node.invalidate_dynamics()
         if node.storagerouter is not None and online_node is True:
             DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
 
     @staticmethod
-    @celery.task(name='albanode.remove_asd')
+    @celery.task(name='albanode.remove_asd', bind=True)
     @ensure_single(task_name='albanode.remove_asd', mode='CHAINED')
     def remove_asd(node_guid, asd_id, expected_safety):
         """
