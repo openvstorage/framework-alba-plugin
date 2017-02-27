@@ -27,7 +27,6 @@ import datetime
 import requests
 from ConfigParser import RawConfigParser
 from StringIO import StringIO
-from ovs.celery_run import celery
 from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
@@ -50,7 +49,7 @@ from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, Ara
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.plugins.albacli import AlbaCLI
-from ovs.lib.helpers.decorators import add_hooks, ensure_single
+from ovs.lib.helpers.decorators import add_hooks, ovs_task
 from ovs.lib.helpers.toolbox import Schedule, Toolbox
 from ovs.log.log_handler import LogHandler
 
@@ -71,7 +70,7 @@ class AlbaController(object):
     _logger = LogHandler.get('lib', name='alba')
 
     @staticmethod
-    @celery.task(name='alba.add_units')
+    @ovs_task(name='alba.add_units')
     def add_units(alba_backend_guid, osds, metadata=None):
         """
         Adds storage units to an Alba Backend
@@ -140,7 +139,7 @@ class AlbaController(object):
         return unclaimed_osds
 
     @staticmethod
-    @celery.task(name='alba.remove_units')
+    @ovs_task(name='alba.remove_units')
     def remove_units(alba_backend_guid, osd_ids):
         """
         Removes storage units from an Alba Backend
@@ -171,7 +170,7 @@ class AlbaController(object):
             raise RuntimeError('Error processing one or more OSDs: {0}'.format(failed_osds))
 
     @staticmethod
-    @celery.task(name='alba.add_cluster')
+    @ovs_task(name='alba.add_cluster')
     def add_cluster(alba_backend_guid, abm_cluster=None, nsm_clusters=None):
         """
         Adds an Arakoon cluster to service Backend
@@ -230,7 +229,7 @@ class AlbaController(object):
         alba_backend.invalidate_dynamics('live_status')
 
     @staticmethod
-    @celery.task(name='alba.remove_cluster')
+    @ovs_task(name='alba.remove_cluster')
     def remove_cluster(alba_backend_guid):
         """
         Removes an Alba Backend/cluster
@@ -337,7 +336,7 @@ class AlbaController(object):
         backend.delete()
 
     @staticmethod
-    @celery.task(name='alba.get_arakoon_config')
+    @ovs_task(name='alba.get_arakoon_config')
     def get_arakoon_config(alba_backend_guid):
         """
         Gets the Arakoon configuration for an Alba Backend
@@ -367,7 +366,7 @@ class AlbaController(object):
         return config.export()
 
     @staticmethod
-    @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=Schedule(minute='30', hour='*'), bind=True)
+    @ovs_task(name='alba.scheduled_alba_arakoon_checkup', schedule=Schedule(minute='30', hour='*'), ensure_single_info={'mode': 'DEFAULT'})
     def scheduled_alba_arakoon_checkup():
         """
         Makes sure the volumedriver Arakoon is on all available master nodes
@@ -376,7 +375,7 @@ class AlbaController(object):
         AlbaController._alba_arakoon_checkup()
 
     @staticmethod
-    @celery.task(name='alba.manual_alba_arakoon_checkup', bind=True)
+    @ovs_task(name='alba.manual_alba_arakoon_checkup', ensure_single_info={'mode': 'DEFAULT'})
     def manual_alba_arakoon_checkup(alba_backend_guid, nsm_clusters, abm_cluster=None):
         """
         Creates a new Arakoon cluster if required and extends cluster if possible on all available master nodes
@@ -423,7 +422,6 @@ class AlbaController(object):
             client.run(['ln', '-s', '{0}/{1}.cmxs'.format(AlbaController.ARAKOON_PLUGIN_DIR, plugin), '{0}/arakoon/{1}/db'.format(data_dir, cluster_name)])
 
     @staticmethod
-    @ensure_single(task_name='alba.alba_arakoon_checkup')
     def _alba_arakoon_checkup(alba_backend_guid=None, abm_cluster=None, nsm_clusters=None):
         slaves = StorageRouterList.get_slaves()
         masters = StorageRouterList.get_masters()
@@ -741,8 +739,7 @@ class AlbaController(object):
                 'question': '\n'.join(sorted(messages)) + '\nAre you sure you want to continue?'}
 
     @staticmethod
-    @celery.task(name='alba.nsm_checkup', schedule=Schedule(minute='45', hour='*'), bind=True)
-    @ensure_single(task_name='alba.nsm_checkup', mode='CHAINED')
+    @ovs_task(name='alba.nsm_checkup', schedule=Schedule(minute='45', hour='*'), ensure_single_info={'mode': 'CHAINED'})
     def nsm_checkup(allow_offline=False, alba_backend_guid=None, min_nsms=1, additional_nsms=None):
         """
         Validates the current NSM setup/configuration and takes actions where required.
@@ -999,7 +996,7 @@ class AlbaController(object):
             raise RuntimeError('Checking NSM failed for ALBA backends: {0}'.format(', '.join(failed_backends)))
 
     @staticmethod
-    @celery.task(name='alba.calculate_safety')
+    @ovs_task(name='alba.calculate_safety')
     def calculate_safety(alba_backend_guid, removal_osd_ids):
         """
         Calculates/loads the safety when a certain set of disks are removed
@@ -1210,7 +1207,7 @@ class AlbaController(object):
                 Configuration.set(key.format(machine_id), 9)
 
     @staticmethod
-    @celery.task(name='alba.link_alba_backends')
+    @ovs_task(name='alba.link_alba_backends')
     def link_alba_backends(alba_backend_guid, metadata):
         """
         Link a GLOBAL ALBA Backend to a LOCAL or another GLOBAL ALBA Backend
@@ -1290,7 +1287,7 @@ class AlbaController(object):
         return True
 
     @staticmethod
-    @celery.task(name='alba.unlink_alba_backends')
+    @ovs_task(name='alba.unlink_alba_backends')
     def unlink_alba_backends(target_guid, linked_guid):
         """
         Unlink a LOCAL or GLOBAL ALBA Backend from a GLOBAL ALBA Backend
@@ -1314,8 +1311,7 @@ class AlbaController(object):
         parent.backend.invalidate_dynamics()
 
     @staticmethod
-    @celery.task(name='alba.checkup_maintenance_agents', schedule=Schedule(minute='0', hour='*'), bind=True)
-    @ensure_single(task_name='alba.checkup_maintenance_agents', mode='CHAINED')
+    @ovs_task(name='alba.checkup_maintenance_agents', schedule=Schedule(minute='0', hour='*'), ensure_single_info={'mode': 'CHAINED'})
     def checkup_maintenance_agents():
         """
         Check if requested nr of maintenance agents / Backend is actually present
@@ -1493,7 +1489,7 @@ class AlbaController(object):
             AlbaController._logger.info('Finished service work log for {0}'.format(name))
 
     @staticmethod
-    @celery.task(name='alba.verify_namespaces', schedule=Schedule(minute='0', hour='0', day_of_month='1', month_of_year='*/3'))
+    @ovs_task(name='alba.verify_namespaces', schedule=Schedule(minute='0', hour='0', day_of_month='1', month_of_year='*/3'))
     def verify_namespaces():
         """
         Verify namespaces for all backends
