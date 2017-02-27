@@ -265,6 +265,8 @@ class AlbaNodeController(object):
         :return: Aliases of the disk on which the ASD was removed
         :rtype: list
         """
+        from ovs.extensions.generic.sshclient import UnableToConnectException
+
         # Retrieve corresponding OSD in model
         node = AlbaNode(node_guid)
         AlbaNodeController._logger.debug('Removing ASD {0} at node {1}'.format(asd_id, node.ip))
@@ -282,7 +284,6 @@ class AlbaNodeController(object):
             alba_backend = None
 
         # Retrieve corresponding alias for ASD
-        online_node = True
         partition_alias = None
         try:
             for alias, asd_ids in node.client.get_asds().iteritems():
@@ -291,10 +292,9 @@ class AlbaNodeController(object):
                     break
         except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
             AlbaNodeController._logger.warning('Could not connect to node {0} to validate ASD'.format(node.guid))
-            online_node = False
 
         # Calculate safety and purge the ASD
-        if alba_backend is not None and online_node is True:
+        if alba_backend is not None:
             if expected_safety is None:
                 AlbaNodeController._logger.warning('Skipping safety check for ASD {0} on backend {1} - this is dangerous'.format(asd_id, alba_backend.guid))
             else:
@@ -308,8 +308,6 @@ class AlbaNodeController(object):
             AlbaNodeController._logger.debug('Purging ASD {0} on backend {1}'.format(asd_id, alba_backend.guid))
             AlbaController.remove_units(alba_backend_guid=alba_backend.guid,
                                         osd_ids=[asd_id])
-        elif alba_backend is not None and online_node is False:
-            AlbaNodeController._logger.warning('Node {0} with IP {1} is offline. Cannot purge ASD {2}'.format(node.guid, node.ip, asd_id))
         else:
             AlbaNodeController._logger.warning('Could not match ASD {0} to any backend. Cannot purge'.format(asd_id))
 
@@ -338,8 +336,11 @@ class AlbaNodeController(object):
         if alba_backend is not None:
             alba_backend.invalidate_dynamics()
             alba_backend.backend.invalidate_dynamics()
-        if node.storagerouter is not None and online_node is True:
-            DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
+        if node.storagerouter is not None:
+            try:
+                DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
+            except UnableToConnectException:
+                AlbaNodeController._logger.warning('Skipping disk sync since StorageRouter {0} is offline'.format(node.storagerouter.name))
 
         return [] if disk_data is None else disk_data.get('aliases', [])
 
