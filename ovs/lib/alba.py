@@ -366,7 +366,9 @@ class AlbaController(object):
         return config.export()
 
     @staticmethod
-    @ovs_task(name='alba.scheduled_alba_arakoon_checkup', schedule=Schedule(minute='30', hour='*'), ensure_single_info={'mode': 'DEFAULT'})
+    @ovs_task(name='alba.scheduled_alba_arakoon_checkup',
+              schedule=Schedule(minute='30', hour='*'),
+              ensure_single_info={'mode': 'DEFAULT', 'extra_task_names': ['alba.manual_alba_arakoon_checkup']})
     def scheduled_alba_arakoon_checkup():
         """
         Makes sure the volumedriver Arakoon is on all available master nodes
@@ -375,7 +377,8 @@ class AlbaController(object):
         AlbaController._alba_arakoon_checkup()
 
     @staticmethod
-    @ovs_task(name='alba.manual_alba_arakoon_checkup', ensure_single_info={'mode': 'DEFAULT'})
+    @ovs_task(name='alba.manual_alba_arakoon_checkup',
+              ensure_single_info={'mode': 'DEFAULT', 'extra_task_names': ['alba.scheduled_alba_arakoon_checkup']})
     def manual_alba_arakoon_checkup(alba_backend_guid, nsm_clusters, abm_cluster=None):
         """
         Creates a new Arakoon cluster if required and extends cluster if possible on all available master nodes
