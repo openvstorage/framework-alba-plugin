@@ -23,10 +23,10 @@ import re
 import json
 import random
 import tempfile
-from ovs.celery_run import celery
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.albacli import AlbaCLI
+from ovs.lib.helpers.decorators import ovs_task
 from ovs.lib.helpers.toolbox import Toolbox
 from ovs.log.log_handler import LogHandler
 
@@ -38,7 +38,7 @@ class AlbaPresetController(object):
     _logger = LogHandler.get('lib', name='albapreset')
 
     @staticmethod
-    @celery.task(name='alba.add_preset')
+    @ovs_task(name='alba.add_preset')
     def add_preset(alba_backend_guid, name, compression, policies, encryption, fragment_size=None):
         """
         Adds a preset to Alba
@@ -118,7 +118,7 @@ class AlbaPresetController(object):
                 os.remove(filename)
 
     @staticmethod
-    @celery.task(name='albapreset.delete_preset')
+    @ovs_task(name='albapreset.delete_preset')
     def delete_preset(alba_backend_guid, name):
         """
         Deletes a preset from the Alba backend
@@ -145,7 +145,7 @@ class AlbaPresetController(object):
         alba_backend.invalidate_dynamics()
 
     @staticmethod
-    @celery.task(name='albapreset.update_preset')
+    @ovs_task(name='albapreset.update_preset')
     def update_preset(alba_backend_guid, name, policies):
         """
         Updates policies for an existing preset to Alba

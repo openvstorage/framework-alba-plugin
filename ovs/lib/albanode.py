@@ -19,9 +19,8 @@ AlbaNodeController module
 """
 
 import requests
-from ovs.celery_run import celery
-from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albadisk import AlbaDisk
+from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
@@ -31,11 +30,10 @@ from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient
 from ovs.extensions.plugins.asdmanager import InvalidCredentialsError
-from ovs.log.log_handler import LogHandler
 from ovs.lib.alba import AlbaController
 from ovs.lib.disk import DiskController
-from ovs.lib.helpers.decorators import add_hooks
-from ovs.lib.helpers.decorators import ensure_single
+from ovs.lib.helpers.decorators import add_hooks, ovs_task
+from ovs.log.log_handler import LogHandler
 
 
 class AlbaNodeController(object):
@@ -47,7 +45,7 @@ class AlbaNodeController(object):
     ASD_CONFIG = '{0}/config'.format(ASD_CONFIG_DIR)
 
     @staticmethod
-    @celery.task(name='albanode.register')
+    @ovs_task(name='albanode.register')
     def register(node_id):
         """
         Adds a Node with a given node_id to the model
@@ -77,7 +75,7 @@ class AlbaNodeController(object):
         AlbaController.checkup_maintenance_agents.delay()
 
     @staticmethod
-    @celery.task(name='albanode.remove_node')
+    @ovs_task(name='albanode.remove_node')
     def remove_node(node_guid):
         """
         Removes an ALBA node
@@ -107,7 +105,7 @@ class AlbaNodeController(object):
         AlbaController.checkup_maintenance_agents.delay()
 
     @staticmethod
-    @celery.task(name='albanode.replace_node')
+    @ovs_task(name='albanode.replace_node')
     def replace_node(old_node_guid, new_node_id):
         """
         Replace an ALBA node
@@ -122,7 +120,7 @@ class AlbaNodeController(object):
         AlbaNodeController.register(node_id=new_node_id)
 
     @staticmethod
-    @celery.task(name='albanode.initialize_disk')
+    @ovs_task(name='albanode.initialize_disk')
     def initialize_disks(node_guid, disks):
         """
         Initializes 1 or multiple disks
@@ -183,8 +181,7 @@ class AlbaNodeController(object):
         return failures
 
     @staticmethod
-    @celery.task(name='albanode.remove_disk')
-    @ensure_single(task_name='albanode.remove_disk', mode='CHAINED')
+    @ovs_task(name='albanode.remove_disk', ensure_single_info={'mode': 'CHAINED'})
     def remove_disk(node_guid, device_alias):
         """
         Removes a disk
@@ -209,8 +206,9 @@ class AlbaNodeController(object):
             online_node = False
 
         # Retrieve ASD information for the ALBA Disk
-        for backend in AlbaBackendList.get_albabackends():
-            local_stack = backend.local_stack
+        all_alba_backends = AlbaBackendList.get_albabackends()
+        for alba_backend in all_alba_backends:
+            local_stack = alba_backend.local_stack
             if node_id in local_stack and device_id in local_stack[node_id]:
                 asds.update(local_stack[node_id][device_id]['asds'])
         for asd_info in asds.values():
@@ -243,13 +241,14 @@ class AlbaNodeController(object):
                 partition.roles = []
                 partition.mountpoint = None
                 partition.save()
+        for alba_backend in all_alba_backends:
+            alba_backend.invalidate_dynamics('local_stack')
         node.invalidate_dynamics()
         if node.storagerouter is not None and online_node is True:
             DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
 
     @staticmethod
-    @celery.task(name='albanode.remove_asd')
-    @ensure_single(task_name='albanode.remove_asd', mode='CHAINED')
+    @ovs_task(name='albanode.remove_asd', ensure_single_info={'mode': 'CHAINED'})
     def remove_asd(node_guid, asd_id, expected_safety):
         """
         Removes an ASD
@@ -342,7 +341,7 @@ class AlbaNodeController(object):
         return [] if disk_data is None else disk_data.get('aliases', [])
 
     @staticmethod
-    @celery.task(name='albanode.reset_asd')
+    @ovs_task(name='albanode.reset_asd')
     def reset_asd(node_guid, asd_id, expected_safety):
         """
         Removes and re-adds an ASD to a Disk
@@ -370,7 +369,7 @@ class AlbaNodeController(object):
             AlbaNodeController._logger.warning('Could not connect to node {0} to (re)configure ASD'.format(node.guid))
 
     @staticmethod
-    @celery.task(name='albanode.restart_asd')
+    @ovs_task(name='albanode.restart_asd')
     def restart_asd(node_guid, asd_id):
         """
         Restarts an ASD on a given Node
@@ -411,7 +410,7 @@ class AlbaNodeController(object):
             raise RuntimeError(result['_error'])
 
     @staticmethod
-    @celery.task(name='albanode.restart_disk')
+    @ovs_task(name='albanode.restart_disk')
     def restart_disk(node_guid, device_alias):
         """
         Restarts a disk
@@ -467,7 +466,7 @@ class AlbaNodeController(object):
                 node.save()
 
     @staticmethod
-    @celery.task(name='albanode.get_logfiles')
+    @ovs_task(name='albanode.get_logfiles')
     def get_logfiles(albanode_guid, local_storagerouter_guid):
         """
         Collects logs, moves them to a web-accessible location and returns log tgz's filename

@@ -193,6 +193,15 @@ define([
                                         }
                                     }
                                 });
+                                oArray.sort(function(a, b) {
+                                    if (a.storageRouter() !== undefined && b.storageRouter() !== undefined) {
+                                        return a.storageRouter().name() < b.storageRouter().name() ? -1 : 1;
+                                    }
+                                    if (a.storageRouter() === undefined && b.storageRouter() === undefined) {
+                                        return generic.ipSort(a.ip(), b.ip());
+                                    }
+                                    return a.storageRouter() !== undefined ? -1 : 1;
+                                });
                                 if (discover) {
                                     self.dNodesLoading(false);
                                 } else {
