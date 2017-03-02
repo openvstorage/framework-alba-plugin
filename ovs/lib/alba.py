@@ -188,9 +188,16 @@ class AlbaController(object):
         if nsm_clusters is None:
             nsm_clusters = []
         try:
-            AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
-                                                       abm_cluster=abm_cluster,
-                                                       nsm_clusters=nsm_clusters)
+            counter = 0
+            while counter < 120:
+                if AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
+                                                              abm_cluster=abm_cluster,
+                                                              nsm_clusters=nsm_clusters) is True:
+                    break
+                counter += 1
+                time.sleep(1)
+                if counter == 120:
+                    raise RuntimeError('Arakoon checkup for cluster {0} could not be started'.format(abm_cluster))
         except Exception as ex:
             AlbaController._logger.exception('Failed manual Alba Arakoon checkup during add cluster for Backend {0}. {1}'.format(alba_backend_guid, ex))
             AlbaController.remove_cluster(alba_backend_guid=alba_backend_guid)
@@ -388,8 +395,8 @@ class AlbaController(object):
         :type nsm_clusters: list[str]
         :param abm_cluster: ABM cluster for this ALBA Backend
         :type abm_cluster: str|None
-        :return: None
-        :rtype: NoneType
+        :return: True if task completed, None if task was discarded (by decorator)
+        :rtype: bool|None
         """
         if (abm_cluster is not None and len(nsm_clusters) == 0) or (len(nsm_clusters) > 0 and abm_cluster is None):
             raise ValueError('Both ABM cluster and NSM clusters must be provided')
@@ -404,6 +411,7 @@ class AlbaController(object):
         AlbaController._alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
                                              abm_cluster=abm_cluster,
                                              nsm_clusters=nsm_clusters)
+        return True
 
     @staticmethod
     def _link_plugins(client, data_dir, plugins, cluster_name):
