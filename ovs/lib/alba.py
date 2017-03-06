@@ -1421,14 +1421,11 @@ class AlbaController(object):
                     layout = None
                     AlbaController._logger.warning('* Layout is not a list and will be ignored')
                 else:
-                    all_node_ids = [node.node_id for node in all_nodes]
-                    found = False
-                    for entry in layout:
-                        if entry not in all_node_ids:
-                            AlbaController._logger.warning('* Layout contains unknown node {0}'.format(entry))
-                        else:
-                            found = True
-                    if found is False:
+                    all_node_ids = set(node.node_id for node in all_nodes)
+                    layout_set = set(layout)
+                    for entry in layout_set - all_node_ids:
+                        AlbaController._logger.warning('* Layout contains unknown node {0}'.format(entry))
+                    if len(layout_set) == len(layout_set - all_node_ids):
                         AlbaController._logger.warning('* Layout does not contain any known nodes and will be ignored')
                         layout = None
 
