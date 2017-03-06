@@ -1416,10 +1416,25 @@ class AlbaController(object):
             layout = None
             if Configuration.exists(layout_key):
                 layout = Configuration.get(layout_key)
+                AlbaController._logger.debug('Specific layout requested: {0}'.format(layout))
+                if not isinstance(layout, list):
+                    layout = None
+                    AlbaController._logger.warning('* Layout is not a list and will be ignored')
+                else:
+                    all_node_ids = [node.node_id for node in all_nodes]
+                    found = False
+                    for entry in layout:
+                        if entry not in all_node_ids:
+                            AlbaController._logger.warning('* Layout contains unknown node {0}'.format(entry))
+                        else:
+                            found = True
+                    if found is False:
+                        AlbaController._logger.warning('* Layout does not contain any known nodes and will be ignored')
+                        layout = None
 
             to_remove = {}
             to_add = {}
-            if layout is None or not isinstance(layout, list):
+            if layout is None:
                 # Clean out services on non-available nodes
                 for node in service_map[name]:
                     if node not in available_node_map[alba_backend.guid]:
@@ -1483,7 +1498,6 @@ class AlbaController(object):
                             if _count(service_map[name]) == minimum:
                                 break
             else:
-                AlbaController._logger.debug('* Applying layout: [{0}]'.format(', '.join(layout)))
                 # Remove services from obsolete nodes
                 for node in service_map[name]:
                     if node.node_id not in layout:

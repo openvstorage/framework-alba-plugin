@@ -565,7 +565,18 @@ class AlbaBackend(DataObject):
         layout = None
         if Configuration.exists(layout_key):
             layout = Configuration.get(layout_key)
-        if layout is None or not isinstance(layout, list):
+            if not isinstance(layout, list):
+                layout = None
+            else:
+                all_node_ids = [node.node_id for node in all_nodes]
+                found = False
+                for entry in layout:
+                    if entry in all_node_ids:
+                        found = True
+                if found is False:
+                    layout = None
+
+        if layout is None:
             config_key = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'.format(self.guid)
             expected_services = 3
             if Configuration.exists(config_key):
