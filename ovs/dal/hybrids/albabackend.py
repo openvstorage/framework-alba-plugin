@@ -402,9 +402,10 @@ class AlbaBackend(DataObject):
 
             try:
                 info = client.get('/alba/backends/{0}/'.format(_alba_backend_guid),
-                                  params={'contents': 'local_summary'})
+                                  params={'contents': 'local_summary,live_status'})
                 with lock:
                     return_value[_alba_backend_guid].update(info['local_summary'])
+                    return_value[_alba_backend_guid]['live_status'] = info['live_status']
             except NotFoundException:
                 return_value[_alba_backend_guid]['error'] = 'backend_deleted'
             except ForbiddenException:
@@ -514,14 +515,18 @@ class AlbaBackend(DataObject):
 
         # Verify remote OSDs
         remote_errors = False
+        linked_backend_warning = False
         for remote_info in self.remote_stack.itervalues():
-            if remote_info['error'] == 'unknown':
+            if remote_info['error'] == 'unknown' or remote_info['live_status'] == 'failure':
                 return 'failure'
             if remote_info['error'] == 'not_allowed':
                 remote_errors = True
+            if remote_info['live_status'] == 'warning':
+                linked_backend_warning = True
 
         # Retrieve ASD and maintenance service information
         services_for_this_backend = {}
+        services_per_node = {}
         nodes_used_by_this_backend = set()
         all_nodes = AlbaNodeList.get_albanodes()
         for node in all_nodes:
@@ -534,11 +539,17 @@ class AlbaBackend(DataObject):
                 for service_name in node.client.list_maintenance_services():
                     if re.match('^alba-maintenance_{0}-[a-zA-Z0-9]{{16}}$'.format(self.name), service_name):
                         services_for_this_backend[service_name] = node
+                        if node.node_id not in services_per_node:
+                            services_per_node[node.node_id] = 0
+                        services_per_node[node.node_id] += 1
             except:
                 pass
 
+        zero_services = False
         if len(services_for_this_backend) == 0:
-            return 'warning' if len(all_nodes) == 0 else 'failure'
+            if len(all_nodes) > 0:
+                return 'failure'
+            zero_services = True
 
         # Verify maintenance agents status
         for service_name, node in services_for_this_backend.iteritems():
@@ -550,20 +561,31 @@ class AlbaBackend(DataObject):
                 pass
 
         # Verify maintenance agents presence
-        config_key = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'.format(self.guid)
-        expected_services = 3
-        if Configuration.exists(config_key):
-            expected_services = Configuration.get(config_key)
+        layout_key = '/ovs/alba/backends/{0}/maintenance/agents_layout'.format(self.guid)
+        layout = None
+        if Configuration.exists(layout_key):
+            layout = Configuration.get(layout_key)
+            if not isinstance(layout, list) or not any(node.node_id for node in all_nodes if node.node_id in layout):
+                layout = None
 
-        expected_services = min(expected_services, len(nodes_used_by_this_backend)) or 1
-        if len(services_for_this_backend) < expected_services:
-            return 'warning'
+        if layout is None:
+            config_key = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'.format(self.guid)
+            expected_services = 3
+            if Configuration.exists(config_key):
+                expected_services = Configuration.get(config_key)
+            expected_services = min(expected_services, len(nodes_used_by_this_backend)) or 1
+            if len(services_for_this_backend) < expected_services:
+                return 'warning'
+        else:
+            for node_id in layout:
+                if node_id not in services_per_node:
+                    return 'warning'
 
         # Verify local and remote OSDs
         if devices['orange'] > 0:
             return 'warning'
 
-        if remote_errors is True:
+        if remote_errors is True or linked_backend_warning is True or zero_services is True:
             return 'warning'
 
         return 'running'

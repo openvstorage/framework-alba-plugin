@@ -24,6 +24,7 @@ from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
+from ovs.extensions.db.arakoon.pyrakoon.pyrakoon.compat import ArakoonNoMaster, ArakoonNotFound
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.services.service import ServiceManager
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
@@ -92,10 +93,13 @@ class AlbaUpdateController(object):
                 if cluster_name is None:
                     continue
 
-                if cluster == 'cacc':
-                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, filesystem=True, ip=client.ip)
-                else:
-                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
+                ip = client.ip if cluster == 'cacc' else None
+                try:
+                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, ip=ip)
+                except ArakoonNoMaster:
+                    raise RuntimeError('Arakoon cluster {0} does not have a master'.format(cluster))
+                except ArakoonNotFound:
+                    raise RuntimeError('Arakoon cluster {0} does not have the required metadata key'.format(cluster))
 
                 if arakoon_metadata['internal'] is True:
                     framework_arakoons.append(ArakoonInstaller.get_service_name_for_cluster(cluster_name=arakoon_metadata['cluster_name']))
@@ -230,14 +234,16 @@ class AlbaUpdateController(object):
             if cluster_name is None:
                 continue
 
-            if cluster == 'cacc':
-                arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, filesystem=True, ip=System.get_my_storagerouter().ip)
-            else:
-                arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
+            ip = System.get_my_storagerouter().ip if cluster == 'cacc' else None
+            try:
+                arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, ip=ip)
+            except ArakoonNoMaster:
+                raise RuntimeError('Arakoon cluster {0} does not have a master'.format(cluster))
+            except ArakoonNotFound:
+                raise RuntimeError('Arakoon cluster {0} does not have the required metadata key'.format(cluster))
 
             if arakoon_metadata['internal'] is True:
-                config = ArakoonClusterConfig(cluster_id=cluster_name, filesystem=(cluster == 'cacc'))
-                config.load_config(System.get_my_storagerouter().ip if cluster == 'cacc' else None)
+                config = ArakoonClusterConfig(cluster_id=cluster_name, source_ip=ip)
                 if cluster == 'ovsdb':
                     arakoon_ovs_info['down'] = len(config.nodes) < 3
                     arakoon_ovs_info['name'] = arakoon_metadata['cluster_name']
@@ -291,8 +297,7 @@ class AlbaUpdateController(object):
                     arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
                     if arakoon_metadata['internal'] is True:
                         arakoon_services.append('ovs-{0}'.format(service.name))
-                        config = ArakoonClusterConfig(cluster_id=cluster_name, filesystem=False)
-                        config.load_config()
+                        config = ArakoonClusterConfig(cluster_id=cluster_name)
                         if len(config.nodes) < 3:
                             if service.type.name == ServiceType.SERVICE_TYPES.NS_MGR:
                                 arakoon_downtime.append(['backend', service.nsm_service.nsm_cluster.alba_backend.name])
@@ -450,26 +455,28 @@ class AlbaUpdateController(object):
 
         # Restart Arakoon (and other services)
         if services_to_restart:
-            local_ip = System.get_my_storagerouter().ip
             AlbaUpdateController._logger.debug('{0}: Executing hook {1}'.format(client.ip, inspect.currentframe().f_code.co_name))
             for service_name in sorted(services_to_restart):
-                if not service_name.startswith('ovs-arakoon-'):
+                if not service_name.startswith('arakoon-'):
                     UpdateController.change_services_state(services=[service_name], ssh_clients=[client], action='restart')
                 else:
-                    cluster_name = ArakoonClusterConfig.get_cluster_name(ExtensionsToolbox.remove_prefix(service_name, 'ovs-arakoon-'))
-                    if cluster_name == 'config':
-                        filesystem = True
-                        arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name='cacc', filesystem=True, ip=local_ip)
-                    else:
-                        filesystem = False
-                        arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
+                    cluster_name = ArakoonClusterConfig.get_cluster_name(ExtensionsToolbox.remove_prefix(service_name, 'arakoon-'))
+                    master_ip = StorageRouterList.get_masters()[0].ip if cluster_name == 'config' else None
+                    temp_cluster_name = 'cacc' if cluster_name == 'config' else cluster_name
+                    try:
+                        arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=temp_cluster_name, ip=master_ip)
+                    except ArakoonNoMaster:
+                        AlbaUpdateController._logger.warning('Arakoon cluster {0} does not have a master, not restarting related services'.format(cluster_name))
+                        continue
+                    except ArakoonNotFound:
+                        AlbaUpdateController._logger.warning('Arakoon cluster {0} does not have the required metadata key, not restarting related services'.format(cluster_name))
+                        continue
+
                     if arakoon_metadata['internal'] is True:
-                        master_ip = StorageRouterList.get_masters()[0].ip  # Any master node should be part of the internal 'cacc' cluster
-                        config = ArakoonClusterConfig(cluster_id=cluster_name, filesystem=filesystem)
-                        config.load_config(ip=master_ip)
-                        if local_ip in [node.ip for node in config.nodes]:
+                        config = ArakoonClusterConfig(cluster_id=cluster_name, source_ip=master_ip)
+                        if client.ip in [node.ip for node in config.nodes]:
                             AlbaUpdateController._logger.debug('{0}: Restarting arakoon node {1}'.format(client.ip, cluster_name))
-                            ArakoonInstaller.restart_node(cluster_name=cluster_name,
+                            ArakoonInstaller.restart_node(metadata=arakoon_metadata,
                                                           client=client)
             AlbaUpdateController._logger.debug('{0}: Executed hook {1}'.format(client.ip, inspect.currentframe().f_code.co_name))
 

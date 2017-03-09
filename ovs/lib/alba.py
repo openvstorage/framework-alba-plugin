@@ -27,7 +27,6 @@ import datetime
 import requests
 from ConfigParser import RawConfigParser
 from StringIO import StringIO
-from ovs.celery_run import celery
 from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
@@ -50,7 +49,7 @@ from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, Ara
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.plugins.albacli import AlbaCLI
-from ovs.lib.helpers.decorators import add_hooks, ensure_single
+from ovs.lib.helpers.decorators import add_hooks, ovs_task
 from ovs.lib.helpers.toolbox import Schedule, Toolbox
 from ovs.log.log_handler import LogHandler
 
@@ -62,15 +61,17 @@ class AlbaController(object):
     ABM_PLUGIN = 'albamgr_plugin'
     NSM_PLUGIN = 'nsm_host_plugin'
     ALBA_VERSION_GET = 'alba=`alba version --terse`'
+
     ARAKOON_PLUGIN_DIR = '/usr/lib/alba'
     CONFIG_ALBA_BACKEND_KEY = '/ovs/alba/backends/{0}'
     NR_OF_AGENTS_CONFIG_KEY = '/ovs/alba/backends/{0}/maintenance/nr_of_agents'
+    AGENTS_LAYOUT_CONFIG_KEY = '/ovs/alba/backends/{0}/maintenance/agents_layout'
     CONFIG_DEFAULT_NSM_HOSTS_KEY = CONFIG_ALBA_BACKEND_KEY.format('default_nsm_hosts')
 
     _logger = LogHandler.get('lib', name='alba')
 
     @staticmethod
-    @celery.task(name='alba.add_units')
+    @ovs_task(name='alba.add_units')
     def add_units(alba_backend_guid, osds, metadata=None):
         """
         Adds storage units to an Alba Backend
@@ -139,7 +140,7 @@ class AlbaController(object):
         return unclaimed_osds
 
     @staticmethod
-    @celery.task(name='alba.remove_units')
+    @ovs_task(name='alba.remove_units')
     def remove_units(alba_backend_guid, osd_ids):
         """
         Removes storage units from an Alba Backend
@@ -170,19 +171,34 @@ class AlbaController(object):
             raise RuntimeError('Error processing one or more OSDs: {0}'.format(failed_osds))
 
     @staticmethod
-    @celery.task(name='alba.add_cluster')
-    def add_cluster(alba_backend_guid):
+    @ovs_task(name='alba.add_cluster')
+    def add_cluster(alba_backend_guid, abm_cluster=None, nsm_clusters=None):
         """
         Adds an Arakoon cluster to service Backend
         :param alba_backend_guid: Guid of the ALBA Backend
         :type alba_backend_guid: str
+        :param abm_cluster: ABM cluster to use for this ALBA Backend
+        :type abm_cluster: str
+        :param nsm_clusters: NSM clusters to use for this ALBA Backend
+        :type nsm_clusters: list[str]
         :return: None
+        :rtype: NoneType
         """
         from ovs.lib.albanode import AlbaNodeController
 
+        if nsm_clusters is None:
+            nsm_clusters = []
         try:
-            AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
-                                                       create_nsm_cluster=True)
+            counter = 0
+            while counter < 120:
+                if AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
+                                                              abm_cluster=abm_cluster,
+                                                              nsm_clusters=nsm_clusters) is True:
+                    break
+                counter += 1
+                time.sleep(1)
+                if counter == 120:
+                    raise RuntimeError('Arakoon checkup for cluster {0} could not be started'.format(abm_cluster))
         except Exception as ex:
             AlbaController._logger.exception('Failed manual Alba Arakoon checkup during add cluster for Backend {0}. {1}'.format(alba_backend_guid, ex))
             AlbaController.remove_cluster(alba_backend_guid=alba_backend_guid)
@@ -221,7 +237,7 @@ class AlbaController(object):
         alba_backend.invalidate_dynamics('live_status')
 
     @staticmethod
-    @celery.task(name='alba.remove_cluster')
+    @ovs_task(name='alba.remove_cluster')
     def remove_cluster(alba_backend_guid):
         """
         Removes an Alba Backend/cluster
@@ -237,13 +253,11 @@ class AlbaController(object):
             raise ValueError('ALBA Backend {0} does not have an ABM cluster registered'.format(alba_backend.name))
 
         # Check ABM cluster reachable
-        cluster_mapping = {}
         for abm_service in alba_backend.abm_cluster.abm_services:
             if abm_service.service.is_internal is True:
                 service = abm_service.service
                 try:
                     SSHClient(endpoint=service.storagerouter, username='root')
-                    cluster_mapping[alba_backend.abm_cluster] = service.storagerouter.ip
                 except UnableToConnectException:
                     raise RuntimeError('Node {0} with IP {1} is not reachable, ALBA Backend cannot be removed.'.format(service.storagerouter.name, service.storagerouter.ip))
 
@@ -254,7 +268,6 @@ class AlbaController(object):
                 if service.is_internal is True:
                     try:
                         SSHClient(endpoint=service.storagerouter, username='root')
-                        cluster_mapping[nsm_cluster] = service.storagerouter.ip
                     except UnableToConnectException:
                         raise RuntimeError('Node {0} with IP {1} is not reachable, ALBA Backend cannot be removed'.format(service.storagerouter.name, service.storagerouter.ip))
 
@@ -269,37 +282,39 @@ class AlbaController(object):
         AlbaController._logger.debug('Removing ALBA Backend {0}'.format(alba_backend.name))
         internal = alba_backend.abm_cluster.abm_services[0].service.is_internal
         abm_cluster_name = alba_backend.abm_cluster.name
-        # Remove ABM Arakoon cluster
-        if internal is True:
-            AlbaController._logger.debug('Deleting ALBA manager Arakoon cluster {0}'.format(abm_cluster_name))
-            ArakoonInstaller.delete_cluster(cluster_name=abm_cluster_name, ip=cluster_mapping[alba_backend.abm_cluster])
-            AlbaController._logger.debug('Deleted ALBA manager Arakoon cluster {0}'.format(abm_cluster_name))
-        else:
-            AlbaController._logger.debug('Un-claiming ALBA manager Arakoon cluster {0}'.format(abm_cluster_name))
-            ArakoonInstaller.unclaim_cluster(cluster_name=abm_cluster_name,
-                                             master_ip=None,
-                                             filesystem=False)
-            AlbaController._logger.debug('Unclaimed ALBA manager Arakoon cluster {0}'.format(abm_cluster_name))
+        arakoon_clusters = list(Configuration.list('/ovs/arakoon'))
+        if abm_cluster_name in arakoon_clusters:
+            # Remove ABM Arakoon cluster
+            if internal is True:
+                AlbaController._logger.debug('Deleting ALBA manager Arakoon cluster {0}'.format(abm_cluster_name))
+                ArakoonInstaller.delete_cluster(cluster_name=abm_cluster_name)
+                AlbaController._logger.debug('Deleted ALBA manager Arakoon cluster {0}'.format(abm_cluster_name))
+            else:
+                AlbaController._logger.debug('Un-claiming ALBA manager Arakoon cluster {0}'.format(abm_cluster_name))
+                ArakoonInstaller.unclaim_cluster(cluster_name=abm_cluster_name)
+                AlbaController._logger.debug('Unclaimed ALBA manager Arakoon cluster {0}'.format(abm_cluster_name))
 
         # Remove ABM Arakoon services
         for abm_service in alba_backend.abm_cluster.abm_services:
             abm_service.delete()
             abm_service.service.delete()
-            AlbaController._logger.debug('Removed service {0}'.format(abm_service.service.name))
+            if internal is True:
+                AlbaController._logger.debug('Removed service {0} on node {1}'.format(abm_service.service.name, abm_service.service.storagerouter.name))
+            else:
+                AlbaController._logger.debug('Removed service {0}'.format(abm_service.service.name))
         alba_backend.abm_cluster.delete()
 
         # Remove NSM Arakoon clusters and services
         for nsm_cluster in alba_backend.nsm_clusters:
-            if internal is True:
-                AlbaController._logger.debug('Deleting Namespace manager Arakoon cluster {0}'.format(nsm_cluster.name))
-                ArakoonInstaller.delete_cluster(cluster_name=nsm_cluster.name, ip=cluster_mapping[nsm_cluster])
-                AlbaController._logger.debug('Deleted Namespace manager Arakoon cluster {0}'.format(nsm_cluster.name))
-            else:
-                AlbaController._logger.debug('Un-claiming Namespace manager Arakoon cluster {0}'.format(nsm_cluster.name))
-                ArakoonInstaller.unclaim_cluster(cluster_name=nsm_cluster.name,
-                                                 master_ip=None,
-                                                 filesystem=False)
-                AlbaController._logger.debug('Unclaimed Namespace manager Arakoon cluster {0}'.format(nsm_cluster.name))
+            if nsm_cluster.name in arakoon_clusters:
+                if internal is True:
+                    AlbaController._logger.debug('Deleting Namespace manager Arakoon cluster {0}'.format(nsm_cluster.name))
+                    ArakoonInstaller.delete_cluster(cluster_name=nsm_cluster.name)
+                    AlbaController._logger.debug('Deleted Namespace manager Arakoon cluster {0}'.format(nsm_cluster.name))
+                else:
+                    AlbaController._logger.debug('Un-claiming Namespace manager Arakoon cluster {0}'.format(nsm_cluster.name))
+                    ArakoonInstaller.unclaim_cluster(cluster_name=nsm_cluster.name)
+                    AlbaController._logger.debug('Unclaimed Namespace manager Arakoon cluster {0}'.format(nsm_cluster.name))
             for nsm_service in nsm_cluster.nsm_services:
                 nsm_service.delete()
                 nsm_service.service.delete()
@@ -318,7 +333,7 @@ class AlbaController(object):
                 AlbaController._logger.exception('Could not clean up maintenance services for {0}'.format(alba_backend.name))
 
         config_key = AlbaController.CONFIG_ALBA_BACKEND_KEY.format(alba_backend_guid)
-        AlbaController._logger.debug('Deleting ALBA Backend entry {0} from Configuration'.format(config_key))
+        AlbaController._logger.debug('Deleting ALBA Backend entry {0} from configuration management'.format(config_key))
         Configuration.delete(config_key)
 
         AlbaController._logger.debug('Deleting ALBA Backend from model')
@@ -329,7 +344,7 @@ class AlbaController(object):
         backend.delete()
 
     @staticmethod
-    @celery.task(name='alba.get_arakoon_config')
+    @ovs_task(name='alba.get_arakoon_config')
     def get_arakoon_config(alba_backend_guid):
         """
         Gets the Arakoon configuration for an Alba Backend
@@ -355,32 +370,49 @@ class AlbaController(object):
         if service is None or (client is None and service.is_internal is True):
             raise RuntimeError('Could not load Arakoon configuration')
 
-        config = ArakoonClusterConfig(cluster_id=alba_backend.abm_cluster.name, filesystem=False)
-        config.load_config()
+        config = ArakoonClusterConfig(cluster_id=alba_backend.abm_cluster.name)
         return config.export()
 
     @staticmethod
-    @celery.task(name='alba.scheduled_alba_arakoon_checkup', schedule=Schedule(minute='30', hour='*'))
+    @ovs_task(name='alba.scheduled_alba_arakoon_checkup',
+              schedule=Schedule(minute='30', hour='*'),
+              ensure_single_info={'mode': 'DEFAULT', 'extra_task_names': ['alba.manual_alba_arakoon_checkup']})
     def scheduled_alba_arakoon_checkup():
         """
         Makes sure the volumedriver Arakoon is on all available master nodes
         :return: None
         """
-        AlbaController._alba_arakoon_checkup(create_nsm_cluster=False)
+        AlbaController._alba_arakoon_checkup()
 
     @staticmethod
-    @celery.task(name='alba.manual_alba_arakoon_checkup')
-    def manual_alba_arakoon_checkup(alba_backend_guid, create_nsm_cluster=False):
+    @ovs_task(name='alba.manual_alba_arakoon_checkup',
+              ensure_single_info={'mode': 'DEFAULT', 'extra_task_names': ['alba.scheduled_alba_arakoon_checkup']})
+    def manual_alba_arakoon_checkup(alba_backend_guid, nsm_clusters, abm_cluster=None):
         """
         Creates a new Arakoon cluster if required and extends cluster if possible on all available master nodes
         :param alba_backend_guid: Guid of the ALBA Backend
         :type alba_backend_guid: str
-        :param create_nsm_cluster: Create the NSM cluster if not present yet
-        :type create_nsm_cluster: bool
-        :return: None
+        :param nsm_clusters: NSM clusters for this ALBA Backend
+        :type nsm_clusters: list[str]
+        :param abm_cluster: ABM cluster for this ALBA Backend
+        :type abm_cluster: str|None
+        :return: True if task completed, None if task was discarded (by decorator)
+        :rtype: bool|None
         """
+        if (abm_cluster is not None and len(nsm_clusters) == 0) or (len(nsm_clusters) > 0 and abm_cluster is None):
+            raise ValueError('Both ABM cluster and NSM clusters must be provided')
+        if abm_cluster is not None:
+            for cluster_name in [abm_cluster] + nsm_clusters:
+                try:
+                    metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
+                    if metadata['in_use'] is True:
+                        raise ValueError('Cluster {0} has already been claimed'.format(cluster_name))
+                except NotFoundException:
+                    raise ValueError('Could not find an Arakoon cluster with name: {0}'.format(cluster_name))
         AlbaController._alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
-                                             create_nsm_cluster=create_nsm_cluster)
+                                             abm_cluster=abm_cluster,
+                                             nsm_clusters=nsm_clusters)
+        return True
 
     @staticmethod
     def _link_plugins(client, data_dir, plugins, cluster_name):
@@ -395,14 +427,14 @@ class AlbaController(object):
         :param cluster_name: Name of the Arakoon cluster
         :type cluster_name: str
         :return: None
+        :rtype: NoneType
         """
         data_dir = '' if data_dir == '/' else data_dir
         for plugin in plugins:
             client.run(['ln', '-s', '{0}/{1}.cmxs'.format(AlbaController.ARAKOON_PLUGIN_DIR, plugin), '{0}/arakoon/{1}/db'.format(data_dir, cluster_name)])
 
     @staticmethod
-    @ensure_single(task_name='alba.alba_arakoon_checkup')
-    def _alba_arakoon_checkup(create_nsm_cluster, alba_backend_guid=None):
+    def _alba_arakoon_checkup(alba_backend_guid=None, abm_cluster=None, nsm_clusters=None):
         slaves = StorageRouterList.get_slaves()
         masters = StorageRouterList.get_masters()
         clients = {}
@@ -424,10 +456,12 @@ class AlbaController(object):
 
             # ABM Arakoon cluster creation
             if alba_backend.abm_cluster is None:
-                metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM)
+                metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM, cluster_name=abm_cluster)
                 if metadata is None:  # No externally unused clusters found, we create 1 ourselves
                     if not available_storagerouters:
                         raise RuntimeError('Could not find any partitions with DB role')
+                    if abm_cluster is not None:
+                        raise ValueError('Cluster {0} has been claimed by another process'.format(abm_cluster))
                     AlbaController._logger.info('Creating Arakoon cluster: {0}'.format(abm_cluster_name))
                     storagerouter, partition = available_storagerouters.items()[0]
                     result = ArakoonInstaller.create_cluster(cluster_name=abm_cluster_name,
@@ -435,20 +469,13 @@ class AlbaController(object):
                                                              ip=storagerouter.ip,
                                                              base_dir=partition.folder,
                                                              plugins={AlbaController.ABM_PLUGIN: AlbaController.ALBA_VERSION_GET})
+                    ports = result['ports']
+                    metadata = result['metadata']
                     AlbaController._link_plugins(client=clients[storagerouter],
                                                  data_dir=partition.folder,
                                                  plugins=[AlbaController.ABM_PLUGIN],
                                                  cluster_name=abm_cluster_name)
-                    ArakoonInstaller.restart_cluster_add(cluster_name=abm_cluster_name,
-                                                         current_ips=[],
-                                                         new_ip=storagerouter.ip,
-                                                         filesystem=False)
-                    ArakoonInstaller.claim_cluster(cluster_name=abm_cluster_name,
-                                                   master_ip=storagerouter.ip,
-                                                   filesystem=False,
-                                                   metadata=result['metadata'])
-                    ports = [result['client_port'], result['messaging_port']]
-                    metadata = result['metadata']
+                    ArakoonInstaller.start_cluster(metadata=metadata)
                 else:
                     ports = []
                     storagerouter = None
@@ -463,48 +490,55 @@ class AlbaController(object):
                                               storagerouter=storagerouter)
 
             # NSM Arakoon cluster creation
-            if len(alba_backend.nsm_clusters) == 0 and create_nsm_cluster is True:
-                metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM)
-                if metadata is None:  # No externally unused clusters found, we create 1 ourselves
-                    if not available_storagerouters:
-                        raise RuntimeError('Could not find any partitions with DB role')
-
-                    nsm_cluster_name = '{0}-nsm_0'.format(alba_backend.name)
-                    AlbaController._logger.info('Creating Arakoon cluster: {0}'.format(nsm_cluster_name))
-                    storagerouter, partition = available_storagerouters.items()[0]
-                    result = ArakoonInstaller.create_cluster(cluster_name=nsm_cluster_name,
-                                                             cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
-                                                             ip=storagerouter.ip,
-                                                             base_dir=partition.folder,
-                                                             plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
-                    AlbaController._link_plugins(client=clients[storagerouter],
-                                                 data_dir=partition.folder,
-                                                 plugins=[AlbaController.NSM_PLUGIN],
-                                                 cluster_name=nsm_cluster_name)
-                    ArakoonInstaller.restart_cluster_add(cluster_name=nsm_cluster_name,
-                                                         current_ips=[],
-                                                         new_ip=storagerouter.ip,
-                                                         filesystem=False)
-                    ArakoonInstaller.claim_cluster(cluster_name=nsm_cluster_name,
-                                                   master_ip=storagerouter.ip,
-                                                   filesystem=False,
-                                                   metadata=result['metadata'])
-                    ports = [result['client_port'], result['messaging_port']]
-                    metadata = result['metadata']
+            if len(alba_backend.nsm_clusters) == 0 and nsm_clusters is not None:
+                ports = []
+                storagerouter = None
+                if len(nsm_clusters) > 0:
+                    metadatas = []
+                    for nsm_cluster in nsm_clusters:
+                        metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
+                                                                                          cluster_name=nsm_cluster)
+                        if metadata is None:
+                            AlbaController._logger.warning('Arakoon cluster {0} has been claimed by another process, reverting...'.format(nsm_cluster))
+                            for md in metadatas:
+                                ArakoonInstaller.unclaim_cluster(cluster_name=md['cluster_name'])
+                            ArakoonInstaller.unclaim_cluster(cluster_name=abm_cluster_name)
+                            raise ValueError('Arakoon cluster {0} has been claimed by another process'.format(nsm_cluster))
+                        metadatas.append(metadata)
                 else:
-                    ports = []
-                    storagerouter = None
+                    metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM)
+                    if metadata is None:  # No externally unused clusters found, we create 1 ourselves
+                        if not available_storagerouters:
+                            raise RuntimeError('Could not find any partitions with DB role')
 
-                nsm_cluster_name = metadata['cluster_name']
-                AlbaController._logger.info('Claimed {0} managed Arakoon cluster: {1}'.format('externally' if storagerouter is None else 'internally', nsm_cluster_name))
-                AlbaController._register_nsm(abm_name=abm_cluster_name,
-                                             nsm_name=nsm_cluster_name,
-                                             ip=clients.keys()[0])
-                AlbaController._model_service(alba_backend=alba_backend,
-                                              cluster_name=nsm_cluster_name,
-                                              ports=ports,
-                                              storagerouter=storagerouter,
-                                              number=0)
+                        nsm_cluster_name = '{0}-nsm_0'.format(alba_backend.name)
+                        AlbaController._logger.info('Creating Arakoon cluster: {0}'.format(nsm_cluster_name))
+                        storagerouter, partition = available_storagerouters.items()[0]
+                        result = ArakoonInstaller.create_cluster(cluster_name=nsm_cluster_name,
+                                                                 cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
+                                                                 ip=storagerouter.ip,
+                                                                 base_dir=partition.folder,
+                                                                 plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
+                        ports = result['ports']
+                        metadata = result['metadata']
+                        AlbaController._link_plugins(client=clients[storagerouter],
+                                                     data_dir=partition.folder,
+                                                     plugins=[AlbaController.NSM_PLUGIN],
+                                                     cluster_name=nsm_cluster_name)
+                        ArakoonInstaller.start_cluster(metadata=metadata)
+                    metadatas = [metadata]
+
+                for index, metadata in enumerate(metadatas):
+                    nsm_cluster_name = metadata['cluster_name']
+                    AlbaController._logger.info('Claimed {0} managed Arakoon cluster: {1}'.format('externally' if storagerouter is None else 'internally', nsm_cluster_name))
+                    AlbaController._register_nsm(abm_name=abm_cluster_name,
+                                                 nsm_name=nsm_cluster_name,
+                                                 ip=clients.keys()[0])
+                    AlbaController._model_service(alba_backend=alba_backend,
+                                                  cluster_name=nsm_cluster_name,
+                                                  ports=ports,
+                                                  storagerouter=storagerouter,
+                                                  number=index)
 
         # ABM Cluster extension
         for alba_backend in AlbaBackendList.get_albabackends():
@@ -518,9 +552,8 @@ class AlbaController(object):
                 for storagerouter, partition in available_storagerouters.iteritems():
                     if storagerouter.ip in current_abm_ips:
                         continue
-                    result = ArakoonInstaller.extend_cluster(master_ip=current_abm_ips[0],
+                    result = ArakoonInstaller.extend_cluster(cluster_name=abm_cluster_name,
                                                              new_ip=storagerouter.ip,
-                                                             cluster_name=abm_cluster_name,
                                                              base_dir=partition.folder)
                     AlbaController._link_plugins(client=clients[storagerouter],
                                                  data_dir=partition.folder,
@@ -528,12 +561,11 @@ class AlbaController(object):
                                                  cluster_name=abm_cluster_name)
                     AlbaController._model_service(alba_backend=alba_backend,
                                                   cluster_name=abm_cluster_name,
-                                                  ports=[result['client_port'], result['messaging_port']],
+                                                  ports=result['ports'],
                                                   storagerouter=storagerouter)
                     ArakoonInstaller.restart_cluster_add(cluster_name=abm_cluster_name,
                                                          current_ips=current_abm_ips,
-                                                         new_ip=storagerouter.ip,
-                                                         filesystem=False)
+                                                         new_ip=storagerouter.ip)
                     AlbaController._update_abm_client_config(abm_name=abm_cluster_name,
                                                              ip=storagerouter.ip)
                     current_abm_ips.append(storagerouter.ip)
@@ -571,9 +603,8 @@ class AlbaController(object):
 
                 if cluster_ip in abm_storagerouter_ips:
                     AlbaController._logger.info('* Shrink ABM cluster')
-                    ArakoonInstaller.shrink_cluster(deleted_node_ip=cluster_ip,
-                                                    remaining_node_ips=abm_remaining_ips,
-                                                    cluster_name=abm_cluster_name,
+                    ArakoonInstaller.shrink_cluster(cluster_name=abm_cluster_name,
+                                                    ip=cluster_ip,
                                                     offline_nodes=offline_node_ips)
 
                     AlbaController._logger.info('* Updating ABM client config')
@@ -599,9 +630,8 @@ class AlbaController(object):
 
                     # Remove the node from the NSM
                     AlbaController._logger.info('* Shrink NSM cluster {0}'.format(nsm_cluster.name))
-                    ArakoonInstaller.shrink_cluster(deleted_node_ip=cluster_ip,
-                                                    remaining_node_ips=nsm_remaining_ips,
-                                                    cluster_name=nsm_cluster.name,
+                    ArakoonInstaller.shrink_cluster(cluster_name=nsm_cluster.name,
+                                                    ip=cluster_ip,
                                                     offline_nodes=offline_node_ips)
 
                     AlbaController._logger.info('* Updating NSM cluster config to ABM for cluster {0}'.format(nsm_cluster.name))
@@ -648,7 +678,6 @@ class AlbaController(object):
             if complete_removal is True:
                 from ovs.lib.albanode import AlbaNodeController
                 AlbaNodeController.remove_node(node_guid=storage_router.alba_node.guid)
-                AlbaController.checkup_maintenance_agents()
             else:
                 alba_node.storagerouter = None
                 alba_node.save()
@@ -722,8 +751,7 @@ class AlbaController(object):
                 'question': '\n'.join(sorted(messages)) + '\nAre you sure you want to continue?'}
 
     @staticmethod
-    @celery.task(name='alba.nsm_checkup', schedule=Schedule(minute='45', hour='*'))
-    @ensure_single(task_name='alba.nsm_checkup', mode='CHAINED')
+    @ovs_task(name='alba.nsm_checkup', schedule=Schedule(minute='45', hour='*'), ensure_single_info={'mode': 'CHAINED'})
     def nsm_checkup(allow_offline=False, alba_backend_guid=None, min_nsms=1, additional_nsms=None):
         """
         Validates the current NSM setup/configuration and takes actions where required.
@@ -858,9 +886,8 @@ class AlbaController(object):
                                 AlbaController._logger.debug('  Extending cluster config')
                                 candidate_sr.invalidate_dynamics(['partition_config'])
                                 partition = DiskPartition(candidate_sr.partition_config[DiskPartition.ROLES.DB][0])
-                                nsm_result = ArakoonInstaller.extend_cluster(master_ip=nsm_cluster.nsm_services[0].service.storagerouter.ip,
+                                nsm_result = ArakoonInstaller.extend_cluster(cluster_name=nsm_cluster.name,
                                                                              new_ip=candidate_sr.ip,
-                                                                             cluster_name=nsm_cluster.name,
                                                                              base_dir=partition.folder)
                                 AlbaController._logger.debug('  Linking plugin')
                                 AlbaController._link_plugins(client=clients[candidate_sr],
@@ -870,14 +897,13 @@ class AlbaController(object):
                                 AlbaController._logger.debug('  Model services')
                                 AlbaController._model_service(alba_backend=alba_backend,
                                                               cluster_name=nsm_cluster.name,
-                                                              ports=[nsm_result['client_port'], nsm_result['messaging_port']],
+                                                              ports=nsm_result['ports'],
                                                               storagerouter=candidate_sr,
                                                               number=nsm_cluster.number)
                                 AlbaController._logger.debug('  Restart sequence')
                                 ArakoonInstaller.restart_cluster_add(cluster_name=nsm_cluster.name,
                                                                      current_ips=current_sr_ips,
-                                                                     new_ip=candidate_sr.ip,
-                                                                     filesystem=False)
+                                                                     new_ip=candidate_sr.ip)
                                 AlbaController._update_nsm(abm_name=abm_cluster_name,
                                                            nsm_name=nsm_cluster.name,
                                                            ip=candidate_sr.ip)
@@ -953,9 +979,8 @@ class AlbaController(object):
                                                                              base_dir=partition.folder,
                                                                              plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                             else:
-                                nsm_result = ArakoonInstaller.extend_cluster(master_ip=storagerouters[0].ip,
+                                nsm_result = ArakoonInstaller.extend_cluster(cluster_name=nsm_cluster_name,
                                                                              new_ip=storagerouter.ip,
-                                                                             cluster_name=nsm_cluster_name,
                                                                              base_dir=partition.folder)
                             AlbaController._link_plugins(client=clients[storagerouter],
                                                          data_dir=partition.folder,
@@ -963,18 +988,15 @@ class AlbaController(object):
                                                          cluster_name=nsm_cluster_name)
                             AlbaController._model_service(alba_backend=alba_backend,
                                                           cluster_name=nsm_cluster_name,
-                                                          ports=[nsm_result['client_port'], nsm_result['messaging_port']],
+                                                          ports=nsm_result['ports'],
                                                           storagerouter=storagerouter,
                                                           number=number)
-                            ArakoonInstaller.restart_cluster_add(cluster_name=nsm_cluster_name,
-                                                                 current_ips=[sr.ip for sr in storagerouters[:index]],
-                                                                 new_ip=storagerouter.ip,
-                                                                 filesystem=False)
                             if index == 0:
-                                ArakoonInstaller.claim_cluster(cluster_name=nsm_cluster_name,
-                                                               master_ip=storagerouter.ip,
-                                                               filesystem=False,
-                                                               metadata=nsm_result['metadata'])
+                                ArakoonInstaller.start_cluster(metadata=nsm_result['metadata'])
+                            else:
+                                ArakoonInstaller.restart_cluster_add(cluster_name=nsm_cluster_name,
+                                                                     current_ips=[sr.ip for sr in storagerouters[:index]],
+                                                                     new_ip=storagerouter.ip)
                         AlbaController._register_nsm(abm_name=abm_cluster_name,
                                                      nsm_name=nsm_cluster_name,
                                                      ip=storagerouters[0].ip)
@@ -986,7 +1008,7 @@ class AlbaController(object):
             raise RuntimeError('Checking NSM failed for ALBA backends: {0}'.format(', '.join(failed_backends)))
 
     @staticmethod
-    @celery.task(name='alba.calculate_safety')
+    @ovs_task(name='alba.calculate_safety')
     def calculate_safety(alba_backend_guid, removal_osd_ids):
         """
         Calculates/loads the safety when a certain set of disks are removed
@@ -1072,11 +1094,12 @@ class AlbaController(object):
         :type ip: str
         :return: None
         """
-        nsm_config_file = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(nsm_name))
-        abm_config_file = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(abm_name))
-        if ArakoonInstaller.wait_for_cluster(nsm_name, ip) and ArakoonInstaller.wait_for_cluster(abm_name, ip):
-            client = SSHClient(ip)
-            AlbaCLI.run(command='add-nsm-host', config=abm_config_file, extra_params=[nsm_config_file], client=client)
+        nsm_config_file = Configuration.get_configuration_path(ArakoonClusterConfig.CONFIG_KEY.format(nsm_name))
+        abm_config_file = Configuration.get_configuration_path(ArakoonClusterConfig.CONFIG_KEY.format(abm_name))
+        AlbaCLI.run(command='add-nsm-host',
+                    config=abm_config_file,
+                    extra_params=[nsm_config_file],
+                    client=SSHClient(endpoint=ip))
 
     @staticmethod
     def _update_nsm(abm_name, nsm_name, ip):
@@ -1090,11 +1113,12 @@ class AlbaController(object):
         :type ip: str
         :return: None
         """
-        nsm_config_file = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(nsm_name))
-        abm_config_file = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(abm_name))
-        if ArakoonInstaller.wait_for_cluster(nsm_name, ip) and ArakoonInstaller.wait_for_cluster(abm_name, ip):
-            client = SSHClient(ip)
-            AlbaCLI.run(command='update-nsm-host', config=abm_config_file, extra_params=[nsm_config_file], client=client)
+        nsm_config_file = Configuration.get_configuration_path(ArakoonClusterConfig.CONFIG_KEY.format(nsm_name))
+        abm_config_file = Configuration.get_configuration_path(ArakoonClusterConfig.CONFIG_KEY.format(abm_name))
+        AlbaCLI.run(command='update-nsm-host',
+                    config=abm_config_file,
+                    extra_params=[nsm_config_file],
+                    client=SSHClient(endpoint=ip))
 
     @staticmethod
     def _update_abm_client_config(abm_name, ip):
@@ -1106,7 +1130,7 @@ class AlbaController(object):
         :type ip: str
         :return: None
         """
-        abm_config_file = Configuration.get_configuration_path(ArakoonInstaller.CONFIG_KEY.format(abm_name))
+        abm_config_file = Configuration.get_configuration_path(ArakoonClusterConfig.CONFIG_KEY.format(abm_name))
         client = SSHClient(ip)
         # Try 8 times, 1st time immediately, 2nd time after 2 secs, 3rd time after 4 seconds, 4th time after 8 seconds
         # This will be up to 2 minutes
@@ -1154,7 +1178,7 @@ class AlbaController(object):
         AlbaController._logger.info('Model service: {0}'.format(str(service_name)))
         cluster.name = cluster_name
         cluster.alba_backend = alba_backend
-        cluster.config_location = ArakoonInstaller.CONFIG_KEY.format(cluster_name)
+        cluster.config_location = ArakoonClusterConfig.CONFIG_KEY.format(cluster_name)
         cluster.save()
 
         service = DalService()
@@ -1195,7 +1219,7 @@ class AlbaController(object):
                 Configuration.set(key.format(machine_id), 9)
 
     @staticmethod
-    @celery.task(name='alba.link_alba_backends')
+    @ovs_task(name='alba.link_alba_backends')
     def link_alba_backends(alba_backend_guid, metadata):
         """
         Link a GLOBAL ALBA Backend to a LOCAL or another GLOBAL ALBA Backend
@@ -1275,7 +1299,7 @@ class AlbaController(object):
         return True
 
     @staticmethod
-    @celery.task(name='alba.unlink_alba_backends')
+    @ovs_task(name='alba.unlink_alba_backends')
     def unlink_alba_backends(target_guid, linked_guid):
         """
         Unlink a LOCAL or GLOBAL ALBA Backend from a GLOBAL ALBA Backend
@@ -1299,8 +1323,7 @@ class AlbaController(object):
         parent.backend.invalidate_dynamics()
 
     @staticmethod
-    @celery.task(name='alba.checkup_maintenance_agents', schedule=Schedule(minute='0', hour='*'))
-    @ensure_single(task_name='alba.checkup_maintenance_agents', mode='CHAINED')
+    @ovs_task(name='alba.checkup_maintenance_agents', schedule=Schedule(minute='0', hour='*'), ensure_single_info={'mode': 'CHAINED'})
     def checkup_maintenance_agents():
         """
         Check if requested nr of maintenance agents / Backend is actually present
@@ -1389,70 +1412,114 @@ class AlbaController(object):
                 available_node_map[alba_backend.guid] = sorted(available_node_map[alba_backend.guid],
                                                                key=lambda n: node_load.get(n, 0))
 
+            layout_key = AlbaController.AGENTS_LAYOUT_CONFIG_KEY.format(alba_backend.guid)
+            layout = None
+            if Configuration.exists(layout_key):
+                layout = Configuration.get(layout_key)
+                AlbaController._logger.debug('Specific layout requested: {0}'.format(layout))
+                if not isinstance(layout, list):
+                    layout = None
+                    AlbaController._logger.warning('* Layout is not a list and will be ignored')
+                else:
+                    all_node_ids = set(node.node_id for node in all_nodes)
+                    layout_set = set(layout)
+                    for entry in layout_set - all_node_ids:
+                        AlbaController._logger.warning('* Layout contains unknown node {0}'.format(entry))
+                    if len(layout_set) == len(layout_set - all_node_ids):
+                        AlbaController._logger.warning('* Layout does not contain any known nodes and will be ignored')
+                        layout = None
+
             to_remove = {}
             to_add = {}
-            # Clean out services on non-available nodes
-            for node in service_map[name]:
-                if node not in available_node_map[alba_backend.guid]:
-                    if node not in to_remove:
-                        to_remove[node] = []
-                    service_names = service_map[name][node]
-                    to_remove[node] += service_names
-                    service_map[name][node] = []
-                    AlbaController._logger.debug('* Candidates for removal (unused node): {0} on {1}'.format(service_names, node.ip))
-            # Multiple services on a single node must be cleaned
-            for node, service_names in service_map[name].iteritems():
-                if len(service_names) > 1:
-                    if node not in to_remove:
-                        to_remove[node] = []
-                    service_names = service_names[1:]
-                    to_remove[node] += service_names
-                    service_map[name][node] = service_names[0]
-                    AlbaController._logger.debug('* Candidates for removal (too many services on node): {0} on {1}'.format(service_names, node.ip))
-            # Add services if required
-            if _count(service_map[name]) < required_nr:
-                for node in available_node_map[alba_backend.guid]:
-                    if node not in service_map[name]:
-                        if node not in to_add:
-                            service_name = _generate_name(name)
-                            to_add[node] = service_name
-                            service_map[name][node] = [service_name]
-                            AlbaController._logger.debug('* Candidate add (not enough services): {0} on {1}'.format(service_name, node.ip))
-                    if _count(service_map[name]) == required_nr:
-                        break
-            # Remove services if required
-            if _count(service_map[name]) > required_nr:
-                for node in reversed(available_node_map[alba_backend.guid]):
-                    if node in service_map[name]:
+            if layout is None:
+                # Clean out services on non-available nodes
+                for node in service_map[name]:
+                    if node not in available_node_map[alba_backend.guid]:
                         if node not in to_remove:
                             to_remove[node] = []
-                        for service_name in service_map[name][node][:]:
-                            to_remove[node].append(service_name)
-                            service_map[name][node].remove(service_name)
-                            AlbaController._logger.debug('* Candidate removal (too many services): {0} on {1}'.format(service_name, node.ip))
-                    if _count(service_map[name]) == required_nr:
-                        break
-            minimum = 1 if alba_backend.scaling == AlbaBackend.SCALINGS.LOCAL else required_nr
-            # Make sure there's still at least one service left
-            if _count(service_map[name]) == 0:
-                for node in to_remove:
-                    if len(to_remove[node]) > 0:
-                        service_name = to_remove[node].pop()
-                        AlbaController._logger.debug('* Removing removal candidate (at least {0} service required): {1} on {2}'.format(minimum, service_name, node.ip))
+                        service_names = service_map[name][node]
+                        to_remove[node] += service_names
+                        service_map[name][node] = []
+                        AlbaController._logger.debug('* Candidates for removal (unused node): {0} on {1}'.format(service_names, node.ip))
+                # Multiple services on a single node must be cleaned
+                for node, service_names in service_map[name].iteritems():
+                    if len(service_names) > 1:
+                        if node not in to_remove:
+                            to_remove[node] = []
+                        service_names = service_names[1:]
+                        to_remove[node] += service_names
+                        service_map[name][node] = service_names[0]
+                        AlbaController._logger.debug('* Candidates for removal (too many services on node): {0} on {1}'.format(service_names, node.ip))
+                # Add services if required
+                if _count(service_map[name]) < required_nr:
+                    for node in available_node_map[alba_backend.guid]:
                         if node not in service_map[name]:
-                            service_map[name][node] = []
-                        service_map[name][node].append(service_name)
-                    if _count(service_map[name]) == minimum:
-                        break
-                if _count(service_map[name]) < minimum and len(all_nodes) > 0:
-                    for node in all_nodes:
-                        if node not in to_add and node not in service_map[name]:
-                            service_name = _generate_name(name)
-                            to_add[node] = service_name
-                            AlbaController._logger.debug('* Candidate add (at least {0} service required): {1} on {2}'.format(minimum, service_name, node.ip))
-                            service_map[name][node] = [service_name]
+                            if node not in to_add:
+                                service_name = _generate_name(name)
+                                to_add[node] = service_name
+                                service_map[name][node] = [service_name]
+                                AlbaController._logger.debug('* Candidate add (not enough services): {0} on {1}'.format(service_name, node.ip))
+                        if _count(service_map[name]) == required_nr:
+                            break
+                # Remove services if required
+                if _count(service_map[name]) > required_nr:
+                    for node in reversed(available_node_map[alba_backend.guid]):
+                        if node in service_map[name]:
+                            if node not in to_remove:
+                                to_remove[node] = []
+                            for service_name in service_map[name][node][:]:
+                                to_remove[node].append(service_name)
+                                service_map[name][node].remove(service_name)
+                                AlbaController._logger.debug('* Candidate removal (too many services): {0} on {1}'.format(service_name, node.ip))
+                        if _count(service_map[name]) == required_nr:
+                            break
+                minimum = 1 if alba_backend.scaling == AlbaBackend.SCALINGS.LOCAL else required_nr
+                # Make sure there's still at least one service left
+                if _count(service_map[name]) == 0:
+                    for node in to_remove:
+                        if len(to_remove[node]) > 0:
+                            service_name = to_remove[node].pop()
+                            AlbaController._logger.debug('* Removing removal candidate (at least {0} service required): {1} on {2}'.format(minimum, service_name, node.ip))
+                            if node not in service_map[name]:
+                                service_map[name][node] = []
+                            service_map[name][node].append(service_name)
                         if _count(service_map[name]) == minimum:
                             break
+                    if _count(service_map[name]) < minimum and len(all_nodes) > 0:
+                        for node in all_nodes:
+                            if node not in to_add and node not in service_map[name]:
+                                service_name = _generate_name(name)
+                                to_add[node] = service_name
+                                AlbaController._logger.debug('* Candidate add (at least {0} service required): {1} on {2}'.format(minimum, service_name, node.ip))
+                                service_map[name][node] = [service_name]
+                            if _count(service_map[name]) == minimum:
+                                break
+            else:
+                # Remove services from obsolete nodes
+                for node in service_map[name]:
+                    if node.node_id not in layout:
+                        if node not in to_remove:
+                            to_remove[node] = []
+                        service_names = service_map[name][node]
+                        to_remove[node] += service_names
+                        service_map[name][node] = []
+                        AlbaController._logger.debug('* Candidates for removal (unspecified node): {0} on {1}'.format(service_names, node.ip))
+                # Multiple services on a single node must be cleaned
+                for node, service_names in service_map[name].iteritems():
+                    if len(service_names) > 1:
+                        if node not in to_remove:
+                            to_remove[node] = []
+                        service_names = service_names[1:]
+                        to_remove[node] += service_names
+                        service_map[name][node] = service_names[0]
+                        AlbaController._logger.debug('* Candidates for removal (too many services on node): {0} on {1}'.format(service_names, node.ip))
+                # Add services to required nodes
+                for node in all_nodes:
+                    if node.node_id in layout and node not in service_map[name]:
+                        service_name = _generate_name(name)
+                        to_add[node] = service_name
+                        AlbaController._logger.debug('* Candidate add (specified node): {0} on {1}'.format(service_name, node.ip))
+                        service_map[name][node] = [service_name]
 
             AlbaController._logger.info('Applying service work log for {0}'.format(name))
             made_changes = False
@@ -1478,7 +1545,7 @@ class AlbaController(object):
             AlbaController._logger.info('Finished service work log for {0}'.format(name))
 
     @staticmethod
-    @celery.task(name='alba.verify_namespaces', schedule=Schedule(minute='0', hour='0', day_of_month='1', month_of_year='*/3'))
+    @ovs_task(name='alba.verify_namespaces', schedule=Schedule(minute='0', hour='0', day_of_month='1', month_of_year='*/3'))
     def verify_namespaces():
         """
         Verify namespaces for all backends

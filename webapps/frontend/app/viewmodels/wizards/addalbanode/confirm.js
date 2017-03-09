@@ -56,7 +56,7 @@ define([
                                 $.t('alba:wizards.add_alba_node.failed', {why: error})
                             );
                         });
-                    // Replace ALBA node
+                // Replace ALBA node
                 } else {
                     $.each(self.data.oldNode().disks(), function(index, disk) {
                         disk.processing(true);

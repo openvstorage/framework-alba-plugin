@@ -35,43 +35,45 @@ define([
 
         // Functions
         self.finish = function() {
-            self.data.albaOSD().processing(true);
-            self.data.albaDisk().processing(true);
             return $.Deferred(function(deferred) {
-                generic.alertInfo(
-                    $.t('alba:wizards.remove_osd.started'),
-                    $.t('alba:wizards.remove_osd.started_msg', {what: self.data.albaOSD().osdID()})
-                );
-                api.post('alba/nodes/' + self.data.albaNode().guid() + '/reset_asd', {
-                    data: {
-                        asd_id: self.data.albaOSD().osdID(),
-                        safety: self.data.safety()
-                    }
-                })
-                    .then(self.shared.tasks.wait)
-                    .done(function() {
-                        generic.alertSuccess(
-                            $.t('alba:wizards.remove_osd.complete'),
-                            $.t('alba:wizards.remove_osd.success', {what: self.data.albaOSD().osdID()})
-                        );
+                (function(albaOSD, albaDisk, albaNode) {
+                    generic.alertInfo(
+                        $.t('alba:wizards.remove_osd.started'),
+                        $.t('alba:wizards.remove_osd.started_msg', {what: albaOSD.osdID()})
+                    );
+                    api.post('alba/nodes/' + albaNode.guid() + '/reset_asd', {
+                        data: {
+                            asd_id: albaOSD.osdID(),
+                            safety: self.data.safety()
+                        }
                     })
-                    .fail(function(error) {
-                        error = generic.extractErrorMessage(error);
-                        generic.alertError(
-                            $.t('ovs:generic.error'),
-                            $.t('alba:wizards.remove_osd.failed', {what: self.data.albaOSD().osdID(), why: error})
-                        );
-                    })
-                    .always(function() {
-                        self.data.albaOSD().processing(false);
-                        self.data.albaDisk().processing(false);
-                    });
-                deferred.resolve();
+                        .then(self.shared.tasks.wait)
+                        .done(function() {
+                            generic.alertSuccess(
+                                $.t('alba:wizards.remove_osd.complete'),
+                                $.t('alba:wizards.remove_osd.success', {what: albaOSD.osdID()})
+                            );
+                        })
+                        .fail(function(error) {
+                            error = generic.extractErrorMessage(error);
+                            generic.alertError(
+                                $.t('ovs:generic.error'),
+                                $.t('alba:wizards.remove_osd.failed', {what: albaOSD.osdID(), why: error})
+                            );
+                        })
+                        .always(function() {
+                            albaOSD.processing(false);
+                            albaDisk.processing(false);
+                        });
+                    deferred.resolve();
+                })(self.data.albaOSD(), self.data.albaDisk(), self.data.albaNode());
             }).promise();
         };
 
         // Durandal
         self.activate = function() {
+            self.data.albaOSD().processing(true);
+            self.data.albaDisk().processing(true);
             self.refresher.init(function() {
                 api.get('alba/backends/' + self.data.albaBackend().guid() + '/calculate_safety', {
                     queryparams: { asd_id: self.data.albaOSD().osdID() }
@@ -87,6 +89,7 @@ define([
             parent.closing.always(function() {
                 self.refresher.stop();
                 self.data.albaOSD().processing(false);
+                self.data.albaDisk().processing(false);
             });
             parent.finishing.always(function() {
                 self.refresher.stop();

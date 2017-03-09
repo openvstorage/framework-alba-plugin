@@ -19,13 +19,12 @@ NSMCheckup test module
 """
 import copy
 import unittest
-from ovs.dal.tests.alba_helpers import AlbaHelper
+from ovs.dal.tests.alba_helpers import AlbaDalHelper
+from ovs.dal.tests.helpers import DalHelper
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient
-from ovs.extensions.generic.system import System
 from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
 from ovs.lib.alba import AlbaController
-from ovs.lib.tests.helpers import Helper
 
 
 class NSMCheckup(unittest.TestCase):
@@ -36,7 +35,7 @@ class NSMCheckup(unittest.TestCase):
         """
         (Re)Sets the stores on every test
         """
-        AlbaHelper.setup()
+        AlbaDalHelper.setup()
         Configuration.set('/ovs/framework/logging|path', '/var/log/ovs')
         Configuration.set('/ovs/framework/logging|level', 'DEBUG')
         Configuration.set('/ovs/framework/logging|default_file', 'generic')
@@ -46,7 +45,7 @@ class NSMCheckup(unittest.TestCase):
         """
         Clean up test suite
         """
-        AlbaHelper.teardown()
+        AlbaDalHelper.teardown()
 
     def test_nsm_checkup(self):
         """
@@ -54,15 +53,11 @@ class NSMCheckup(unittest.TestCase):
         """
         Configuration.set('/ovs/framework/plugins/alba/config|nsm.safety', 1)
         Configuration.set('/ovs/framework/plugins/alba/config|nsm.maxload', 10)
-        Configuration.set('/ovs/framework/hosts/1/ports|arakoon', [10000, 10100])
-        Configuration.set('/ovs/framework/hosts/2/ports|arakoon', [10000, 10100])
 
-        structure = Helper.build_service_structure(structure={'storagerouters': [1]})
-        alba_structure = AlbaHelper.build_service_structure(structure={'alba_backends': [1]})
+        structure = DalHelper.build_dal_structure(structure={'storagerouters': [1]})
+        alba_structure = AlbaDalHelper.build_dal_structure(structure={'alba_backends': [1]})
 
         alba_backend = alba_structure['alba_backends'][1]
-        storagerouter = structure['storagerouters'][1]
-        System._machine_id = {storagerouter.ip: '1'}
 
         SSHClient._run_returns['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
         SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_0/db'] = None
@@ -87,12 +82,7 @@ class NSMCheckup(unittest.TestCase):
         self._validate_nsm([['1']])
         self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [])
 
-        structure = Helper.build_service_structure(
-            {'storagerouters': [2]},
-            structure
-        )
-        System._machine_id = {storagerouter.ip: '1',
-                              structure['storagerouters'][2].ip: '2'}
+        DalHelper.build_dal_structure(structure={'storagerouters': [2]}, previous_structure=structure)
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.nsm_checkup()
 
@@ -111,7 +101,7 @@ class NSMCheckup(unittest.TestCase):
         SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-abm/config -catchup-only'] = None
         SSHClient._run_returns['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
-        AlbaController.manual_alba_arakoon_checkup(alba_backend.guid)
+        AlbaController.manual_alba_arakoon_checkup(alba_backend.guid, nsm_clusters=[])
 
         self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [['update_abm_client_config']])
 
@@ -198,7 +188,7 @@ class NSMCheckup(unittest.TestCase):
 
         # Validate a maximum of 50 NSMs can be deployed
         current_nsms = [nsm_cluster.number for nsm_cluster in alba_backend.nsm_clusters]
-        alba_structure = AlbaHelper.build_service_structure(
+        alba_structure = AlbaDalHelper.build_dal_structure(
             structure={'alba_nsm_clusters': [(1, 50)]},  # (<abackend_id>, <amount_of_nsm_clusters>)
             previous_structure=alba_structure
         )

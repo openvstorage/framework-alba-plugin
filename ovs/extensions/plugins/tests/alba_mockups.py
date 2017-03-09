@@ -30,7 +30,7 @@ class VirtualAlbaBackend(object):
     statistics = None
 
     @staticmethod
-    def clean():
+    def _clean():
         """
         Clean everything related to the ALBA tests
         """
@@ -123,7 +123,7 @@ class VirtualAlbaBackend(object):
         data = VirtualAlbaBackend.data[abm]
         for nsm in data['nsms']:
             contents = Configuration.get(nsm['_config_key'], raw=True)
-            config = ArakoonClusterConfig(nsm['id'], filesystem=False)
+            config = ArakoonClusterConfig(cluster_id=nsm['id'], load_config=False)
             config.read_config(contents)
             state[nsm['id']] = [node.name for node in config.nodes]
         return state
