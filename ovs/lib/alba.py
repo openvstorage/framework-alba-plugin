@@ -554,7 +554,8 @@ class AlbaController(object):
                         continue
                     result = ArakoonInstaller.extend_cluster(cluster_name=abm_cluster_name,
                                                              new_ip=storagerouter.ip,
-                                                             base_dir=partition.folder)
+                                                             base_dir=partition.folder,
+                                                             plugins={AlbaController.ABM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                     AlbaController._link_plugins(client=clients[storagerouter],
                                                  data_dir=partition.folder,
                                                  plugins=[AlbaController.ABM_PLUGIN],
@@ -888,7 +889,8 @@ class AlbaController(object):
                                 partition = DiskPartition(candidate_sr.partition_config[DiskPartition.ROLES.DB][0])
                                 nsm_result = ArakoonInstaller.extend_cluster(cluster_name=nsm_cluster.name,
                                                                              new_ip=candidate_sr.ip,
-                                                                             base_dir=partition.folder)
+                                                                             base_dir=partition.folder,
+                                                                             plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                                 AlbaController._logger.debug('  Linking plugin')
                                 AlbaController._link_plugins(client=clients[candidate_sr],
                                                              data_dir=partition.folder,
@@ -981,7 +983,8 @@ class AlbaController(object):
                             else:
                                 nsm_result = ArakoonInstaller.extend_cluster(cluster_name=nsm_cluster_name,
                                                                              new_ip=storagerouter.ip,
-                                                                             base_dir=partition.folder)
+                                                                             base_dir=partition.folder,
+                                                                             plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                             AlbaController._link_plugins(client=clients[storagerouter],
                                                          data_dir=partition.folder,
                                                          plugins=[AlbaController.NSM_PLUGIN],
