@@ -24,6 +24,7 @@ from ovs.dal.tests.helpers import DalHelper
 from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
+from ovs.extensions.generic.tests.sshclient_mock import MockedSSHClient
 from ovs.lib.alba import AlbaController
 from ovs.log.log_handler import LogHandler
 
@@ -55,7 +56,11 @@ class AlbaGeneric(unittest.TestCase):
         # SCHEDULED_ARAKOON_CHECKUP #
         #############################
         # Create an ABM and NSM cluster for ALBA Backend 1 and do some basic validations
+        sr_1 = ovs_structure['storagerouters'][1]
         ab_1 = alba_structure['alba_backends'][1]
+        MockedSSHClient._run_returns[sr_1.ip] = {}
+        MockedSSHClient._run_returns[sr_1.ip]['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
+        MockedSSHClient._run_returns[sr_1.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_0/db'] = None
         AlbaController.add_cluster(ab_1.guid)
 
         abm_cluster_name = '{0}-abm'.format(ab_1.name)
@@ -81,8 +86,12 @@ class AlbaGeneric(unittest.TestCase):
         sr_3 = srs[3]
 
         # Run scheduled checkup again and do some validations
-        SSHClient._run_returns['arakoon --node {0} -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-abm/config -catchup-only'.format(sr_2.machine_id)] = None
-        SSHClient._run_returns['arakoon --node {0} -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-abm/config -catchup-only'.format(sr_3.machine_id)] = None
+        MockedSSHClient._run_returns[sr_2.ip] = {}
+        MockedSSHClient._run_returns[sr_3.ip] = {}
+        MockedSSHClient._run_returns[sr_2.ip]['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
+        MockedSSHClient._run_returns[sr_3.ip]['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_3/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
+        MockedSSHClient._run_returns[sr_2.ip]['arakoon --node {0} -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-abm/config -catchup-only'.format(sr_2.machine_id)] = None
+        MockedSSHClient._run_returns[sr_3.ip]['arakoon --node {0} -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-abm/config -catchup-only'.format(sr_3.machine_id)] = None
         AlbaController.scheduled_alba_arakoon_checkup()
         self.assertListEqual(list1=[abm_cluster_name, nsm_cluster_name], list2=arakoon_clusters)
         self.assertEqual(first=len(ab_1.abm_cluster.abm_services), second=3)  # Gone up from 1 to 3
@@ -101,9 +110,13 @@ class AlbaGeneric(unittest.TestCase):
         # MANUAL_ARAKOON_CHECKUP #
         ##########################
         AlbaDalHelper.setup()  # Clear everything
-        DalHelper.build_dal_structure(structure={'storagerouters': [1]})
+        ovs_structure = DalHelper.build_dal_structure(structure={'storagerouters': [1]})
         alba_structure = AlbaDalHelper.build_dal_structure(structure={'alba_backends': [1]})
+        sr_1 = ovs_structure['storagerouters'][1]
         ab_1 = alba_structure['alba_backends'][1]
+        MockedSSHClient._run_returns[sr_1.ip] = {}
+        MockedSSHClient._run_returns[sr_1.ip]['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
+        MockedSSHClient._run_returns[sr_1.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_0/db'] = None
         AlbaController.add_cluster(ab_1.guid)
 
         # Run manual Arakoon checkup and validate amount of Arakoon clusters did not change
