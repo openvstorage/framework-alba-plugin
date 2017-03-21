@@ -22,7 +22,7 @@ import unittest
 from ovs.dal.tests.alba_helpers import AlbaDalHelper
 from ovs.dal.tests.helpers import DalHelper
 from ovs.extensions.generic.configuration import Configuration
-from ovs.extensions.generic.sshclient import SSHClient
+from ovs.extensions.generic.tests.sshclient_mock import MockedSSHClient
 from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
 from ovs.lib.alba import AlbaController
 
@@ -58,9 +58,11 @@ class NSMCheckup(unittest.TestCase):
         alba_structure = AlbaDalHelper.build_dal_structure(structure={'alba_backends': [1]})
 
         alba_backend = alba_structure['alba_backends'][1]
+        storagerouter_1 = structure['storagerouters'][1]
 
-        SSHClient._run_returns['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
-        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_0/db'] = None
+        MockedSSHClient._run_returns[storagerouter_1.ip] = {}
+        MockedSSHClient._run_returns[storagerouter_1.ip]['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
+        MockedSSHClient._run_returns[storagerouter_1.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_0/db'] = None
 
         VirtualAlbaBackend.run_log = {}
         AlbaController.add_cluster(alba_backend.guid)
@@ -82,7 +84,7 @@ class NSMCheckup(unittest.TestCase):
         self._validate_nsm([['1']])
         self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [])
 
-        DalHelper.build_dal_structure(structure={'storagerouters': [2]}, previous_structure=structure)
+        structure = DalHelper.build_dal_structure(structure={'storagerouters': [2]}, previous_structure=structure)
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.nsm_checkup()
 
@@ -98,15 +100,17 @@ class NSMCheckup(unittest.TestCase):
         self._validate_nsm([['1']])
         self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [])
 
-        SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-abm/config -catchup-only'] = None
-        SSHClient._run_returns['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
+        storagerouter_2 = structure['storagerouters'][2]
+        MockedSSHClient._run_returns[storagerouter_2.ip] = {}
+        MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-abm/config -catchup-only'] = None
+        MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.manual_alba_arakoon_checkup(alba_backend.guid, nsm_clusters=[])
 
         self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [['update_abm_client_config']])
 
-        SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_0/config -catchup-only'] = None
-        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_0/db'] = None
+        MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_0/config -catchup-only'] = None
+        MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_0/db'] = None
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.nsm_checkup()
 
@@ -114,10 +118,12 @@ class NSMCheckup(unittest.TestCase):
         self._validate_nsm([['1', '2']])
         self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [['update_nsm_host', 'backend_1-nsm_0']])
 
-        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_1/db'] = None
-        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_1/db'] = None
-        SSHClient._run_returns['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_1/config -catchup-only'] = None
-        SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_1/config -catchup-only'] = None
+        MockedSSHClient._run_returns[storagerouter_1.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_1/db'] = None
+        MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_1/db'] = None
+        MockedSSHClient._run_returns[storagerouter_1.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_1/db'] = None
+        MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_1/db'] = None
+        MockedSSHClient._run_returns[storagerouter_1.ip]['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_1/config -catchup-only'] = None
+        MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_1/config -catchup-only'] = None
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.nsm_checkup(min_nsms=2)
 
@@ -138,10 +144,12 @@ class NSMCheckup(unittest.TestCase):
 
         VirtualAlbaBackend.data['backend_1-abm']['nsms'][1]['namespaces_count'] = 25
 
-        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_2/db'] = None
-        SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_2/db'] = None
-        SSHClient._run_returns['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_2/config -catchup-only'] = None
-        SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_2/config -catchup-only'] = None
+        MockedSSHClient._run_returns[storagerouter_1.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_2/db'] = None
+        MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_2/db'] = None
+        MockedSSHClient._run_returns[storagerouter_1.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_2/db'] = None
+        MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_2/db'] = None
+        MockedSSHClient._run_returns[storagerouter_1.ip]['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_2/config -catchup-only'] = None
+        MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_2/config -catchup-only'] = None
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.nsm_checkup()
 
@@ -175,10 +183,12 @@ class NSMCheckup(unittest.TestCase):
         # Add some additional internally managed NSMs
         current_nsms = [nsm_cluster.number for nsm_cluster in alba_backend.nsm_clusters]
         for x in range(len(current_nsms), len(current_nsms) + 2):
-            SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_{0}/db'.format(x)] = None
-            SSHClient._run_returns['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_{0}/db'.format(x)] = None
-            SSHClient._run_returns['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_{0}/config -catchup-only'.format(x)] = None
-            SSHClient._run_returns['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_{0}/config -catchup-only'.format(x)] = None
+            MockedSSHClient._run_returns[storagerouter_1.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_{0}/db'.format(x)] = None
+            MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_{0}/db'.format(x)] = None
+            MockedSSHClient._run_returns[storagerouter_1.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_{0}/db'.format(x)] = None
+            MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_{0}/db'.format(x)] = None
+            MockedSSHClient._run_returns[storagerouter_1.ip]['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_{0}/config -catchup-only'.format(x)] = None
+            MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_{0}/config -catchup-only'.format(x)] = None
         AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, additional_nsms={'amount': 2})
         self._validate_nsm([['1', '2'],
                             ['1', '2'],
