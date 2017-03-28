@@ -83,7 +83,9 @@ class AlbaUpdateController(object):
             binaries = PackageManager.get_binary_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_binaries)
             installed = PackageManager.get_installed_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_all)
             candidate = PackageManager.get_candidate_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_all)
-            if set(installed.keys()) != set(AlbaUpdateController._packages_alba_plugin_all) or set(candidate.keys()) != set(AlbaUpdateController._packages_alba_plugin_all):
+            installed_difference = set(AlbaUpdateController._packages_alba_plugin_all) - set(installed.keys())
+            candidate_difference = set(AlbaUpdateController._packages_alba_plugin_all) - set(candidate.keys())
+            if len(installed_difference | candidate_difference) > 1 or any(['alba' not in package for package in installed_difference | candidate_difference]):
                 raise RuntimeError('Failed to retrieve the installed and candidate versions for packages: {0}'.format(', '.join(AlbaUpdateController._packages_alba_plugin_all)))
 
             # Retrieve Arakoon information
