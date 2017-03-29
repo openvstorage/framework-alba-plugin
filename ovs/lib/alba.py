@@ -25,8 +25,6 @@ import string
 import random
 import datetime
 import requests
-from ConfigParser import RawConfigParser
-from StringIO import StringIO
 from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
@@ -1275,16 +1273,10 @@ class AlbaController(object):
                 raise RuntimeError('Could not load metadata from environment {0}'.format(ovs_client.ip))
 
             # Write Arakoon configuration to file
-            raw_config = RawConfigParser()
-            for section in arakoon_config:
-                raw_config.add_section(section)
-                for key, value in arakoon_config[section].iteritems():
-                    raw_config.set(section, key, value)
-            config_io = StringIO()
-            raw_config.write(config_io)
+            arakoon_config_ini = ArakoonClusterConfig.convert_format(config=arakoon_config)
             remote_arakoon_config = '/opt/OpenvStorage/arakoon_config_temp'
             with open(remote_arakoon_config, 'w') as arakoon_cfg:
-                arakoon_cfg.write(config_io.getvalue())
+                arakoon_cfg.write(arakoon_config_ini)
 
             try:
                 AlbaCLI.run(command='add-osd',
