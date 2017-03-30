@@ -47,6 +47,7 @@ class AlbaUpdateController(object):
     _packages_alba_plugin_all = _packages_alba_plugin['alba'].union(_packages_alba_plugin['framework'])
     _packages_alba_plugin_binaries = {'alba', 'alba-ee', 'arakoon'}
     _packages_alba_plugin_blocking = _packages_alba_plugin['framework'].difference(_packages_alba_plugin_binaries)
+    _packages_mutual_excl = [['alba', 'alba-ee']]
 
     #########
     # HOOKS #
@@ -83,10 +84,23 @@ class AlbaUpdateController(object):
             binaries = PackageManager.get_binary_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_binaries)
             installed = PackageManager.get_installed_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_all)
             candidate = PackageManager.get_candidate_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_all)
-            installed_difference = set(AlbaUpdateController._packages_alba_plugin_all) - set(installed.keys())
+            not_installed = set(AlbaUpdateController._packages_alba_plugin_all) - set(installed.keys())
             candidate_difference = set(AlbaUpdateController._packages_alba_plugin_all) - set(candidate.keys())
-            if len(installed_difference | candidate_difference) > 1 or any(['alba' not in package for package in installed_difference | candidate_difference]):
-                raise RuntimeError('Failed to retrieve the installed and candidate versions for packages: {0}'.format(', '.join(AlbaUpdateController._packages_alba_plugin_all)))
+
+            for package_name in not_installed:
+                found = False
+                for entry in AlbaUpdateController._packages_mutual_excl:
+                    if package_name in entry:
+                        found = True
+                        if entry[1 - entry.index(package_name)] in not_installed:
+                            raise RuntimeError('Conflicting packages installed: {0}'.format(entry))
+                if found is False:
+                    raise RuntimeError('Missing non-installed package: {0}'.format(package_name))
+                if package_name not in candidate_difference:
+                    raise RuntimeError('Unexpected difference in missing installed/candidates: {0}'.format(package_name))
+                candidate_difference.remove(package_name)
+            if len(candidate_difference) > 0:
+                raise RuntimeError('No candidates available for some packages: {0}'.format(candidate_difference))
 
             # Retrieve Arakoon information
             framework_arakoons = []
