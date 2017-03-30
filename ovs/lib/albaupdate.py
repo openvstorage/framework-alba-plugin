@@ -42,11 +42,12 @@ class AlbaUpdateController(object):
     """
     _logger = LogHandler.get('update', name='alba-plugin')
     _logger.logger.propagate = False
-    _packages_alba_plugin = {'alba': {'alba', 'openvstorage-sdm'},
-                             'framework': {'alba', 'arakoon', 'openvstorage-backend'}}
+    _packages_alba_plugin = {'alba': {'alba', 'alba-ee', 'openvstorage-sdm'},
+                             'framework': {'alba', 'alba-ee', 'arakoon', 'openvstorage-backend'}}
     _packages_alba_plugin_all = _packages_alba_plugin['alba'].union(_packages_alba_plugin['framework'])
-    _packages_alba_plugin_binaries = {'alba', 'arakoon'}
+    _packages_alba_plugin_binaries = {'alba', 'alba-ee', 'arakoon'}
     _packages_alba_plugin_blocking = _packages_alba_plugin['framework'].difference(_packages_alba_plugin_binaries)
+    _packages_mutual_excl = [['alba', 'alba-ee']]
 
     #########
     # HOOKS #
@@ -83,8 +84,23 @@ class AlbaUpdateController(object):
             binaries = PackageManager.get_binary_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_binaries)
             installed = PackageManager.get_installed_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_all)
             candidate = PackageManager.get_candidate_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_all)
-            if set(installed.keys()) != set(AlbaUpdateController._packages_alba_plugin_all) or set(candidate.keys()) != set(AlbaUpdateController._packages_alba_plugin_all):
-                raise RuntimeError('Failed to retrieve the installed and candidate versions for packages: {0}'.format(', '.join(AlbaUpdateController._packages_alba_plugin_all)))
+            not_installed = set(AlbaUpdateController._packages_alba_plugin_all) - set(installed.keys())
+            candidate_difference = set(AlbaUpdateController._packages_alba_plugin_all) - set(candidate.keys())
+
+            for package_name in not_installed:
+                found = False
+                for entry in AlbaUpdateController._packages_mutual_excl:
+                    if package_name in entry:
+                        found = True
+                        if entry[1 - entry.index(package_name)] in not_installed:
+                            raise RuntimeError('Conflicting packages installed: {0}'.format(entry))
+                if found is False:
+                    raise RuntimeError('Missing non-installed package: {0}'.format(package_name))
+                if package_name not in candidate_difference:
+                    raise RuntimeError('Unexpected difference in missing installed/candidates: {0}'.format(package_name))
+                candidate_difference.remove(package_name)
+            if len(candidate_difference) > 0:
+                raise RuntimeError('No candidates available for some packages: {0}'.format(candidate_difference))
 
             # Retrieve Arakoon information
             framework_arakoons = []
@@ -110,6 +126,9 @@ class AlbaUpdateController(object):
                 if service.type.name == ServiceType.SERVICE_TYPES.ALBA_MGR or service.type.name == ServiceType.SERVICE_TYPES.NS_MGR:
                     alba_arakoons.append(service.name)
 
+            alba_package = 'alba' if 'alba' in installed.keys() else 'alba-ee'
+            version_mapping = {'alba': ['alba', 'alba-ee']}
+
             default_entry = {'candidate': None,
                              'installed': None,
                              'services_to_restart': []}
@@ -117,7 +136,7 @@ class AlbaUpdateController(object):
             #                       component:    package_name: services_with_run_file
             for component, info in {'framework': {'arakoon': framework_arakoons,
                                                   'openvstorage-backend': []},
-                                    'alba': {'alba': alba_arakoons,
+                                    'alba': {alba_package: alba_arakoons,
                                              'arakoon': alba_arakoons}}.iteritems():
                 component_info = {}
                 for package, services in info.iteritems():
@@ -150,17 +169,23 @@ class AlbaUpdateController(object):
                             elif version:
                                 running_version = version
 
-                            if package_name not in UpdateController.packages_core_all:
-                                raise ValueError('Unknown package dependency found in {0}'.format(version_file))
-                            if package_name not in binaries:
-                                raise RuntimeError('Binary version for package {0} was not retrieved'.format(package_name))
+                            did_check = False
+                            for mapped_package_name in version_mapping.get(package_name, [package_name]):
+                                if mapped_package_name not in UpdateController.packages_core_all:
+                                    raise ValueError('Unknown package dependency found in {0}'.format(version_file))
+                                if mapped_package_name not in binaries or mapped_package_name not in installed:
+                                    continue
 
-                            if running_version is not None and running_version != binaries[package_name]:
-                                if package_name not in component_info:
-                                    component_info[package_name] = copy.deepcopy(default_entry)
-                                component_info[package_name]['installed'] = running_version
-                                component_info[package_name]['candidate'] = binaries[package_name]
-                                component_info[package_name]['services_to_restart'].append('ovs-{0}'.format(service))
+                                did_check = True
+                                if running_version is not None and running_version != binaries[mapped_package_name]:
+                                    if package_name not in component_info:
+                                        component_info[mapped_package_name] = copy.deepcopy(default_entry)
+                                    component_info[mapped_package_name]['installed'] = running_version
+                                    component_info[mapped_package_name]['candidate'] = binaries[mapped_package_name]
+                                    component_info[mapped_package_name]['services_to_restart'].append('ovs-'.format(service))
+                                    break
+                            if did_check is False:
+                                raise RuntimeError('Binary version for package {0} was not retrieved'.format(package_name))
 
                     if installed[package] != candidate[package] and package not in component_info:
                         component_info[package] = copy.deepcopy(default_entry)
@@ -319,7 +344,7 @@ class AlbaUpdateController(object):
                         if ['api', None] not in information[key]['downtime']:
                             information[key]['downtime'].append(['api', None])
                         information[key]['services_stop_start'].update({'watcher-framework', 'memcached'})
-                    elif package_name == 'alba':
+                    elif package_name in ['alba', 'alba-ee']:
                         for down in arakoon_downtime:
                             if down not in information[key]['downtime']:
                                 information[key]['downtime'].append(down)
