@@ -555,7 +555,7 @@ class AlbaBackend(DataObject):
         for service_name, node in services_for_this_backend.iteritems():
             try:
                 service_status = node.client.get_service_status(name=service_name)
-                if service_status is None or service_status[0] is False:
+                if service_status is None or service_status != 'active':
                     return 'failure'
             except:
                 pass
