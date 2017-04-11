@@ -300,7 +300,7 @@ class ASDManagerClient(object):
         :return: Status of the service
         :rtype: str
         """
-        return self._call(requests.get, 'service_status/{0}'.format(name))['status']
+        return self._call(requests.get, 'service_status/{0}'.format(name))['status'][1]
 
     def _refresh(self):
         self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)

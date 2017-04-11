@@ -1076,7 +1076,7 @@ class AlbaController(object):
         """
         service_capacity = float(nsm_cluster.capacity)
         if service_capacity < 0:
-            return 50
+            return 50.0
         if service_capacity == 0:
             return float('inf')
 
