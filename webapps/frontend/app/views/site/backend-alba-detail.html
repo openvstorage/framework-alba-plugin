@@ -658,6 +658,7 @@ but WITHOUT ANY WARRANTY of any kind.
                             <th style="width: 150px;" data-i18n="alba:presets.name"></th>
                             <th style="width: 150px;" data-i18n="alba:presets.compression"></th>
                             <th style="width: 150px;" data-i18n="alba:presets.encryption"></th>
+                            <th style="width: 150px;" data-i18n="alba:presets.fragsize"></th>
                             <th>
                                 <span data-i18n="alba:presets.policies.title"></span>
                                 <a data-bind="popover: {
@@ -693,6 +694,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <td data-bind="text: name"></td>
                                 <td data-bind="translate: 'alba:generic.compressions.' + compression"></td>
                                 <td data-bind="translate: 'alba:generic.encryptions.' + encryption[0]"></td>
+                                <td data-bind="text: $root.generic.formatBytes(fragSize)"></td>
                                 <td>
                                     <span data-bind="visible: replication !== undefined">
                                         <span data-bind="text: replication"></span><span data-i18n="alba:generic.wayreplication"></span>

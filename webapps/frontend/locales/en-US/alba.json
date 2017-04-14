@@ -232,6 +232,7 @@
         },
         "editpreset": "Edit preset",
         "encryption": "Encryption",
+        "fragsize": "Fragment size",
         "inuse": "In use",
         "legend": "Preset/policy legend:",
         "name": "Name",
