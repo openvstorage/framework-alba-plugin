@@ -28,6 +28,9 @@ define([
         self.refresher = new Refresher();
         self.shared    = shared;
 
+        // Handles
+        self.calculateSafetyHandle = undefined;
+
         // Computed
         self.canContinue = ko.computed(function() {
             var valid = (!self.data.shouldConfirm() || self.data.confirmed()) && self.data.loaded() && !self.data.failedToLoad();
@@ -69,19 +72,21 @@ define([
         // Durandal
         self.activate = function() {
             self.refresher.init(function() {
-                api.get('alba/backends/' + self.data.target().guid() + '/calculate_safety', {
-                    queryparams: { asd_id: self.data.linkedOSDInfo().osd_id }
-                })
-                    .then(self.shared.tasks.wait)
-                    .done(function(safety) {
-                        self.data.safety(safety);
+                if (generic.xhrCompleted(self.calculateSafetyHandle)) {
+                    self.calculateSafetyHandle = api.get('alba/backends/' + self.data.target().guid() + '/calculate_safety', {
+                        queryparams: { asd_id: self.data.linkedOSDInfo().osd_id }
                     })
-                    .fail(function() {
-                        self.data.failedToLoad(true);
-                    })
-                    .always(function() {
-                        self.data.loaded(true);
-                    });
+                        .then(self.shared.tasks.wait)
+                        .done(function(safety) {
+                            self.data.safety(safety);
+                        })
+                        .fail(function() {
+                            self.data.failedToLoad(true);
+                        })
+                        .always(function() {
+                            self.data.loaded(true);
+                        });
+                }
             }, 5000);
             self.refresher.run();
             self.refresher.start();
