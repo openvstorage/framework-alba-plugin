@@ -126,7 +126,7 @@ define([
                         linked_preset: self.data.albaPreset().name,
                         linked_alba_id: self.data.albaBackend().albaId()
                     },
-                    backend_connection_info: backend_connection_info,
+                    backend_connection_info: backend_connection_info
                 };
                 generic.alertInfo(
                     $.t('alba:wizards.link_backend.started'),
