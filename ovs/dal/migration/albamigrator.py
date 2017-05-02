@@ -80,7 +80,7 @@ class ALBAMigrator(object):
             from ovs.dal.lists.albabackendlist import AlbaBackendList
             from ovs.dal.lists.servicetypelist import ServiceTypeList
             from ovs.dal.lists.storagerouterlist import StorageRouterList
-            from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
+            from ovs.extensions.db.arakoon.arakooninstaller import ArakoonClusterConfig, ArakoonInstaller
             from ovs.extensions.generic.configuration import Configuration, NotFoundException
             from ovs.extensions.generic.toolbox import ExtensionsToolbox
             from ovs.extensions.plugins.albacli import AlbaCLI
@@ -153,7 +153,7 @@ class ALBAMigrator(object):
                 for cluster_info in abm_cluster_info + nsm_cluster_info:
                     cluster_name = cluster_info['cluster_name']
                     arakoon_config = ArakoonClusterConfig(cluster_id=cluster_name)
-                    cluster_arakoon_map[cluster_name] = arakoon_config.export()
+                    cluster_arakoon_map[cluster_name] = arakoon_config.export_json()
 
                 storagerouter_map = dict((storagerouter.machine_id, storagerouter) for storagerouter in StorageRouterList.get_storagerouters())
                 alba_backend_id_map = dict((alba_backend.alba_id, alba_backend) for alba_backend in alba_backends)

@@ -25,8 +25,6 @@ import string
 import random
 import datetime
 import requests
-from ConfigParser import RawConfigParser
-from StringIO import StringIO
 from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
@@ -45,7 +43,7 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.api.client import OVSClient
-from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
+from ovs.extensions.db.arakoon.arakooninstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.plugins.albacli import AlbaCLI
@@ -371,7 +369,7 @@ class AlbaController(object):
             raise RuntimeError('Could not load Arakoon configuration')
 
         config = ArakoonClusterConfig(cluster_id=alba_backend.abm_cluster.name)
-        return config.export()
+        return config.export_json()
 
     @staticmethod
     @ovs_task(name='alba.scheduled_alba_arakoon_checkup',
@@ -565,9 +563,8 @@ class AlbaController(object):
                                                   cluster_name=abm_cluster_name,
                                                   ports=result['ports'],
                                                   storagerouter=storagerouter)
-                    ArakoonInstaller.restart_cluster_add(cluster_name=abm_cluster_name,
-                                                         current_ips=current_abm_ips,
-                                                         new_ip=storagerouter.ip)
+                    ArakoonInstaller.restart_cluster_after_extending(cluster_name=abm_cluster_name,
+                                                                     new_ip=storagerouter.ip)
                     AlbaController._update_abm_client_config(abm_name=abm_cluster_name,
                                                              ip=storagerouter.ip)
                     current_abm_ips.append(storagerouter.ip)
@@ -606,8 +603,9 @@ class AlbaController(object):
                 if cluster_ip in abm_storagerouter_ips:
                     AlbaController._logger.info('* Shrink ABM cluster')
                     ArakoonInstaller.shrink_cluster(cluster_name=abm_cluster_name,
-                                                    ip=cluster_ip,
+                                                    removal_ip=cluster_ip,
                                                     offline_nodes=offline_node_ips)
+                    ArakoonInstaller.restart_cluster_after_shrinking(cluster_name=abm_cluster_name)
 
                     AlbaController._logger.info('* Updating ABM client config')
                     AlbaController._update_abm_client_config(abm_name=abm_cluster_name,
@@ -633,8 +631,9 @@ class AlbaController(object):
                     # Remove the node from the NSM
                     AlbaController._logger.info('* Shrink NSM cluster {0}'.format(nsm_cluster.name))
                     ArakoonInstaller.shrink_cluster(cluster_name=nsm_cluster.name,
-                                                    ip=cluster_ip,
+                                                    removal_ip=cluster_ip,
                                                     offline_nodes=offline_node_ips)
+                    ArakoonInstaller.restart_cluster_after_shrinking(cluster_name=abm_cluster_name)
 
                     AlbaController._logger.info('* Updating NSM cluster config to ABM for cluster {0}'.format(nsm_cluster.name))
                     AlbaController._update_nsm(abm_name=abm_cluster_name,
@@ -904,9 +903,8 @@ class AlbaController(object):
                                                               storagerouter=candidate_sr,
                                                               number=nsm_cluster.number)
                                 AlbaController._logger.debug('  Restart sequence')
-                                ArakoonInstaller.restart_cluster_add(cluster_name=nsm_cluster.name,
-                                                                     current_ips=current_sr_ips,
-                                                                     new_ip=candidate_sr.ip)
+                                ArakoonInstaller.restart_cluster_after_extending(cluster_name=nsm_cluster.name,
+                                                                                 new_ip=candidate_sr.ip)
                                 AlbaController._update_nsm(abm_name=abm_cluster_name,
                                                            nsm_name=nsm_cluster.name,
                                                            ip=candidate_sr.ip)
@@ -998,9 +996,8 @@ class AlbaController(object):
                             if index == 0:
                                 ArakoonInstaller.start_cluster(metadata=nsm_result['metadata'])
                             else:
-                                ArakoonInstaller.restart_cluster_add(cluster_name=nsm_cluster_name,
-                                                                     current_ips=[sr.ip for sr in storagerouters[:index]],
-                                                                     new_ip=storagerouter.ip)
+                                ArakoonInstaller.restart_cluster_after_extending(cluster_name=nsm_cluster_name,
+                                                                                 new_ip=storagerouter.ip)
                         AlbaController._register_nsm(abm_name=abm_cluster_name,
                                                      nsm_name=nsm_cluster_name,
                                                      ip=storagerouters[0].ip)
@@ -1276,16 +1273,10 @@ class AlbaController(object):
                 raise RuntimeError('Could not load metadata from environment {0}'.format(ovs_client.ip))
 
             # Write Arakoon configuration to file
-            raw_config = RawConfigParser()
-            for section in arakoon_config:
-                raw_config.add_section(section)
-                for key, value in arakoon_config[section].iteritems():
-                    raw_config.set(section, key, value)
-            config_io = StringIO()
-            raw_config.write(config_io)
+            arakoon_config = ArakoonClusterConfig.convert_config_to(config=arakoon_config, return_type='INI')
             remote_arakoon_config = '/opt/OpenvStorage/arakoon_config_temp'
             with open(remote_arakoon_config, 'w') as arakoon_cfg:
-                arakoon_cfg.write(config_io.getvalue())
+                arakoon_cfg.write(arakoon_config)
 
             try:
                 AlbaCLI.run(command='add-osd',
