@@ -369,7 +369,7 @@ class AlbaController(object):
             raise RuntimeError('Could not load Arakoon configuration')
 
         config = ArakoonClusterConfig(cluster_id=alba_backend.abm_cluster.name)
-        return config.export_json()
+        return config.export_dict()
 
     @staticmethod
     @ovs_task(name='alba.scheduled_alba_arakoon_checkup',
