@@ -23,7 +23,7 @@ import requests
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
-from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
+from ovs.extensions.db.arakoon.arakooninstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.db.arakoon.pyrakoon.pyrakoon.compat import ArakoonNoMaster, ArakoonNotFound
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.services.service import ServiceManager
