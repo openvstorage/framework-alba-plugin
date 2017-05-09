@@ -46,7 +46,6 @@ define([
         self.disks                  = ko.observableArray([]);
         self.dNodesLoading          = ko.observable(false);
         self.domains                = ko.observableArray([]);
-        self.domainsLoaded          = ko.observable(false);
         self.initialRun             = ko.observable(true);
         self.localSummary           = ko.observable();
         self.otherAlbaBackendsCache = ko.observable({});
@@ -324,7 +323,6 @@ define([
                             self.domains.sort(function(dom1, dom2) {
                                 return dom1.name() < dom2.name() ? -1 : 1;
                             });
-                            self.domainsLoaded(true);
                             deferred.resolve();
                         })
                         .fail(deferred.reject);
