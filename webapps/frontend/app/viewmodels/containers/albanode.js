@@ -141,6 +141,9 @@ define([
         };
         self.removeDisk = function(disk) {
             disk.processing(true);
+            $.each(disk.osds(), function(_, osd) {
+                osd.processing(true);
+            });
             return $.Deferred(function(deferred) {
                 generic.alertInfo(
                     $.t('alba:disks.remove.started'),
@@ -173,6 +176,9 @@ define([
         };
         self.restartDisk = function(disk) {
             disk.processing(true);
+            $.each(disk.osds(), function(_, osd) {
+                osd.processing(true);
+            });
             return $.Deferred(function(deferred) {
                 generic.alertInfo(
                     $.t('alba:disks.restart.started'),
