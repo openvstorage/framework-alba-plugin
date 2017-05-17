@@ -23,13 +23,13 @@ import requests
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
-from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
-from ovs.extensions.db.arakoon.pyrakoon.pyrakoon.compat import ArakoonNoMaster, ArakoonNotFound
+from ovs_extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
+from ovs_extensions.db.arakoon.pyrakoon.pyrakoon.compat import ArakoonNoMaster, ArakoonNotFound
 from ovs.extensions.generic.configuration import Configuration
-from ovs.extensions.services.service import ServiceManager
-from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
+from ovs_extensions.services.servicefactory import ServiceFactory
+from ovs_extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.generic.system import System
-from ovs.extensions.packages.package import PackageManager
+from ovs_extensions.packages.packagefactory import PackageFactory
 from ovs.lib.alba import AlbaController
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.lib.update import UpdateController
@@ -75,7 +75,7 @@ class AlbaUpdateController(object):
         :return: Package information
         :rtype: dict
         """
-        from ovs.extensions.generic.toolbox import ExtensionsToolbox
+        from ovs_extensions.generic.toolbox import ExtensionsToolbox
 
         try:
             if client.username != 'root':
@@ -469,7 +469,7 @@ class AlbaUpdateController(object):
         if 'framework' not in components and 'alba' not in components:
             return
 
-        from ovs.extensions.generic.toolbox import ExtensionsToolbox
+        from ovs_extensions.generic.toolbox import ExtensionsToolbox
 
         update_information = AlbaUpdateController._get_update_information_alba_plugin({})
         services_to_restart = set()

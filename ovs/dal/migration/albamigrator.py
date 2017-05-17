@@ -80,11 +80,11 @@ class ALBAMigrator(object):
             from ovs.dal.lists.albabackendlist import AlbaBackendList
             from ovs.dal.lists.servicetypelist import ServiceTypeList
             from ovs.dal.lists.storagerouterlist import StorageRouterList
-            from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
+            from ovs_extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig, ArakoonInstaller
             from ovs.extensions.generic.configuration import Configuration, NotFoundException
-            from ovs.extensions.generic.toolbox import ExtensionsToolbox
+            from ovs_extensions.generic.toolbox import ExtensionsToolbox
             from ovs.extensions.plugins.albacli import AlbaCLI
-            from ovs.extensions.storage.persistentfactory import PersistentFactory
+            from ovs_extensions.storage.persistentfactory import PersistentFactory
 
             # Migrate unique constraints & indexes
             client = PersistentFactory.get_client()

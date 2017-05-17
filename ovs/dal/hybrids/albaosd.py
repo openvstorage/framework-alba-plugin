@@ -23,7 +23,7 @@ from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.domain import Domain
 from ovs.dal.structures import Property, Relation, Dynamic
-from ovs.extensions.storage.volatilefactory import VolatileFactory
+from ovs_extensions.storage.volatilefactory import VolatileFactory
 
 
 class AlbaOSD(DataObject):

@@ -22,7 +22,7 @@ import unittest
 from ovs.dal.tests.alba_helpers import AlbaDalHelper
 from ovs.dal.tests.helpers import DalHelper
 from ovs.extensions.generic.configuration import Configuration
-from ovs.extensions.generic.tests.sshclient_mock import MockedSSHClient
+from ovs_extensions.generic.tests.sshclient_mock import MockedSSHClient
 from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
 from ovs.lib.alba import AlbaController
 

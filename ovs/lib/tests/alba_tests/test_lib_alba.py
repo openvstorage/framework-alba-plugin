@@ -21,10 +21,10 @@ import unittest
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.tests.alba_helpers import AlbaDalHelper
 from ovs.dal.tests.helpers import DalHelper
-from ovs.extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
+from ovs_extensions.db.arakoon.ArakoonInstaller import ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
-from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
-from ovs.extensions.generic.tests.sshclient_mock import MockedSSHClient
+from ovs_extensions.generic.sshclient import SSHClient, UnableToConnectException
+from ovs_extensions.generic.tests.sshclient_mock import MockedSSHClient
 from ovs.lib.alba import AlbaController
 from ovs.log.log_handler import LogHandler
 
