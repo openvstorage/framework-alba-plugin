@@ -186,6 +186,17 @@ class ASDManagerClient(object):
         """
         return self._call(requests.get, 'disks/{0}/asds'.format(disk_id), clean=True)
 
+    def get_claimed_asds(self, disk_id):
+        """
+        Retrieve all ASDs claimed by any Backend for the specified disk
+        """
+        try:
+            asd_info = self._call(requests.get, 'disks/{0}/get_claimed_asds'.format(disk_id), clean=True, timeout=60)
+            asd_info['call_exists'] = True
+            return asd_info
+        except NotFoundError:
+            return {'call_exists': False}
+
     def add_asd(self, disk_id):
         """
         Adds an ASD to a disk
@@ -300,7 +311,7 @@ class ASDManagerClient(object):
         :return: Status of the service
         :rtype: str
         """
-        return self._call(requests.get, 'service_status/{0}'.format(name))['status']
+        return self._call(requests.get, 'service_status/{0}'.format(name))['status'][1]
 
     def _refresh(self):
         self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)

@@ -192,29 +192,39 @@ class AlbaNodeController(object):
         :return: None
         :rtype: NoneType
         """
-        asds = {}
-        node = AlbaNode(node_guid)
-        node_id = node.node_id
-        device_id = device_alias.split('/')[-1]
-        online_node = True
-
         # Verify client connectivity
+        node = AlbaNode(node_guid)
+        online_node = True
         try:
-            _ = node.client.get_disks()
+            node.client.get_disks()
         except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
             AlbaNodeController._logger.warning('Could not connect to node {0} to validate disks'.format(node.guid))
             online_node = False
 
         # Retrieve ASD information for the ALBA Disk
+        device_id = device_alias.split('/')[-1]
+        call_exists = False
         all_alba_backends = AlbaBackendList.get_albabackends()
-        for alba_backend in all_alba_backends:
-            local_stack = alba_backend.local_stack
-            if node_id in local_stack and device_id in local_stack[node_id]:
-                asds.update(local_stack[node_id][device_id]['asds'])
-        for asd_info in asds.values():
-            if (online_node is True and asd_info.get('status') != 'available') or (online_node is False and asd_info.get('status_detail') == 'nodedown'):
-                AlbaNodeController._logger.error('Disk {0} has still non-available ASDs on node {1}'.format(device_alias, node.ip))
-                raise RuntimeError('Disk {0} on ALBA node {1} has still some non-available ASDs'.format(device_alias, node_id))
+        if online_node is True:
+            asds_in_use = node.client.get_claimed_asds(disk_id=device_id)
+            call_exists = asds_in_use.pop('call_exists')
+            if len(asds_in_use) > 0:
+                id_name_map = dict((ab.alba_id, ab.name) for ab in all_alba_backends)
+                reasons = set()
+                for info in asds_in_use.itervalues():
+                    if info in id_name_map:
+                        reasons.add('ASDs claimed by Backend {0}'.format(id_name_map[info]))
+                    else:
+                        reasons.add(info)
+                raise RuntimeError('Disk {0} on ALBA node {1} with IP {2} cannot be deleted because:\n - {3}'.format(device_alias, node.node_id, node.ip, '\n - '.join(reasons)))
+
+        if online_node is False or call_exists is False:  # Talking to older client, so failed to retrieve the claimed ASDs
+            for alba_backend in all_alba_backends:
+                local_stack = alba_backend.local_stack
+                if node.node_id in local_stack and device_id in local_stack[node.node_id]:
+                    for asd_info in local_stack[node.node_id][device_id]['asds'].values():
+                        if (online_node is True and asd_info.get('status') != 'available') or (online_node is False and asd_info.get('status_detail') == 'nodedown'):
+                            raise RuntimeError('Disk {0} on ALBA node {1} with IP {2} has still some non-available ASDs'.format(device_alias, node.node_id, node.ip))
 
         # Retrieve the Disk from the framework model matching the ALBA Disk
         disk_to_clear = None

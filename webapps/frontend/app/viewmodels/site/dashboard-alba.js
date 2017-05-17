@@ -131,7 +131,6 @@ define([
                         });
                     })
                     .always(function() {
-                        self._selectedGroup(undefined);
                         self.loading(false);
                         deferred.resolve();
                     });

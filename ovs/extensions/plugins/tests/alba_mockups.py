@@ -17,7 +17,7 @@
 """
 Mocks Alba backends
 """
-from ovs_extensions.db.arakoon.ArakoonInstaller import ArakoonClusterConfig
+from ovs_extensions.db.arakoon.arakooninstaller import ArakoonClusterConfig
 from ovs.extensions.generic.configuration import Configuration
 
 
@@ -122,9 +122,7 @@ class VirtualAlbaBackend(object):
         state = {}
         data = VirtualAlbaBackend.data[abm]
         for nsm in data['nsms']:
-            contents = Configuration.get(nsm['_config_key'], raw=True)
-            config = ArakoonClusterConfig(cluster_id=nsm['id'], load_config=False)
-            config.read_config(contents)
+            config = ArakoonClusterConfig(cluster_id=nsm['id'])
             state[nsm['id']] = [node.name for node in config.nodes]
         return state
 
