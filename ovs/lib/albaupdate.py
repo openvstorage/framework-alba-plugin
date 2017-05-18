@@ -111,7 +111,9 @@ class AlbaUpdateController(object):
 
                 ip = client.ip if cluster == 'cacc' else None
                 try:
-                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, ip=ip)
+                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name,
+                                                                                             ip=ip,
+                                                                                             configuration=Configuration)
                 except ArakoonNoMaster:
                     raise RuntimeError('Arakoon cluster {0} does not have a master'.format(cluster))
                 except ArakoonNotFound:
@@ -261,14 +263,18 @@ class AlbaUpdateController(object):
 
             ip = System.get_my_storagerouter().ip if cluster == 'cacc' else None
             try:
-                arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, ip=ip)
+                arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name,
+                                                                                         ip=ip,
+                                                                                         configuration=Configuration)
             except ArakoonNoMaster:
                 raise RuntimeError('Arakoon cluster {0} does not have a master'.format(cluster))
             except ArakoonNotFound:
                 raise RuntimeError('Arakoon cluster {0} does not have the required metadata key'.format(cluster))
 
             if arakoon_metadata['internal'] is True:
-                config = ArakoonClusterConfig(cluster_id=cluster_name, source_ip=ip)
+                config = ArakoonClusterConfig(cluster_id=cluster_name,
+                                              source_ip=ip,
+                                              configuration=Configuration)
                 if cluster == 'ovsdb':
                     arakoon_ovs_info['down'] = len(config.nodes) < 3
                     arakoon_ovs_info['name'] = arakoon_metadata['cluster_name']
@@ -319,10 +325,12 @@ class AlbaUpdateController(object):
                         cluster_name = service.nsm_service.nsm_cluster.name
                     if Configuration.exists('/ovs/arakoon/{0}/config'.format(cluster_name), raw=True) is False:
                         continue
-                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
+                    arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name,
+                                                                                             configuration=Configuration)
                     if arakoon_metadata['internal'] is True:
                         arakoon_services.append('ovs-{0}'.format(service.name))
-                        config = ArakoonClusterConfig(cluster_id=cluster_name)
+                        config = ArakoonClusterConfig(cluster_id=cluster_name,
+                                                      configuration=Configuration)
                         if len(config.nodes) < 3:
                             if service.type.name == ServiceType.SERVICE_TYPES.NS_MGR:
                                 arakoon_downtime.append(['backend', service.nsm_service.nsm_cluster.alba_backend.name])
@@ -485,11 +493,14 @@ class AlbaUpdateController(object):
                 if not service_name.startswith('arakoon-'):
                     UpdateController.change_services_state(services=[service_name], ssh_clients=[client], action='restart')
                 else:
-                    cluster_name = ArakoonClusterConfig.get_cluster_name(ExtensionsToolbox.remove_prefix(service_name, 'arakoon-'))
+                    cluster_name = ArakoonClusterConfig.get_cluster_name(internal_name=ExtensionsToolbox.remove_prefix(service_name, 'arakoon-'),
+                                                                         configuration=Configuration)
                     master_ip = StorageRouterList.get_masters()[0].ip if cluster_name == 'config' else None
                     temp_cluster_name = 'cacc' if cluster_name == 'config' else cluster_name
                     try:
-                        arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=temp_cluster_name, ip=master_ip)
+                        arakoon_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=temp_cluster_name,
+                                                                                                 ip=master_ip,
+                                                                                                 configuration=Configuration)
                     except ArakoonNoMaster:
                         AlbaUpdateController._logger.warning('Arakoon cluster {0} does not have a master, not restarting related services'.format(cluster_name))
                         continue
@@ -498,11 +509,10 @@ class AlbaUpdateController(object):
                         continue
 
                     if arakoon_metadata['internal'] is True:
-                        config = ArakoonClusterConfig(cluster_id=cluster_name, source_ip=master_ip)
-                        if client.ip in [node.ip for node in config.nodes]:
-                            AlbaUpdateController._logger.debug('{0}: Restarting arakoon node {1}'.format(client.ip, cluster_name))
-                            ArakoonInstaller.restart_node(metadata=arakoon_metadata,
-                                                          client=client)
+                        arakoon_installer = ArakoonInstaller(cluster_name=cluster_name,
+                                                             configuration=Configuration)
+                        arakoon_installer.load(ip=master_ip)
+                        arakoon_installer.restart_cluster()
             AlbaUpdateController._logger.debug('{0}: Executed hook {1}'.format(client.ip, inspect.currentframe().f_code.co_name))
 
     @staticmethod

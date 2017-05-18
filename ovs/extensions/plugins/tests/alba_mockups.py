@@ -18,7 +18,6 @@
 Mocks Alba backends
 """
 from ovs_extensions.db.arakoon.arakooninstaller import ArakoonClusterConfig
-from ovs.extensions.generic.configuration import Configuration
 
 
 class VirtualAlbaBackend(object):

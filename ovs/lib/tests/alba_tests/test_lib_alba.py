@@ -68,8 +68,10 @@ class AlbaGeneric(unittest.TestCase):
         arakoon_clusters = sorted(Configuration.list('/ovs/arakoon'))
         self.assertListEqual(list1=[abm_cluster_name, nsm_cluster_name], list2=arakoon_clusters)
 
-        abm_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=abm_cluster_name)
-        nsm_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=nsm_cluster_name)
+        abm_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=abm_cluster_name,
+                                                                             configuration=Configuration)
+        nsm_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=nsm_cluster_name,
+                                                                             configuration=Configuration)
         self.assertTrue(expr=abm_metadata['in_use'])
         self.assertTrue(expr=nsm_metadata['in_use'])
 
@@ -157,18 +159,23 @@ class AlbaGeneric(unittest.TestCase):
                                            'manual-nsm-1': ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                            'manual-nsm-2': ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                            'manual-nsm-3': ServiceType.ARAKOON_CLUSTER_TYPES.NSM}.iteritems():
-            info = ArakoonInstaller.create_cluster(cluster_name=cluster_name,
-                                                   cluster_type=cluster_type,
-                                                   ip=sr_1.ip,
-                                                   base_dir=DalHelper.CLUSTER_DIR.format(cluster_name),
-                                                   internal=False)
-            ArakoonInstaller.start_cluster(metadata=info['metadata'])
-            ArakoonInstaller.unclaim_cluster(cluster_name=cluster_name)
+            arakoon_installer = ArakoonInstaller(cluster_name=cluster_name,
+                                                 configuration=Configuration)
+            arakoon_installer.create_cluster(cluster_type=cluster_type,
+                                             ip=sr_1.ip,
+                                             base_dir=DalHelper.CLUSTER_DIR.format(cluster_name),
+                                             internal=False,
+                                             log_sinks=LogHandler.get_sink_path('arakoon_server'),
+                                             crash_log_sinks=LogHandler.get_sink_path('arakoon_server_crash'))
+            arakoon_installer.start_cluster()
+            arakoon_installer.unclaim_cluster()
         AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=ab_1.guid, nsm_clusters=['manual-nsm-1', 'manual-nsm-3'], abm_cluster='manual-abm-2')
 
         # Validate the correct clusters have been claimed by the manual checkup
-        unused_abms = ArakoonInstaller.get_unused_arakoon_clusters(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM)
-        unused_nsms = ArakoonInstaller.get_unused_arakoon_clusters(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM)
+        unused_abms = ArakoonInstaller.get_unused_arakoon_clusters(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM,
+                                                                   configuration=Configuration)
+        unused_nsms = ArakoonInstaller.get_unused_arakoon_clusters(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
+                                                                   configuration=Configuration)
         self.assertEqual(first=len(unused_abms), second=1)
         self.assertEqual(first=len(unused_nsms), second=1)
         self.assertEqual(first=unused_abms[0]['cluster_name'], second='manual-abm-1')
