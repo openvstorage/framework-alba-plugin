@@ -45,7 +45,7 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs_extensions.api.client import OVSClient
-from ovs_extensions.db.arakoon.arakooninstaller import ArakoonClusterConfig, ArakoonInstaller
+from ovs.extensions.db.arakooninstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs_extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.plugins.albacli import AlbaCLI
@@ -285,8 +285,7 @@ class AlbaController(object):
             arakoon_clusters = list(Configuration.list('/ovs/arakoon'))
             if abm_cluster_name in arakoon_clusters:
                 # Remove ABM Arakoon cluster
-                arakoon_installer = ArakoonInstaller(cluster_name=abm_cluster_name,
-                                                     configuration=Configuration)
+                arakoon_installer = ArakoonInstaller(cluster_name=abm_cluster_name)
                 if internal is True:
                     AlbaController._logger.debug('Deleting ALBA manager Arakoon cluster {0}'.format(abm_cluster_name))
                     arakoon_installer.delete_cluster()
@@ -309,8 +308,7 @@ class AlbaController(object):
             # Remove NSM Arakoon clusters and services
             for nsm_cluster in alba_backend.nsm_clusters:
                 if nsm_cluster.name in arakoon_clusters:
-                    arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster.name,
-                                                         configuration=Configuration)
+                    arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster.name)
                     if internal is True:
                         AlbaController._logger.debug('Deleting Namespace manager Arakoon cluster {0}'.format(nsm_cluster.name))
                         arakoon_installer.delete_cluster()
@@ -408,7 +406,7 @@ class AlbaController(object):
         if abm_cluster is not None:
             for cluster_name in [abm_cluster] + nsm_clusters:
                 try:
-                    metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, configuration=Configuration)
+                    metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
                     if metadata['in_use'] is True:
                         raise ValueError('Cluster {0} has already been claimed'.format(cluster_name))
                 except NotFoundException:
@@ -461,8 +459,7 @@ class AlbaController(object):
             # ABM Arakoon cluster creation
             if alba_backend.abm_cluster is None:
                 metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM,
-                                                                                  cluster_name=abm_cluster,
-                                                                                  configuration=Configuration)
+                                                                                  cluster_name=abm_cluster)
                 if metadata is None:  # No externally unused clusters found, we create 1 ourselves
                     if not available_storagerouters:
                         raise RuntimeError('Could not find any partitions with DB role')
@@ -470,8 +467,7 @@ class AlbaController(object):
                         raise ValueError('Cluster {0} has been claimed by another process'.format(abm_cluster))
                     AlbaController._logger.info('Creating Arakoon cluster: {0}'.format(abm_cluster_name))
                     storagerouter, partition = available_storagerouters.items()[0]
-                    arakoon_installer = ArakoonInstaller(cluster_name=abm_cluster_name,
-                                                         configuration=Configuration)
+                    arakoon_installer = ArakoonInstaller(cluster_name=abm_cluster_name)
                     arakoon_installer.create_cluster(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM,
                                                      ip=storagerouter.ip,
                                                      base_dir=partition.folder,
@@ -506,15 +502,12 @@ class AlbaController(object):
                     metadatas = []
                     for nsm_cluster in nsm_clusters:
                         metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
-                                                                                          cluster_name=nsm_cluster,
-                                                                                          configuration=Configuration)
+                                                                                          cluster_name=nsm_cluster)
                         if metadata is None:
                             AlbaController._logger.warning('Arakoon cluster {0} has been claimed by another process, reverting...'.format(nsm_cluster))
                             for md in metadatas:
-                                ArakoonInstaller(cluster_name=md['cluster_name'],
-                                                 configuration=Configuration).unclaim_cluster()
-                            ArakoonInstaller(cluster_name=abm_cluster_name,
-                                             configuration=Configuration).unclaim_cluster()
+                                ArakoonInstaller(cluster_name=md['cluster_name']).unclaim_cluster()
+                            ArakoonInstaller(cluster_name=abm_cluster_name).unclaim_cluster()
                             raise ValueError('Arakoon cluster {0} has been claimed by another process'.format(nsm_cluster))
                         metadatas.append(metadata)
                 else:
@@ -526,8 +519,7 @@ class AlbaController(object):
                         nsm_cluster_name = '{0}-nsm_0'.format(alba_backend.name)
                         AlbaController._logger.info('Creating Arakoon cluster: {0}'.format(nsm_cluster_name))
                         storagerouter, partition = available_storagerouters.items()[0]
-                        arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster_name,
-                                                             configuration=Configuration)
+                        arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster_name)
                         arakoon_installer.create_cluster(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                          ip=storagerouter.ip,
                                                          base_dir=partition.folder,
@@ -568,8 +560,7 @@ class AlbaController(object):
                 for storagerouter, partition in available_storagerouters.iteritems():
                     if storagerouter.ip in current_abm_ips:
                         continue
-                    arakoon_installer = ArakoonInstaller(cluster_name=abm_cluster_name,
-                                                         configuration=Configuration)
+                    arakoon_installer = ArakoonInstaller(cluster_name=abm_cluster_name)
                     arakoon_installer.extend_cluster(new_ip=storagerouter.ip,
                                                      base_dir=partition.folder,
                                                      log_sinks=LogHandler.get_sink_path('arakoon_server'),
@@ -620,8 +611,7 @@ class AlbaController(object):
 
                 if cluster_ip in abm_storagerouter_ips:
                     AlbaController._logger.info('* Shrink ABM cluster')
-                    arakoon_installer = ArakoonInstaller(cluster_name=abm_cluster_name,
-                                                         configuration=Configuration)
+                    arakoon_installer = ArakoonInstaller(cluster_name=abm_cluster_name)
                     arakoon_installer.shrink_cluster(removal_ip=cluster_ip,
                                                      offline_nodes=offline_node_ips)
                     arakoon_installer.restart_cluster_after_shrinking()
@@ -649,8 +639,7 @@ class AlbaController(object):
 
                     # Remove the node from the NSM
                     AlbaController._logger.info('* Shrink NSM cluster {0}'.format(nsm_cluster.name))
-                    arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster.name,
-                                                         configuration=Configuration)
+                    arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster.name)
                     arakoon_installer.shrink_cluster(removal_ip=cluster_ip,
                                                      offline_nodes=offline_node_ips)
                     arakoon_installer.restart_cluster_after_shrinking()
@@ -814,7 +803,7 @@ class AlbaController(object):
 
             for cluster_name in additional_nsm_names:
                 try:
-                    ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name, configuration=Configuration)
+                    ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
                 except NotFoundException:
                     raise ValueError('Arakoon cluster with name {0} does not exist'.format(cluster_name))
 
@@ -834,8 +823,7 @@ class AlbaController(object):
                 raise ValueError('The maximum of 50 NSM Arakoon clusters will be exceeded. Amount of clusters that can be deployed for this ALBA Backend: {0}'.format(50 - len(alba_backend.nsm_clusters)))
             # Validate enough externally managed Arakoon clusters are available
             if alba_backend.abm_cluster.abm_services[0].service.is_internal is False:
-                unused_cluster_names = set([cluster_info['cluster_name'] for cluster_info in ArakoonInstaller.get_unused_arakoon_clusters(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
-                                                                                                                                          configuration=Configuration)])
+                unused_cluster_names = set([cluster_info['cluster_name'] for cluster_info in ArakoonInstaller.get_unused_arakoon_clusters(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM)])
                 if len(unused_cluster_names) < additional_nsm_amount:
                     raise ValueError('The amount of additional NSM Arakoon clusters to claim ({0}) exceeds the amount of available NSM Arakoon clusters ({1})'.format(additional_nsm_amount, len(unused_cluster_names)))
                 if set(additional_nsm_names).difference(unused_cluster_names):
@@ -908,8 +896,7 @@ class AlbaController(object):
                                 AlbaController._logger.debug('  Extending cluster config')
                                 candidate_sr.invalidate_dynamics(['partition_config'])
                                 partition = DiskPartition(candidate_sr.partition_config[DiskPartition.ROLES.DB][0])
-                                arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster.name,
-                                                                     configuration=Configuration)
+                                arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster.name)
                                 arakoon_installer.extend_cluster(new_ip=candidate_sr.ip,
                                                                  base_dir=partition.folder)
                                 AlbaController._logger.debug('  Linking plugin')
@@ -954,8 +941,7 @@ class AlbaController(object):
                         if count < len(additional_nsm_names):
                             nsm_cluster_name = additional_nsm_names[count]
                         metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
-                                                                                          cluster_name=nsm_cluster_name,
-                                                                                          configuration=Configuration)
+                                                                                          cluster_name=nsm_cluster_name)
                         if metadata is None:
                             AlbaController._logger.warning('Cannot claim additional NSM clusters, because no clusters are available')
                             break
@@ -995,8 +981,7 @@ class AlbaController(object):
                             nsm_storagerouter[storagerouter] += 1
                             storagerouter.invalidate_dynamics(['partition_config'])
                             partition = DiskPartition(storagerouter.partition_config[DiskPartition.ROLES.DB][0])
-                            arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster_name,
-                                                                 configuration=Configuration)
+                            arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster_name)
                             if index == 0:
                                 arakoon_installer.create_cluster(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                                  ip=storagerouter.ip,
