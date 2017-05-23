@@ -49,6 +49,7 @@ from ovs.extensions.db.arakooninstaller import ArakoonClusterConfig, ArakoonInst
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs_extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.plugins.albacli import AlbaCLI
+from ovs.extensions.storage.volatilefactory import VolatileFactory
 from ovs.lib.helpers.decorators import add_hooks, ovs_task
 from ovs.lib.helpers.toolbox import Schedule, Toolbox
 from ovs.log.log_handler import LogHandler
@@ -1272,7 +1273,10 @@ class AlbaController(object):
             # Add the OSD
             # Retrieve remote Arakoon configuration
             connection_info = metadata['backend_connection_info']
-            ovs_client = OVSClient(ip=connection_info['host'], port=connection_info['port'], credentials=(connection_info['username'], connection_info['password']))
+            ovs_client = OVSClient(ip=connection_info['host'],
+                                   port=connection_info['port'],
+                                   credentials=(connection_info['username'], connection_info['password']),
+                                   cache_store=VolatileFactory.get_client())
             task_id = ovs_client.get('/alba/backends/{0}/get_config_metadata'.format(metadata['backend_info']['linked_guid']))
             successful, arakoon_config = ovs_client.wait_for_task(task_id, timeout=300)
             if successful is False:

@@ -84,7 +84,7 @@ class ALBAMigrator(object):
             from ovs.extensions.generic.configuration import Configuration, NotFoundException
             from ovs_extensions.generic.toolbox import ExtensionsToolbox
             from ovs.extensions.plugins.albacli import AlbaCLI
-            from ovs_extensions.storage.persistentfactory import PersistentFactory
+            from ovs.extensions.storage.persistentfactory import PersistentFactory
 
             # Migrate unique constraints & indexes
             client = PersistentFactory.get_client()
