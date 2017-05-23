@@ -25,8 +25,6 @@ import string
 import random
 import datetime
 import requests
-from sipconfig import Configuration
-
 from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
