@@ -28,6 +28,8 @@ from ovs_extensions.db.arakoon.pyrakoon.pyrakoon.compat import ArakoonNoMaster, 
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.generic.system import System
+from ovs_extensions.packages.packagefactory import PackageFactory
+from ovs.extensions.services.servicefactory import ServiceFactory
 from ovs.lib.alba import AlbaController
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.lib.update import UpdateController
@@ -79,9 +81,11 @@ class AlbaUpdateController(object):
             if client.username != 'root':
                 raise RuntimeError('Only the "root" user can retrieve the package information')
 
-            binaries = PackageManager.get_binary_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_binaries)
-            installed = PackageManager.get_installed_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_all)
-            candidate = PackageManager.get_candidate_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_all)
+            service_manager = ServiceFactory.get_manager()
+            package_manager = PackageFactory.get_manager()
+            binaries = package_manager.get_binary_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_binaries)
+            installed = package_manager.get_installed_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_all)
+            candidate = package_manager.get_candidate_versions(client=client, package_names=AlbaUpdateController._packages_alba_plugin_all)
             not_installed = set(AlbaUpdateController._packages_alba_plugin_all) - set(installed.keys())
             candidate_difference = set(AlbaUpdateController._packages_alba_plugin_all) - set(candidate.keys())
 
@@ -141,7 +145,7 @@ class AlbaUpdateController(object):
                 for package, services in info.iteritems():
                     for service in services:
                         service = ExtensionsToolbox.remove_prefix(service, 'ovs-')
-                        if not ServiceManager.has_service(service, client):
+                        if not service_manager.has_service(service, client):
                             # There's no service, so no need to restart it
                             continue
                         package_name = package
@@ -400,12 +404,13 @@ class AlbaUpdateController(object):
 
         abort = False
         packages_updated = []
+        package_manager = PackageFactory.get_manager()
         for pkg_name in AlbaUpdateController._packages_alba_plugin['framework']:
             if pkg_name in package_info and pkg_name not in packages_updated:
                 pkg_info = package_info[pkg_name]
                 try:
                     AlbaUpdateController._logger.debug('{0}: Updating package {1} ({2} --> {3})'.format(client.ip, pkg_name, pkg_info['installed'], pkg_info['candidate']))
-                    PackageManager.install(package_name=pkg_name, client=client)
+                    package_manager.install(package_name=pkg_name, client=client)
                     packages_updated.append(pkg_name)
                     AlbaUpdateController._logger.debug('{0}: Updated package {1}'.format(client.ip, pkg_name))
                 except Exception as ex:
