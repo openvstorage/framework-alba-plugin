@@ -28,7 +28,7 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.disklist import DiskList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
-from ovs_extensions.generic.sshclient import SSHClient
+from ovs.extensions.generic.sshclient import SSHClient
 from ovs.extensions.plugins.asdmanager import InvalidCredentialsError
 from ovs.lib.alba import AlbaController
 from ovs.lib.disk import DiskController
@@ -271,7 +271,7 @@ class AlbaNodeController(object):
         :return: Aliases of the disk on which the ASD was removed
         :rtype: list
         """
-        from ovs_extensions.generic.sshclient import UnableToConnectException
+        from ovs.extensions.generic.sshclient import UnableToConnectException
 
         # Retrieve corresponding OSD in model
         node = AlbaNode(node_guid)
