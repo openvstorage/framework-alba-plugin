@@ -64,7 +64,7 @@ class AlbaCLI(object):
         :param extra_params: Additional parameters to be given to the command, eg: [name]
         :type extra_params: list
         :param client: A client on which to execute the command
-        :type client: ovs.extensions.generic.sshclient.SSHClient
+        :type client: ovs_extensions.generic.sshclient.SSHClient
         :param debug: Log additional output
         :type debug: bool
         :return: The output of the command
