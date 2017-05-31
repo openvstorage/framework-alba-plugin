@@ -560,6 +560,7 @@ class AlbaController(object):
                     if storagerouter.ip in current_abm_ips:
                         continue
                     arakoon_installer = ArakoonInstaller(cluster_name=abm_cluster_name)
+                    arakoon_installer.load()
                     arakoon_installer.extend_cluster(new_ip=storagerouter.ip,
                                                      base_dir=partition.folder,
                                                      log_sinks=LogHandler.get_sink_path('arakoon_server'),
