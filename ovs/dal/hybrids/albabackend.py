@@ -17,7 +17,6 @@
 """
 AlbaBackend module
 """
-import re
 import copy
 import time
 from threading import Lock, Thread
@@ -42,18 +41,18 @@ class AlbaBackend(DataObject):
     __properties = [Property('alba_id', str, mandatory=False, indexed=True, doc='ALBA internal identifier'),
                     Property('scaling', SCALINGS.keys(), doc='Scaling for an ALBA Backend can be {0}'.format(' or '.join(SCALINGS.keys())))]
     __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic Backend')]
-    __dynamics = [Dynamic('local_stack', dict, 5),
+    __dynamics = [Dynamic('local_stack', dict, 15, locked=True),
                   Dynamic('statistics', dict, 5, locked=True),
-                  Dynamic('ns_data', list, 60),
-                  Dynamic('usages', dict, 60),
-                  Dynamic('presets', list, 60),
+                  Dynamic('ns_data', list, 60, locked=True),
+                  Dynamic('usages', dict, 60, locked=True),
+                  Dynamic('presets', list, 60, locked=True),
                   Dynamic('available', bool, 60),
                   Dynamic('name', str, 3600),
                   Dynamic('asd_statistics', dict, 5, locked=True),
-                  Dynamic('linked_backend_guids', set, 30),
-                  Dynamic('remote_stack', dict, 60),
-                  Dynamic('local_summary', dict, 10),
-                  Dynamic('live_status', str, 30)]
+                  Dynamic('linked_backend_guids', set, 30, locked=True),
+                  Dynamic('remote_stack', dict, 60, locked=True),
+                  Dynamic('local_summary', dict, 15, locked=True),
+                  Dynamic('live_status', str, 30, locked=True)]
 
     def _local_stack(self):
         """
@@ -525,37 +524,49 @@ class AlbaBackend(DataObject):
                 linked_backend_warning = True
 
         # Retrieve ASD and maintenance service information
-        services_for_this_backend = {}
-        services_per_node = {}
-        nodes_used_by_this_backend = set()
-        all_nodes = AlbaNodeList.get_albanodes()
-        for node in all_nodes:
-            for disk in node.disks:
+        def _get_node_information(_node):
+            for disk in _node.disks:
                 for osd in disk.osds:
                     if osd.alba_backend_guid == self.guid:
-                        nodes_used_by_this_backend.add(node)
-
+                        nodes_used_by_this_backend.add(_node)
             try:
-                for service_name in node.client.list_maintenance_services():
-                    if re.match('^alba-maintenance_{0}-[a-zA-Z0-9]{{16}}$'.format(self.name), service_name):
-                        services_for_this_backend[service_name] = node
-                        if node.node_id not in services_per_node:
-                            services_per_node[node.node_id] = 0
-                        services_per_node[node.node_id] += 1
+                services = _node.maintenance_services
+                if self.name in services:
+                    for _service_name, _service_status in services[self.name]:
+                        services_for_this_backend[_service_name] = _node
+                        service_states[_service_name] = _service_status
+                        if _node.node_id not in services_per_node:
+                            services_per_node[_node.node_id] = 0
+                        services_per_node[_node.node_id] += 1
             except:
                 pass
+
+        services_for_this_backend = {}
+        services_per_node = {}
+        service_states = {}
+        nodes_used_by_this_backend = set()
+        threads = []
+        all_nodes = AlbaNodeList.get_albanodes()
+        for node in all_nodes:
+            thread = Thread(target=_get_node_information, args=(node,))
+            thread.start()
+            threads.append(thread)
+        for thread in threads:
+            thread.join()
 
         zero_services = False
         if len(services_for_this_backend) == 0:
             if len(all_nodes) > 0:
+                AlbaBackend._logger.error('Live status for backend {0} is "failure": no maintenance services'.format(self.name))
                 return 'failure'
             zero_services = True
 
         # Verify maintenance agents status
         for service_name, node in services_for_this_backend.iteritems():
             try:
-                service_status = node.client.get_service_status(name=service_name)
+                service_status = service_states.get(service_name)
                 if service_status is None or service_status != 'active':
+                    AlbaBackend._logger.error('Live status for backend {0} is "failure": non-running maintenance service(s)'.format(self.name))
                     return 'failure'
             except:
                 pass
@@ -575,17 +586,24 @@ class AlbaBackend(DataObject):
                 expected_services = Configuration.get(config_key)
             expected_services = min(expected_services, len(nodes_used_by_this_backend)) or 1
             if len(services_for_this_backend) < expected_services:
+                AlbaBackend._logger.error('Live status for backend {0} is "warning": insufficient maintenance services'.format(self.name))
                 return 'warning'
         else:
             for node_id in layout:
                 if node_id not in services_per_node:
+                    AlbaBackend._logger.error('Live status for backend {0} is "warning": invalid maintenance service layout'.format(self.name))
                     return 'warning'
 
         # Verify local and remote OSDs
         if devices['orange'] > 0:
+            AlbaBackend._logger.error('Live status for backend {0} is "warning": one or more OSDs in warning'.format(self.name))
             return 'warning'
 
-        if remote_errors is True or linked_backend_warning is True or zero_services is True:
+        if remote_errors is True or linked_backend_warning is True:
+            AlbaBackend._logger.error('Live status for backend {0} is "warning": errors/warnings on remote stack'.format(self.name))
+            return 'warning'
+        if zero_services is True:
+            AlbaBackend._logger.error('Live status for backend {0} is "warning": no maintenance services'.format(self.name))
             return 'warning'
 
         return 'running'
