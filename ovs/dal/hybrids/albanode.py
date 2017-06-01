@@ -17,6 +17,7 @@
 """
 AlbaNode module
 """
+import re
 import requests
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.storagerouter import StorageRouter
@@ -37,8 +38,9 @@ class AlbaNode(DataObject):
                     Property('type', ['ASD'], default='ASD', doc='The type of the AlbaNode'),
                     Property('package_information', dict, mandatory=False, default={}, doc='Information about installed packages and potential available new versions')]
     __relations = [Relation('storagerouter', StorageRouter, 'alba_node', onetoone=True, mandatory=False, doc='StorageRouter hosting the AlbaNode')]
-    __dynamics = [Dynamic('storage_stack', dict, 5),
-                  Dynamic('ips', list, 3600)]
+    __dynamics = [Dynamic('storage_stack', dict, 15, locked=True),
+                  Dynamic('ips', list, 3600),
+                  Dynamic('maintenance_services', dict, 30, locked=True)]
 
     def __init__(self, *args, **kwargs):
         """
@@ -122,3 +124,21 @@ class AlbaNode(DataObject):
         Returns the IPs of the node
         """
         return Configuration.get('/ovs/alba/asdnodes/{0}/config/network|ips'.format(self.node_id))
+
+    def _maintenance_services(self):
+        """
+        Returns all maintenance services on this node, grouped by backend name 
+        """
+        services = {}
+        try:
+            for service_name in self.client.list_maintenance_services():
+                match = re.match('^alba-maintenance_(.*)-[a-zA-Z0-9]{16}$', service_name)
+                if match is not None:
+                    service_status = self.client.get_service_status(name=service_name)
+                    backend_name = match.groups()[0]
+                    if backend_name not in services:
+                        services[backend_name] = []
+                    services[backend_name].append([service_name, service_status])
+        except:
+            pass
+        return services
