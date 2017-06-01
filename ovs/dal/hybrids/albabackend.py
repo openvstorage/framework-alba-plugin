@@ -586,24 +586,24 @@ class AlbaBackend(DataObject):
                 expected_services = Configuration.get(config_key)
             expected_services = min(expected_services, len(nodes_used_by_this_backend)) or 1
             if len(services_for_this_backend) < expected_services:
-                AlbaBackend._logger.error('Live status for backend {0} is "warning": insufficient maintenance services'.format(self.name))
+                AlbaBackend._logger.warning('Live status for backend {0} is "warning": insufficient maintenance services'.format(self.name))
                 return 'warning'
         else:
             for node_id in layout:
                 if node_id not in services_per_node:
-                    AlbaBackend._logger.error('Live status for backend {0} is "warning": invalid maintenance service layout'.format(self.name))
+                    AlbaBackend._logger.warning('Live status for backend {0} is "warning": invalid maintenance service layout'.format(self.name))
                     return 'warning'
 
         # Verify local and remote OSDs
         if devices['orange'] > 0:
-            AlbaBackend._logger.error('Live status for backend {0} is "warning": one or more OSDs in warning'.format(self.name))
+            AlbaBackend._logger.warning('Live status for backend {0} is "warning": one or more OSDs in warning'.format(self.name))
             return 'warning'
 
         if remote_errors is True or linked_backend_warning is True:
-            AlbaBackend._logger.error('Live status for backend {0} is "warning": errors/warnings on remote stack'.format(self.name))
+            AlbaBackend._logger.warning('Live status for backend {0} is "warning": errors/warnings on remote stack'.format(self.name))
             return 'warning'
         if zero_services is True:
-            AlbaBackend._logger.error('Live status for backend {0} is "warning": no maintenance services'.format(self.name))
+            AlbaBackend._logger.warning('Live status for backend {0} is "warning": no maintenance services'.format(self.name))
             return 'warning'
 
         return 'running'
