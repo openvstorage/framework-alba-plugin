@@ -612,6 +612,7 @@ class AlbaController(object):
                 if cluster_ip in abm_storagerouter_ips:
                     AlbaController._logger.info('* Shrink ABM cluster')
                     arakoon_installer = ArakoonInstaller(cluster_name=abm_cluster_name)
+                    arakoon_installer.load()
                     arakoon_installer.shrink_cluster(removal_ip=cluster_ip,
                                                      offline_nodes=offline_node_ips)
                     arakoon_installer.restart_cluster_after_shrinking()
