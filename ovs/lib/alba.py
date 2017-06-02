@@ -897,8 +897,11 @@ class AlbaController(object):
                                 candidate_sr.invalidate_dynamics(['partition_config'])
                                 partition = DiskPartition(candidate_sr.partition_config[DiskPartition.ROLES.DB][0])
                                 arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster.name)
+                                arakoon_installer.load()
                                 arakoon_installer.extend_cluster(new_ip=candidate_sr.ip,
-                                                                 base_dir=partition.folder)
+                                                                 base_dir=partition.folder,
+                                                                 log_sinks=LogHandler.get_sink_path('arakoon_server'),
+                                                                 crash_log_sinks=LogHandler.get_sink_path('arakoon_server_crash'))
                                 AlbaController._logger.debug('  Linking plugin')
                                 AlbaController._link_plugins(client=clients[candidate_sr],
                                                              data_dir=partition.folder,
@@ -990,8 +993,11 @@ class AlbaController(object):
                                                                  log_sinks=LogHandler.get_sink_path('arakoon_server'),
                                                                  crash_log_sinks=LogHandler.get_sink_path('arakoon_server_crash'))
                             else:
+                                arakoon_installer.load()
                                 arakoon_installer.extend_cluster(new_ip=storagerouter.ip,
-                                                                 base_dir=partition.folder)
+                                                                 base_dir=partition.folder,
+                                                                 log_sinks=LogHandler.get_sink_path('arakoon_server'),
+                                                                 crash_log_sinks=LogHandler.get_sink_path('arakoon_server_crash'))
                             AlbaController._link_plugins(client=clients[storagerouter],
                                                          data_dir=partition.folder,
                                                          plugins=[AlbaController.NSM_PLUGIN],
