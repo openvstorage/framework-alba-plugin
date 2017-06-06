@@ -25,7 +25,7 @@ from ovs.dal.hybrids.backend import Backend
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.dal.structures import Property, Relation, Dynamic
-from ovs.extensions.api.client import ForbiddenException, NotFoundException, OVSClient
+from ovs_extensions.api.client import ForbiddenException, NotFoundException, OVSClient
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.log.log_handler import LogHandler

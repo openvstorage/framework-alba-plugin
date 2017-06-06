@@ -21,10 +21,10 @@ import unittest
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.tests.alba_helpers import AlbaDalHelper
 from ovs.dal.tests.helpers import DalHelper
-from ovs.extensions.db.arakoon.arakooninstaller import ArakoonInstaller
+from ovs.extensions.db.arakooninstaller import ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
-from ovs.extensions.generic.tests.sshclient_mock import MockedSSHClient
+from ovs_extensions.generic.tests.sshclient_mock import MockedSSHClient
 from ovs.lib.alba import AlbaController
 from ovs.log.log_handler import LogHandler
 
@@ -157,13 +157,15 @@ class AlbaGeneric(unittest.TestCase):
                                            'manual-nsm-1': ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                            'manual-nsm-2': ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                            'manual-nsm-3': ServiceType.ARAKOON_CLUSTER_TYPES.NSM}.iteritems():
-            info = ArakoonInstaller.create_cluster(cluster_name=cluster_name,
-                                                   cluster_type=cluster_type,
-                                                   ip=sr_1.ip,
-                                                   base_dir=DalHelper.CLUSTER_DIR.format(cluster_name),
-                                                   internal=False)
-            ArakoonInstaller.start_cluster(metadata=info['metadata'])
-            ArakoonInstaller.unclaim_cluster(cluster_name=cluster_name)
+            arakoon_installer = ArakoonInstaller(cluster_name=cluster_name)
+            arakoon_installer.create_cluster(cluster_type=cluster_type,
+                                             ip=sr_1.ip,
+                                             base_dir=DalHelper.CLUSTER_DIR.format(cluster_name),
+                                             internal=False,
+                                             log_sinks=LogHandler.get_sink_path('arakoon_server'),
+                                             crash_log_sinks=LogHandler.get_sink_path('arakoon_server_crash'))
+            arakoon_installer.start_cluster()
+            arakoon_installer.unclaim_cluster()
         AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=ab_1.guid, nsm_clusters=['manual-nsm-1', 'manual-nsm-3'], abm_cluster='manual-abm-2')
 
         # Validate the correct clusters have been claimed by the manual checkup

@@ -80,9 +80,9 @@ class ALBAMigrator(object):
             from ovs.dal.lists.albabackendlist import AlbaBackendList
             from ovs.dal.lists.servicetypelist import ServiceTypeList
             from ovs.dal.lists.storagerouterlist import StorageRouterList
-            from ovs.extensions.db.arakoon.arakooninstaller import ArakoonClusterConfig, ArakoonInstaller
+            from ovs.extensions.db.arakooninstaller import ArakoonClusterConfig, ArakoonInstaller
             from ovs.extensions.generic.configuration import Configuration, NotFoundException
-            from ovs.extensions.generic.toolbox import ExtensionsToolbox
+            from ovs_extensions.generic.toolbox import ExtensionsToolbox
             from ovs.extensions.plugins.albacli import AlbaCLI
             from ovs.extensions.storage.persistentfactory import PersistentFactory
 
