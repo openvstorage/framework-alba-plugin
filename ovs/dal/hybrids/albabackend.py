@@ -504,9 +504,12 @@ class AlbaBackend(DataObject):
         :return: Status as reported by the plugin
         :rtype: str
         """
-        if self.backend.status == 'INSTALLING':
+        if self.backend.status == Backend.STATUSES.INSTALLING:
             return 'installing'
 
+        if self.backend.status == Backend.STATUSES.DELETING:
+            return 'deleting'
+        
         # Verify failed disks
         devices = self.local_summary['devices']
         if devices['red'] > 0:
