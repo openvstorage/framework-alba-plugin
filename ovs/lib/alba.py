@@ -278,6 +278,7 @@ class AlbaController(object):
 
         # ACTUAL REMOVAL
         alba_backend.backend.status = Backend.STATUSES.DELETING
+        alba_backend.invalidate_dynamics('live_status')
         alba_backend.backend.save()
         if alba_backend.abm_cluster is not None:
             AlbaController._logger.debug('Removing ALBA Backend {0}'.format(alba_backend.name))
