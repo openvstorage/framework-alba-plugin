@@ -569,7 +569,8 @@ class AlbaController(object):
                     arakoon_installer.extend_cluster(new_ip=storagerouter.ip,
                                                      base_dir=partition.folder,
                                                      log_sinks=LogHandler.get_sink_path('arakoon_server'),
-                                                     crash_log_sinks=LogHandler.get_sink_path('arakoon_server_crash'))
+                                                     crash_log_sinks=LogHandler.get_sink_path('arakoon_server_crash'),
+                                                     plugins={AlbaController.ABM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                     AlbaController._link_plugins(client=clients[storagerouter],
                                                  data_dir=partition.folder,
                                                  plugins=[AlbaController.ABM_PLUGIN],
@@ -907,7 +908,8 @@ class AlbaController(object):
                                 arakoon_installer.extend_cluster(new_ip=candidate_sr.ip,
                                                                  base_dir=partition.folder,
                                                                  log_sinks=LogHandler.get_sink_path('arakoon_server'),
-                                                                 crash_log_sinks=LogHandler.get_sink_path('arakoon_server_crash'))
+                                                                 crash_log_sinks=LogHandler.get_sink_path('arakoon_server_crash'),
+                                                                 plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                                 AlbaController._logger.debug('  Linking plugin')
                                 AlbaController._link_plugins(client=clients[candidate_sr],
                                                              data_dir=partition.folder,
@@ -1003,7 +1005,8 @@ class AlbaController(object):
                                 arakoon_installer.extend_cluster(new_ip=storagerouter.ip,
                                                                  base_dir=partition.folder,
                                                                  log_sinks=LogHandler.get_sink_path('arakoon_server'),
-                                                                 crash_log_sinks=LogHandler.get_sink_path('arakoon_server_crash'))
+                                                                 crash_log_sinks=LogHandler.get_sink_path('arakoon_server_crash'),
+                                                                 plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
                             AlbaController._link_plugins(client=clients[storagerouter],
                                                          data_dir=partition.folder,
                                                          plugins=[AlbaController.NSM_PLUGIN],
