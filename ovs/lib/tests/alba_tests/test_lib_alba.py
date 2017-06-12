@@ -162,8 +162,8 @@ class AlbaGeneric(unittest.TestCase):
                                              ip=sr_1.ip,
                                              base_dir=DalHelper.CLUSTER_DIR.format(cluster_name),
                                              internal=False,
-                                             log_sinks=LogHandler.get_sink_path('arakoon_server'),
-                                             crash_log_sinks=LogHandler.get_sink_path('arakoon_server_crash'))
+                                             log_sinks=LogHandler.get_sink_path('arakoon-server_{0}'.format(cluster_name)),
+                                             crash_log_sinks=LogHandler.get_sink_path('arakoon-server-crash_{0}'.format(cluster_name)))
             arakoon_installer.start_cluster()
             arakoon_installer.unclaim_cluster()
         AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=ab_1.guid, nsm_clusters=['manual-nsm-1', 'manual-nsm-3'], abm_cluster='manual-abm-2')
