@@ -237,7 +237,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :return: Asynchronous result of a CeleryTask
         :rtype: celery.result.AsyncResult
         """
-        return AlbaPresetController.update_preset.delay(albabackend.guid, name, policies)
+        return AlbaPresetController.update_preset.delay(albabackend.guid, str(name), policies)
 
     @link()
     @log()
