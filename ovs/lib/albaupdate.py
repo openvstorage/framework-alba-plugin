@@ -28,7 +28,7 @@ from ovs_extensions.db.arakoon.pyrakoon.pyrakoon.compat import ArakoonNoMaster, 
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.generic.system import System
-from ovs_extensions.packages.packagefactory import PackageFactory
+from ovs.extensions.packages.packagefactory import PackageFactory
 from ovs.extensions.services.servicefactory import ServiceFactory
 from ovs.lib.alba import AlbaController
 from ovs.lib.helpers.decorators import add_hooks
@@ -47,6 +47,7 @@ class AlbaUpdateController(object):
     _packages_alba_plugin_all = _packages_alba_plugin['alba'].union(_packages_alba_plugin['framework'])
     _packages_alba_plugin_binaries = {'alba', 'alba-ee', 'arakoon'}
     _packages_alba_plugin_blocking = _packages_alba_plugin['framework'].difference(_packages_alba_plugin_binaries)
+    _packages_optional = {'openvstorage-sdm'}
     _packages_mutual_excl = [['alba', 'alba-ee']]
 
     #########
@@ -97,6 +98,8 @@ class AlbaUpdateController(object):
                         if entry[1 - entry.index(package_name)] in not_installed:
                             raise RuntimeError('Conflicting packages installed: {0}'.format(entry))
                 if found is False:
+                    if package_name in AlbaUpdateController._packages_optional:
+                        continue
                     raise RuntimeError('Missing non-installed package: {0}'.format(package_name))
                 if package_name not in candidate_difference:
                     raise RuntimeError('Unexpected difference in missing installed/candidates: {0}'.format(package_name))
@@ -199,6 +202,7 @@ class AlbaUpdateController(object):
                         package_info[client.ip][component] = {}
                     package_info[client.ip][component].update(component_info)
         except Exception as ex:
+            AlbaUpdateController._logger.exception('Could not load update information')
             if 'errors' not in package_info[client.ip]:
                 package_info[client.ip]['errors'] = []
             package_info[client.ip]['errors'].append(ex)
@@ -226,6 +230,7 @@ class AlbaUpdateController(object):
                 AlbaUpdateController._logger.warning('Update information for Alba Node with IP {0} could not be updated'.format(alba_node.ip))
                 information[alba_node.ip]['errors'].append('Connection timed out or connection refused on {0}'.format(alba_node.ip))
             except Exception as ex:
+                AlbaUpdateController._logger.exception('Update information for Alba Node with IP {0} could not be updated'.format(alba_node.ip))
                 information[alba_node.ip]['errors'].append(ex)
 
     @staticmethod
