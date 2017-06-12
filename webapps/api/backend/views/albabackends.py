@@ -201,7 +201,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :return: Asynchronous result of a CeleryTask
         :rtype: celery.result.AsyncResult
         """
-        return AlbaPresetController.add_preset.delay(albabackend.guid, name, compression, policies, encryption, fragment_size)
+        return AlbaPresetController.add_preset.delay(albabackend.guid, str(name), compression, policies, encryption, fragment_size)
 
     @action()
     @log()
@@ -218,7 +218,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :return: Asynchronous result of a CeleryTask
         :rtype: celery.result.AsyncResult
         """
-        return AlbaPresetController.delete_preset.delay(albabackend.guid, name)
+        return AlbaPresetController.delete_preset.delay(albabackend.guid, str(name))
 
     @action()
     @log()
