@@ -529,7 +529,7 @@ class AlbaController(object):
                                                          base_dir=partition.folder,
                                                          plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET},
                                                          log_sinks=LogHandler.get_sink_path('arakoon-server_{0}'.format(nsm_cluster_name)),
-                                                         crash_log_sinks=LogHandler.get_sink_path('arakoon-server-crash'.format(nsm_cluster_name)))
+                                                         crash_log_sinks=LogHandler.get_sink_path('arakoon-server-crash_{0}'.format(nsm_cluster_name)))
                         AlbaController._link_plugins(client=clients[storagerouter],
                                                      data_dir=partition.folder,
                                                      plugins=[AlbaController.NSM_PLUGIN],
