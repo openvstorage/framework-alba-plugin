@@ -1286,11 +1286,20 @@ class AlbaController(object):
         if added is False:
             # Add the OSD
             # Retrieve remote Arakoon configuration
+            preset_name = str(metadata['backend_info']['linked_preset'])
             connection_info = metadata['backend_connection_info']
             ovs_client = OVSClient(ip=connection_info['host'],
                                    port=connection_info['port'],
                                    credentials=(connection_info['username'], connection_info['password']),
                                    cache_store=VolatileFactory.get_client())
+            backend_info = ovs_client.get('/alba/backends/{0}'.format(metadata['backend_info']['linked_guid']),
+                                          params={'contents': 'presets'})
+            presets = [preset for preset in backend_info['presets'] if preset['name'] == preset_name]
+            if len(presets) != 1:
+                raise RuntimeError('Could not locate preset {0}'.format(preset_name))
+            if presets[0]['is_available'] is False:
+                raise RuntimeError('Preset {0} is not available'.format(preset_name))
+            AlbaController._logger.debug(backend_info)
             task_id = ovs_client.get('/alba/backends/{0}/get_config_metadata'.format(metadata['backend_info']['linked_guid']))
             successful, arakoon_config = ovs_client.wait_for_task(task_id, timeout=300)
             if successful is False:
@@ -1306,7 +1315,7 @@ class AlbaController(object):
                 AlbaCLI.run(command='add-osd',
                             config=config,
                             named_params={'prefix': alba_backend_guid,
-                                          'preset': metadata['backend_info']['linked_preset'],
+                                          'preset': preset_name,
                                           'node-id': metadata['backend_info']['linked_guid'],
                                           'alba-osd-config-url': 'file://{0}'.format(remote_arakoon_config)})
             finally:

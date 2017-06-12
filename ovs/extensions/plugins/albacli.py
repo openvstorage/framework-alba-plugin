@@ -96,6 +96,8 @@ class AlbaCLI(object):
 
             start = time.time()
             try:
+                if debug is True:
+                    logger.debug('Command: {0}'.format(cmd_string))
                 if client is None:
                     try:
                         if not hasattr(select, 'poll'):
