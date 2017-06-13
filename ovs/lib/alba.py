@@ -126,6 +126,7 @@ class AlbaController(object):
                     AlbaController._logger.warning('OSD with ID {0} for disk {1} has already been claimed'.format(osd_id, disk_guid))
                     unclaimed_osds.append(osd_id)
                     continue
+                raise
             osd = AlbaOSD()
             osd.domain = domain
             osd.osd_id = osd_id
