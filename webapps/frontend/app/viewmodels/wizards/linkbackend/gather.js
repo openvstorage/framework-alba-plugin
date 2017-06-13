@@ -59,6 +59,9 @@ define([
         // Computed
         self.allDomains = ko.computed(function() {
             var domains = self.data.domains().slice();
+            if (domains.length === 0) {
+                return domains;
+            }
             domains.push(undefined);
             return domains;
         });
