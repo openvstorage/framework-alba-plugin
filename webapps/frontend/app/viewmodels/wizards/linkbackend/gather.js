@@ -57,6 +57,11 @@ define([
         });
 
         // Computed
+        self.allDomains = ko.computed(function() {
+            var domains = self.data.domains().slice();
+            domains.push(undefined);
+            return domains;
+        });
         self.isPresetAvailable = ko.computed(function() {
             var presetAvailable = true;
             if (self.data.albaBackend() !== undefined && self.data.albaPreset() !== undefined) {
@@ -171,11 +176,7 @@ define([
                 self.invalidAlbaInfo(false);
                 self.loadingAlbaBackends(true);
 
-                var relay = '', remoteInfo = {},
-                    getData = {
-                        backend_type: 'alba',
-                        contents: '_dynamics,-ns_data'
-                    };
+                var relay = '', remoteInfo = {};
                 if (!self.data.localHost()) {
                     relay = 'relay/';
                     remoteInfo.ip = self.data.host();
@@ -183,14 +184,22 @@ define([
                     remoteInfo.client_id = self.data.clientId();
                     remoteInfo.client_secret = self.data.clientSecret();
                 }
-                $.extend(getData, remoteInfo);
-                self.loadAlbaBackendsHandle = api.get(relay + 'backends', {queryparams: getData})
+                var backendsParams = {
+                    backend_type: 'alba',
+                    contents: 'available,linked_guid'
+                };
+                var backendParams = {
+                    contents: 'local_summary,linked_backend_guids,presets,name'
+                };
+                $.extend(backendsParams, remoteInfo);
+                $.extend(backendParams, remoteInfo);
+                self.loadAlbaBackendsHandle = api.get(relay + 'backends', {queryparams: backendsParams})
                     .done(function(data) {
                         var available_backends = [], calls = [];
                         $.each(data.data, function (index, item) {
                             if (item.available === true && item.linked_guid !== self.data.target().guid()) {
                                 calls.push(
-                                    api.get(relay + 'alba/backends/' + item.linked_guid + '/', { queryparams: getData })
+                                    api.get(relay + 'alba/backends/' + item.linked_guid + '/', { queryparams: backendParams })
                                         .then(function(data) {
                                             var alreadyLinked = false, albaBackendDomainMap = {};
                                             if (self.data.localHost()) {  // We only care about domains for backends on the local system
