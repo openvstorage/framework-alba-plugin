@@ -31,7 +31,6 @@ define([
         self.modal(generic.tryGet(options, 'modal', false));
         self.data.target(generic.tryGet(options, 'target'));
         self.steps([new Gather()]);
-        self.activateStep();
 
         // Cleaning data
         data.albaBackend(undefined);
@@ -44,5 +43,8 @@ define([
         data.host('');
         data.localHost(true);
         data.port(80);
+
+        // Activate
+        self.activateStep();
     };
 });
