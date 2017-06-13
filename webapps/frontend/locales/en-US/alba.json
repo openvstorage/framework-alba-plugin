@@ -95,6 +95,7 @@
         "nodeid": "Node ID",
         "nodes": "ASD Nodes",
         "nodisks": "No disks available",
+        "nodomain": "None",
         "osds": "ASDs",
         "presets": "Presets",
         "refresh": "Refresh",
