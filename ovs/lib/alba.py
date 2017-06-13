@@ -115,6 +115,7 @@ class AlbaController(object):
             raise Exception('No maintenance agents have been deployed for ALBA Backend {0}'.format(alba_backend.name))
 
         unclaimed_osds = []
+        failed_claims = []
         for osd_id, disk_guid in osds.iteritems():
             if disk_guid is not None and disk_guid not in disks:
                 disks[disk_guid] = AlbaDisk(disk_guid)
@@ -126,7 +127,8 @@ class AlbaController(object):
                     AlbaController._logger.warning('OSD with ID {0} for disk {1} has already been claimed'.format(osd_id, disk_guid))
                     unclaimed_osds.append(osd_id)
                     continue
-                raise
+                AlbaController._logger.exception('Error claiming OSD {0}'.format(osd_id))
+                failed_claims.append(ae)
             osd = AlbaOSD()
             osd.domain = domain
             osd.osd_id = osd_id
@@ -137,6 +139,11 @@ class AlbaController(object):
             osd.save()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
+        if len(failed_claims) > 0:
+            if len(failed_claims) == len(osds):
+                raise RuntimeError('None of the requested OSDs could be claimed')
+            else:
+                raise RuntimeError('One or more of the requested OSDs could not be claimed')
         return unclaimed_osds
 
     @staticmethod
