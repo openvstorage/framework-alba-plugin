@@ -128,7 +128,7 @@ class AlbaController(object):
                     unclaimed_osds.append(osd_id)
                     continue
                 AlbaController._logger.exception('Error claiming OSD {0}'.format(osd_id))
-                failed_claims.append(ae)
+                failed_claims.append(osd_id)
             osd = AlbaOSD()
             osd.domain = domain
             osd.osd_id = osd_id
@@ -143,7 +143,7 @@ class AlbaController(object):
             if len(failed_claims) == len(osds):
                 raise RuntimeError('None of the requested OSDs could be claimed')
             else:
-                raise RuntimeError('One or more of the requested OSDs could not be claimed')
+                raise RuntimeError('Some of the requested OSDs could not be claimed: {0}'.format(', '.join(failed_claims)))
         return unclaimed_osds
 
     @staticmethod
