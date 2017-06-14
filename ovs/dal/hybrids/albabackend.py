@@ -399,6 +399,7 @@ class AlbaBackend(DataObject):
                                credentials=(_connection_info['username'], _connection_info['password']),
                                version=3)
 
+            return_value[_alba_backend_guid]['live_status'] = 'unknown'
             try:
                 info = client.get('/alba/backends/{0}/'.format(_alba_backend_guid),
                                   params={'contents': 'local_summary,live_status'})
@@ -407,6 +408,7 @@ class AlbaBackend(DataObject):
                     return_value[_alba_backend_guid]['live_status'] = info['live_status']
             except NotFoundException:
                 return_value[_alba_backend_guid]['error'] = 'backend_deleted'
+                return_value[_alba_backend_guid]['live_status'] = 'failure'
             except ForbiddenException:
                 return_value[_alba_backend_guid]['error'] = 'not_allowed'
             except Exception as ex:
