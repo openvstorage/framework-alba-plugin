@@ -208,7 +208,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                 </td>
                                 <td>
                                     <!-- ko if: error !== '' -->
-                                        <a data-bind="text: name"></a>
+                                        <span data-bind="text: name"></span>
                                     <!-- /ko -->
                                     <!-- ko if: error === '' && local_ip === true -->
                                         <a data-bind="text: name, attr: { href: $root.shared.routing.loadHash('backend-alba-detail', { guid: backend_guid }) }"></a>
