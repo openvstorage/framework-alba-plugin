@@ -383,7 +383,7 @@ define([
                 )
                     .done(function(answer) {
                         if (answer === $.t('ovs:generic.yes')) {
-                            generic.alertSuccess(
+                            generic.alertInfo(
                                 $.t('alba:presets.delete.started'),
                                 $.t('alba:presets.delete.started_msg')
                             );
