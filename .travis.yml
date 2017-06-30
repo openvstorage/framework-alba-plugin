@@ -3,21 +3,28 @@ sudo: required
 dist: trusty
 notifications:
   email: false
+  slack:
+    rooms:
+      secure: UZ8frRZZBOBcg+Ig71A8UUCkqcrpEG7fT93qrTT7R2PssoSSKfPWrvCChbUQl4TbAR6IAO9ZU7iINLBSGagpFPoW45JRQLYKKnbeHogocp/PKVA5yhb7Yu/74WJypORyAHUEB6IpGwuIZvh8+H+FCt35fiifovCEkF47ICvZqokbNkgttn2PqeFVVINLQ4Mit7SDuXFNYdHj3dYpIUg6fbqkrU70K0Pf5aNeHAKjW0S514JesmCq68u0LyG3CH5qPRWLK2GCzMr7i6383rKfXVUHWvOYcK7gzvIHXrwv6RbiObIZoilGBoQ2wES45FGGmpjyLTS1rBpcKRYnHSiq+nDkLWbxozBc9qKBDdArshrQYAcLFzsIt3ck6C5UpjHXHSBvQrqd+VO0c7lLTPF9+XCXh6NNydNdaktHTIKAs90Xq8HUIHk8twtu/3lsrVPJnB8EJoNmGiI3fm3LBw+j5nKDtHNy1MdGhAU4go3nQWSs1P3oZwWVZECE6xusotTrL8g+6Soo8IZe33PO4Yjt7dW3qneJEX0sLBtVrPhnjb5ROQaLyNy7DXW8PSZNb/BiAkG3G2cZ045rD1n98z1YM3//v90YaQNZ/faRK4fi7eGGnAl1Arhz+P5kYZeFPn5Nig3V8/whwMj/Kf83QybU6EeCVDEMG2Yww+uPoaWNUe4=
 before_install:
   - sudo echo "deb http://apt.openvstorage.org `python scripts/travis/repo.py` main" | sudo tee -a /etc/apt/sources.list
   - sudo rm -rf /var/lib/apt/lists/*
   - sudo apt-get -qq update
-  - sudo apt-get install -y --force-yes volumedriver-no-dedup-server
   - sudo apt-get install -y --force-yes openvstorage-hc
 before_script:
   - sudo find /opt/OpenvStorage -type d -exec chmod 777 {} +
   - sudo find /opt/OpenvStorage -type f -exec chmod 666 {} +
   - sudo chmod 777 /opt
-  - sudo chmod 777 /var/log/ovs
+  - sudo chmod -R 777 /var/log/ovs
   - sudo chmod 777 /run
   - cp -R ../framework-alba-plugin/* /opt/OpenvStorage/
   - export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.7/dist-packages/:/usr/lib/python2.7/dist-packages
+  - cd /opt/OpenvStorage/webapps/api; export PYTHONPATH=/opt/OpenvStorage:$PYTHONPATH;
+    python manage.py syncdb --noinput
+  - echo '{"configuration_store":"arakoon"}' > /opt/OpenvStorage/config/framework.json
 script:
   - ovs unittest /opt/OpenvStorage/ovs/dal/tests/test_alba.py
   - ovs unittest /opt/OpenvStorage/ovs/dal/tests/test_hybrids.py
   - ovs unittest /opt/OpenvStorage/ovs/lib/tests/alba_tests/test_nsmcheckup.py
+  - ovs unittest /opt/OpenvStorage/webapps/api/tests/test_api_configuration.py
+

@@ -10,3 +10,4 @@ webapps/frontend/tests/coverage
 syntax: regexp
 \._.*
 .orig$
+.iml
