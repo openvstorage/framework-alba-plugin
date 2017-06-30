@@ -24,5 +24,5 @@ script:
   - ovs unittest /opt/OpenvStorage/ovs/dal/tests/test_alba.py
   - ovs unittest /opt/OpenvStorage/ovs/dal/tests/test_hybrids.py
   - ovs unittest /opt/OpenvStorage/ovs/lib/tests/alba_tests/test_nsmcheckup.py
-  - ovs unittest /opt/OpenvStorage/ovs/webapps/api/tests/test_api_configuration.py
+  - ovs unittest /opt/OpenvStorage/webapps/api/tests/test_api_configuration.py
 
