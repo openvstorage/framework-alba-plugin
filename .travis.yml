@@ -5,21 +5,23 @@ notifications:
   email: false
   slack:
     rooms:
-      secure: Ze8lCMV8b38bfesOMfmAYchAde0c23BMkz4PVc1g1p4sdGBSvrfGx15l8Mp4hfoOme51+wctGa38z42HiESCe0hjM2mEkh2OljxNs39Ug/ZpCBveEi63tt/tIfqBjm16Fvi73Y9LvjTOSKB7isaPaUMgh4QDEZJ0SgN7aIhP/9DOnKVPwX0AcYDO4Bk4Gu9wM9jMoe8wAE1lalZa7iTtTG5L+EtTbok3NhiRKxKRuNOSAtP/8aHsp46lZL64Fix3i6RKXE+DjU5hzXchMwF3Qp0hr63S9G+KnK6H3JRQEsUUdjYQ7nKDMZRI9VQUlncGCjTgz1xLcknhMZ/eAagm82youMkzPgE/HDpfirwWF+G0Vu8DIbKiAuXcfVElhw+d4aoE8HWQkTFxaP057br28NPI2QgPTMDldq3ZakoEgI3PvGyZx4mxYRUWqKKzgl8PQu9cMEfp2x3y+tvEqCxByDvfjZOYn627O1MvxsrLpKEP+6TNRY15q+bKbMXuAJmqD+Ez0KVMbxKVlHot+FXGbEjLQsZqfrD4nQqdweaeMa5Na3NUHXhzOQFk5TrD1PSmjaG7t47qn3T5aDkgBwsbgY8WR2eFkQhGSAHYE96QoSpxibe4eYYf+zXX0gcgHUMWh7T5tW5kvaq/vAcFT99hgsL07UWQ5DGOZCOpIctE2Ik=
+      secure: UZ8frRZZBOBcg+Ig71A8UUCkqcrpEG7fT93qrTT7R2PssoSSKfPWrvCChbUQl4TbAR6IAO9ZU7iINLBSGagpFPoW45JRQLYKKnbeHogocp/PKVA5yhb7Yu/74WJypORyAHUEB6IpGwuIZvh8+H+FCt35fiifovCEkF47ICvZqokbNkgttn2PqeFVVINLQ4Mit7SDuXFNYdHj3dYpIUg6fbqkrU70K0Pf5aNeHAKjW0S514JesmCq68u0LyG3CH5qPRWLK2GCzMr7i6383rKfXVUHWvOYcK7gzvIHXrwv6RbiObIZoilGBoQ2wES45FGGmpjyLTS1rBpcKRYnHSiq+nDkLWbxozBc9qKBDdArshrQYAcLFzsIt3ck6C5UpjHXHSBvQrqd+VO0c7lLTPF9+XCXh6NNydNdaktHTIKAs90Xq8HUIHk8twtu/3lsrVPJnB8EJoNmGiI3fm3LBw+j5nKDtHNy1MdGhAU4go3nQWSs1P3oZwWVZECE6xusotTrL8g+6Soo8IZe33PO4Yjt7dW3qneJEX0sLBtVrPhnjb5ROQaLyNy7DXW8PSZNb/BiAkG3G2cZ045rD1n98z1YM3//v90YaQNZ/faRK4fi7eGGnAl1Arhz+P5kYZeFPn5Nig3V8/whwMj/Kf83QybU6EeCVDEMG2Yww+uPoaWNUe4=
 before_install:
   - sudo echo "deb http://apt.openvstorage.org `python scripts/travis/repo.py` main" | sudo tee -a /etc/apt/sources.list
   - sudo rm -rf /var/lib/apt/lists/*
   - sudo apt-get -qq update
-  - sudo apt-get install -y --force-yes volumedriver-no-dedup-server
   - sudo apt-get install -y --force-yes openvstorage-hc
 before_script:
   - sudo find /opt/OpenvStorage -type d -exec chmod 777 {} +
   - sudo find /opt/OpenvStorage -type f -exec chmod 666 {} +
   - sudo chmod 777 /opt
-  - sudo chmod 777 /var/log/ovs
+  - sudo chmod -R 777 /var/log/ovs
   - sudo chmod 777 /run
   - cp -R ../framework-alba-plugin/* /opt/OpenvStorage/
   - export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.7/dist-packages/:/usr/lib/python2.7/dist-packages
+  - cd /opt/OpenvStorage/webapps/api; export PYTHONPATH=/opt/OpenvStorage:$PYTHONPATH;
+    python manage.py syncdb --noinput
+  - echo '{"configuration_store":"arakoon"}' > /opt/OpenvStorage/config/framework.json
 script:
   - ovs unittest /opt/OpenvStorage/ovs/dal/tests/test_alba.py
   - ovs unittest /opt/OpenvStorage/ovs/dal/tests/test_hybrids.py
