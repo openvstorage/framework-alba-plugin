@@ -77,7 +77,7 @@
             "snappy": "Snappy"
         },
         "deletebackend": "Delete this backend",
-        "details": "Details",
+        "details": "Backend Details",
         "disklegend": "Disk legend:",
         "disksloading": "Disks are being loaded...",
         "encryptions": {
