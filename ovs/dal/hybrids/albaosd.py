@@ -30,7 +30,7 @@ class AlbaOSD(DataObject):
     """
     The AlbaOSD represents a claimed ASD or an AlbaBackend
     """
-    OSD_TYPES = DataObject.enumerator('Osd_type', ['ASD', 'ALBA_BACKEND'])
+    OSD_TYPES = DataObject.enumerator('Osd_type', ['ASD', 'ALBA_BACKEND', 'AD'])
 
     __properties = [Property('osd_id', str, doc='OSD identifier'),
                     Property('osd_type', OSD_TYPES.keys(), doc='Type of OSD (ASD, ALBA_BACKEND)'),
@@ -53,7 +53,7 @@ class AlbaOSD(DataObject):
         prev_key = '{0}_{1}'.format(self._key, 'statistics_previous')
         previous_stats = volatile.get(prev_key, default={})
         try:
-            all_statistics = self.alba_backend.asd_statistics
+            all_statistics = self.alba_backend.osd_statistics
             if self.osd_id not in all_statistics:
                 return {}
             data = all_statistics[self.osd_id]

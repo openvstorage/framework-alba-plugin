@@ -52,7 +52,7 @@ class AlbaBackend(DataObject):
                   Dynamic('presets', list, 60, locked=True),
                   Dynamic('available', bool, 60),
                   Dynamic('name', str, 3600),
-                  Dynamic('asd_statistics', dict, 5, locked=True),
+                  Dynamic('osd_statistics', dict, 5, locked=True),
                   Dynamic('linked_backend_guids', set, 30, locked=True),
                   Dynamic('remote_stack', dict, 60, locked=True),
                   Dynamic('local_summary', dict, 15, locked=True),
@@ -128,7 +128,7 @@ class AlbaBackend(DataObject):
             thread.join()
 
         # Mix in usage information
-        for asd_id, stats in self.asd_statistics.iteritems():
+        for asd_id, stats in self.osd_statistics.iteritems():
             if asd_id in asd_map:
                 asd_map[asd_id]['usage'] = {'size': int(stats['capacity']),
                                             'used': int(stats['disk_usage']),
@@ -235,7 +235,7 @@ class AlbaBackend(DataObject):
         # Collect total usage
         total_size = 0.0
         total_used = 0.0
-        for stats in self.asd_statistics.values():
+        for stats in self.osd_statistics.values():
             total_size += stats['capacity']
             total_used += stats['disk_usage']
 
@@ -316,7 +316,7 @@ class AlbaBackend(DataObject):
         """
         return self.backend.name
 
-    def _asd_statistics(self):
+    def _osd_statistics(self):
         """
         Loads statistics from all it's asds in one call
         """
@@ -326,10 +326,16 @@ class AlbaBackend(DataObject):
         if self.abm_cluster is None:
             return statistics  # No ABM cluster yet, so backend not fully installed yet
 
-        asd_ids = [osd.osd_id for osd in self.osds if osd.osd_type == AlbaOSD.OSD_TYPES.ASD]
-        if len(asd_ids) == 0:
+        asd_ids = []
+        ad_ids = []
+        for osd in self.osds:
+            if osd.osd_type == AlbaOSD.OSD_TYPES.ASD:
+                asd_ids.append(osd.osd_id)
+            elif osd.osd_type == AlbaOSD.OSD_TYPES.AD:
+                ad_ids.append(osd.osd_id)
+        if len(asd_ids) == 0 and len(ad_ids) == 0:
             return statistics
-
+        # @Todo add ad_ids if alba provides the AD call
         try:
             config = Configuration.get_configuration_path(self.abm_cluster.config_location)
             raw_statistics = AlbaCLI.run(command='asd-multistatistics', config=config, named_params={'long-id': ','.join(asd_ids)})
@@ -479,7 +485,7 @@ class AlbaBackend(DataObject):
                                 device_info['red'] += 1
 
             # Calculate used and total size
-            for stats in self.asd_statistics.values():
+            for stats in self.osd_statistics.values():
                 usage_info['size'] += stats['capacity']
                 usage_info['used'] += stats['disk_usage']
 
