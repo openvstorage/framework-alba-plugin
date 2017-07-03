@@ -8,24 +8,24 @@ Build-Depends: python (>= 2.7.2)
 Package: openvstorage-backend-core
 Architecture: amd64
 Pre-Depends: python (>= 2.7.2), ipython, openvstorage-core (>= 2.2.0)
-Depends: alba (>=0.0.3-1), arakoon (>= 1.8.0)
-Description: openvStorage Backend plugin core
+Depends: alba, arakoon (>= 1.8.0)
+Description: OpenvStorage Backend plugin core
  Core components for the Open vStorage Backend plugin
 
 Package: openvstorage-backend-webapps
 Architecture: amd64
 Pre-Depends: openvstorage-backend-core (= ${binary:Version}), openvstorage-webapps (>= 2.2.0)
-Description: openvStorage Backend plugin Web Applications
+Description: OpenvStorage Backend plugin Web Applications
  Web components for the Open vStorage Backend plugin
 
 Package: openvstorage-backend
 Architecture: amd64
 Pre-Depends: openvstorage-backend-core (= ${binary:Version}), openvstorage-backend-webapps (= ${binary:Version}), openvstorage (>= 2.2.0)
-Description: openvStorage Backend plugin
+Description: OpenvStorage Backend plugin
  Open vStorage Backend plugin umbrella package
 
 Package: openvstorage-hc
 Architecture: amd64
 Pre-Depends: openvstorage-backend (= ${binary:Version}), openvstorage (>= 2.2.0), openvstorage-sdm (>= 1.1.0)
-Description: openvStorage Backend plugin HyperConverged
+Description: OpenvStorage Backend plugin HyperConverged
  Open vStorage Backend plugin HyperConverged umbrella package

@@ -46,7 +46,6 @@ define([
         self.disks                  = ko.observableArray([]);
         self.dNodesLoading          = ko.observable(false);
         self.domains                = ko.observableArray([]);
-        self.domainsLoaded          = ko.observable(false);
         self.initialRun             = ko.observable(true);
         self.localSummary           = ko.observable();
         self.otherAlbaBackendsCache = ko.observable({});
@@ -266,25 +265,27 @@ define([
             });
             if (changes) {
                 $.each(self.registeredNodes(), function(index, node) {
-                    if (!nodeDisks.hasOwnProperty(node.nodeID())) {
-                        node.disks([]);
-                    } else {
-                        nodeDisks[node.nodeID()].sort(function (a, b) {
-                            if (a.device() === undefined || b.device() === undefined) {
-                                return a.alias() < b.alias() ? -1 : 1;
-                            }
-                            return a.device() < b.device() ? -1 : 1;
-                        });
-                        node.disks(nodeDisks[node.nodeID()]);
-                    }
-                    node.disksLoading(self.initialRun());
-                    $.each(node.disks(), function(index, disk) {
-                        disk.node = node;
-                        $.each(disk.osds(), function(_, asd) {
-                            asd.node = node;
-                            asd.parentABGuid(self.albaBackend().guid());
+                    setTimeout(function() {
+                        if (!nodeDisks.hasOwnProperty(node.nodeID())) {
+                            node.disks([]);
+                        } else {
+                            nodeDisks[node.nodeID()].sort(function (a, b) {
+                                if (a.device() === undefined || b.device() === undefined) {
+                                    return a.alias() < b.alias() ? -1 : 1;
+                                }
+                                return a.device() < b.device() ? -1 : 1;
+                            });
+                            node.disks(nodeDisks[node.nodeID()]);
+                        }
+                        node.disksLoading(self.initialRun());
+                        $.each(node.disks(), function(index, disk) {
+                            disk.node = node;
+                            $.each(disk.osds(), function(_, asd) {
+                                asd.node = node;
+                                asd.parentABGuid(self.albaBackend().guid());
+                            })
                         })
-                    })
+                    }, index * 500 + 1);
                 });
                 self.registeredNodes.sort(function(a, b) {
                     if (a.storageRouter() !== undefined && b.storageRouter() !== undefined) {
@@ -324,7 +325,6 @@ define([
                             self.domains.sort(function(dom1, dom2) {
                                 return dom1.name() < dom2.name() ? -1 : 1;
                             });
-                            self.domainsLoaded(true);
                             deferred.resolve();
                         })
                         .fail(deferred.reject);
@@ -383,7 +383,7 @@ define([
                 )
                     .done(function(answer) {
                         if (answer === $.t('ovs:generic.yes')) {
-                            generic.alertSuccess(
+                            generic.alertInfo(
                                 $.t('alba:presets.delete.started'),
                                 $.t('alba:presets.delete.started_msg')
                             );
