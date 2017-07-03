@@ -30,7 +30,7 @@ class AlbaOSD(DataObject):
     """
     The AlbaOSD represents a claimed ASD or an AlbaBackend
     """
-    OSD_TYPES = DataObject.enumerator('Osd_type', ['ASD', 'ALBA_BACKEND', 'AD'])
+    OSD_TYPES = DataObject.enumerator('OSDType', ['ASD', 'ALBA_BACKEND', 'AD'])
 
     __properties = [Property('osd_id', str, doc='OSD identifier'),
                     Property('osd_type', OSD_TYPES.keys(), doc='Type of OSD (ASD, ALBA_BACKEND)'),
