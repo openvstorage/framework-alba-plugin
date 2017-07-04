@@ -25,6 +25,7 @@ from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.asdmanager import ASDManagerClient, InvalidCredentialsError
+from ovs.extensions.plugins.genericmanager import GenericManagerClient
 
 
 class AlbaNode(DataObject):
@@ -57,6 +58,8 @@ class AlbaNode(DataObject):
         self.client = None
         if self.type == AlbaNode.NODE_TYPES.ASD:
             self.client = ASDManagerClient(self)
+        if self.type == AlbaNode.NODE_TYPES.GENERIC:
+            self.client = GenericManagerClient(self)
         self._frozen = True
 
     def _storage_stack(self):
@@ -168,6 +171,7 @@ class AlbaNode(DataObject):
                 osd_info = stack[osd.slot_id]['osds'].get(osd.osd_id, {})
                 osd_info.update(osd.stack_info)
                 stack[osd.slot_id]['osds'][osd.slot_id] = osd_info
+            # TODO: Enrich the osds with live data from Alba, if required
         except:
             pass  # TODO: Handle errors a bit better here
         if self.type == AlbaNode.NODE_TYPES.GENERIC:
