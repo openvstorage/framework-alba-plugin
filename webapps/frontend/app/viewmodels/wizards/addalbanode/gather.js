@@ -1,4 +1,4 @@
-// Copyright (C) 2016 iNuron NV
+// Copyright (C) 2017 iNuron NV
 //
 // This file is part of Open vStorage Open Source Edition (OSE),
 // as available from
@@ -14,16 +14,22 @@
 // Open vStorage is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
-define(['knockout'], function(ko){
+define([
+    'jquery', 'knockout',
+    'ovs/api', 'ovs/shared', 'ovs/generic',
+    './data'
+], function($, ko, api, shared, generic, data) {
     "use strict";
-    var singleton = function() {
-        var data = {
-            confirmOnly: ko.observable(false),
-            newNode: ko.observable(),
-            oldNode: ko.observable(),
-            nodeTypes: ko.observableArray(['GENERIC']) // The `ASD` type can't be added (yet) using the wizard
-        };
-        return data;
-    };
-    return singleton();
+    return function() {
+        var self = this;
+
+        // Variables
+        self.data             = data;
+        self.shared           = shared;
+
+        // Computed
+        self.canContinue = ko.computed(function() {
+            return {value: true, reasons: [], fields: []};
+        });
+    }
 });

@@ -49,6 +49,7 @@ define([
         self.port              = ko.observable();
         self.storageRouterGuid = ko.observable();
         self.username          = ko.observable();
+        self.type              = ko.observable();
 
         // Computed
         self.canInitializeAll = ko.computed(function() {
@@ -121,6 +122,7 @@ define([
             self.port(data.port);
             self.username(data.username);
             self.ips(data.ips);
+            self.type(data.type);
             generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
 
             self.loaded(true);

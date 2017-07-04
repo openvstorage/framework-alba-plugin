@@ -1404,6 +1404,9 @@ class AlbaController(object):
         available_node_map = {}
         all_nodes = []
         for node in AlbaNodeList.get_albanodes():
+            if node.type == AlbaNode.NODE_TYPES.GENERIC:
+                continue
+
             try:
                 service_names = node.client.list_maintenance_services()
             except Exception:

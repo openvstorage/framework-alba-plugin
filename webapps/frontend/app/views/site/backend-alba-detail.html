@@ -259,11 +259,17 @@ but WITHOUT ANY WARRANTY of any kind.
                  data-bind="visible: $root.shared.user.roles().contains('manage'),
                             css: { active: albaBackend().scaling() !== 'GLOBAL' }">
                 <h4 class="pull-left" data-i18n="alba:generic.nodes"></h4>
-                <button class="btn btn-default pull-right" id="buttonRefreshSDM"
+                <button class="btn btn-default pull-right" id="buttonRefresh"
                         data-bind="click: refresh"
                         style="margin-top: 5px; margin-bottom: 10px;">
                     <span class="fa" data-i18n="[html]ovs:icons.load"></span>&nbsp;
                     <span data-i18n="alba:generic.refresh"></span>
+                </button>
+                <button class="btn btn-default pull-right" id="buttonAdd"
+                        data-bind="click: addNode"
+                        style="margin-top: 5px; margin-bottom: 10px; margin-right: 10px;">
+                    <span class="fa" data-i18n="[html]ovs:icons.add"></span>&nbsp;
+                    <span data-i18n="alba:detail.addnode"></span>
                 </button>
                 <table class="table table-striped table-hover" style="clear: both;">
                     <thead>
@@ -293,15 +299,20 @@ but WITHOUT ANY WARRANTY of any kind.
                                             </td>
                                             <td style="width: 400px; border-top: 0;" data-bind="text: nodeID"></td>
                                             <td style="border-top: 0;">
-                                                <!-- ko if: storageRouterGuid() === undefined || storageRouter() === undefined -->
-                                                    <span data-bind="text: ip"></span>:<span data-bind="text: port"></span>
+                                                <!-- ko if: type() !== 'GENERIC' -->
+                                                    <!-- ko if: storageRouterGuid() === undefined || storageRouter() === undefined -->
+                                                        <span data-bind="text: ip"></span>:<span data-bind="text: port"></span>
+                                                    <!-- /ko -->
+                                                    <!-- ko if: storageRouterGuid() !== undefined && storageRouter() !== undefined -->
+                                                        <span data-bind="lazyloader: { item: storageRouter, loadedObservable: 'loaded', undefinedLoading: true }">
+                                                            <a data-part="lazy-entry"
+                                                               data-bind="text: item().name,
+                                                                          attr: { href: $root.shared.routing.loadHash('storagerouter-detail', { guid: item().guid }) }"></a>
+                                                        </span>
+                                                    <!-- /ko -->
                                                 <!-- /ko -->
-                                                <!-- ko if: storageRouterGuid() !== undefined && storageRouter() !== undefined -->
-                                                    <span data-bind="lazyloader: { item: storageRouter, loadedObservable: 'loaded', undefinedLoading: true }">
-                                                        <a data-part="lazy-entry"
-                                                           data-bind="text: item().name,
-                                                                      attr: { href: $root.shared.routing.loadHash('storagerouter-detail', { guid: item().guid }) }"></a>
-                                                    </span>
+                                                <!-- ko if: type() === 'GENERIC' -->
+                                                    <span data-i18n="ovs:generic.null"></span>
                                                 <!-- /ko -->
                                             </td>
                                             <td style="width: 80px; border-top: 0;">

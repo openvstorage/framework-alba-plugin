@@ -1,0 +1,45 @@
+<!--
+Copyright (C) 2017 iNuron NV
+
+This file is part of Open vStorage Open Source Edition (OSE),
+as available from
+
+      http://www.openvstorage.org and
+      http://www.openvstorage.com.
+
+This file is free software; you can redistribute it and/or modify it
+under the terms of the GNU Affero General Public License v3 (GNU AGPLv3)
+as published by the Free Software Foundation, in version 3 as it comes
+in the LICENSE.txt file of the Open vStorage OSE distribution.
+
+Open vStorage is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY of any kind.
+-->
+<div>
+    <p data-i18n="alba:wizards.add_alba_node.gather.basicinfo"></p>
+    <div class="form-group">
+        <label class="col-lg-3 control-label" for="name" data-i18n="alba:wizards.add_alba_node.gather.node_id"></label>
+        <div class="col-lg-7" style="margin-top: 7px;">
+            <i data-i18n="alba:generic.generated" data-bind="visible: data.newNode().nodeID() === undefined"></i>
+            <span data-bind="text: data.newNode().nodeID, visible: data.newNode().nodeID() !== undefined"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-lg-3 control-label" data-i18n="alba:wizards.add_alba_node.gather.node_type"></label>
+        <div class="col-lg-7">
+            <span data-bind="dropdown: {
+                                 items: data.nodeTypes, target: data.newNode().type,
+                                 text: function(item) {
+                                     return $.t('alba:generic.nodetypes.' + item.toLowerCase());
+                                 }
+                             }"></span>
+        </div>
+    </div>
+    <div class="alert alert-danger" data-bind="visible: !canContinue().value" style="margin-bottom: -10px;">
+        <p data-bind="visible: canContinue().reasons.length === 0"><span data-i18n="ovs:generic.errorsfound"></span></p>
+        <p data-bind="visible: canContinue().reasons.length > 0"><span data-i18n="ovs:generic.followingerrorsfound"></span></p>
+        <ul data-bind="visible: canContinue().reasons.length > 0, foreach: canContinue().reasons">
+            <li data-bind="text: $data"></li>
+        </ul>
+    </div>
+</div>

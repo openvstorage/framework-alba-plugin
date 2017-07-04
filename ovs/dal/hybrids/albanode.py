@@ -32,11 +32,11 @@ class AlbaNode(DataObject):
     """
     NODE_TYPES = DataObject.enumerator('NodeType', ['ASD', 'GENERIC'])
 
-    __properties = [Property('ip', str, unique=True, indexed=True, doc='IP Address'),
-                    Property('port', int, doc='Port'),
+    __properties = [Property('ip', str, indexed=True, mandatory=False, doc='IP Address'),
+                    Property('port', int, mandatory=False, doc='Port'),
                     Property('node_id', str, unique=True, indexed=True, doc='Alba node_id identifier'),
-                    Property('username', str, doc='Username of the AlbaNode'),
-                    Property('password', str, doc='Password of the AlbaNode'),
+                    Property('username', str, mandatory=False, doc='Username of the AlbaNode'),
+                    Property('password', str, mandatory=False, doc='Password of the AlbaNode'),
                     Property('type', NODE_TYPES.keys(), default=NODE_TYPES.ASD, doc='The type of the AlbaNode'),
                     Property('package_information', dict, mandatory=False, default={}, doc='Information about installed packages and potential available new versions')]
     __relations = [Relation('storagerouter', StorageRouter, 'alba_node', onetoone=True, mandatory=False, doc='StorageRouter hosting the AlbaNode')]

@@ -37,23 +37,26 @@ define([
                 // Add ALBA node
                 if (self.data.oldNode() === undefined) {
                     generic.alertInfo(
-                        $.t('alba:wizards.add_alba_node.started'),
-                        $.t('alba:wizards.add_alba_node.in_progress')
+                        $.t('alba:wizards.add_alba_node.confirm.started'),
+                        $.t('alba:wizards.add_alba_node.confirm.in_progress')
                     );
                     deferred.resolve();
-                    api.post('alba/nodes', {data: {node_id: self.data.newNode().nodeID()}})
+                    api.post('alba/nodes', {data: {
+                            node_id: self.data.newNode().nodeID(),
+                            node_type: self.data.newNode().type()
+                        }})
                         .then(self.shared.tasks.wait)
                         .done(function () {
                             generic.alertSuccess(
-                                $.t('alba:wizards.add_alba_node.complete'),
-                                $.t('alba:wizards.add_alba_node.success')
+                                $.t('alba:wizards.add_alba_node.confirm.complete'),
+                                $.t('alba:wizards.add_alba_node.confirm.success')
                             );
                         })
                         .fail(function (error) {
                             error = generic.extractErrorMessage(error);
                             generic.alertError(
                                 $.t('ovs:generic.error'),
-                                $.t('alba:wizards.add_alba_node.failed', {why: error})
+                                $.t('alba:wizards.add_alba_node.confirm.failed', {why: error})
                             );
                         });
                 // Replace ALBA node

@@ -10,6 +10,7 @@
     },
     "detail": {
         "actions": "Actions",
+        "addnode": "Add",
         "health": "Health",
         "link_backend": "Link Backend",
         "name": "Name",
@@ -85,6 +86,7 @@
             "aes-ctr-256": "aes-ctr-256",
             "none": "No encryption"
         },
+        "generated": "Generated",
         "health": "Health",
         "initialize": "Initialize",
         "initializeall": "Initialize all uninitialized disks",
@@ -94,6 +96,10 @@
         "node": "Node / Storage Router",
         "nodeid": "Node ID",
         "nodes": "ASD Nodes",
+        "nodetypes": {
+            "asd": "ASD",
+            "generic": "Generic"
+        },
         "nodisks": "No disks available",
         "nodomain": "None",
         "osds": "ASDs",
@@ -259,19 +265,26 @@
     },
     "wizards": {
         "add_alba_node": {
-            "asd_ips": "Below IPs will be used for datatransfer",
-            "basic_info": "This information will be used to add the remote ASDs",
-            "complete": "Completed",
-            "failed": "Adding node failed: __why__",
-            "in_progress": "Adding node in progress",
-            "ip": "IP Address:",
-            "loading": "Loading information",
-            "node_id": "Node ID:",
-            "port": "Port:",
-            "started": "Started",
-            "success": "Node added",
-            "title": "Add node",
-            "username": "Username:"
+            "confirm": {
+                "basic_info": "Validate and confirm below information",
+                "complete": "Completed",
+                "failed": "Adding node failed: __why__",
+                "in_progress": "Adding node in progress",
+                "ip": "IP Address:",
+                "node_id": "Node ID:",
+                "port": "Port:",
+                "started": "Started",
+                "success": "Node added",
+                "username": "Username:"
+            },
+            "gather": {
+                "basic_info": "Fill all requested information",
+                "ip": "IP Address:",
+                "node_id": "Node ID:",
+                "node_type": "Node type:",
+                "port": "Port:"
+            },
+            "title": "Add node"
         },
         "add_backend": {
             "gather": {

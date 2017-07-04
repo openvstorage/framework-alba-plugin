@@ -18,6 +18,8 @@
 AlbaNodeController module
 """
 
+import string
+import random
 import requests
 from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.albanode import AlbaNode
@@ -46,32 +48,42 @@ class AlbaNodeController(object):
 
     @staticmethod
     @ovs_task(name='albanode.register')
-    def register(node_id):
+    def register(node_id=None, node_type=None):
         """
         Adds a Node with a given node_id to the model
         :param node_id: ID of the ALBA node
         :type node_id: str
+        :param node_type: Type of the node to create
+        :type node_type: str
         :return: None
         :rtype: NoneType
         """
-        node = AlbaNodeList.get_albanode_by_node_id(node_id)
-        if node is None:
-            main_config = Configuration.get('/ovs/alba/asdnodes/{0}/config/main'.format(node_id))
+        if node_type == AlbaNode.NODE_TYPES.GENERIC:
             node = AlbaNode()
-            node.ip = main_config['ip']
-            node.port = main_config['port']
-            node.username = main_config['username']
-            node.password = main_config['password']
-            node.storagerouter = StorageRouterList.get_by_ip(main_config['ip'])
-        data = node.client.get_metadata()
-        if data['_success'] is False and data['_error'] == 'Invalid credentials':
-            raise RuntimeError('Invalid credentials')
-        if data['node_id'] != node_id:
-            AlbaNodeController._logger.error('Unexpected node_id: {0} vs {1}'.format(data['node_id'], node_id))
-            raise RuntimeError('Unexpected node identifier')
-        node.node_id = node_id
-        node.type = 'ASD'
-        node.save()
+            node.node_id = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(32))
+            node.type = AlbaNode.NODE_TYPES.GENERIC
+            node.save()
+        else:
+            if node_id is None:
+                raise RuntimeError('A node_id must be given for type ASD')
+            node = AlbaNodeList.get_albanode_by_node_id(node_id)
+            if node is None:
+                main_config = Configuration.get('/ovs/alba/asdnodes/{0}/config/main'.format(node_id))
+                node = AlbaNode()
+                node.ip = main_config['ip']
+                node.port = main_config['port']
+                node.username = main_config['username']
+                node.password = main_config['password']
+                node.storagerouter = StorageRouterList.get_by_ip(main_config['ip'])
+            data = node.client.get_metadata()
+            if data['_success'] is False and data['_error'] == 'Invalid credentials':
+                raise RuntimeError('Invalid credentials')
+            if data['node_id'] != node_id:
+                AlbaNodeController._logger.error('Unexpected node_id: {0} vs {1}'.format(data['node_id'], node_id))
+                raise RuntimeError('Unexpected node identifier')
+            node.node_id = node_id
+            node.type = AlbaNode.NODE_TYPES.ASD
+            node.save()
         AlbaController.checkup_maintenance_agents.delay()
 
     @staticmethod
@@ -85,18 +97,20 @@ class AlbaNodeController(object):
         :rtype: NoneType
         """
         node = AlbaNode(node_guid)
-        for disk in node.disks:
-            for osd in disk.osds:
-                AlbaNodeController.remove_asd(node_guid=osd.alba_disk.alba_node_guid, asd_id=osd.osd_id, expected_safety=None)
-            AlbaNodeController.remove_disk(node_guid=disk.alba_node_guid, device_alias=disk.aliases[0])
 
-        try:
-            for service_name in node.client.list_maintenance_services():
-                node.client.remove_maintenance_service(service_name)
-        except (requests.ConnectionError, requests.Timeout):
-            AlbaNodeController._logger.exception('Could not connect to node {0} to retrieve the maintenance services'.format(node.guid))
-        except InvalidCredentialsError:
-            AlbaNodeController._logger.warning('Failed to retrieve the maintenance services for ALBA node {0}'.format(node.node_id))
+        if node.type == AlbaNode.NODE_TYPES.ASD:
+            for disk in node.disks:
+                for osd in disk.osds:
+                    AlbaNodeController.remove_asd(node_guid=osd.alba_disk.alba_node_guid, asd_id=osd.osd_id, expected_safety=None)
+                AlbaNodeController.remove_disk(node_guid=disk.alba_node_guid, device_alias=disk.aliases[0])
+
+            try:
+                for service_name in node.client.list_maintenance_services():
+                    node.client.remove_maintenance_service(service_name)
+            except (requests.ConnectionError, requests.Timeout):
+                AlbaNodeController._logger.exception('Could not connect to node {0} to retrieve the maintenance services'.format(node.guid))
+            except InvalidCredentialsError:
+                AlbaNodeController._logger.warning('Failed to retrieve the maintenance services for ALBA node {0}'.format(node.node_id))
 
         node.delete()
         for alba_backend in AlbaBackendList.get_albabackends():

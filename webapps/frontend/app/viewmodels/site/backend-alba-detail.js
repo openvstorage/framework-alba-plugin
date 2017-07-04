@@ -107,6 +107,9 @@ define([
         });
 
         // Functions
+        self.add = function() {
+
+        };
         self.refresh = function() {
             self.dNodesLoading(true);
             self.fetchNodes(true);
@@ -410,6 +413,15 @@ define([
                     });
             }).promise();
         };
+        self.addNode = function() {
+            var node = new Node();
+            dialog.show(new AddAlbaNodeWizard({
+                modal: true,
+                newNode: node,
+                oldNode: undefined,
+                confirmOnly: false
+            }));
+        };
         self.register = function(node) {
             var oldNode = undefined;
             $.each(self.registeredNodes(), function(index, registeredNode) {
@@ -421,7 +433,8 @@ define([
             dialog.show(new AddAlbaNodeWizard({
                 modal: true,
                 newNode: node,
-                oldNode: oldNode
+                oldNode: oldNode,
+                confirmOnly: true
             }));
         };
         self.addPreset = function() {
