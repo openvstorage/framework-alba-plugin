@@ -18,8 +18,10 @@
 AlbaNode module
 """
 import re
+import uuid
 import requests
 from ovs.dal.dataobject import DataObject
+from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
 from ovs.extensions.generic.configuration import Configuration
@@ -41,8 +43,11 @@ class AlbaNode(DataObject):
                     Property('package_information', dict, mandatory=False, default={}, doc='Information about installed packages and potential available new versions')]
     __relations = [Relation('storagerouter', StorageRouter, 'alba_node', onetoone=True, mandatory=False, doc='StorageRouter hosting the AlbaNode')]
     __dynamics = [Dynamic('storage_stack', dict, 15, locked=True),
+                  Dynamic('stack', dict, 15, locked=True),
                   Dynamic('ips', list, 3600),
-                  Dynamic('maintenance_services', dict, 30, locked=True)]
+                  Dynamic('maintenance_services', dict, 30, locked=True),
+                  Dynamic('metadata', dict, 3600),
+                  Dynamic('supported_osd_types', list, 3600)]
 
     def __init__(self, *args, **kwargs):
         """
@@ -50,7 +55,9 @@ class AlbaNode(DataObject):
         """
         DataObject.__init__(self, *args, **kwargs)
         self._frozen = False
-        self.client = ASDManagerClient(self)
+        self.client = None
+        if self.type == AlbaNode.NODE_TYPES.ASD:
+            self.client = ASDManagerClient(self)
         self._frozen = True
 
     def _storage_stack(self):
@@ -144,3 +151,50 @@ class AlbaNode(DataObject):
         except:
             pass
         return services
+
+    def _stack(self):
+        """
+        Returns an overview of this node's storage stack
+        """
+        stack = {}
+        try:
+            remote_stack = self.client.get_stack()
+            for slot_id, slot_data in remote_stack.iteritems():
+                stack[slot_id] = {'status': 'ok'}
+                stack[slot_id].update(slot_data)
+            for osd in self.osds:  # TODO: Add this relation
+                if osd.slot_id not in stack:
+                    stack[osd.slot_id] = {'status': 'missing',
+                                          'osds': {}}
+                osd_info = stack[osd.slot_id]['osds'].get(osd.osd_id, {})
+                osd_info.update(osd.stack_info)
+                stack[osd.slot_id]['osds'][osd.slot_id] = osd_info
+        except:
+            pass  # TODO: Handle errors a bit better here
+        if self.type == AlbaNode.NODE_TYPES.GENERIC:
+            stack[str(uuid.uuid4())] = {}
+        return stack
+
+    def _metadata(self):
+        """
+        Returns a set of metadata hinting on how the Node should be used
+        """
+        slots_metadata = {'fill': False,
+                          'fill_add': False}
+        if self.type == AlbaNode.NODE_TYPES.ASD:
+            slots_metadata.update({'fill': True,
+                                   'fill_metadata': {'count': 'integer'}})
+        if self.type == AlbaNode.NODE_TYPES.GENERIC:
+            slots_metadata.update({'fill_add': True,
+                                   'fill_add_metadata': {'type': 'osd_type'}})
+
+        return {'slots': slots_metadata}
+
+    def _supported_osd_types(self):
+        """
+        Returns a list of all supported OSD types
+        """
+        if self.type == AlbaNode.NODE_TYPES.GENERIC:
+            return [AlbaOSD.OSD_TYPES.ASD, AlbaOSD.OSD_TYPES.AD]
+        if self.type == AlbaNode.NODE_TYPES.ASD:
+            return [AlbaOSD.OSD_TYPES.ASD]

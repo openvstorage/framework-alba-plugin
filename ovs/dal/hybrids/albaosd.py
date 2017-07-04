@@ -38,7 +38,8 @@ class AlbaOSD(DataObject):
     __relations = [Relation('alba_backend', AlbaBackend, 'osds', doc='The AlbaBackend that claimed the OSD'),
                    Relation('alba_disk', AlbaDisk, 'osds', mandatory=False, doc='The AlbaDisk to which the OSD belongs'),
                    Relation('domain', Domain, 'osds', mandatory=False, doc='The Domain in which the OSD resides')]
-    __dynamics = [Dynamic('statistics', dict, 5, locked=True)]
+    __dynamics = [Dynamic('statistics', dict, 5, locked=True),
+                  Dynamic('stack_info', dict, 5)]
 
     def _statistics(self, dynamic):
         """
@@ -88,3 +89,10 @@ class AlbaOSD(DataObject):
         except Exception:
             # This might fail every now and then, e.g. on disk removal. Let's ignore for now.
             return {}
+
+    def _stack_info(self):
+        """
+        Returns summarized properties for adding to the storage stacks
+        """
+        return {'osd_id': self.osd_id,
+                'metadata': self.metadata}
