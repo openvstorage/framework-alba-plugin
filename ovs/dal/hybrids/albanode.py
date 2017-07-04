@@ -172,7 +172,7 @@ class AlbaNode(DataObject):
         except:
             pass  # TODO: Handle errors a bit better here
         if self.type == AlbaNode.NODE_TYPES.GENERIC:
-            stack[str(uuid.uuid4())] = {}
+            stack[str(uuid.uuid4())] = {'status': 'empty'}
         return stack
 
     def _metadata(self):
