@@ -21,7 +21,6 @@ import re
 import uuid
 import requests
 from ovs.dal.dataobject import DataObject
-from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
 from ovs.extensions.generic.configuration import Configuration
@@ -194,6 +193,7 @@ class AlbaNode(DataObject):
         """
         Returns a list of all supported OSD types
         """
+        from ovs.dal.hybrids.albaosd import AlbaOSD
         if self.type == AlbaNode.NODE_TYPES.GENERIC:
             return [AlbaOSD.OSD_TYPES.ASD, AlbaOSD.OSD_TYPES.AD]
         if self.type == AlbaNode.NODE_TYPES.ASD:
