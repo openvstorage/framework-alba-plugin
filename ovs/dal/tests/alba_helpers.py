@@ -190,6 +190,8 @@ class AlbaDalHelper(object):
                 osd.osd_type = AlbaOSD.OSD_TYPES.ASD
                 osd.alba_backend = alba_backends[ab_id]
                 osd.alba_disk = alba_disks[ad_id]
+                osd.ip = '127.0.0.{0}'.format(ao_id)
+                osd.port = 35000 + ao_id
                 osd.save()
                 alba_osds[ao_id] = osd
         return {'alba_osds': alba_osds,
