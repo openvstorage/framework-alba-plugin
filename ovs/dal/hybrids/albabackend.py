@@ -326,19 +326,13 @@ class AlbaBackend(DataObject):
         if self.abm_cluster is None:
             return statistics  # No ABM cluster yet, so backend not fully installed yet
 
-        asd_ids = []
-        ad_ids = []
-        for osd in self.osds:
-            if osd.osd_type == AlbaOSD.OSD_TYPES.ASD:
-                asd_ids.append(osd.osd_id)
-            elif osd.osd_type == AlbaOSD.OSD_TYPES.AD:
-                ad_ids.append(osd.osd_id)
-        if len(asd_ids) == 0 and len(ad_ids) == 0:
+        osd_ids = [osd.osd_id for osd in self.osds if osd.osd_type == AlbaOSD.OSD_TYPES.ASD]
+        if len(osd_ids) == 0:
             return statistics
-        # @Todo add ad_ids if alba provides the AD call
         try:
             config = Configuration.get_configuration_path(self.abm_cluster.config_location)
-            raw_statistics = AlbaCLI.run(command='asd-multistatistics', config=config, named_params={'long-id': ','.join(asd_ids)})
+            # TODO: This will need to be changed to osd-multistatistics, see openvstorage/alba#749
+            raw_statistics = AlbaCLI.run(command='asd-multistatistics', config=config, named_params={'long-id': ','.join(osd_ids)})
         except RuntimeError:
             return statistics
         for asd_id, stats in raw_statistics.iteritems():
