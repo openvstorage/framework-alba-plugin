@@ -66,6 +66,7 @@ class AlbaNode(DataObject):
         """
         Returns a live list of all disks known to this AlbaNode
         """
+        # @todo Support multiple clients and fetching from the by slots: {slot_id: {1,2,3}}
         storage_stack = {'status': 'ok',
                          'stack': {}}
         stack = storage_stack['stack']
@@ -164,7 +165,7 @@ class AlbaNode(DataObject):
             for slot_id, slot_data in remote_stack.iteritems():
                 stack[slot_id] = {'status': 'ok'}
                 stack[slot_id].update(slot_data)
-            for osd in self.osds:  # TODO: Add this relation
+            for osd in self.osds:
                 if osd.slot_id not in stack:
                     stack[osd.slot_id] = {'status': 'missing',
                                           'osds': {}}

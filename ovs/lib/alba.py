@@ -72,6 +72,9 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.add_units')
     def add_units(alba_backend_guid, osds, metadata=None):
+        # @Todo Support active drive configurations
+        # Active drives are a type of osd unit that should be able to get added
+        # For generic type, this will mean spawning a new object aswel
         """
         Adds storage units to an Alba Backend
         :param alba_backend_guid: Guid of the ALBA Backend
@@ -144,6 +147,80 @@ class AlbaController(object):
                 raise RuntimeError('None of the requested OSDs could be claimed')
             else:
                 raise RuntimeError('Some of the requested OSDs could not be claimed: {0}'.format(', '.join(failed_claims)))
+        return unclaimed_osds
+
+    @staticmethod
+    @ovs_task(name='alba.add_osds')
+    def add_osds(alba_backend_guid, osds, metadata=None):
+        validation_reasons = {}
+        for osd_id, osd_info in osds.iteritems():
+            try:
+                Toolbox.verify_required_params(required_params={'slot_id': (str, None),
+                                                                'osd_type': (str, AlbaOSD.OSD_TYPES.keys())},
+                                               actual_params=osd_info)
+            except RuntimeError as ex:
+                validation_reasons[osd_id] = str(ex)
+        if len(validation_reasons.keys()) > 0:
+            raise ValueError('Missing required paramater: {0}'.format('\n* '.join(('{0}: {1}'.format(osd_id, reason) for osd_id, reason in validation_reasons.iteritems()))))
+        from ovs.extensions.plugins.albacli import AlbaError
+
+        alba_backend = AlbaBackend(alba_backend_guid)
+        if alba_backend.abm_cluster is None:
+            raise ValueError('ALBA Backend {0} does not have an ABM cluster registered'.format(alba_backend.name))
+        domain = None
+        domain_guid = metadata['backend_info'].get('domain_guid') if metadata is not None else None
+        if domain_guid is not None:
+            try:
+                domain = Domain(domain_guid)
+            except ObjectNotFoundException:
+                AlbaController._logger.warning('Provided Domain with guid {0} has been deleted in the meantime'.format(domain_guid))
+        config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
+        service_deployed = False
+        for alba_node in AlbaNodeList.get_albanodes():
+            try:
+                for service_name in alba_node.client.list_maintenance_services():
+                    if re.match('^alba-maintenance_{0}-[a-zA-Z0-9]{{16}}$'.format(alba_backend.name), service_name):
+                        service_deployed = True
+                        break
+            except:
+                pass
+            if service_deployed is True:
+                break
+        if service_deployed is False:
+            raise Exception('No maintenance agents have been deployed for ALBA Backend {0}'.format(alba_backend.name))
+
+        unclaimed_osds = []
+        failed_claims = []
+        for osd_id, osd_info in osds.iteritems():  # Slots will be replacing disks in the future
+            # @todo incorporate alba commands to claim the Active Drive type osd
+            # @todo run add-osd before claiming
+            try:
+                # AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': osd_id})
+                pass
+            except AlbaError as ae:
+                if ae.error_code == 11:
+                    AlbaController._logger.warning('OSD with ID {0} for slot {1} has already been claimed'.format(osd_id, osd_info['slot_id']))
+                    unclaimed_osds.append(osd_id)
+                    continue
+                AlbaController._logger.exception('Error claiming OSD {0}'.format(osd_id))
+                failed_claims.append(osd_id)
+            osd = AlbaOSD()
+            osd.domain = domain
+            osd.osd_id = osd_id
+            osd.osd_type = getattr(AlbaOSD.OSD_TYPES, osd_info['osd_type'])
+            osd.slot_id = osd_info['slot_id']
+            osd.metadata = metadata
+            # osd.alba_disk = alba_disk  @ Todo remove disk relation completely, will be filled in slot_id instead
+            osd.alba_backend = alba_backend
+            osd.save()
+        alba_backend.invalidate_dynamics()
+        alba_backend.backend.invalidate_dynamics()
+        if len(failed_claims) > 0:
+            if len(failed_claims) == len(osds):
+                raise RuntimeError('None of the requested OSDs could be claimed')
+            else:
+                raise RuntimeError(
+                    'Some of the requested OSDs could not be claimed: {0}'.format(', '.join(failed_claims)))
         return unclaimed_osds
 
     @staticmethod

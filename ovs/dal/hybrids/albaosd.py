@@ -21,6 +21,7 @@ import time
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albadisk import AlbaDisk
+from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.domain import Domain
 from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.extensions.storage.volatilefactory import VolatileFactory
@@ -32,11 +33,13 @@ class AlbaOSD(DataObject):
     """
     OSD_TYPES = DataObject.enumerator('OSDType', ['ASD', 'ALBA_BACKEND', 'AD'])
 
-    __properties = [Property('osd_id', str, doc='OSD identifier'),
+    __properties = [Property('osd_id', str, unique=True, doc='OSD identifier'),
                     Property('osd_type', OSD_TYPES.keys(), doc='Type of OSD (ASD, ALBA_BACKEND)'),
-                    Property('metadata', dict, mandatory=False, doc='Additional information about this OSD, such as connection information (if OSD is an ALBA backend')]
+                    Property('metadata', dict, mandatory=False, doc='Additional information about this OSD, such as connection information (if OSD is an ALBA backend'),
+                    Property('slot_id', str, indexed=True, mandatory=False, doc='A pointer towards a certain slot. Will be used to map OSDs into container')]
     __relations = [Relation('alba_backend', AlbaBackend, 'osds', doc='The AlbaBackend that claimed the OSD'),
                    Relation('alba_disk', AlbaDisk, 'osds', mandatory=False, doc='The AlbaDisk to which the OSD belongs'),
+                   Relation('alba_node', AlbaNode, 'osds', mandatory=False, doc='The Alba Node to which the OSD belongs'),
                    Relation('domain', Domain, 'osds', mandatory=False, doc='The Domain in which the OSD resides')]
     __dynamics = [Dynamic('statistics', dict, 5, locked=True),
                   Dynamic('stack_info', dict, 5)]
