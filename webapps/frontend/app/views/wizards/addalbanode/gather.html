@@ -19,7 +19,7 @@ but WITHOUT ANY WARRANTY of any kind.
     <p data-i18n="alba:wizards.add_alba_node.gather.basicinfo"></p>
     <div class="form-group">
         <label class="col-lg-3 control-label" for="name" data-i18n="alba:wizards.add_alba_node.gather.node_id"></label>
-        <div class="col-lg-7" style="margin-top: 7px;">
+        <div class="col-lg-7" style="margin-top: 7px;" id="name">
             <i data-i18n="alba:generic.generated" data-bind="visible: data.newNode().nodeID() === undefined"></i>
             <span data-bind="text: data.newNode().nodeID, visible: data.newNode().nodeID() !== undefined"></span>
         </div>

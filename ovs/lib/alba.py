@@ -75,7 +75,7 @@ class AlbaController(object):
     def add_units(alba_backend_guid, osds, metadata=None):
         # @Todo Support active drive configurations
         # Active drives are a type of osd unit that should be able to get added
-        # For generic type, this will mean spawning a new object aswel
+        # For generic type, this will mean spawning a new object as well
         """
         Adds storage units to an Alba Backend
         :param alba_backend_guid: Guid of the ALBA Backend
@@ -177,7 +177,8 @@ class AlbaController(object):
             except RuntimeError as ex:
                 validation_reasons[osd_id] = str(ex)
         if len(validation_reasons.keys()) > 0:
-            raise ValueError('Missing required paramater: {0}'.format('\n* '.join(('{0}: {1}'.format(osd_id, reason) for osd_id, reason in validation_reasons.iteritems()))))
+            raise ValueError('Missing required parameter: {0}'.format('\n* '.join(('{0}: {1}'.format(osd_id, reason) for osd_id, reason in validation_reasons.iteritems()))))
+
         from ovs.extensions.plugins.albacli import AlbaError
 
         alba_backend = AlbaBackend(alba_backend_guid)
@@ -190,7 +191,7 @@ class AlbaController(object):
                 domain = Domain(domain_guid)
             except ObjectNotFoundException:
                 AlbaController._logger.warning('Provided Domain with guid {0} has been deleted in the meantime'.format(domain_guid))
-        config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
+
         service_deployed = False
         for alba_node in AlbaNodeList.get_albanodes():
             try:

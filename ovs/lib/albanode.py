@@ -99,7 +99,6 @@ class AlbaNodeController(object):
         :rtype: NoneType
         """
         node = AlbaNode(node_guid)
-
         if node.type == AlbaNode.NODE_TYPES.ASD:
             for disk in node.disks:
                 for osd in disk.osds:

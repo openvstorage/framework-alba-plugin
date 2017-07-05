@@ -41,10 +41,12 @@ define([
                         $.t('alba:wizards.add_alba_node.confirm.in_progress')
                     );
                     deferred.resolve();
-                    api.post('alba/nodes', {data: {
+                    api.post('alba/nodes', {
+                        data: {
                             node_id: self.data.newNode().nodeID(),
                             node_type: self.data.newNode().type()
-                        }})
+                        }
+                    })
                         .then(self.shared.tasks.wait)
                         .done(function () {
                             generic.alertSuccess(

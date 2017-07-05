@@ -67,9 +67,10 @@ class ASDManagerClient(object):
     test_exceptions = {}
 
     def __init__(self, node):
-        self._logger = LogHandler.get('extensions', name='asdmanagerclient')
         self.node = node
         self.timeout = 20
+
+        self._logger = LogHandler.get('extensions', name='asdmanagerclient')
         self._unittest_mode = os.environ.get('RUNNING_UNITTESTS') == 'True'
         self._log_min_duration = 1
 
@@ -84,7 +85,11 @@ class ASDManagerClient(object):
 
         if timeout is None:
             timeout = self.timeout
-        self._refresh()
+
+        # Refresh URL / headers
+        self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
+        self._base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}
+
         start = time.time()
         kwargs = {'url': '{0}/{1}'.format(self._base_url, url),
                   'headers': self._base_headers,
@@ -318,7 +323,3 @@ class ASDManagerClient(object):
         :rtype: str
         """
         return self._call(requests.get, 'service_status/{0}'.format(name))['status'][1]
-
-    def _refresh(self):
-        self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
-        self._base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}
