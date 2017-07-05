@@ -51,6 +51,7 @@ class GenericManagerClient(object):
         stack = {}
         for osd in self.node.osds:
             if osd.slot_id not in stack:
-                stack[osd.slot_id] = {'status': 'ok',
+                stack[osd.slot_id] = {'state': 'ok',
+                                      'available': False,
                                       'osds': {}}
             stack[osd.slot_id]['osds'][osd.osd_id] = osd.stack_info

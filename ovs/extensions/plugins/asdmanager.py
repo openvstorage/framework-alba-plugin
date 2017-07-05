@@ -118,6 +118,12 @@ class ASDManagerClient(object):
             self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.stack()[1][3], duration, internal_duration))
         return data
 
+    def get_stack(self):
+        """
+        Gets the remote node stack
+        """
+        return self._call(requests.get, 'slots', timeout=5)
+
     def get_metadata(self):
         """
         Gets metadata from the node
