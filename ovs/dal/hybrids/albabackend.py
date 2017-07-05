@@ -326,7 +326,7 @@ class AlbaBackend(DataObject):
         if self.abm_cluster is None:
             return statistics  # No ABM cluster yet, so backend not fully installed yet
 
-        osd_ids = [osd.osd_id for osd in self.osds if osd.osd_type == AlbaOSD.OSD_TYPES.ASD]
+        osd_ids = [osd.osd_id for osd in self.osds if osd.osd_type in [AlbaOSD.OSD_TYPES.ASD, AlbaOSD.OSD_TYPES.AD]]
         if len(osd_ids) == 0:
             return statistics
         try:
