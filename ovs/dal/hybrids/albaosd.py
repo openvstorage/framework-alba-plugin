@@ -95,4 +95,5 @@ class AlbaOSD(DataObject):
         Returns summarized properties for adding to the storage stacks
         """
         return {'osd_id': self.osd_id,
+                'type': self.osd_type,
                 'metadata': self.metadata}
