@@ -35,6 +35,8 @@ class AlbaOSD(DataObject):
 
     __properties = [Property('osd_id', str, unique=True, doc='OSD identifier'),
                     Property('osd_type', OSD_TYPES.keys(), doc='Type of OSD (ASD, ALBA_BACKEND)'),
+                    Property('ip', str, doc='IP Address of the OSD (only one, even though an OSD can have multiple IP Addresses)'),
+                    Property('port', int, doc='Port of the OSD'),
                     Property('metadata', dict, mandatory=False, doc='Additional information about this OSD, such as connection information (if OSD is an ALBA backend'),
                     Property('slot_id', str, indexed=True, mandatory=False, doc='A pointer towards a certain slot. Will be used to map OSDs into container')]
     __relations = [Relation('alba_backend', AlbaBackend, 'osds', doc='The AlbaBackend that claimed the OSD'),
@@ -99,4 +101,6 @@ class AlbaOSD(DataObject):
         """
         return {'osd_id': self.osd_id,
                 'type': self.osd_type,
+                'ip': self.ip,
+                'port': self.port,
                 'metadata': self.metadata}
