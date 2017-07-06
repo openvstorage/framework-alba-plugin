@@ -17,7 +17,7 @@
 define([
     'knockout',
     'ovs/generic',
-    '../containers/albabackend'
+    './albabackend'
 ], function(ko, generic, AlbaBackend) {
     "use strict";
     return function(id) {
@@ -44,6 +44,11 @@ define([
         self.status          = ko.observable();
         self.statusDetail    = ko.observable();
         self.usage           = ko.observable();
+        // Support manual adding
+        self.slotId          = ko.observable('1');
+        self.type            = ko.observable();
+        self.port            = ko.observable().extend({numeric: {min: 1, max: 65536}});
+        self.ip              = ko.observable().extend({regex: generic.ipRegex});
 
         // Computed
         self.isLocal = ko.computed(function() {

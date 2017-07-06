@@ -29,6 +29,7 @@ from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albadisk import AlbaDisk
+from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albansmcluster import NSMCluster
 from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.hybrids.backend import Backend
@@ -150,13 +151,28 @@ class AlbaController(object):
         return unclaimed_osds
 
     @staticmethod
-    @ovs_task(name='alba.add_osds')
-    def add_osds(alba_backend_guid, osds, metadata=None):
+    @ovs_task(name='alba.claim_osds')
+    def claim_osds(alba_backend_guid, alba_node_guid, osds, metadata=None):
+        """
+        Registers a osd to the backend
+        :param alba_backend_guid: Guid of the ALBA Backend
+        :type alba_backend_guid: str
+        :param alba_node_guid: guid of the alba node
+        :type alba_node_guid: str
+        :param osds: OSDs to add to the ALBA Backend
+        :type osds: dict
+        :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
+        :type metadata: dict
+        :return:
+        """
         validation_reasons = {}
         for osd_id, osd_info in osds.iteritems():
             try:
+                #@todo Remove osd_type and rely on alba information to track the type of osd
                 Toolbox.verify_required_params(required_params={'slot_id': (str, None),
-                                                                'osd_type': (str, AlbaOSD.OSD_TYPES.keys())},
+                                                                'osd_type': (str, AlbaOSD.OSD_TYPES.keys()),
+                                                                'ip': (str, Toolbox.regex_ip),
+                                                                'port': (int, {'min': 1, 'max': 65536})},
                                                actual_params=osd_info)
             except RuntimeError as ex:
                 validation_reasons[osd_id] = str(ex)
@@ -189,6 +205,7 @@ class AlbaController(object):
         if service_deployed is False:
             raise Exception('No maintenance agents have been deployed for ALBA Backend {0}'.format(alba_backend.name))
 
+        alba_node = AlbaNode(alba_node_guid)
         unclaimed_osds = []
         failed_claims = []
         for osd_id, osd_info in osds.iteritems():  # Slots will be replacing disks in the future
@@ -206,12 +223,15 @@ class AlbaController(object):
                 failed_claims.append(osd_id)
             osd = AlbaOSD()
             osd.domain = domain
+            osd.ip = osd_info['ip']
+            osd.port = osd_info['port']
             osd.osd_id = osd_id
             osd.osd_type = getattr(AlbaOSD.OSD_TYPES, osd_info['osd_type'])
             osd.slot_id = osd_info['slot_id']
             osd.metadata = metadata
             # osd.alba_disk = alba_disk  @ Todo remove disk relation completely, will be filled in slot_id instead
             osd.alba_backend = alba_backend
+            osd.alba_node = alba_node
             osd.save()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()

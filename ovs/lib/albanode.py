@@ -23,6 +23,7 @@ import random
 import requests
 from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.albanode import AlbaNode
+from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
@@ -34,6 +35,7 @@ from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.plugins.asdmanager import InvalidCredentialsError
 from ovs.lib.alba import AlbaController
 from ovs.lib.disk import DiskController
+from ovs.lib.helpers.toolbox import Toolbox
 from ovs.lib.helpers.decorators import add_hooks, ovs_task
 from ovs.log.log_handler import LogHandler
 
@@ -132,6 +134,54 @@ class AlbaNodeController(object):
         """
         AlbaNodeController.remove_node(node_guid=old_node_guid)
         AlbaNodeController.register(node_id=new_node_id)
+
+    @staticmethod
+    @ovs_task(name='albanode.add_osd')
+    def add_osds(node_guid, osds, metadata=None):
+        """
+        Creates a new osd
+        :param node_guid: Guid of the node to which the disks belong
+        :type node_guid: str
+        :param osds: ASDs to add to the ALBA Backend
+        :type osds: dict
+        :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
+        :type metadata: dict
+        :return:
+        """
+        validation_reasons = []
+        AlbaNodeController._logger.info(osds)
+        for osd in osds:
+            try:
+                # @todo Remove osd_type and rely on alba information to track the type of osd
+                Toolbox.verify_required_params(required_params={'slot_id': (str, None),
+                                                                'osd_type': (str, AlbaOSD.OSD_TYPES.keys()),
+                                                                'ip': (str, Toolbox.regex_ip),
+                                                                'port': (int, {'min': 1, 'max': 65536})},
+                                               actual_params=osd)
+            except RuntimeError as ex:
+                validation_reasons.append(str(ex))
+        if len(validation_reasons) > 0:
+            raise ValueError('Missing required paramater: {0}'.format('\n* '.join(('{0}'.format(reason) for reason in validation_reasons))))
+
+        node = AlbaNode(node_guid)
+        osds_claim_info = {}
+        osds_info = {}
+        for osd in osds:
+            # @Todo implement client stuff
+            alba_backend_guid = osd['alba_backend_guid']
+            osd_info = node.client.add_osd(osd['ip'], osd['port'], alba_backend_guid)
+            osd_id = osd_info.get('osd_id')
+            # @todo determine type using alba, currently sending it with the post
+            osd_type = osd_info.get('osd_type') if osd_info.get('osd_type') else osd['osd_type']
+            # claimed_by = osd_info.get('claimed_by')
+            osd.update({'osd_id': osd_id, 'osd_type': osd_type})
+
+            osds_to_claim = osds_claim_info.get(alba_backend_guid, {})
+            osds_to_claim.update({osd_id: osd})
+            osds_claim_info[alba_backend_guid] = osds_to_claim
+        AlbaNodeController._logger.info(osds_claim_info)
+        for alba_backend_guid, osds_to_claim in osds_claim_info.iteritems():
+            AlbaController.claim_osds(alba_backend_guid, node_guid, osds_to_claim, metadata)
 
     @staticmethod
     @ovs_task(name='albanode.initialize_disk')

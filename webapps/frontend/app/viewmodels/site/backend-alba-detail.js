@@ -18,12 +18,12 @@ define([
     'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/albabackend', '../containers/albadisk', '../containers/albanode', '../containers/backend',
-    '../containers/backendtype', '../containers/domain', '../containers/storagerouter',
-    '../wizards/addalbanode/index', '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index'
+    '../containers/backendtype', '../containers/domain', '../containers/storagerouter', '../containers/albaosd',
+    '../wizards/addalbanode/index', '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index', '../wizards/addosd/index'
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
-            AlbaBackend, Disk, Node, Backend, BackendType, Domain, StorageRouter,
-            AddAlbaNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard) {
+            AlbaBackend, Disk, Node, Backend, BackendType, Domain, StorageRouter, AlbaOSD,
+            AddAlbaNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard, AddOSDWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -48,6 +48,7 @@ define([
         self.domains                = ko.observableArray([]);
         self.initialRun             = ko.observable(true);
         self.localSummary           = ko.observable();
+        self.osds                   = ko.observableArray([]);
         self.otherAlbaBackendsCache = ko.observable({});
         self.registeredNodes        = ko.observableArray([]);
         self.registeredNodesNodeIDs = ko.observableArray([]);
@@ -107,9 +108,6 @@ define([
         });
 
         // Functions
-        self.add = function() {
-
-        };
         self.refresh = function() {
             self.dNodesLoading(true);
             self.fetchNodes(true);
@@ -148,9 +146,6 @@ define([
             }
         };
         self.fetchNodes = function(discover) {
-            if (discover === undefined) {
-                discover = false;
-            }
             discover = !!discover;
             if (self.albaBackend() === undefined || self.albaBackend().scaling() === 'GLOBAL') {
                 return;
@@ -159,7 +154,7 @@ define([
                 if (generic.xhrCompleted(self.nodesHandle[discover])) {
                     var options = {
                         sort: 'ip',
-                        contents: 'node_id,_relations' + (discover ? ',_dynamics' : ''),
+                        contents: 'node_id,_relations,stack,storage_stack' + (discover ? ',_dynamics' : ''),
                         discover: discover
                     };
                     if (self.albaBackend() !== undefined) {
@@ -244,6 +239,7 @@ define([
             var diskNames = [], disks = {}, changes = data.local_stack.length !== self.disks().length,
                 diskNode = {}, nodeDisks = {};
             $.each(data.local_stack, function (nodeId, disksData) {
+                // @todo support slots <-> osd
                 $.each(disksData, function(index, disk) {
                     diskNames.push(disk.name);
                     disks[disk.name] = disk;
@@ -470,6 +466,28 @@ define([
                 linkedOSDInfo: info
             }));
         };
+        self.getNodeById = function(nodeID){
+            var node_to_return = undefined;
+            $.each(self.registeredNodes(), function(index, node) {
+              if (node.nodeID() === nodeID) {
+                  node_to_return = node;
+                  return false
+              }
+            });
+            return node_to_return
+        };
+        self.addOSDs = function(node){ // @todo reuse the claimosds parts but for that the disk relation has to go
+            // // @Todo Fetch id from the stack
+            var osd = new AlbaOSD(undefined);
+            osd.node = node;
+            osd.nodeID(node.nodeID());
+            dialog.show(new AddOSDWizard({
+                modal: true,
+                newOsd: osd,
+                albaBackendGuid: self.albaBackend().guid(),
+                confirmOnly: false
+            }));
+        };
 
         // Durandal
         self.activate = function(mode, guid) {
@@ -477,8 +495,8 @@ define([
             self.refresher.init(function() {
                 self.loadDomains();
                 return self.load()
-                    .then(self.fetchNodes)
-                    .then(function() { self.fetchNodes(true); })
+                    .then(self.fetchNodes)  // Fetch all known nodes
+                    .then(function() { self.fetchNodes(true); })  // Discover new ones
                     .then(self.loadASDOSDs)
                     .then(self.loadBackendOSDs)
                     .then(function() {

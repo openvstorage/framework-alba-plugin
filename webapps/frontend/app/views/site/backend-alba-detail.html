@@ -282,6 +282,7 @@ but WITHOUT ANY WARRANTY of any kind.
                             </th>
                             <th data-i18n="alba:generic.nodeid" style="width: 400px;"></th>
                             <th data-i18n="alba:generic.node"></th>
+                            <th >Type</th>
                             <th data-i18n="ovs:generic.actions" style="width: 80px;"></th>
                         </tr>
                     </thead>
@@ -315,6 +316,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                                     <span data-i18n="ovs:generic.null"></span>
                                                 <!-- /ko -->
                                             </td>
+                                            <td style="width: 80px; border-top: 0;" data-bind="text: type"></td>
                                             <td style="width: 80px; border-top: 0;">
                                                 <i data-bind="attr: { id: 'initialize_all_' + nodeID() },
                                                               click: function() {
@@ -569,6 +571,18 @@ but WITHOUT ANY WARRANTY of any kind.
                                                         <!-- /ko -->
                                                     </div>
                                                 </div>
+                                                <!-- ko if: type() === 'GENERIC' -->
+                                                <!-- @todo define actions based upon slot data -->
+                                                <div style="margin-bottom: 10px; margin-left: 10px">
+                                                    <button class="btn btn-default" id="buttonAddOsd" data-bind="click: $parent.addOSDs">
+                                                        <span class="fa" data-i18n="[html]ovs:icons.add"></span>
+                                                    </button>
+                                                </div>
+                                                <!-- /ko -->
+                                                <!--<div data-bind="foreach: osds">
+                                                    <span>test</span>
+                                                </div>
+                                                -->
                                             </td>
                                         </tr>
                                     </table>
@@ -753,7 +767,8 @@ but WITHOUT ANY WARRANTY of any kind.
                 <h4 data-i18n="ovs:generic.access_rights"></h4>
                 <div data-bind="accessrights: {
                                     rights: backend().accessRights(), save: backend().saveAccessRights
-                                }"></div>
+                                }">
+                </div>
             </div>
         </div>
     </div>

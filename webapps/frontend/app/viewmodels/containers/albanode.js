@@ -17,8 +17,10 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
     'ovs/generic', 'ovs/api', 'ovs/shared',
-    '../wizards/removeosd/index', '../wizards/initializedisk/index'
-], function($, app, ko, dialog, generic, api, shared, RemoveOSDWizard, InitializeDiskWizard) {
+    '../wizards/removeosd/index', '../wizards/initializedisk/index',
+], function($, app, ko, dialog,
+            generic, api, shared,
+            RemoveOSDWizard, InitializeDiskWizard) {
     "use strict";
     return function(nodeID, albaBackend, parent) {
         var self = this;
@@ -36,7 +38,7 @@ define([
 
         // Observables
         self.diskNames         = ko.observableArray([]);
-        self.disks             = ko.observableArray([]);
+        self.disks             = ko.observableArray([]);  // @todo add asds related to disks to osds and replace disks with slots
         self.disksLoading      = ko.observable(true);
         self.downLoadingLogs   = ko.observable(false);
         self.downloadLogState  = ko.observable($.t('alba:support.download_logs'));
@@ -49,6 +51,7 @@ define([
         self.port              = ko.observable();
         self.storageRouterGuid = ko.observable();
         self.username          = ko.observable();
+        self.osds              = ko.observableArray([]);
         self.type              = ko.observable();
 
         // Computed

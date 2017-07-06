@@ -1,0 +1,35 @@
+<!--
+Copyright (C) 2016 iNuron NV
+
+This file is part of Open vStorage Open Source Edition (OSE),
+as available from
+
+      http://www.openvstorage.org and
+      http://www.openvstorage.com.
+
+This file is free software; you can redistribute it and/or modify it
+under the terms of the GNU Affero General Public License v3 (GNU AGPLv3)
+as published by the Free Software Foundation, in version 3 as it comes
+in the LICENSE.txt file of the Open vStorage OSE distribution.
+
+Open vStorage is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY of any kind.
+-->
+<div>
+    <div>
+        <div>
+            <p data-i18n="alba:wizards.add_osd.confirm.basic_info"></p>
+            <p data-i18n="alba:wizards.add_osd.confirm.detailed_info"></p>
+        </div>
+        <ul>
+            <li>
+                <b data-i18n="alba:wizards.add_osd.confirm.ip"></b>
+                <span data-bind="text: data.newOsd().ip, visible: data.newOsd().ip() !== undefined"></span>
+            </li>
+            <li>
+                <b data-i18n="alba:wizards.add_osd.confirm.port"></b>
+                <span data-bind="text: data.newOsd().port, visible: data.newOsd().port() !== undefined"></span>
+            </li>
+        </ul>
+    </div>
+</div>

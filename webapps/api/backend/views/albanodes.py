@@ -171,6 +171,16 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaNode)
+    def add_osds(self, albanode, osds, metadata):
+        """
+        Adds osds
+        """
+        return AlbaNodeController.add_osds.delay(albanode.guid, osds, metadata)
+
+    @action()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaNode)
     def initialize_disks(self, albanode, disks):
         """
         Initializes disks

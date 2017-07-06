@@ -66,6 +66,7 @@
     "generic": {
         "addpolicy": "Add policy",
         "addpreset": "Add preset",
+        "addosd": "Add OSD",
         "asdid": "ASD ID",
         "asdlegend": "ASD legend:",
         "asdsremaining": "There are still ASDs in use",
@@ -103,6 +104,10 @@
         "nodisks": "No disks available",
         "nodomain": "None",
         "osds": "ASDs",
+        "osdtypes": {
+            "asd": "ASD",
+            "ad": "AD"
+        },
         "presets": "Presets",
         "refresh": "Refresh",
         "register": "Add node",
@@ -202,6 +207,12 @@
         }
     },
     "osds" : {
+        "add":{
+            "complete": "Added",
+            "failed": "Failed to add OSD: __why__",
+            "started": "Started",
+            "started_msg": "OSD __what__ is being added."
+        },
         "claim": {
             "complete": "Claimed",
             "failed": "Failed claiming ASD__multi__: __why__",
@@ -293,6 +304,28 @@
                 "role_check": "Role check:",
                 "unable_to_determine_roles": "Failed to determine all required roles"
             }
+        },
+        "add_osd":{
+            "confirm": {
+                "basic_info": "Validate and confirm below information",
+                "complete": "Completed",
+                "detailed_info": "An ASD with these details will be registered to the backend",
+                "failed": "Adding OSD failed: __why__",
+                "in_progress": "Adding OSD in progress",
+                "ip": "IP Address:",
+                "port": "Port:",
+                "started": "Started",
+                "success": "OSD added"
+            },
+            "gather": {
+                "basic_info": "Fill all requested information",
+                "invalid_ip": "Invalid IP address",
+                "invalid_port": "Invalid port specified. Port should be between 1 and 65536",
+                "ip": "IP Address:",
+                "osd_type": "OSD type:",
+                "port": "Port:"
+            },
+            "title": "Add OSD"
         },
         "addpreset": {
             "title": "Add preset",
