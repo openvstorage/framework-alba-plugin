@@ -56,6 +56,7 @@ class GenericManagerClient(object):
                                       'available': False,
                                       'osds': {}}
             stack[osd.slot_id]['osds'][osd.osd_id] = osd.stack_info
+        return stack
 
     def add_osd(self, ip, port, alba_backend_guid):
         """

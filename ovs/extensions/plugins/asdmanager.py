@@ -122,7 +122,7 @@ class ASDManagerClient(object):
         """
         Gets the remote node stack
         """
-        return self._call(requests.get, 'slots', timeout=5)
+        return self._call(requests.get, 'slots', timeout=5, clean=True)
 
     def get_metadata(self):
         """

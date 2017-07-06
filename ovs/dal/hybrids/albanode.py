@@ -160,21 +160,18 @@ class AlbaNode(DataObject):
         Returns an overview of this node's storage stack
         """
         stack = {}
-        try:
-            remote_stack = self.client.get_stack()
-            for slot_id, slot_data in remote_stack.iteritems():
-                stack[slot_id] = {'status': 'ok'}
-                stack[slot_id].update(slot_data)
-            for osd in self.osds:
-                if osd.slot_id not in stack:
-                    stack[osd.slot_id] = {'status': 'missing',
-                                          'osds': {}}
-                osd_info = stack[osd.slot_id]['osds'].get(osd.osd_id, {})
-                osd_info.update(osd.stack_info)
-                stack[osd.slot_id]['osds'][osd.slot_id] = osd_info
-            # TODO: Enrich the osds with live data from Alba, if required
-        except:
-            pass  # TODO: Handle errors a bit better here
+        remote_stack = self.client.get_stack()
+        for slot_id, slot_data in remote_stack.iteritems():
+            stack[slot_id] = {'status': 'ok'}
+            stack[slot_id].update(slot_data)
+        for osd in self.osds:
+            if osd.slot_id not in stack:
+                stack[osd.slot_id] = {'status': 'missing',
+                                      'osds': {}}
+            osd_info = stack[osd.slot_id]['osds'].get(osd.osd_id, {})
+            osd_info.update(osd.stack_info)
+            stack[osd.slot_id]['osds'][osd.slot_id] = osd_info
+        # TODO: Enrich the osds with live data from Alba, if required
         if self.type == AlbaNode.NODE_TYPES.GENERIC:
             stack[str(uuid.uuid4())] = {'status': 'empty'}
         return stack
