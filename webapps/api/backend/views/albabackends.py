@@ -22,11 +22,11 @@ from rest_framework import viewsets
 from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
 from api.backend.decorators import load, log, required_roles, return_list, return_object, return_task, return_simple
-from api.backend.exceptions import HttpForbiddenException, HttpNotAcceptableException
 from api.backend.serializers.serializers import FullSerializer
 from api.backend.toolbox import ApiToolbox
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albabackendlist import AlbaBackendList
+from ovs_extensions.api.exceptions import HttpForbiddenException, HttpNotAcceptableException
 from ovs.lib.alba import AlbaController
 from ovs.lib.albapreset import AlbaPresetController
 
@@ -293,8 +293,8 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :rtype: celery.result.AsyncResult
         """
         if 'backend_connection_info' not in metadata:
-            raise HttpNotAcceptableException(error_description='Invalid metadata passed',
-                                             error='invalid_data')
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description='Invalid metadata passed')
         connection_info = metadata['backend_connection_info']
         if connection_info['host'] == '':
             client = None
@@ -302,8 +302,8 @@ class AlbaBackendViewSet(viewsets.ViewSet):
                 if _client.ovs_type == 'INTERNAL' and _client.grant_type == 'CLIENT_CREDENTIALS':
                     client = _client
             if client is None:
-                raise HttpNotAcceptableException(error_description='Invalid metadata passed',
-                                                 error='invalid_data')
+                raise HttpNotAcceptableException(error='invalid_data',
+                                                 error_description='Invalid metadata passed')
             connection_info['username'] = client.client_id
             connection_info['password'] = client.client_secret
             connection_info['host'] = local_storagerouter.ip
@@ -350,9 +350,9 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         if cluster_names is None:
             cluster_names = []
         if not isinstance(amount, int) or not 1 <= amount <= 10:
-            raise HttpNotAcceptableException(error_description="Amount passed should be of type 'int' and should be between in range 1 - 10",
-                                             error='invalid_data')
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description="Amount passed should be of type 'int' and should be between in range 1 - 10")
         if not isinstance(cluster_names, list):
-            raise HttpNotAcceptableException(error_description="Cluster names passed should be of type 'list'",
-                                             error='invalid_data')
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description="Cluster names passed should be of type 'list'")
         return AlbaController.nsm_checkup.delay(alba_backend_guid=albabackend.guid, additional_nsms={'amount': amount, 'names': cluster_names})

@@ -22,10 +22,10 @@ from rest_framework import viewsets
 from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
 from api.backend.decorators import load, log, required_roles, return_list, return_object, return_task
-from api.backend.exceptions import HttpNotAcceptableException
 from ovs.dal.datalist import DataList
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodelist import AlbaNodeList
+from ovs_extensions.api.exceptions import HttpNotAcceptableException
 from ovs.extensions.generic.configuration import Configuration
 from ovs.lib.albanode import AlbaNodeController
 
@@ -54,11 +54,11 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type node_id: str
         """
         if discover is False and (ip is not None or node_id is not None):
-            raise HttpNotAcceptableException(error_description='Discover is mutually exclusive with IP and nodeID',
-                                             error='invalid_data')
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description='Discover is mutually exclusive with IP and nodeID')
         if (ip is None and node_id is not None) or (ip is not None and node_id is None):
-            raise HttpNotAcceptableException(error_description='Both IP and nodeID need to be specified',
-                                             error='invalid_data')
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description='Both IP and nodeID need to be specified')
 
         if discover is False:
             return AlbaNodeList.get_albanodes()
@@ -73,11 +73,11 @@ class AlbaNodeViewSet(viewsets.ViewSet):
             node.password = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|password'.format(node_id))
             data = node.client.get_metadata()
             if data['_success'] is False and data['_error'] == 'Invalid credentials':
-                raise HttpNotAcceptableException(error_description='Invalid credentials',
-                                                 error='invalid_data')
+                raise HttpNotAcceptableException(error='invalid_data',
+                                                 error_description='Invalid credentials')
             if data['node_id'] != node_id:
-                raise HttpNotAcceptableException(error_description='Unexpected node identifier. {0} vs {1}'.format(data['node_id'], node_id),
-                                                 error='invalid_data')
+                raise HttpNotAcceptableException(error='invalid_data',
+                                                 error_description='Unexpected node identifier. {0} vs {1}'.format(data['node_id'], node_id))
             node_list = DataList(AlbaNode, {})
             node_list._executed = True
             node_list._guids = [node.guid]
@@ -135,8 +135,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type node_type: str
         """
         if node_id is None and node_type != AlbaNode.NODE_TYPES.GENERIC:
-            raise HttpNotAcceptableException(error_description='Field node_id is mandatory for node_type != GENERIC',
-                                             error='invalid_data')
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description='Field node_id is mandatory for node_type != GENERIC')
         return AlbaNodeController.register.delay(node_id, node_type)
 
     @action()
@@ -220,8 +220,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type safety: dict
         """
         if safety is None:
-            raise HttpNotAcceptableException(error_description='Safety must be passed',
-                                             error='invalid_data')
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description='Safety must be passed')
         return AlbaNodeController.reset_asd.delay(albanode.guid, asd_id, safety)
 
     @action()

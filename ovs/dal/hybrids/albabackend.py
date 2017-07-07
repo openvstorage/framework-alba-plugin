@@ -25,7 +25,8 @@ from ovs.dal.hybrids.backend import Backend
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.dal.structures import Property, Relation, Dynamic
-from ovs_extensions.api.client import ForbiddenException, NotFoundException, OVSClient
+from ovs_extensions.api.client import OVSClient
+from ovs_extensions.api.exceptions import HttpForbiddenException, HttpNotFoundException
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.log.log_handler import LogHandler
@@ -361,9 +362,9 @@ class AlbaBackend(DataObject):
                                        params={'contents': 'linked_backend_guids'})['linked_backend_guids']
                 with lock:
                     guids.update(new_guids)
-            except NotFoundException:
+            except HttpNotFoundException:
                 pass  # ALBA Backend has been deleted, we don't care we can't find the linked guids
-            except ForbiddenException as fe:
+            except HttpForbiddenException as fe:
                 AlbaBackend._logger.exception('Collecting remote ALBA Backend information failed due to permission issues. {0}'.format(fe))
                 _exceptions.append('not_allowed')
             except Exception as ex:
@@ -410,10 +411,10 @@ class AlbaBackend(DataObject):
                 with lock:
                     return_value[_alba_backend_guid].update(info['local_summary'])
                     return_value[_alba_backend_guid]['live_status'] = info['live_status']
-            except NotFoundException:
+            except HttpNotFoundException:
                 return_value[_alba_backend_guid]['error'] = 'backend_deleted'
                 return_value[_alba_backend_guid]['live_status'] = AlbaBackend.STATUSES.FAILURE
-            except ForbiddenException:
+            except HttpForbiddenException:
                 return_value[_alba_backend_guid]['error'] = 'not_allowed'
             except Exception as ex:
                 return_value[_alba_backend_guid]['error'] = 'unknown'
