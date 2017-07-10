@@ -18,9 +18,11 @@ define([
     'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
     'ovs/generic', 'ovs/api', 'ovs/shared',
     '../wizards/removeosd/index', '../wizards/initializedisk/index',
+    '../containers/slot'
 ], function($, app, ko, dialog,
             generic, api, shared,
-            RemoveOSDWizard, InitializeDiskWizard) {
+            RemoveOSDWizard, InitializeDiskWizard,
+            Slot) {
     "use strict";
     return function(nodeID, albaBackend, parent) {
         var self = this;
@@ -52,6 +54,7 @@ define([
         self.storageRouterGuid = ko.observable();
         self.username          = ko.observable();
         self.osds              = ko.observableArray([]);
+        self.slots             = ko.observableArray([]);
         self.type              = ko.observable();
 
         // Computed
@@ -99,7 +102,6 @@ define([
             });
             return deletePossible;
         });
-
         // Functions
         self.downloadLogfiles = function () {
             if (self.downLoadingLogs() === true) {
@@ -126,8 +128,20 @@ define([
             self.username(data.username);
             self.ips(data.ips);
             self.type(data.type);
+            // Add slots
+            var slotMetdata = data.node_metadata.slots;
+            var slotIds = Object.keys(data.stack);
+            generic.crossFiller(
+                slotIds, self.slots,
+                function(slotId) {
+                    return new Slot(slotId, slotMetdata);
+                }, 'slotId'
+            );
+            $.each(self.slots(), function (index, slot) {
+                var slotData = data.stack[slot.slotId()];
+                slot.fillData(slotData)
+            });
             generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
-
             self.loaded(true);
         };
         self.highlight = function(status, highlight) {

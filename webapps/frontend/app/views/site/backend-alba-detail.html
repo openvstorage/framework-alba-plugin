@@ -571,6 +571,9 @@ but WITHOUT ANY WARRANTY of any kind.
                                                         <!-- /ko -->
                                                     </div>
                                                 </div>
+                                                <div data-bind="foreach: slots">
+                                                    <span>test</span>
+                                                </div>
                                                 <!-- ko if: type() === 'GENERIC' -->
                                                 <!-- @todo define actions based upon slot data -->
                                                 <div style="margin-bottom: 10px; margin-left: 10px">
@@ -579,10 +582,6 @@ but WITHOUT ANY WARRANTY of any kind.
                                                     </button>
                                                 </div>
                                                 <!-- /ko -->
-                                                <!--<div data-bind="foreach: osds">
-                                                    <span>test</span>
-                                                </div>
-                                                -->
                                             </td>
                                         </tr>
                                     </table>

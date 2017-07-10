@@ -154,7 +154,7 @@ define([
                 if (generic.xhrCompleted(self.nodesHandle[discover])) {
                     var options = {
                         sort: 'ip',
-                        contents: 'node_id,_relations,stack,storage_stack' + (discover ? ',_dynamics' : ''),
+                        contents: 'node_id,_relations,stack,node_metadata' + (discover ? ',_dynamics' : ''),
                         discover: discover
                     };
                     if (self.albaBackend() !== undefined) {

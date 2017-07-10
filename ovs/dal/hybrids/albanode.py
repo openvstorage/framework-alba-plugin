@@ -46,7 +46,7 @@ class AlbaNode(DataObject):
                   Dynamic('stack', dict, 15, locked=True),
                   Dynamic('ips', list, 3600),
                   Dynamic('maintenance_services', dict, 30, locked=True),
-                  Dynamic('metadata', dict, 3600),
+                  Dynamic('node_metadata', dict, 3600),
                   Dynamic('supported_osd_types', list, 3600)]
 
     def __init__(self, *args, **kwargs):
@@ -176,7 +176,7 @@ class AlbaNode(DataObject):
             stack[str(uuid.uuid4())] = {'status': 'empty'}
         return stack
 
-    def _metadata(self):
+    def _node_metadata(self):
         """
         Returns a set of metadata hinting on how the Node should be used
         """
