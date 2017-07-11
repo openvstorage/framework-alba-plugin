@@ -45,7 +45,7 @@ define([
         self.statusDetail    = ko.observable();
         self.usage           = ko.observable();
         // Support manual adding
-        self.slotId          = ko.observable('1');
+        self.slotId          = ko.observable();
         self.type            = ko.observable();
         self.port            = ko.observable().extend({numeric: {min: 1, max: 65536}});
         self.ip              = ko.observable().extend({regex: generic.ipRegex});

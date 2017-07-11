@@ -476,11 +476,12 @@ define([
             });
             return node_to_return
         };
-        self.addOSDs = function(node){ // @todo reuse the claimosds parts but for that the disk relation has to go
+        self.addOSDs = function(node, slot){ // @todo reuse the claimosds parts but for that the disk relation has to go
             // // @Todo Fetch id from the stack
             var osd = new AlbaOSD(undefined);
             osd.node = node;
             osd.nodeID(node.nodeID());
+            osd.slotId(slot.slotId());
             dialog.show(new AddOSDWizard({
                 modal: true,
                 newOsd: osd,

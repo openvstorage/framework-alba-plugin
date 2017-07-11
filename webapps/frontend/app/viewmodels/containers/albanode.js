@@ -41,7 +41,7 @@ define([
         // Observables
         self.diskNames         = ko.observableArray([]);
         self.disks             = ko.observableArray([]);  // @todo add asds related to disks to osds and replace disks with slots
-        self.disksLoading      = ko.observable(true);
+        self.disksLoading      = ko.observable(true);  // @todo only use slotsloading
         self.downLoadingLogs   = ko.observable(false);
         self.downloadLogState  = ko.observable($.t('alba:support.download_logs'));
         self.expanded          = ko.observable(true);
@@ -55,6 +55,7 @@ define([
         self.username          = ko.observable();
         self.osds              = ko.observableArray([]);
         self.slots             = ko.observableArray([]);
+        self.slotsLoading      = ko.observable(true);
         self.type              = ko.observable();
 
         // Computed
@@ -141,6 +142,7 @@ define([
                 var slotData = data.stack[slot.slotId()];
                 slot.fillData(slotData)
             });
+            self.slotsLoading(false);
             generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
             self.loaded(true);
         };

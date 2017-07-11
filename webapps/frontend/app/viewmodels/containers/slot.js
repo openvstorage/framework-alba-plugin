@@ -15,8 +15,12 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'knockout',
-], function(ko) {
+    'jquery', 'knockout',
+    'ovs/generic',
+    '../containers/albaosd'
+], function($, ko,
+            generic,
+            Osd) {
     "use strict";
     return function(id, metadata) {
         var self = this;
@@ -26,6 +30,8 @@ define([
         self.osds            = ko.observableArray([]);
         self.slotId          = ko.observable(id);
         self.status          = ko.observable();
+        self.statusDetail    = ko.observable();
+        self.osds            = ko.observableArray([]);
 
         // Computed
         self.canFill = ko.computed(function() {
@@ -36,7 +42,20 @@ define([
         });
         // Functions
         self.fillData = function(data) {
-            self.status = data.status;
+            self.status(data.status);
+            self.statusDetail(data.status_detail || '');
+            // Add osds
+            var osdIds = Object.keys(data.osds || {});
+            generic.crossFiller(
+                osdIds, self.osds,
+                function(osdId) {
+                    return new Osd(osdId);
+                }, 'osdID'
+            );
+            $.each(self.osds(), function (index, osd) {
+                var osdData = data.osds[osd.osdID()];
+                osd.fillData(osdData)
+            });
             self.loaded(true);
         };
 

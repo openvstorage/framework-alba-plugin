@@ -118,6 +118,10 @@
             "local": "Local",
             "global": "Global"
         },
+        "slots":{
+            "loading": "Loading slots",
+            "notfound": "No slots found"
+        },
         "states": {
             "disk": {
                 "error": "Faulted",
@@ -152,6 +156,12 @@
                     "unavailable": "This ASD is claimed/in use by another backend",
                     "warning": "This ASD is in warning state. Action may be needed"
                 }
+            },
+            "slot":{
+                "error": "Faulted",
+                "ok": "Good",
+                "empty": "Empty",
+                "warning": "Warning"
             }
         },
         "stats": {
