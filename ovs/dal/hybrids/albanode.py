@@ -170,7 +170,7 @@ class AlbaNode(DataObject):
                                       'osds': {}}
             osd_info = stack[osd.slot_id]['osds'].get(osd.osd_id, {})
             osd_info.update(osd.stack_info)
-            stack[osd.slot_id]['osds'][osd.slot_id] = osd_info
+            stack[osd.slot_id]['osds'][osd.osd_id] = osd_info
         # TODO: Enrich the osds with live data from Alba, if required
         if self.type == AlbaNode.NODE_TYPES.GENERIC:
             stack[str(uuid.uuid4())] = {'status': 'empty'}

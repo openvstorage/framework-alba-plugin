@@ -168,7 +168,7 @@ class AlbaController(object):
         validation_reasons = {}
         for osd_id, osd_info in osds.iteritems():
             try:
-                #@todo Remove osd_type and rely on alba information to track the type of osd
+                # @todo Remove osd_type and rely on alba information to track the type of osd
                 Toolbox.verify_required_params(required_params={'slot_id': (str, None),
                                                                 'osd_type': (str, AlbaOSD.OSD_TYPES.keys()),
                                                                 'ip': (str, Toolbox.regex_ip),
