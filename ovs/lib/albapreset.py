@@ -151,7 +151,7 @@ class AlbaPresetController(object):
         Updates policies for an existing preset to Alba
         :param alba_backend_guid: Guid of the ALBA backend
         :type alba_backend_guid: str
-        :param name: Name of backend
+        :param name: Name of preset
         :type name: str
         :param policies: New policy list to be sent to alba
         :type policies: list

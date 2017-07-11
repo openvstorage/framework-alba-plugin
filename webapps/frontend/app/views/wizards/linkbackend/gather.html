@@ -109,10 +109,12 @@ but WITHOUT ANY WARRANTY of any kind.
                              dropdown: {
                                  key: 'guid', keyisfunction: true,
                                  emptyisloading: false,
-                                 items: data.domains, target: data.domain,
+                                 items: allDomains, target: data.domain,
                                  text: function(item) {
                                      if (item !== undefined) {
                                          return item.name;
+                                     } else {
+                                         return $.t('alba:generic.nodomain');
                                      }
                                  }
                              }"></span>

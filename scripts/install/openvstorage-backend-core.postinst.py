@@ -19,11 +19,3 @@ import os
 
 # Update ownership
 os.system('chown -R ovs:ovs /opt/OpenvStorage/ovs/')
-
-# Remove obsolete templates for rebalancer
-os.system('rm -f /opt/OpenvStorage/config/templates/systemd/ovs-alba-rebalancer.conf')
-os.system('rm -f /opt/OpenvStorage/config/templates/upstart/ovs-alba-rebalancer.conf')
-
-# Remove obsolete templates for maintenance service
-os.system('rm -f /opt/OpenvStorage/config/templates/systemd/ovs-alba-maintenance.conf')
-os.system('rm -f /opt/OpenvStorage/config/templates/upstart/ovs-alba-maintenance.conf')
