@@ -142,7 +142,8 @@
                 "error": "Faulted",
                 "initialized": "Unavailable",
                 "unavailable": "Unavailable",
-                "warning": "Warning"
+                "warning": "Warning",
+                "ok": "Good"
             },
             "osdinfo": {
                 "global": {

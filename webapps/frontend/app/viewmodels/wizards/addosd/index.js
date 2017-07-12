@@ -30,8 +30,8 @@ define([
         self.title(generic.tryGet(options, 'title', $.t('alba:wizards.add_alba_node.title')));
         self.modal(generic.tryGet(options, 'modal', false));
 
-        self.data.newOsd(options.newOsd);
-        self.data.albaBackendGuid(options.albaBackendGuid);
+        self.data.node(options.node);
+        self.data.albabackend(options.albabackend);
         self.data.confirmOnly(options.confirmOnly);
 
         if (options.confirmOnly) {

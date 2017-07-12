@@ -271,7 +271,7 @@ but WITHOUT ANY WARRANTY of any kind.
                     <span class="fa" data-i18n="[html]ovs:icons.add"></span>&nbsp;
                     <span data-i18n="alba:detail.addnode"></span>
                 </button>
-                <table class="table table-striped-tbodies-first-row table-hover-tbodies" style="clear: both;">
+                <table class="table table-striped-tbodies table-hover-tbodies" style="clear: both;">
                     <thead>
                         <tr>
                             <th style="width: 40px;">
@@ -621,7 +621,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                             <button type="button" class="btn btn-small dropdown-toggle" data-toggle="dropdown"
                                                     style="width: 57px; position: relative; text-align: left;"
                                                     data-bind="css: {
-                                                                   'btn-primary': status() === 'available',
+                                                                   'btn-primary': status() === 'ok',
                                                                    'btn-success': status() === 'claimed',
                                                                    'btn-warning': status() === 'warning' && isLocal(),
                                                                    'btn-danger': status() === 'error' && isLocal()
@@ -707,7 +707,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                             </ul>
                                         </div>
                                         <!-- /ko -->
-                                        <!-- ko if: metadata().fill_add === true -->
+                                        <!-- ko if: (canFill() === true || canFillAdd() === true) && osds().length === 0 -->
                                         <div class="btn-group" role="group">
                                             <button class="btn btn-default" id="buttonAddOsd" data-bind="click: function() { $parents[1].addOSDs($parent, $data)}">
                                                 <span class="fa" data-i18n="[html]ovs:icons.add"></span>

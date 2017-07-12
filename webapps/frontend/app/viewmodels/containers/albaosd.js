@@ -26,6 +26,7 @@ define([
         // External injected
         self.node = undefined;
         self.disk = undefined;
+        self.slot = undefined;
 
         // Observables
         self.albaBackend     = ko.observable();
@@ -66,7 +67,7 @@ define([
             if (self.ignoreNext() === true) {
                 self.ignoreNext(false);
             } else {
-                self.status(data.status);
+                self.status(data.status || data.state);  // @TODO Remove differentiation between state (slot) and status (disk)
                 self.nodeID(data.node_id);
                 generic.trySet(self.guid, data, 'guid');
                 generic.trySet(self.statusDetail, data, 'status_detail');

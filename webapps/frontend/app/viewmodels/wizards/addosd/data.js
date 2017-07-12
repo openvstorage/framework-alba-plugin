@@ -19,8 +19,8 @@ define(['knockout'], function(ko){
     var singleton = function() {
         var data = {
             confirmOnly: ko.observable(false),
-            newOsd: ko.observable(),
-            albaBackendGuid: ko.observable(),
+            node: ko.observable(),
+            albabackend: ko.observable(),
             osdTypes: ko.observableArray(['ASD', 'AD'])
         };
         return data;

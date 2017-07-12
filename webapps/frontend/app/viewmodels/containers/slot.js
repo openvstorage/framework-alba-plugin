@@ -22,23 +22,31 @@ define([
             generic,
             Osd) {
     "use strict";
-    return function(id, metadata) {
+    return function(id) {
         var self = this;
 
-        self.metadata        = ko.observable(metadata);
+        // Externally added
+        self.node            = ko.observable();
+
+        // Observables
         self.loaded          = ko.observable(false);
         self.osds            = ko.observableArray([]);
         self.slotId          = ko.observable(id);
         self.status          = ko.observable();
         self.statusDetail    = ko.observable();
-        self.osds            = ko.observableArray([]);
 
         // Computed
         self.canFill = ko.computed(function() {
-           return self.metadata['fill']
+            if (self.node() === null || self.node() === undefined){
+                return false
+            }
+           return self.node().nodeMetadata().slots.fill
         });
-        self.canAdd = ko.computed(function(){
-            return self.metadata['fill_add']
+        self.canFillAdd = ko.computed(function(){
+            if (self.node() === null || self.node() === undefined) {
+                return false
+            }
+            return self.node().nodeMetadata().slots.fill_add
         });
         // Functions
         self.fillData = function(data) {
@@ -54,6 +62,7 @@ define([
             );
             $.each(self.osds(), function (index, osd) {
                 var osdData = data.osds[osd.osdID()];
+                osd.slot = self;
                 osd.fillData(osdData)
             });
             self.loaded(true);

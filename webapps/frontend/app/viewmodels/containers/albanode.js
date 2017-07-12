@@ -49,6 +49,7 @@ define([
         self.ip                = ko.observable();
         self.ips               = ko.observableArray([]);
         self.loaded            = ko.observable(false);
+        self.nodeMetadata      = ko.observable();
         self.nodeID            = ko.observable(nodeID);
         self.port              = ko.observable();
         self.storageRouterGuid = ko.observable();
@@ -129,16 +130,17 @@ define([
             self.username(data.username);
             self.ips(data.ips);
             self.type(data.type);
+            self.nodeMetadata(data.node_metadata);
             // Add slots
-            var slotMetdata = data.node_metadata.slots;
             var slotIds = Object.keys(data.stack);
             generic.crossFiller(
                 slotIds, self.slots,
                 function(slotId) {
-                    return new Slot(slotId, slotMetdata);
+                    return new Slot(slotId);
                 }, 'slotId'
             );
             $.each(self.slots(), function (index, slot) {
+                slot.node(self);
                 var slotData = data.stack[slot.slotId()];
                 slot.fillData(slotData)
             });
