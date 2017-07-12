@@ -151,33 +151,32 @@ class AlbaController(object):
         return unclaimed_osds
 
     @staticmethod
-    @ovs_task(name='alba.claim_osds')
-    def claim_osds(alba_backend_guid, alba_node_guid, osds, metadata=None):
+    @ovs_task(name='alba.add_osds')
+    def add_osds(alba_backend_guid, alba_node_guid, osds, metadata=None):
         """
-        Registers a osd to the backend
+        Adds and claims an osd to the backend
         :param alba_backend_guid: Guid of the ALBA Backend
         :type alba_backend_guid: str
         :param alba_node_guid: guid of the alba node
         :type alba_node_guid: str
         :param osds: OSDs to add to the ALBA Backend
-        :type osds: dict
+        :type osds: list
         :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
         :type metadata: dict
         :return:
         """
-        validation_reasons = {}
-        for osd_id, osd_info in osds.iteritems():
+        validation_reasons = []
+        for osd in osds:
             try:
-                # @todo Remove osd_type and rely on alba information to track the type of osd
-                Toolbox.verify_required_params(required_params={'slot_id': (str, None),
-                                                                'osd_type': (str, AlbaOSD.OSD_TYPES.keys()),
+                # TODO: Remove osd_type and rely on alba information to track the type of osd
+                Toolbox.verify_required_params(required_params={'osd_type': (str, AlbaOSD.OSD_TYPES.keys()),
                                                                 'ip': (str, Toolbox.regex_ip),
                                                                 'port': (int, {'min': 1, 'max': 65536})},
-                                               actual_params=osd_info)
+                                               actual_params=osd)
             except RuntimeError as ex:
-                validation_reasons[osd_id] = str(ex)
-        if len(validation_reasons.keys()) > 0:
-            raise ValueError('Missing required parameter: {0}'.format('\n* '.join(('{0}: {1}'.format(osd_id, reason) for osd_id, reason in validation_reasons.iteritems()))))
+                validation_reasons.append(str(ex))
+        if len(validation_reasons) > 0:
+            raise ValueError('Missing required parameter: {0}'.format('\n* '.join(reason for reason in validation_reasons)))
 
         from ovs.extensions.plugins.albacli import AlbaError
 
@@ -206,15 +205,24 @@ class AlbaController(object):
         if service_deployed is False:
             raise Exception('No maintenance agents have been deployed for ALBA Backend {0}'.format(alba_backend.name))
 
+        config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
         alba_node = AlbaNode(alba_node_guid)
         unclaimed_osds = []
         failed_claims = []
-        for osd_id, osd_info in osds.iteritems():  # Slots will be replacing disks in the future
-            # @todo incorporate alba commands to claim the Active Drive type osd
-            # @todo run add-osd before claiming
+        for osd_info in osds:  # Slots will be replacing disks in the future
+            osd_id = None  # TODO: Find out the osd_id of the added OSD
             try:
-                # AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': osd_id})
-                pass
+                AlbaCLI.run(command='add-osd', config=config, named_params={'ip': osd_info['ip'],
+                                                                            'port': osd_info['port']})
+            except AlbaError as ae:
+                if ae.error_code == -1:  # TODO: Catch the "already added" issue
+                    AlbaController._logger.warning('OSD with ID {0} for slot {1} has already been added'.format(osd_id, osd_info['slot_id']))
+                    unclaimed_osds.append(osd_id)
+                    continue
+                AlbaController._logger.exception('Error adding OSD {0}'.format(osd_id))
+                failed_claims.append(osd_id)
+            try:
+                AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': osd_id})
             except AlbaError as ae:
                 if ae.error_code == 11:
                     AlbaController._logger.warning('OSD with ID {0} for slot {1} has already been claimed'.format(osd_id, osd_info['slot_id']))
@@ -230,7 +238,7 @@ class AlbaController(object):
             osd.osd_type = getattr(AlbaOSD.OSD_TYPES, osd_info['osd_type'])
             osd.slot_id = osd_info['slot_id']
             osd.metadata = metadata
-            # osd.alba_disk = alba_disk  @ Todo remove disk relation completely, will be filled in slot_id instead
+            # osd.alba_disk = alba_disk  # TODO: remove disk relation completely, will be filled in slot_id instead
             osd.alba_backend = alba_backend
             osd.alba_node = alba_node
             osd.save()
@@ -240,8 +248,7 @@ class AlbaController(object):
             if len(failed_claims) == len(osds):
                 raise RuntimeError('None of the requested OSDs could be claimed')
             else:
-                raise RuntimeError(
-                    'Some of the requested OSDs could not be claimed: {0}'.format(', '.join(failed_claims)))
+                raise RuntimeError('Some of the requested OSDs could not be claimed: {0}'.format(', '.join(failed_claims)))
         return unclaimed_osds
 
     @staticmethod
