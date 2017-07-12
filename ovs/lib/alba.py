@@ -210,26 +210,42 @@ class AlbaController(object):
         unclaimed_osds = []
         failed_claims = []
         for osd_info in osds:  # Slots will be replacing disks in the future
-            osd_id = None  # TODO: Find out the osd_id of the added OSD
+            osd_id = None
+            ip = osd_info['ip']
+            port = osd_info['port']
+            is_available = False
+            is_claimed = False
             try:
-                AlbaCLI.run(command='add-osd', config=config, named_params={'ip': osd_info['ip'],
-                                                                            'port': osd_info['port']})
-            except AlbaError as ae:
-                if ae.error_code == -1:  # TODO: Catch the "already added" issue
-                    AlbaController._logger.warning('OSD with ID {0} for slot {1} has already been added'.format(osd_id, osd_info['slot_id']))
-                    unclaimed_osds.append(osd_id)
+                for available_osd in AlbaCLI.run(command='list-available-osds', config=config):
+                    if ip in available_osd['ips'] and port == available_osd['port']:
+                        osd_id = available_osd['long_id']
+                        is_available = True
+                        break
+                for claimed_osd in AlbaCLI.run(command='list-osds', config=config):
+                    if ip in claimed_osd['ips'] and port == claimed_osd['port']:
+                        osd_id = claimed_osd['long_id']
+                        is_claimed = True
+                        break
+            except AlbaError:
+                AlbaController._logger.exception('OSD {0}:{1} for slot {2} could not be added/claimed: Could not load OSD information.'.format(ip, port, osd_info['slot_id']))
+                unclaimed_osds.append([ip, port])
+            if is_claimed is False and is_available is False:
+                try:
+                    result = AlbaCLI.run(command='add-osd', config=config, named_params={'host': ip,
+                                                                                         'port': port,
+                                                                                         'node-id': alba_node.node_id})
+                    osd_id = result['long_id']
+                except AlbaError as ae:
+                    AlbaController._logger.exception('Error adding OSD {0}:{1}: {2}'.format(ip, port, ae))
+                    failed_claims.append([ip, port])
                     continue
-                AlbaController._logger.exception('Error adding OSD {0}'.format(osd_id))
-                failed_claims.append(osd_id)
-            try:
-                AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': osd_id})
-            except AlbaError as ae:
-                if ae.error_code == 11:
-                    AlbaController._logger.warning('OSD with ID {0} for slot {1} has already been claimed'.format(osd_id, osd_info['slot_id']))
-                    unclaimed_osds.append(osd_id)
+            if is_claimed is False:
+                try:
+                    AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': osd_id})
+                except AlbaError as ae:
+                    AlbaController._logger.exception('Error claiming OSD {0}: {1}'.format(osd_id, ae))
+                    failed_claims.append(osd_id)
                     continue
-                AlbaController._logger.exception('Error claiming OSD {0}'.format(osd_id))
-                failed_claims.append(osd_id)
             osd = AlbaOSD()
             osd.domain = domain
             osd.ip = osd_info['ip']
