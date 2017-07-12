@@ -187,7 +187,9 @@ class AlbaNode(DataObject):
                                    'fill_metadata': {'count': 'integer'}})
         if self.type == AlbaNode.NODE_TYPES.GENERIC:
             slots_metadata.update({'fill_add': True,
-                                   'fill_add_metadata': {'type': 'osd_type'}})
+                                   'fill_add_metadata': {'osd_type': 'osd_type',
+                                                         'ip': 'ip',
+                                                         'port': 'port'}})
 
         return {'slots': slots_metadata}
 

@@ -136,51 +136,67 @@ class AlbaNodeController(object):
 
     @staticmethod
     @ovs_task(name='albanode.add_osd')
-    def add_osds(node_guid, osds, metadata=None):
+    def fill_slot(node_guid, slot_id, osds, metadata=None):
         """
         Creates a new osd
         :param node_guid: Guid of the node to which the disks belong
         :type node_guid: str
-        :param osds: ASDs to add to the ALBA Backend
-        :type osds: dict
+        :param slot_id: Slot to fill
+        :type slot_id: int
+        :param osds: OSDs to "put in the slot"
+        :type osds: list
         :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
         :type metadata: dict
         :return:
         """
+        node = AlbaNode(node_guid)
+        slot_metadata = node.node_metadata['slots']
+
+        required_params = {}
+        for flow in ['fill', 'fill_add']:
+            if flow == ['fill_add']:
+                required_params['alba_backend_guid'] = (str, None)
+            if slot_metadata[flow] is True:
+                for key, mtype in slot_metadata['{0}_metadata'.format(flow)]:
+                    rtype = None
+                    if mtype == 'integer':
+                        rtype = (int, None)
+                    elif mtype == 'osd_type':
+                        rtype = (AlbaOSD.OSD_TYPES.keys(), None)
+                    elif mtype == 'ip':
+                        rtype = (str, Toolbox.regex_ip)
+                    elif mtype == 'port':
+                        rtype = (int, {'min': 1, 'max': 65536})
+                    if rtype is not None:
+                        required_params[key] = (rtype, None)
+
         validation_reasons = []
         AlbaNodeController._logger.info(osds)
         for osd in osds:
             try:
-                # @todo Remove osd_type and rely on alba information to track the type of osd
-                Toolbox.verify_required_params(required_params={'slot_id': (str, None),
-                                                                'osd_type': (str, AlbaOSD.OSD_TYPES.keys()),
-                                                                'ip': (str, Toolbox.regex_ip),
-                                                                'port': (int, {'min': 1, 'max': 65536})},
+                Toolbox.verify_required_params(required_params=required_params,
                                                actual_params=osd)
             except RuntimeError as ex:
                 validation_reasons.append(str(ex))
         if len(validation_reasons) > 0:
             raise ValueError('Missing required paramater: {0}'.format('\n* '.join(('{0}'.format(reason) for reason in validation_reasons))))
 
-        node = AlbaNode(node_guid)
-        osds_claim_info = {}
-        osds_info = {}
+        osds_to_claim = {}
         for osd in osds:
-            # @Todo implement client stuff
-            alba_backend_guid = osd['alba_backend_guid']
-            osd_info = node.client.add_osd(osd['ip'], osd['port'], alba_backend_guid)
-            osd_id = osd_info.get('osd_id')
-            # @todo determine type using alba, currently sending it with the post
-            osd_type = osd_info.get('osd_type') if osd_info.get('osd_type') else osd['osd_type']
-            # claimed_by = osd_info.get('claimed_by')
-            osd.update({'osd_id': osd_id, 'osd_type': osd_type})
-
-            osds_to_claim = osds_claim_info.get(alba_backend_guid, {})
-            osds_to_claim.update({osd_id: osd})
-            osds_claim_info[alba_backend_guid] = osds_to_claim
-        AlbaNodeController._logger.info(osds_claim_info)
-        for alba_backend_guid, osds_to_claim in osds_claim_info.iteritems():
-            AlbaController.claim_osds(alba_backend_guid, node_guid, osds_to_claim, metadata)
+            if slot_metadata['fill'] is True:
+                # Only filling is required
+                node.client.fill_slot(slot_id=slot_id,
+                                      extra=dict((key, osd[key]) for key in slot_metadata['fill_metadata']))
+            elif slot_metadata['fill_add'] is True:
+                # Fill the slot
+                node.client.fill_slot(slot_id=slot_id,
+                                      extra=dict((key, osd[key]) for key in slot_metadata['fill_add_metadata']))
+                # And add/claim the OSD
+                if osd['alba_backend_guid'] not in osds_to_claim:
+                    osds_to_claim[osd['alba_backend_guid']] = []
+                osds_to_claim[osd['alba_backend_guid']].append(osd)
+        for alba_backend_guid, osds in osds_to_claim.iteritems():
+            AlbaController.add_osds(alba_backend_guid, node_guid, osds, metadata)
 
     @staticmethod
     @ovs_task(name='albanode.initialize_disk')
