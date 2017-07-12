@@ -174,6 +174,12 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     def add_osds(self, albanode, osds, metadata):
         """
         Adds osds
+        :param albanode:The AlbaNode to add osds to
+        :type albanode: AlbaNode
+        :param osds: Osds to add
+        :type osds: list
+        :param metadata: Osd metadata
+        :type metadata: dict
         """
         return AlbaNodeController.add_osds.delay(albanode.guid, osds, metadata)
 
