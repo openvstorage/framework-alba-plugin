@@ -129,6 +129,13 @@ class ASDManagerClient(object):
         """
         return self._call(requests.get, 'slots', timeout=5, clean=True)
 
+    def fill_slot(self, slot_id, extra):
+        """
+        Fills a slot (disk) with one or more OSDs
+        """
+        for _ in xrange(extra['count']):
+            self._call(requests.post, 'slots/{0}/asds'.format(slot_id))
+
     def get_metadata(self):
         """
         Gets metadata from the node

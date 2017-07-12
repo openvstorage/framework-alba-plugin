@@ -152,13 +152,13 @@ class AlbaController(object):
 
     @staticmethod
     @ovs_task(name='alba.add_osds')
-    def add_osds(alba_backend_guid, alba_node_guid, osds, metadata=None):
+    def add_osds(alba_backend_guid, albanode_guid, osds, metadata=None):
         """
         Adds and claims an osd to the backend
         :param alba_backend_guid: Guid of the ALBA Backend
         :type alba_backend_guid: str
-        :param alba_node_guid: guid of the alba node
-        :type alba_node_guid: str
+        :param albanode_guid: guid of the alba node
+        :type albanode_guid: str
         :param osds: OSDs to add to the ALBA Backend
         :type osds: list
         :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
@@ -206,7 +206,7 @@ class AlbaController(object):
             raise Exception('No maintenance agents have been deployed for ALBA Backend {0}'.format(alba_backend.name))
 
         config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
-        alba_node = AlbaNode(alba_node_guid)
+        alba_node = AlbaNode(albanode_guid)
         unclaimed_osds = []
         failed_claims = []
         for osd_info in osds:  # Slots will be replacing disks in the future

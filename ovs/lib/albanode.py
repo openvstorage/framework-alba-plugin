@@ -135,7 +135,7 @@ class AlbaNodeController(object):
         AlbaNodeController.register(node_id=new_node_id)
 
     @staticmethod
-    @ovs_task(name='albanode.add_osd')
+    @ovs_task(name='albanode.fill_slot')
     def fill_slot(node_guid, slot_id, osds, metadata=None):
         """
         Creates a new osd
@@ -153,10 +153,12 @@ class AlbaNodeController(object):
         slot_metadata = node.node_metadata['slots']
 
         required_params = {}
+        can_be_filled = False
         for flow in ['fill', 'fill_add']:
-            if flow == ['fill_add']:
-                required_params['alba_backend_guid'] = (str, None)
             if slot_metadata[flow] is True:
+                can_be_filled = True
+                if flow == 'fill_add':
+                    required_params['alba_backend_guid'] = (str, None)
                 for key, mtype in slot_metadata['{0}_metadata'.format(flow)]:
                     rtype = None
                     if mtype == 'integer':
@@ -169,6 +171,8 @@ class AlbaNodeController(object):
                         rtype = (int, {'min': 1, 'max': 65536})
                     if rtype is not None:
                         required_params[key] = (rtype, None)
+        if can_be_filled is False:
+            raise ValueError('The given node does not support filling slots')
 
         validation_reasons = []
         AlbaNodeController._logger.info(osds)
@@ -179,7 +183,7 @@ class AlbaNodeController(object):
             except RuntimeError as ex:
                 validation_reasons.append(str(ex))
         if len(validation_reasons) > 0:
-            raise ValueError('Missing required paramater: {0}'.format('\n* '.join(('{0}'.format(reason) for reason in validation_reasons))))
+            raise ValueError('Missing required paramater:\n *{0}'.format('\n* '.join(('{0}'.format(reason) for reason in validation_reasons))))
 
         osds_to_claim = {}
         for osd in osds:

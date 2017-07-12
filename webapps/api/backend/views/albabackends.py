@@ -150,17 +150,19 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaBackend, validator=_validate_access)
-    def add_osds(self, albabackend, osds):
+    def add_osds(self, albabackend, albanode_guid, osds):
         """
         Add storage units to the backend and register with alba nsm
         :param albabackend: ALBA backend to add units to
         :type albabackend: AlbaBackend
-        :param osds: List of OSD ids
+        :param albanode_guid: Guid of the AlbaNode on which the added OSDs are added
+        :type albanode_guid: str
+        :param osds: List of OSD information objects (containing: ip, port
         :type osds: list
         :return: Asynchronous result of a CeleryTask
         :rtype: celery.result.AsyncResult
         """
-        return AlbaController.add_osds.s(albabackend.guid, osds).apply_async(queue='ovs_masters')
+        return AlbaController.add_osds.s(albabackend.guid, albanode_guid, osds).apply_async(queue='ovs_masters')
 
     @link()
     @log()

@@ -171,11 +171,19 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaNode)
-    def add_osds(self, albanode, osds, metadata):
+    def fill_slot(self, albanode, slot_id, osds, metadata=None):
         """
-        Adds osds
+        Fills a slot
+        :param albanode: The AlbaNode on which a slot will be filled
+        :type albanode: AlbaNode
+        :param slot_id: The ID of the slot to be filled
+        :type slot_id: str
+        :param osds: A list of OSD data
+        :type osds: list
+        :param metadata: Extra metadata if required
+        :type metadata: dict
         """
-        return AlbaNodeController.add_osds.delay(albanode.guid, osds, metadata)
+        return AlbaNodeController.fill_slot.delay(albanode.guid, slot_id, osds, metadata)
 
     @action()
     @required_roles(['read', 'write', 'manage'])
