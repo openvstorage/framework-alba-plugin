@@ -58,28 +58,11 @@ class GenericManagerClient(object):
             stack[osd.slot_id]['osds'][osd.osd_id] = osd.stack_info
         return stack
 
-    def add_osd(self, ip, port, alba_backend_guid):
+    def fill_slot(self, slot_id, extra):
         """
-        add osd to manager so it could be claimed later.
-        :param ip: ip address of the osd
-        :param port: port of the osd
-        :param alba_backend_guid: guid of the albabackend to add the osd too
-        :return: information about the osd
+        Fills a slot with a set of osds
         """
-        from ovs.dal.hybrids.albabackend import AlbaBackend
-        alba_backend = AlbaBackend(alba_backend_guid)
-        # @todo implement alba calls here
-        # @The osd should be registered to each albabackend so be able to claim it from either one
-        config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
-        import uuid
-        osd_info = {'osd_id': str(uuid.uuid4())}
-        # osd_info = AlbaCLI.run('add-osd', config=config, named_params={'host': ip, 'port': port})
-        return osd_info
-
-    def get_disks(self):
-        # @Todo implement this behaviour
-        return {}
-
-    def get_asds(self):
-        # @todo implement this
-        return {}
+        _ = self, slot_id, extra
+        # This basically doesn't have to do anything. The generic node only supports fill + add, so the asds will be
+        # added and claimed anyway. This always results in the OSDs being in the model.
+        pass
