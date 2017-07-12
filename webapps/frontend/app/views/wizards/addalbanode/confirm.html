@@ -35,11 +35,13 @@ but WITHOUT ANY WARRANTY of any kind.
             <li><span data-bind="text: $data"></span></li>
         </ul>
     </div>
-    <div class="alert alert-warning" data-bind="visible: data.oldNode() !== undefined" style="margin-top: 10px;">
+    <!-- ko if: data.oldNode() !== undefined -->
+    <div class="alert alert-warning" style="margin-top: 10px;">
         <span data-i18n="alba:wizards.replace_alba_node.replace_msg_1"></span>
         <span data-bind="text: data.oldNode().nodeID()"></span>
         <span data-i18n="alba:wizards.replace_alba_node.replace_msg_2"></span>
         <span data-bind="text: data.newNode().ip()"></span>
         <span data-i18n="alba:wizards.replace_alba_node.replace_msg_3"></span>
     </div>
+    <!-- /ko -->
 </div>

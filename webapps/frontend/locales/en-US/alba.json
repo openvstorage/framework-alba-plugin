@@ -97,6 +97,7 @@
         "node": "Node / Storage Router",
         "nodeid": "Node ID",
         "nodes": "ASD Nodes",
+        "nodetype": "Type",
         "nodetypes": {
             "asd": "ASD",
             "generic": "Generic"
