@@ -50,18 +50,21 @@ class AlbaNodeController(object):
 
     @staticmethod
     @ovs_task(name='albanode.register')
-    def register(node_id=None, node_type=None):
+    def register(node_id=None, node_type=None, name=None):
         """
         Adds a Node with a given node_id to the model
         :param node_id: ID of the ALBA node
         :type node_id: str
         :param node_type: Type of the node to create
         :type node_type: str
+        :param name: Optional name of the node
+        :type name: str
         :return: None
         :rtype: NoneType
         """
         if node_type == AlbaNode.NODE_TYPES.GENERIC:
             node = AlbaNode()
+            node.name = name
             node.node_id = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(32))
             node.type = AlbaNode.NODE_TYPES.GENERIC
             node.save()
@@ -72,6 +75,7 @@ class AlbaNodeController(object):
             if node is None:
                 main_config = Configuration.get('/ovs/alba/asdnodes/{0}/config/main'.format(node_id))
                 node = AlbaNode()
+                node.name = name
                 node.ip = main_config['ip']
                 node.port = main_config['port']
                 node.username = main_config['username']

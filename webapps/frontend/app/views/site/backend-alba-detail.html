@@ -310,7 +310,12 @@ but WITHOUT ANY WARRANTY of any kind.
                                     <!-- /ko -->
                                 <!-- /ko -->
                                 <!-- ko if: type() === 'GENERIC' -->
-                                    <span data-i18n="ovs:generic.null"></span>
+                                    <!-- ko if: name() !== undefined -->
+                                        <span data-bind="text: name()"></span>
+                                    <!-- /ko -->
+                                    <!-- ko if: name() === undefined -->
+                                        <span data-i18n="ovs:generic.null"></span>
+                                    <!-- /ko -->
                                 <!-- /ko -->
                             </td>
                             <td style="border-top: 0;" data-bind="text: type"></td>

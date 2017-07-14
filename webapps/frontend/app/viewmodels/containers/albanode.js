@@ -49,6 +49,7 @@ define([
         self.ip                = ko.observable();
         self.ips               = ko.observableArray([]);
         self.loaded            = ko.observable(false);
+        self.name              = ko.observable();
         self.nodeMetadata      = ko.observable();
         self.nodeID            = ko.observable(nodeID);
         self.port              = ko.observable();
@@ -131,6 +132,7 @@ define([
             self.ips(data.ips);
             self.type(data.type);
             self.nodeMetadata(data.node_metadata);
+            generic.trySet(self.name, data, 'name');
             // Add slots
             var slotIds = Object.keys(data.stack);
             generic.crossFiller(

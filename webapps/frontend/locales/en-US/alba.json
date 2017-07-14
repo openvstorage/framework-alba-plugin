@@ -295,6 +295,7 @@
                 "failed": "Adding node failed: __why__",
                 "in_progress": "Adding node in progress",
                 "ip": "IP Address:",
+                "name": "Name:",
                 "node_id": "Node ID:",
                 "port": "Port:",
                 "started": "Started",
@@ -304,6 +305,7 @@
             "gather": {
                 "basic_info": "Fill all requested information",
                 "ip": "IP Address:",
+                "name": "Name:",
                 "node_id": "Node ID:",
                 "node_type": "Node type:",
                 "port": "Port:"

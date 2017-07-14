@@ -44,7 +44,8 @@ define([
                     api.post('alba/nodes', {
                         data: {
                             node_id: self.data.newNode().nodeID(),
-                            node_type: self.data.newNode().type()
+                            node_type: self.data.newNode().type(),
+                            name: self.data.newNode().name()
                         }
                     })
                         .then(self.shared.tasks.wait)

@@ -126,18 +126,20 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load()
-    def create(self, node_id=None, node_type=None):
+    def create(self, node_id=None, node_type=None, name=None):
         """
         Adds a node with a given node_id to the model
         :param node_id: ID of the ALBA node to create
         :type node_id: str
         :param node_type: Type of the ALBA node to create
         :type node_type: str
+        :param name: Name of the node (optional)
+        :type name: str
         """
         if node_id is None and node_type != AlbaNode.NODE_TYPES.GENERIC:
             raise HttpNotAcceptableException(error='invalid_data',
                                              error_description='Field node_id is mandatory for node_type != GENERIC')
-        return AlbaNodeController.register.delay(node_id, node_type)
+        return AlbaNodeController.register.delay(node_id, node_type, name)
 
     @action()
     @required_roles(['manage'])
