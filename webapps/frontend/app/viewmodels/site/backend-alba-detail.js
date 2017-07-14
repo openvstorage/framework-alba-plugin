@@ -486,11 +486,12 @@ define([
             });
             return node_to_return
         };
-        self.addOSDs = function(node){
+        self.addOSDs = function(node, slot){
             dialog.show(new AddOSDWizard({
                 modal: true,
                 node: node,
-                albabackend: self.albaBackend(),
+                slot: slot,
+                albaBackend: self.albaBackend(),
                 confirmOnly: false
             }));
         };

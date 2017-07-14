@@ -22,14 +22,13 @@ but WITHOUT ANY WARRANTY of any kind.
             <p data-i18n="alba:wizards.add_osd.confirm.detailed_info"></p>
         </div>
         <ul>
+            <!-- ko foreach: data.formData() -->
             <li>
-                <b data-i18n="alba:wizards.add_osd.confirm.ip"></b>
-                <span data-bind="text: data.newOsd().ip, visible: data.newOsd().ip() !== undefined"></span>
+                <b data-bind="translate: 'alba:wizards.add_osd.confirm.' + field"></b>
+                <span data-bind="text: data, visible: data() !== undefined"></span>
             </li>
-            <li>
-                <b data-i18n="alba:wizards.add_osd.confirm.port"></b>
-                <span data-bind="text: data.newOsd().port, visible: data.newOsd().port() !== undefined"></span>
-            </li>
+            <!-- /ko -->
+            <!-- /ko -->
         </ul>
     </div>
 </div>

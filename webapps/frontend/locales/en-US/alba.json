@@ -322,16 +322,19 @@
             "confirm": {
                 "basic_info": "Validate and confirm below information",
                 "complete": "Completed",
-                "detailed_info": "An ASD with these details will be registered to the backend",
+                "count": "This number of asds will be provisioned:",
+                "detailed_info": "OSD(s) with these details will be registered to the backend",
                 "failed": "Adding OSD failed: __why__",
                 "in_progress": "Adding OSD in progress",
                 "ip": "IP Address:",
+                "osd_type": "OSD type:",
                 "port": "Port:",
                 "started": "Started",
                 "success": "OSD added"
             },
             "gather": {
                 "basic_info": "Fill all requested information",
+                "count": "How many OSDS should be added:",
                 "invalid_ip": "Invalid IP address",
                 "invalid_port": "Invalid port specified. Port should be between 1 and 65536",
                 "ip": "IP Address:",

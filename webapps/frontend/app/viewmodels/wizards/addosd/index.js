@@ -27,11 +27,13 @@ define([
         self.data = data;
 
         // Setup
-        self.title(generic.tryGet(options, 'title', $.t('alba:wizards.add_alba_node.title')));
+        self.title(generic.tryGet(options, 'title', $.t('alba:wizards.add_osd.title')));
         self.modal(generic.tryGet(options, 'modal', false));
 
+        // Cleaning data
         self.data.node(options.node);
-        self.data.albabackend(options.albabackend);
+        self.data.albaBackend(options.albaBackend);
+        self.data.slot(options.slot);
         self.data.confirmOnly(options.confirmOnly);
 
         if (options.confirmOnly) {
@@ -40,7 +42,5 @@ define([
             self.steps([new Gather(), new Confirm()]);
         }
         self.activateStep();
-
-        // Cleaning data
     };
 });

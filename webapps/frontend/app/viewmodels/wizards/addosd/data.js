@@ -20,8 +20,10 @@ define(['knockout'], function(ko){
         var data = {
             confirmOnly: ko.observable(false),
             node: ko.observable(),
-            albabackend: ko.observable(),
-            osdTypes: ko.observableArray(['ASD', 'AD'])
+            albaBackend: ko.observable(),
+            slot: ko.observable(),
+            osdTypes: ko.observableArray(['ASD', 'AD']),
+            formData: ko.observableArray([])  // Will be filled in when gather is activated
         };
         return data;
     };

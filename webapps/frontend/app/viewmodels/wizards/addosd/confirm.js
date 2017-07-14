@@ -31,7 +31,46 @@ define([
         self.canContinue = ko.computed(function () {
             return {value: true, reasons: [], fields: []};
         });
+        // Function
 
+        self.gatherPostData = function() {
+            var osdData = {};
+            var data = {'osd': osdData, metadata: null};
+
+            var apiPath = undefined;
+            if (self.data.slot().canFill()) {
+                apiPath = 'alba/nodes/' + self.data.node().guid() + '/fill_slot'
+            }
+            else if (self.data.slot().canFillAdd()) {
+                apiPath = 'alba/backends/' + self.data.albaBackend().guid() + '/add_osds'
+            }
+            if (apiPath === undefined) {
+                generic.alertError(
+                    $.t('ovs:generic.error'),
+                    $.t('alba:wizards.add_osd.confirm.failed', {why: 'Unable to perform action.'})
+                );
+            }
+            var postData = {
+                path: apiPath,
+                data: data
+            };
+            // Gather info from the dynamic form
+            var fields = []; // Remove this when the type is fetched by alba
+            $.each(self.data.formData(), function(index, formItem){
+                osdData[formItem.field] = formItem.data;
+                fields.push(formItem.field)
+            });
+
+            // @TODO remove this part as type should be fetched
+            if (!fields.contains('osd_type')) {
+                osdData.osd_type = 'ASD';
+            }
+            // Append some necessary bits
+            data.slot_id = self.data.slot().slotId();
+            data.alba_backend_guid = self.data.albaBackend().guid();
+
+            return postData
+        };
         self.finish = function () {
             return $.Deferred(function (deferred) {
                 // Add OSD
@@ -40,20 +79,8 @@ define([
                     $.t('alba:wizards.add_osd.confirm.in_progress')
                 );
                 deferred.resolve();
-                var postData = {
-                    osds: [
-                        {
-                            slot_id: self.data.newOsd().slotId(),
-                            osd_type: self.data.newOsd().type(),
-                            ip: self.data.newOsd().ip(),
-                            port: self.data.newOsd().port(),
-                            alba_backend_guid: self.data.albaBackendGuid()
-                            // todo @Check slot information for the right approach
-                        }
-                    ],
-                    metadata: null
-                };
-                api.post('alba/nodes/' + self.data.newOsd().node.guid() + '/add_osds', {data: postData})
+                var postData = self.gatherPostData();
+                api.post(postData.path, {data: postData.data})
                     .then(self.shared.tasks.wait)
                     .done(function () {
                         generic.alertSuccess(
