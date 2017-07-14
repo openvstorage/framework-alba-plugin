@@ -35,29 +35,11 @@ define([
 
         self.gatherPostData = function() {
             var osdData = {};
-            var data = {'osd': osdData, metadata: null};
-
-            var apiPath = undefined;
-            if (self.data.slot().canFill()) {
-                apiPath = 'alba/nodes/' + self.data.node().guid() + '/fill_slot'
-            }
-            else if (self.data.slot().canFillAdd()) {
-                apiPath = 'alba/backends/' + self.data.albaBackend().guid() + '/add_osds'
-            }
-            if (apiPath === undefined) {
-                generic.alertError(
-                    $.t('ovs:generic.error'),
-                    $.t('alba:wizards.add_osd.confirm.failed', {why: 'Unable to perform action.'})
-                );
-            }
-            var postData = {
-                path: apiPath,
-                data: data
-            };
+            var postData = {'osds': [osdData], metadata: null};
             // Gather info from the dynamic form
             var fields = []; // Remove this when the type is fetched by alba
             $.each(self.data.formData(), function(index, formItem){
-                osdData[formItem.field] = formItem.data;
+                osdData[formItem.field] = formItem.data();
                 fields.push(formItem.field)
             });
 
@@ -66,8 +48,10 @@ define([
                 osdData.osd_type = 'ASD';
             }
             // Append some necessary bits
-            data.slot_id = self.data.slot().slotId();
-            data.alba_backend_guid = self.data.albaBackend().guid();
+            osdData.alba_backend_guid = self.data.albaBackend().guid();
+
+            postData.slot_id = self.data.slot().slotId();
+            postData.albanode_guid = self.data.node().guid();
 
             return postData
         };
@@ -80,7 +64,7 @@ define([
                 );
                 deferred.resolve();
                 var postData = self.gatherPostData();
-                api.post(postData.path, {data: postData.data})
+                api.post('alba/nodes/' + self.data.node().guid() + '/fill_slot', {data: postData})
                     .then(self.shared.tasks.wait)
                     .done(function () {
                         generic.alertSuccess(

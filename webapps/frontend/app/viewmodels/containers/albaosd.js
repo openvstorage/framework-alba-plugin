@@ -42,7 +42,7 @@ define([
         self.parentABGuid    = ko.observable();
         self.port            = ko.observable();
         self.processing      = ko.observable(false);
-        self.status          = ko.observable();
+        self.status          = ko.observable();  // can be available, claimed, warning ,error
         self.statusDetail    = ko.observable();
         self.usage           = ko.observable();
         // Support manual adding

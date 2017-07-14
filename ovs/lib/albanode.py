@@ -155,31 +155,30 @@ class AlbaNodeController(object):
         """
         node = AlbaNode(node_guid)
         slot_metadata = node.node_metadata['slots']
-
         required_params = {}
         can_be_filled = False
         for flow in ['fill', 'fill_add']:
-            if slot_metadata[flow] is True:
-                can_be_filled = True
-                if flow == 'fill_add':
-                    required_params['alba_backend_guid'] = (str, None)
-                for key, mtype in slot_metadata['{0}_metadata'.format(flow)]:
-                    rtype = None
-                    if mtype == 'integer':
-                        rtype = (int, None)
-                    elif mtype == 'osd_type':
-                        rtype = (AlbaOSD.OSD_TYPES.keys(), None)
-                    elif mtype == 'ip':
-                        rtype = (str, Toolbox.regex_ip)
-                    elif mtype == 'port':
-                        rtype = (int, {'min': 1, 'max': 65536})
-                    if rtype is not None:
-                        required_params[key] = (rtype, None)
+            if slot_metadata[flow] is False:
+                continue
+            can_be_filled = True
+            if flow == 'fill_add':
+                required_params['alba_backend_guid'] = (str, None)
+            for key, mtype in slot_metadata['{0}_metadata'.format(flow)].iteritems():
+                rtype = None
+                if mtype == 'integer':
+                    rtype = (int, None)
+                elif mtype == 'osd_type':
+                    rtype = (str, AlbaOSD.OSD_TYPES.keys())
+                elif mtype == 'ip':
+                    rtype = (str, Toolbox.regex_ip)
+                elif mtype == 'port':
+                    rtype = (int, {'min': 1, 'max': 65536})
+                if rtype is not None:
+                    required_params[key] = rtype
         if can_be_filled is False:
             raise ValueError('The given node does not support filling slots')
 
         validation_reasons = []
-        AlbaNodeController._logger.info(osds)
         for osd in osds:
             try:
                 Toolbox.verify_required_params(required_params=required_params,
@@ -191,6 +190,7 @@ class AlbaNodeController(object):
 
         osds_to_claim = {}
         for osd in osds:
+            osd['slot_id'] = slot_id
             if slot_metadata['fill'] is True:
                 # Only filling is required
                 node.client.fill_slot(slot_id=slot_id,

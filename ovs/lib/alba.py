@@ -171,7 +171,8 @@ class AlbaController(object):
                 # TODO: Remove osd_type and rely on alba information to track the type of osd
                 Toolbox.verify_required_params(required_params={'osd_type': (str, AlbaOSD.OSD_TYPES.keys()),
                                                                 'ip': (str, Toolbox.regex_ip),
-                                                                'port': (int, {'min': 1, 'max': 65536})},
+                                                                'port': (int, {'min': 1, 'max': 65536}),
+                                                                'slot_id': (str, None)},
                                                actual_params=osd)
             except RuntimeError as ex:
                 validation_reasons.append(str(ex))

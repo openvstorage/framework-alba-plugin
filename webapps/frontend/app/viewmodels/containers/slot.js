@@ -32,7 +32,7 @@ define([
         self.loaded          = ko.observable(false);
         self.osds            = ko.observableArray([]);
         self.slotId          = ko.observable(id);
-        self.status          = ko.observable();
+        self.status          = ko.observable();  // Can be empty, ok, warning ,error
         self.statusDetail    = ko.observable();
 
         // Computed
