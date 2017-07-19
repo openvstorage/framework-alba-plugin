@@ -60,9 +60,28 @@ class GenericManagerClient(object):
 
     def fill_slot(self, slot_id, extra):
         """
-        Fills a slot with a set of osds
+        Pretends to fill a slot with a set of osds
         """
         _ = self, slot_id, extra
-        # This basically doesn't have to do anything. The generic node only supports fill + add, so the asds will be
-        # added and claimed anyway. This always results in the OSDs being in the model.
         pass
+
+    def restart_osd(self, slot_id, osd_id):
+        """
+        Pretends to restart an OSD.
+        """
+        _ = self, slot_id, osd_id
+        return {'_success': True}
+
+    def delete_osd(self, slot_id, osd_id):
+        """
+        Pretends to delete the OSD from the Slot
+        """
+        _ = self, slot_id, osd_id
+        return {'_success': True}
+
+    def build_slot_params(self, osd):
+        """
+        Builds the "extra" params for replacing an OSD
+        """
+        _ = self, osd
+        return {}

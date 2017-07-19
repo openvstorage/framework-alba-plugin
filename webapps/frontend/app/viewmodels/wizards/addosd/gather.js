@@ -33,13 +33,21 @@ define([
         self.canContinue = ko.computed(function() {
             var reasons = [], fields = [];
             $.each(self.data.formData(), function(index, formItem){
-            var observable = formItem.data;
-            if (observable() === undefined || (typeof observable.valid === 'function' && !observable.valid())){
-                fields.push(formItem.field);
-                reasons.push($.t('alba:wizards.add_osd.gather.invalid_' + formItem.field))
-            }
+                var observable = formItem.data;
+                if (observable() === undefined || (typeof observable.valid === 'function' && !observable.valid())){
+                    fields.push(formItem.field);
+                    reasons.push($.t('alba:wizards.add_osd.gather.invalid_' + formItem.field))
+                }
             });
             return {value: reasons.length === 0, reasons: reasons, fields: fields};
+        });
+        self.hasHelpText = ko.computed(function() {
+            var hasText = {};
+            $.each(self.data.formData(), function(index, item) {
+                var key = 'alba:wizards.add_osd.gather.' + item.field + '_help';
+                hasText[item.field] = key !== $.t(key);
+            });
+            return hasText;
         });
 
         // Durandal
@@ -67,7 +75,7 @@ define([
                     'count': {
                         'inputType': 'text',
                         'group': 0,
-                        'extender': {numeric: {min: 1, max: 65536}}
+                        'extender': {numeric: {min: 1, max: 20}}
                     }
                 };
                 var metadata = self.data.node().nodeMetadata().slots;
@@ -103,7 +111,7 @@ define([
                         var observable = ko.observable();
                         if (field in formMapping) {
                             if (formMapping[field].extender){
-                                observable.extend(formMapping[field].extender)
+                                observable = observable.extend(formMapping[field].extender)
                             }
                         }
                         var formItem = {

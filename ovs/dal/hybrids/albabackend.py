@@ -121,10 +121,10 @@ class AlbaBackend(DataObject):
                             _node_data[_disk_id]['asds'][_asd_id].update(asd_info)
 
         threads = []
-        for node in alba_nodes:
-            thread = Thread(target=_load_live_info, args=(node, storage_map[node.node_id]))
-            thread.start()
-            threads.append(thread)
+        #for node in alba_nodes:
+            #thread = Thread(target=_load_live_info, args=(node, storage_map[node.node_id]))
+            #thread.start()
+            #threads.append(thread)
         for thread in threads:
             thread.join()
 

@@ -174,28 +174,33 @@ define([
                 }
             }).promise();
         };
-        self.claimOSDs = function(osdsToClaim) {
+        self.claimOSDs = function(osdsToClaim, nodeGuid) {
             return $.Deferred(function(deferred) {
-                var asdIDs = [], asdData = {}, allAsds = [];
-                $.each(osdsToClaim, function(diskGuid, asds) {
-                    $.each(asds, function(index, asd) {
-                        allAsds.push(asd);
-                        asdIDs.push(asd.osdID());
-                        asdData[asd.osdID()] = diskGuid;
-                        asd.processing(true);
+                var osdData = [], allOsds = [], osdIDs = [];
+                $.each(osdsToClaim, function(slotId, osds) {
+                    $.each(osds, function(index, osd) {
+                        osdData.push({
+                            osd_type: osd.type(),
+                            ip: osd.ip(),
+                            port: osd.port(),
+                            slot_id: slotId
+                        });
+                        osd.processing(true);
+                        osdIDs.push(osd.osdID());
+                        allOsds.push(osd);
                     });
                 });
                 app.showMessage(
-                    $.t('alba:osds.claim.warning', { what: '<ul><li>' + asdIDs.join('</li><li>') + '</li></ul>', multi: allAsds.length === 1 ? '' : 's' }).trim(),
-                    $.t('alba:osds.claim.title', {multi: allAsds.length === 1 ? '' : 's'}),
+                    $.t('alba:osds.claim.warning', { what: '<ul><li>' + osdIDs.join('</li><li>') + '</li></ul>', multi: allOsds.length === 1 ? '' : 's' }).trim(),
+                    $.t('alba:osds.claim.title', {multi: allOsds.length === 1 ? '' : 's'}),
                     [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
                 )
                     .done(function(answer) {
                         if (answer === $.t('ovs:generic.yes')) {
-                            if (allAsds.length === 1) {
+                            if (allOsds.length === 1) {
                                 generic.alertInfo(
                                     $.t('alba:osds.claim.started'),
-                                    $.t('alba:osds.claim.started_msg_single', {what: allAsds[0].osdID()})
+                                    $.t('alba:osds.claim.started_msg_single', {what: allOsds[0].osdID()})
                                 );
                             } else {
                                 generic.alertInfo(
@@ -203,16 +208,19 @@ define([
                                     $.t('alba:osds.claim.started_msg_multi')
                                 );
                             }
-                            api.post('alba/backends/' + self.guid() + '/add_units', {
-                                data: { osds: asdData }
+                            api.post('alba/backends/' + self.guid() + '/add_osds', {
+                                data: {
+                                    osds: osdData,
+                                    albanode_guid: nodeGuid
+                                }
                             })
                                 .then(self.shared.tasks.wait)
                                 .done(function(data) {
                                     if (data.length === 0) {
-                                        if (allAsds.length === 1) {
+                                        if (allOsds.length === 1) {
                                             generic.alertSuccess(
                                                 $.t('alba:osds.claim.complete'),
-                                                $.t('alba:osds.claim.success_single', {what: allAsds[0].osdID()})
+                                                $.t('alba:osds.claim.success_single', {what: allOsds[0].osdID()})
                                             );
                                         } else {
                                             generic.alertSuccess(
@@ -221,7 +229,7 @@ define([
                                             );
                                         }
                                     } else {
-                                        if (allAsds.length === 1 || allAsds.length === data.length) {
+                                        if (allOsds.length === 1 || allOsds.length === data.length) {
                                             generic.alertError(
                                                 $.t('alba:osds.claim.failed_already_claimed'),
                                                 $.t('alba:osds.claim.failed_already_claimed_all')
@@ -229,11 +237,11 @@ define([
                                         } else {
                                             generic.alertWarning(
                                                 $.t('alba:osds.claim.warning_already_claimed'),
-                                                $.t('alba:osds.claim.warning_already_claimed_some', {requested: allAsds.length, actual: data.length})
+                                                $.t('alba:osds.claim.warning_already_claimed_some', {requested: allOsds.length, actual: data.length})
                                             );
                                         }
                                     }
-                                    $.each(allAsds, function(index, asd) {
+                                    $.each(allOsds, function(index, asd) {
                                         asd.ignoreNext(true);
                                         asd.status('claimed');
                                         asd.processing(false);
@@ -244,15 +252,15 @@ define([
                                     error = generic.extractErrorMessage(error);
                                     generic.alertError(
                                         $.t('ovs:generic.error'),
-                                        $.t('alba:osds.claim.failed', { multi: allAsds.length === 1 ? '' : 's', why: error })
+                                        $.t('alba:osds.claim.failed', { multi: allOsds.length === 1 ? '' : 's', why: error })
                                     );
-                                    $.each(allAsds, function(index, asd) {
+                                    $.each(allOsds, function(index, asd) {
                                         asd.processing(false);
                                     });
                                     deferred.reject();
                                 });
                         } else {
-                            $.each(allAsds, function(index, asd) {
+                            $.each(allOsds, function(index, asd) {
                                 asd.processing(false);
                             });
                             deferred.reject();

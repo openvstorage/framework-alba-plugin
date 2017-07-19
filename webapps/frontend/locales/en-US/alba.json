@@ -80,8 +80,8 @@
         },
         "deletebackend": "Delete this backend",
         "details": "Backend Details",
-        "disklegend": "Disk legend:",
-        "disksloading": "Disks are being loaded...",
+        "slotlegend": "Slot legend:",
+        "slotsloading": "Slots are being loaded...",
         "encryptions": {
             "aes-cbc-256": "aes-cbc-256",
             "aes-ctr-256": "aes-ctr-256",
@@ -107,7 +107,7 @@
         "osds": "ASDs",
         "osdtypes": {
             "asd": "ASD",
-            "ad": "AD"
+            "ad": "Active Drive"
         },
         "presets": "Presets",
         "refresh": "Refresh",
@@ -164,6 +164,12 @@
                 "ok": "Good",
                 "empty": "Empty",
                 "warning": "Warning"
+            },
+            "slotinfo":{
+                "empty": "This slot is empty",
+                "error": "The slot is in error state. Action is required",
+                "ok": "This slot is in a good shape",
+                "warning": "This slot is in warning state. Action may be required"
             }
         },
         "stats": {
@@ -181,7 +187,8 @@
             "notmounted": "Disk is not mounted",
             "recenterrors": "Recent errors",
             "service_failure": "Service failure",
-            "unknown": "Unknown"
+            "unknown": "Unknown",
+            "unreachable": "OSD is unreachable"
         },
         "unknown": "Unknown/external",
         "wayreplication": "-way replication:",
@@ -324,7 +331,7 @@
             "confirm": {
                 "basic_info": "Validate and confirm below information",
                 "complete": "Completed",
-                "count": "This number of asds will be provisioned:",
+                "count": "Amount:",
                 "detailed_info": "OSD(s) with these details will be registered to the backend",
                 "failed": "Adding OSD failed: __why__",
                 "in_progress": "Adding OSD in progress",
@@ -336,7 +343,8 @@
             },
             "gather": {
                 "basic_info": "Fill all requested information",
-                "count": "How many OSDS should be added:",
+                "count": "Amount:",
+                "count_help": "Fill the desired amount of ASDs to be added to this slot. This cannot be changed afterwards.",
                 "invalid_ip": "Invalid IP address",
                 "invalid_port": "Invalid port specified. Port should be between 1 and 65536",
                 "ip": "IP Address:",
@@ -382,13 +390,6 @@
                 "complete": "Preset updated",
                 "success": "The preset was updated successfully",
                 "failed": "Error during preset update: __why__"
-            }
-        },
-        "initializedisk": {
-            "title": "Initialize Disk(s)",
-            "gather": {
-                "basicinfo": "Enter the amount of ASDs that need to be deployed on this/these disks). <b>This number cannot be changed afterwards.</b>",
-                "amount": "Amount"
             }
         },
         "link_backend": {

@@ -28,6 +28,7 @@ from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
+from ovs.dal.lists.albaosdlist import AlbaOSDList
 from ovs.dal.lists.disklist import DiskList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
@@ -345,85 +346,51 @@ class AlbaNodeController(object):
             DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
 
     @staticmethod
-    @ovs_task(name='albanode.remove_asd', ensure_single_info={'mode': 'CHAINED'})
-    def remove_asd(node_guid, asd_id, expected_safety):
+    @ovs_task(name='albanode.remove_osd', ensure_single_info={'mode': 'CHAINED'})
+    def remove_osd(node_guid, osd_id, expected_safety):
         """
-        Removes an ASD
-        :param node_guid: Guid of the node to remove an ASD from
+        Removes an OSD
+        :param node_guid: Guid of the node to remove an OSD from
         :type node_guid: str
-        :param asd_id: ID of the ASD to remove
-        :type asd_id: str
-        :param expected_safety: Expected safety after having removed the ASD
+        :param osd_id: ID of the OSD to remove
+        :type osd_id: str
+        :param expected_safety: Expected safety after having removed the OSD
         :type expected_safety: dict or None
-        :return: Aliases of the disk on which the ASD was removed
+        :return: Aliases of the disk on which the OSD was removed
         :rtype: list
         """
         # Retrieve corresponding OSD in model
         node = AlbaNode(node_guid)
-        AlbaNodeController._logger.debug('Removing ASD {0} at node {1}'.format(asd_id, node.ip))
-        model_osd = None
-        for disk in node.disks:
-            for asd in disk.osds:
-                if asd.osd_id == asd_id:
-                    model_osd = asd
-                    break
-            if model_osd is not None:
-                break
-        if model_osd is not None:
-            alba_backend = model_osd.alba_backend
+        AlbaNodeController._logger.debug('Removing OSD {0} at node {1}'.format(osd_id, node.ip))
+        osd = AlbaOSDList.get_by_osd_id(osd_id)
+        alba_backend = osd.alba_backend
+
+        if expected_safety is None:
+            AlbaNodeController._logger.warning('Skipping safety check for OSD {0} on backend {1} - this is dangerous'.format(osd_id, alba_backend.guid))
         else:
-            alba_backend = None
+            final_safety = AlbaController.calculate_safety(alba_backend_guid=alba_backend.guid,
+                                                           removal_osd_ids=[osd_id])
+            safety_lost = final_safety['lost']
+            safety_crit = final_safety['critical']
+            if (safety_crit != 0 or safety_lost != 0) and (safety_crit != expected_safety['critical'] or safety_lost != expected_safety['lost']):
+                raise RuntimeError('Cannot remove OSD {0} as the current safety is not as expected ({1} vs {2})'.format(osd_id, final_safety, expected_safety))
+            AlbaNodeController._logger.debug('Safety OK for OSD {0} on backend {1}'.format(osd_id, alba_backend.guid))
+        AlbaNodeController._logger.debug('Purging OSD {0} on backend {1}'.format(osd_id, alba_backend.guid))
+        AlbaController.remove_units(alba_backend_guid=alba_backend.guid,
+                                    osd_ids=[osd_id])
 
-        # Retrieve corresponding alias for ASD
-        partition_alias = None
-        try:
-            for alias, asd_ids in node.client.get_asds().iteritems():
-                if asd_id in asd_ids:
-                    partition_alias = alias
-                    break
-        except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
-            AlbaNodeController._logger.warning('Could not connect to node {0} to validate ASD'.format(node.guid))
+        # Delete the OSD
+        result = node.client.delete_osd(slot_id=osd.slot_id,
+                                        osd_id=osd_id)
+        if result['_success'] is False:
+            raise RuntimeError('Error removing OSD: {0}'.format(result['_error']))
 
-        # Calculate safety and purge the ASD
-        if alba_backend is not None:
-            if expected_safety is None:
-                AlbaNodeController._logger.warning('Skipping safety check for ASD {0} on backend {1} - this is dangerous'.format(asd_id, alba_backend.guid))
-            else:
-                final_safety = AlbaController.calculate_safety(alba_backend_guid=alba_backend.guid,
-                                                               removal_osd_ids=[asd_id])
-                safety_lost = final_safety['lost']
-                safety_crit = final_safety['critical']
-                if (safety_crit != 0 or safety_lost != 0) and (safety_crit != expected_safety['critical'] or safety_lost != expected_safety['lost']):
-                    raise RuntimeError('Cannot remove ASD {0} as the current safety is not as expected ({1} vs {2})'.format(asd_id, final_safety, expected_safety))
-                AlbaNodeController._logger.debug('Safety OK for ASD {0} on backend {1}'.format(asd_id, alba_backend.guid))
-            AlbaNodeController._logger.debug('Purging ASD {0} on backend {1}'.format(asd_id, alba_backend.guid))
-            AlbaController.remove_units(alba_backend_guid=alba_backend.guid,
-                                        osd_ids=[asd_id])
-        else:
-            AlbaNodeController._logger.warning('Could not match ASD {0} to any backend. Cannot purge'.format(asd_id))
+        # Clean configuration management and model - Well, just try it at least
+        if Configuration.exists(AlbaNodeController.ASD_CONFIG.format(osd_id), raw=True):
+            Configuration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(osd_id), raw=True)
 
-        # Delete the ASD
-        disk_data = None
-        if partition_alias is not None:
-            AlbaNodeController._logger.debug('Removing ASD {0} from disk {1}'.format(asd_id, partition_alias))
-            for device_info in node.client.get_disks().itervalues():
-                if partition_alias in device_info['partition_aliases']:
-                    disk_data = device_info
-                    result = node.client.delete_asd(disk_id=device_info['aliases'][0].split('/')[-1],
-                                                    asd_id=asd_id)
-                    if result['_success'] is False:
-                        raise RuntimeError('Error removing ASD: {0}'.format(result['_error']))
-            if disk_data == {}:
-                raise RuntimeError('Failed to find disk for partition with alias {0}'.format(partition_alias))
-        else:
-            AlbaNodeController._logger.warning('Could not remove ASD from remote node (node down)'.format(asd_id))
-
-        # Clean configuration management and model
-        if Configuration.exists(AlbaNodeController.ASD_CONFIG.format(asd_id), raw=True):
-            Configuration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(asd_id), raw=True)
-
-        if model_osd is not None:
-            model_osd.delete()
+        if osd is not None:
+            osd.delete()
         if alba_backend is not None:
             alba_backend.invalidate_dynamics()
             alba_backend.backend.invalidate_dynamics()
@@ -433,76 +400,60 @@ class AlbaNodeController(object):
             except UnableToConnectException:
                 AlbaNodeController._logger.warning('Skipping disk sync since StorageRouter {0} is offline'.format(node.storagerouter.name))
 
-        return [] if disk_data is None else disk_data.get('aliases', [])
+        return [osd.slot_id]
 
     @staticmethod
     @ovs_task(name='albanode.reset_asd')
-    def reset_asd(node_guid, asd_id, expected_safety):
+    def reset_osd(node_guid, osd_id, expected_safety):
         """
-        Removes and re-adds an ASD to a Disk
-        :param node_guid: Guid of the node to reset an ASD of
+        Removes and re-adds an OSD to a Disk
+        :param node_guid: Guid of the node to reset an OSD of
         :type node_guid: str
-        :param asd_id: ASD to reset
-        :type asd_id: str
+        :param osd_id: OSD to reset
+        :type osd_id: str
         :param expected_safety: Expected safety after having reset the disk
         :type expected_safety: dict
         :return: None
         :rtype: NoneType
         """
         node = AlbaNode(node_guid)
-        disk_aliases = AlbaNodeController.remove_asd(node_guid=node_guid,
-                                                     asd_id=asd_id,
+        osd = AlbaOSDList.get_by_osd_id(osd_id)
+        fill_slot_extra = node.client.build_slot_params(osd)
+        disk_aliases = AlbaNodeController.remove_osd(node_guid=node_guid,
+                                                     osd_id=osd_id,
                                                      expected_safety=expected_safety)
         if len(disk_aliases) == 0:
             return
         try:
-            result = node.client.add_asd(disk_id=disk_aliases[0].split('/')[-1])
-            if result['_success'] is False:
-                AlbaNodeController._logger.error('Error resetting ASD: {0}'.format(result['_error']))
-                raise RuntimeError(result['_error'])
+            node.client.fill_slot(osd.slot_id, fill_slot_extra)
         except (requests.ConnectionError, requests.Timeout):
             AlbaNodeController._logger.warning('Could not connect to node {0} to (re)configure ASD'.format(node.guid))
 
     @staticmethod
-    @ovs_task(name='albanode.restart_asd')
-    def restart_asd(node_guid, asd_id):
+    @ovs_task(name='albanode.restart_osd')
+    def restart_osd(node_guid, osd_id):
         """
-        Restarts an ASD on a given Node
-        :param node_guid: Guid of the node to restart an ASD on
+        Restarts an OSD on a given Node
+        :param node_guid: Guid of the node to restart an OSD on
         :type node_guid: str
-        :param asd_id: ID of the ASD to restart
-        :type asd_id: str
+        :param osd_id: ID of the OSD to restart
+        :type osd_id: str
         :return: None
         :rtype: NoneType
         """
         node = AlbaNode(node_guid)
+        osd = AlbaOSDList.get_by_osd_id(osd_id)
+        if osd.alba_node_guid != node.guid:
+            raise RuntimeError('Could not locate OSD {0} on node {1}'.format(osd_id, node_guid))
+
         try:
-            asds = node.client.get_asds()
+            result = node.client.restart_osd(osd.slot_id, osd.osd_id)
+            if result['_success'] is False:
+                AlbaNodeController._logger.error('Error restarting OSD: {0}'.format(result['_error']))
+                raise RuntimeError(result['_error'])
         except (requests.ConnectionError, requests.Timeout):
-            AlbaNodeController._logger.warning('Could not connect to node {0} to validate ASD'.format(node.guid))
+            AlbaNodeController._logger.warning('Could not connect to node {0} to restart OSD'.format(node.guid))
             raise
-
-        partition_alias = None
-        for alias, asd_ids in asds.iteritems():
-            if asd_id in asd_ids:
-                partition_alias = alias
-                break
-        if partition_alias is None:
-            AlbaNodeController._logger.error('Could not locate ASD {0} on node {1}'.format(asd_id, node_guid))
-            raise RuntimeError('Could not locate ASD {0} on node {1}'.format(asd_id, node_guid))
-
-        device_alias = None
-        for disk_info in node.client.get_disks().itervalues():
-            if partition_alias in disk_info['partition_aliases']:
-                device_alias = disk_info['aliases'][0]
-                break
-        if device_alias is None:
-            raise RuntimeError('Failed to retrieve alias for the device related to partition {0}'.format(partition_alias))
-
-        result = node.client.restart_asd(disk_id=device_alias.split('/')[-1], asd_id=asd_id)
-        if result['_success'] is False:
-            AlbaNodeController._logger.error('Error restarting ASD: {0}'.format(result['_error']))
-            raise RuntimeError(result['_error'])
 
     @staticmethod
     @ovs_task(name='albanode.restart_disk')

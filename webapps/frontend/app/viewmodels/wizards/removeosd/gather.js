@@ -36,14 +36,14 @@ define([
         // Functions
         self.finish = function() {
             return $.Deferred(function(deferred) {
-                (function(albaOSD, albaDisk, albaNode) {
+                (function(albaOSD, albaNode) {
                     generic.alertInfo(
                         $.t('alba:wizards.remove_osd.started'),
                         $.t('alba:wizards.remove_osd.started_msg', {what: albaOSD.osdID()})
                     );
-                    api.post('alba/nodes/' + albaNode.guid() + '/reset_asd', {
+                    api.post('alba/nodes/' + albaNode.guid() + '/reset_osd', {
                         data: {
-                            asd_id: albaOSD.osdID(),
+                            osd_id: albaOSD.osdID(),
                             safety: self.data.safety()
                         }
                     })
@@ -63,20 +63,18 @@ define([
                         })
                         .always(function() {
                             albaOSD.processing(false);
-                            albaDisk.processing(false);
                         });
                     deferred.resolve();
-                })(self.data.albaOSD(), self.data.albaDisk(), self.data.albaNode());
+                })(self.data.albaOSD(), self.data.albaNode());
             }).promise();
         };
 
         // Durandal
         self.activate = function() {
             self.data.albaOSD().processing(true);
-            self.data.albaDisk().processing(true);
             self.refresher.init(function() {
                 api.get('alba/backends/' + self.data.albaBackend().guid() + '/calculate_safety', {
-                    queryparams: { asd_id: self.data.albaOSD().osdID() }
+                    queryparams: { osd_id: self.data.albaOSD().osdID() }
                 })
                     .then(self.shared.tasks.wait)
                     .done(function(safety) {
@@ -89,7 +87,6 @@ define([
             parent.closing.always(function() {
                 self.refresher.stop();
                 self.data.albaOSD().processing(false);
-                self.data.albaDisk().processing(false);
             });
             parent.finishing.always(function() {
                 self.refresher.stop();

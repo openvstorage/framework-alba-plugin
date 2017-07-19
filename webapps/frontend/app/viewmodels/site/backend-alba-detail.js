@@ -193,12 +193,10 @@ define([
                                 oArray.sort(function(a, b) {
                                     if (a.storageRouter() !== undefined && b.storageRouter() !== undefined) {
                                         return a.storageRouter().name() < b.storageRouter().name() ? -1 : 1;
-                                    }
-                                    else if (a.storageRouter() === undefined && b.storageRouter() === undefined) {
+                                    } else if (a.storageRouter() === undefined && b.storageRouter() === undefined) {
                                         if (a.ip() !== undefined && a.ip() !== null && b.ip() !== undefined && b.ip() !== null){
                                             return generic.ipSort(a.ip(), b.ip());
-                                        }
-                                        else {
+                                        } else {
                                             return a.nodeID() < b.nodeID() ? -1 : 1;
                                         }
                                     }
@@ -294,12 +292,10 @@ define([
                 self.registeredNodes.sort(function(a, b) {
                     if (a.storageRouter() !== undefined && b.storageRouter() !== undefined) {
                         return a.storageRouter().name() < b.storageRouter().name() ? -1 : 1;
-                    }
-                    else if (a.storageRouter() === undefined && b.storageRouter() === undefined) {
+                    } else if (a.storageRouter() === undefined && b.storageRouter() === undefined) {
                         if (a.ip() !== undefined && a.ip() !== null && b.ip() !== undefined && b.ip() !== null){
                             return generic.ipSort(a.ip(), b.ip());
-                        }
-                        else {
+                        } else {
                             return a.nodeID() < b.nodeID() ? -1 : 1;
                         }
                     }

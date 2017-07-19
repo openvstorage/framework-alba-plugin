@@ -247,18 +247,24 @@ class AlbaController(object):
                     AlbaController._logger.exception('Error claiming OSD {0}: {1}'.format(osd_id, ae))
                     failed_claims.append(osd_id)
                     continue
-            osd = AlbaOSD()
-            osd.domain = domain
-            osd.ip = osd_info['ip']
-            osd.port = osd_info['port']
-            osd.osd_id = osd_id
-            osd.osd_type = getattr(AlbaOSD.OSD_TYPES, osd_info['osd_type'])
-            osd.slot_id = osd_info['slot_id']
-            osd.metadata = metadata
-            # osd.alba_disk = alba_disk  # TODO: remove disk relation completely, will be filled in slot_id instead
-            osd.alba_backend = alba_backend
-            osd.alba_node = alba_node
-            osd.save()
+            osd = None
+            for _osd in alba_backend.osds:
+                if _osd.osd_id == osd_id:
+                    osd = _osd
+                    break
+            if osd is None:
+                osd = AlbaOSD()
+                osd.domain = domain
+                osd.ip = osd_info['ip']
+                osd.port = osd_info['port']
+                osd.osd_id = osd_id
+                osd.osd_type = getattr(AlbaOSD.OSD_TYPES, osd_info['osd_type'])
+                osd.slot_id = osd_info['slot_id']
+                osd.metadata = metadata
+                osd.alba_backend = alba_backend
+                osd.alba_node = alba_node
+                osd.save()
+            osd.alba_node.invalidate_dynamics()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
         if len(failed_claims) > 0:

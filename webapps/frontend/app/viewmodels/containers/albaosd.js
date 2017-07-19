@@ -20,13 +20,13 @@ define([
     './albabackend'
 ], function(ko, generic, AlbaBackend) {
     "use strict";
-    return function(id) {
+    return function(id, slot, node, parentAlbaBackend) {
         var self = this;
 
         // External injected
-        self.node = undefined;
+        self.node = node;
+        self.slot = slot;
         self.disk = undefined;
-        self.slot = undefined;
 
         // Observables
         self.albaBackend     = ko.observable();
@@ -39,19 +39,28 @@ define([
         self.mountpoint      = ko.observable();
         self.nodeID          = ko.observable();
         self.osdID           = ko.observable(id);
-        self.parentABGuid    = ko.observable();
+        self.parentABGuid    = ko.observable(parentAlbaBackend.guid());
         self.port            = ko.observable();
         self.processing      = ko.observable(false);
-        self.status          = ko.observable();  // can be available, claimed, warning ,error
+        self._status         = ko.observable();  // can be ok, warning, error
         self.statusDetail    = ko.observable();
         self.usage           = ko.observable();
-        // Support manual adding
         self.slotId          = ko.observable();
         self.type            = ko.observable();
         self.port            = ko.observable().extend({numeric: {min: 1, max: 65536}});
-        self.ip              = ko.observable().extend({regex: generic.ipRegex});
+        self.ips             = ko.observableArray([]);
 
         // Computed
+        self.status = ko.computed(function() {
+            // Returns error, warning, claimed, available, unavailable
+            if (['warning', 'error'].contains(self._status())) {
+                return self._status();
+            }
+            if (self.albaBackendGuid() === undefined) {
+                return 'available';
+            }
+            return self.albaBackendGuid() === self.parentABGuid() ? 'claimed' : 'unavailable';
+        });
         self.isLocal = ko.computed(function() {
             return self.albaBackendGuid() === undefined || self.parentABGuid() === self.albaBackendGuid();
         });
@@ -61,14 +70,23 @@ define([
         self.marked = ko.computed(function() {
             return (self.status() === 'unavailable' || (!self.isLocal() && (self.status() === 'warning' || self.status() === 'error'))) && self.albaBackend() !== undefined;
         });
+        self.ip = ko.computed(function() {
+            if (self.ips().length === 0) {
+                return undefined;
+            }
+            return self.ips()[0];
+        });
 
         // Functions
         self.fillData = function(data) {
             if (self.ignoreNext() === true) {
                 self.ignoreNext(false);
             } else {
-                self.status(data.status || data.state);  // @TODO Remove differentiation between state (slot) and status (disk)
+                self._status(data.status);
                 self.nodeID(data.node_id);
+                if (self.slot !== undefined) {
+                    self.slotId(self.slot.slotId());
+                }
                 generic.trySet(self.guid, data, 'guid');
                 generic.trySet(self.statusDetail, data, 'status_detail');
                 generic.trySet(self.osdID, data, 'asd_id');
@@ -76,12 +94,14 @@ define([
                 generic.trySet(self.device, data, 'device');
                 generic.trySet(self.mountpoint, data, 'mountpoint');
                 generic.trySet(self.port, data, 'port');
+                generic.trySet(self.ips, data, 'hosts');
+                generic.trySet(self.type, data, 'type');
                 if (data.hasOwnProperty('alba_backend_guid') && data.alba_backend_guid !== null) {
                     self.albaBackendGuid(data.alba_backend_guid);
                 } else {
-                    self.albaBackendGuid(undefined);
+                    self.albaBackendGuid(data.claimed_by || undefined);
                 }
-                if (self.status() === 'unavailable' || self.status() === 'error' || self.status() === 'warning') {
+                if (['unavailable', 'error', 'warning'].contains(self.status())) {
                     self.loadAlbaBackend();
                 }
             }
@@ -90,8 +110,8 @@ define([
 
         self.claim = function() {
             var data = {};
-            data[self.disk.guid()] = [self];
-            self.node.claimOSDs(data)
+            data[self.slotId()] = [self];
+            self.node.claimOSDs(data, self.node.guid());
         };
         self.remove = function() {
             self.node.removeOSD(self);
@@ -101,9 +121,9 @@ define([
         };
 
         self.loadAlbaBackend = function() {
-            if (self.node !== undefined && self.node.parent.hasOwnProperty('otherAlbaBackendsCache')) {
-                var cache = self.node.parent.otherAlbaBackendsCache(), ab;
-                if (self.albaBackendGuid() !== undefined) {
+            if (self.node !== undefined && self.node.parentVM.hasOwnProperty('otherAlbaBackendsCache')) {
+                var cache = self.node.parentVM.otherAlbaBackendsCache(), ab;
+                if (self.albaBackendGuid() !== undefined && self.albaBackendGuid() !== 'unknown') {
                     if (!cache.hasOwnProperty(self.albaBackendGuid())) {
                         ab = new AlbaBackend(self.albaBackendGuid());
                         ab.load('backend')
@@ -111,7 +131,7 @@ define([
                                 ab.backend().load();
                             });
                         cache[self.albaBackendGuid()] = ab;
-                        self.node.parent.otherAlbaBackendsCache(cache);
+                        self.node.parentVM.otherAlbaBackendsCache(cache);
                     }
                     self.albaBackend(cache[self.albaBackendGuid()]);
                 }

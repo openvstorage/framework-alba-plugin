@@ -23,11 +23,10 @@ but WITHOUT ANY WARRANTY of any kind.
         </div>
         <ul>
             <!-- ko foreach: data.formData() -->
-            <li>
-                <b data-bind="translate: 'alba:wizards.add_osd.confirm.' + field"></b>
-                <span data-bind="text: data, visible: data() !== undefined"></span>
-            </li>
-            <!-- /ko -->
+                <li>
+                    <b data-bind="translate: 'alba:wizards.add_osd.confirm.' + field"></b>
+                    <span data-bind="text: data, visible: data() !== undefined"></span>
+                </li>
             <!-- /ko -->
         </ul>
     </div>

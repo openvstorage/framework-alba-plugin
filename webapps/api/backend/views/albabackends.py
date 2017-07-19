@@ -263,17 +263,19 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read'])
     @return_task()
     @load(AlbaBackend, validator=_validate_access)
-    def calculate_safety(self, albabackend, asd_id):
+    def calculate_safety(self, albabackend, asd_id=None, osd_id=None):
         """
         Returns the safety resulting the removal of a given disk
         :param albabackend: ALBA backend to calculate safety for
         :type albabackend: AlbaBackend
-        :param asd_id: ID of the ASD to calculate safety off
+        :param asd_id: ID of the OSD to calculate safety off
         :type asd_id: str
+        :param osd_id: ID of the OSD to calculate safety off
+        :type osd_id: str
         :return: Asynchronous result of a CeleryTask
         :rtype: celery.result.AsyncResult
         """
-        return AlbaController.calculate_safety.delay(albabackend.guid, [asd_id])
+        return AlbaController.calculate_safety.delay(albabackend.guid, [osd_id if osd_id is not None else asd_id])
 
     @action()
     @log()

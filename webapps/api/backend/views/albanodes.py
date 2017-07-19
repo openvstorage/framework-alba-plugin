@@ -218,7 +218,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
-    @load(AlbaNode)
+    @load(AlbaNode, max_version=8)
     def reset_asd(self, albanode, asd_id, safety):
         """
         Removes and re-add an ASD
@@ -232,12 +232,31 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         if safety is None:
             raise HttpNotAcceptableException(error='invalid_data',
                                              error_description='Safety must be passed')
-        return AlbaNodeController.reset_asd.delay(albanode.guid, asd_id, safety)
+        return AlbaNodeController.reset_osd.delay(albanode.guid, asd_id, safety)
 
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaNode)
+    def reset_osd(self, albanode, osd_id, safety):
+        """
+        Removes and re-add an OSD
+        :param albanode: ALBA node to remove a disk from
+        :type albanode: AlbaNode
+        :param osd_id: OSD ID to reset
+        :type osd_id: str
+        :param safety: Safety to maintain
+        :type safety: dict
+        """
+        if safety is None:
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description='Safety must be passed')
+        return AlbaNodeController.reset_osd.delay(albanode.guid, osd_id, safety)
+
+    @action()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaNode, max_version=8)
     def restart_asd(self, albanode, asd_id):
         """
         Restarts an ASD process
@@ -246,7 +265,21 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :param asd_id: The ASD to restart
         :type asd_id: str
         """
-        return AlbaNodeController.restart_asd.delay(albanode.guid, asd_id)
+        return AlbaNodeController.restart_osd.delay(albanode.guid, osd_id=asd_id)
+
+    @action()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaNode)
+    def restart_osd(self, albanode, osd_id):
+        """
+        Restarts an OSD process
+        :param albanode: The node on which the OSD runs
+        :type albanode: AlbaNode
+        :param osd_id: The OSD to restart
+        :type osd_id: str
+        """
+        return AlbaNodeController.restart_osd.delay(albanode.guid, osd_id)
 
     @action()
     @required_roles(['read', 'write', 'manage'])

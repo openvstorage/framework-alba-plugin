@@ -123,11 +123,17 @@ class ASDManagerClient(object):
             self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.stack()[1][3], duration, internal_duration))
         return data
 
+    # Slot based
+
     def get_stack(self):
         """
         Gets the remote node stack
         """
-        return self._call(requests.get, 'slots', timeout=5, clean=True)
+        data = self._call(requests.get, 'slots', timeout=5, clean=True)
+        for slot_info in data.itervalues():
+            for osd in slot_info.get('osds', {}).itervalues():
+                osd['type'] = 'ASD'
+        return data
 
     def fill_slot(self, slot_id, extra):
         """
@@ -135,6 +141,27 @@ class ASDManagerClient(object):
         """
         for _ in xrange(extra['count']):
             self._call(requests.post, 'slots/{0}/asds'.format(slot_id))
+
+    def restart_osd(self, slot_id, osd_id):
+        """
+        Restarts a given OSD in a given Slot
+        """
+        return self._call(requests.post, 'slots/{0}/asds/{1}/restart'.format(slot_id, osd_id))
+
+    def delete_osd(self, slot_id, osd_id):
+        """
+        Deletes the OSD from the Slot
+        """
+        return self._call(requests.delete, 'slots/{0}/asds/{1}'.format(slot_id, osd_id))
+
+    def build_slot_params(self, osd):
+        """
+        Builds the "extra" params for replacing an OSD
+        """
+        _ = self, osd
+        return {'count': 1}
+
+    # The Rest (tm)
 
     def get_metadata(self):
         """

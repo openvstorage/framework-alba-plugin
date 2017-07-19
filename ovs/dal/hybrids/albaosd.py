@@ -103,4 +103,5 @@ class AlbaOSD(DataObject):
                 'type': self.osd_type,
                 'ip': self.ip,
                 'port': self.port,
-                'metadata': self.metadata}
+                'metadata': self.metadata,
+                'claimed_by': self.alba_backend_guid}

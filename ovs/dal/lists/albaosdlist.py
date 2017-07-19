@@ -30,7 +30,7 @@ class AlbaOSDList(object):
     def get_albaosds():
         """
         Returns a list of all ALBABackends
-        :rtype: list[ovs.dal.hybrids.albabackend.AlbaBackend]
+        :rtype: list[ovs.dal.hybrids.albaosd.AlbaOSD]
         """
         return DataList(AlbaOSD, {'type': DataList.where_operator.AND,
                                   'items': []})
@@ -39,7 +39,7 @@ class AlbaOSDList(object):
     def get_by_osd_id(osd_id):
         """
         Gets an AlbaBackend by the alba_id
-        :rtype: ovs.dal.hybrids.albabackend.AlbaBackend
+        :rtype: ovs.dal.hybrids.albaosd.AlbaOSD
         """
         backends = DataList(AlbaOSD, {'type': DataList.where_operator.AND,
                                           'items': [('osd_id', DataList.operator.EQUALS, osd_id)]})

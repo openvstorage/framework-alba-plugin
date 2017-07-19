@@ -18,15 +18,14 @@ define([
     'jquery', 'knockout',
     'ovs/generic',
     '../containers/albaosd'
-], function($, ko,
-            generic,
-            Osd) {
+], function($, ko, generic, Osd) {
     "use strict";
-    return function(id) {
+    return function(id, node, albaBackend) {
         var self = this;
 
         // Externally added
-        self.node            = ko.observable();
+        self.node        = node;
+        self.albaBackend = albaBackend;
 
         // Observables
         self.loaded          = ko.observable(false);
@@ -34,36 +33,34 @@ define([
         self.slotId          = ko.observable(id);
         self.status          = ko.observable();  // Can be empty, ok, warning ,error
         self.statusDetail    = ko.observable();
+        self.size            = ko.observable();
+        self.processing      = ko.observable(false);
 
         // Computed
         self.canFill = ko.computed(function() {
-            if (self.node() === null || self.node() === undefined){
-                return false
-            }
-           return self.node().nodeMetadata().slots.fill
+           return self.node.nodeMetadata().slots.fill
         });
-        self.canFillAdd = ko.computed(function(){
-            if (self.node() === null || self.node() === undefined) {
-                return false
-            }
-            return self.node().nodeMetadata().slots.fill_add
+        self.canFillAdd = ko.computed(function() {
+            return self.node.nodeMetadata().slots.fill_add
         });
         // Functions
         self.fillData = function(data) {
             self.status(data.status);
             self.statusDetail(data.status_detail || '');
+            self.size(data.size);
             // Add osds
             var osdIds = Object.keys(data.osds || {});
             generic.crossFiller(
                 osdIds, self.osds,
                 function(osdId) {
-                    return new Osd(osdId);
+                    return new Osd(osdId, self, self.node, self.albaBackend);
                 }, 'osdID'
             );
             $.each(self.osds(), function (index, osd) {
-                var osdData = data.osds[osd.osdID()];
-                osd.slot = self;
-                osd.fillData(osdData)
+                osd.fillData(data.osds[osd.osdID()])
+            });
+            self.osds.sort(function(a, b) {
+                return a.osdID() < b.osdID() ? -1 : 1;
             });
             self.loaded(true);
         };

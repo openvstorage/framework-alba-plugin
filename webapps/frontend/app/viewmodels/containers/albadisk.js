@@ -114,9 +114,6 @@ define([
             self.loaded(true);
         };
 
-        self.initialize = function() {
-            return self.node.initializeDisk(self);
-        };
         self.remove = function() {
             return self.node.removeDisk(self);
         };
