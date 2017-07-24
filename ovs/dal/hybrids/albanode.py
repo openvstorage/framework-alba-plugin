@@ -93,6 +93,8 @@ class AlbaNode(DataObject):
         """
         Returns an overview of this node's storage stack
         """
+        from ovs.dal.lists.albabackendlist import AlbaBackendList
+
         def _move(info):
             for move in [('state', 'status'),
                          ('state_detail', 'status_detail')]:
@@ -114,7 +116,7 @@ class AlbaNode(DataObject):
         except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
             node_status = 'nodedown'
 
-        model_ids = []
+        model_osds = {}
         for osd in self.osds:
             if osd.slot_id not in stack:
                 stack[osd.slot_id] = {'status': 'missing' if node_status is None else node_status,
@@ -122,17 +124,24 @@ class AlbaNode(DataObject):
             osd_info = stack[osd.slot_id]['osds'].get(osd.osd_id, {})
             osd_info.update(osd.stack_info)
             stack[osd.slot_id]['osds'][osd.osd_id] = osd_info
-            model_ids.append(osd.osd_id)
+            model_osds[osd.osd_id] = osd
 
         for slot_info in stack.itervalues():
             for osd_id, osd in slot_info['osds'].iteritems():
-                if osd_id not in model_ids or self.type == AlbaNode.NODE_TYPES.GENERIC:
+                if osd_id not in model_osds or self.type == AlbaNode.NODE_TYPES.GENERIC:
                     # The is known by the remote node but not in the model OR it's a generic node
                     # In that case, let's connect to the OSD to see whether we get some info from it
                     try:
-                        host = osd['hosts'][0] if 'hosts' in osd else osd['ips'][0]
-                        osd['claimed_by'] = AlbaCLI.run('get-osd-claimed-by', named_params={'host': host,
-                                                                                            'port': osd['port']})
+                        if osd_id in model_osds:
+                            host = model_osds[osd_id].ip
+                            port = model_osds[osd_id].port
+                        else:
+                            host = osd['hosts'][0] if 'hosts' in osd else osd['ips'][0]
+                            port = osd['port']
+                        claimed_by = AlbaCLI.run('get-osd-claimed-by', named_params={'host': host,
+                                                                                     'port': port})
+                        alba_backend = AlbaBackendList.get_by_alba_id(claimed_by)
+                        osd['claimed_by'] = alba_backend.guid if alba_backend is not None else claimed_by
                     except KeyError:
                         osd['claimed_by'] = 'unknown'
                     except:

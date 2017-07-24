@@ -243,7 +243,7 @@ define([
                                     }
                                     $.each(allOsds, function(index, asd) {
                                         asd.ignoreNext(true);
-                                        asd.status('claimed');
+                                        asd._status('claimed');
                                         asd.processing(false);
                                     });
                                     deferred.resolve();

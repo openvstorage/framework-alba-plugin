@@ -271,7 +271,7 @@ define([
                     });
                 });
             }
-            return self.albaBackend.claimOSDs(osds);
+            return self.albaBackend.claimOSDs(osds, self.guid());
         };
         self.deleteNode = function() {
             app.showMessage(
