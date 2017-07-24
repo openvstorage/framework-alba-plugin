@@ -17,12 +17,12 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
-    '../containers/albabackend', '../containers/albadisk', '../containers/albanode', '../containers/backend',
+    '../containers/albabackend', '../containers/albanode', '../containers/backend',
     '../containers/backendtype', '../containers/domain', '../containers/storagerouter', '../containers/albaosd',
     '../wizards/addalbanode/index', '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index', '../wizards/addosd/index'
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
-            AlbaBackend, Disk, Node, Backend, BackendType, Domain, StorageRouter, AlbaOSD,
+            AlbaBackend, Node, Backend, BackendType, Domain, StorageRouter, AlbaOSD,
             AddAlbaNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard, AddOSDWizard) {
     "use strict";
     return function() {
@@ -43,7 +43,6 @@ define([
         self.albaBackend            = ko.observable();
         self.backend                = ko.observable();
         self.discoveredNodes        = ko.observableArray([]);
-        self.disks                  = ko.observableArray([]);
         self.dNodesLoading          = ko.observable(false);
         self.domains                = ko.observableArray([]);
         self.initialRun             = ko.observable(true);
@@ -233,75 +232,6 @@ define([
             self.remoteStack.sort(function(stack1, stack2) {
                 return stack1.name < stack2.name ? -1 : 1;
             });
-        };
-        self.loadASDOSDs = function() {
-            var data = self.albaBackend().rawData;
-            if (data === undefined || !data.hasOwnProperty('local_stack')) {
-                return;
-            }
-            var diskNames = [], disks = {}, changes = data.local_stack.length !== self.disks().length,
-                diskNode = {}, nodeDisks = {};
-            $.each(data.local_stack, function (nodeId, disksData) {
-                // @todo support slots <-> osd
-                $.each(disksData, function(index, disk) {
-                    diskNames.push(disk.name);
-                    disks[disk.name] = disk;
-                    diskNode[disk.name] = nodeId;
-                });
-            });
-            generic.crossFiller(
-                diskNames, self.disks,
-                function (name) {
-                    return new Disk(name);
-                }, 'name'
-            );
-            $.each(self.disks(), function (index, disk) {
-                if (diskNames.contains(disk.name())) {
-                    disk.fillData(disks[disk.name()]);
-                }
-                var nodeId = diskNode[disk.name()];
-                if (!nodeDisks.hasOwnProperty(nodeId)) {
-                    nodeDisks[nodeId] = [];
-                }
-                nodeDisks[nodeId].push(disk);
-            });
-            if (changes) {
-                $.each(self.registeredNodes(), function(index, node) {
-                    setTimeout(function() {
-                        if (!nodeDisks.hasOwnProperty(node.nodeID())) {
-                            node.disks([]);
-                        } else {
-                            nodeDisks[node.nodeID()].sort(function (a, b) {
-                                if (a.device() === undefined || b.device() === undefined) {
-                                    return a.alias() < b.alias() ? -1 : 1;
-                                }
-                                return a.device() < b.device() ? -1 : 1;
-                            });
-                            node.disks(nodeDisks[node.nodeID()]);
-                        }
-                        node.disksLoading(self.initialRun());
-                        $.each(node.disks(), function(index, disk) {
-                            disk.node = node;
-                            $.each(disk.osds(), function(_, asd) {
-                                asd.node = node;
-                                asd.parentABGuid(self.albaBackend().guid());
-                            })
-                        })
-                    }, index * 500 + 1);
-                });
-                self.registeredNodes.sort(function(a, b) {
-                    if (a.storageRouter() !== undefined && b.storageRouter() !== undefined) {
-                        return a.storageRouter().name() < b.storageRouter().name() ? -1 : 1;
-                    } else if (a.storageRouter() === undefined && b.storageRouter() === undefined) {
-                        if (a.ip() !== undefined && a.ip() !== null && b.ip() !== undefined && b.ip() !== null){
-                            return generic.ipSort(a.ip(), b.ip());
-                        } else {
-                            return a.nodeID() < b.nodeID() ? -1 : 1;
-                        }
-                    }
-                    return a.storageRouter() !== undefined ? -1 : 1;
-                });
-            }
         };
         self.loadDomains = function() {
             return $.Deferred(function(deferred) {
@@ -500,13 +430,12 @@ define([
                 return self.load()
                     .then(self.fetchNodes)  // Fetch all known nodes
                     .then(function() { self.fetchNodes(true); })  // Discover new ones
-                    .then(self.loadASDOSDs)
                     .then(self.loadBackendOSDs)
                     .then(function() {
                         if (self.initialRun() === true) {
                             self.initialRun(false);
                             self.refresher.skipPause = true;
-                        }
+                        }al
                     })
             }, 5000);
             self.refresher.run();

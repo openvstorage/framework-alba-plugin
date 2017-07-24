@@ -21,7 +21,6 @@ AlbaNodeController module
 import string
 import random
 import requests
-from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.hybrids.diskpartition import DiskPartition

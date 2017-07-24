@@ -19,7 +19,6 @@ AlbaDalHelper module
 """
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
-from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albansmcluster import NSMCluster
 from ovs.dal.hybrids.albaosd import AlbaOSD
@@ -78,7 +77,6 @@ class AlbaDalHelper(object):
             previous_structure = {}
         alba_osds = previous_structure.get('alba_osds', {})
         alba_nodes = previous_structure.get('alba_nodes', {})
-        alba_disks = previous_structure.get('alba_disks', {})
         backend_types = previous_structure.get('backend_types', {})
         service_types = previous_structure.get('service_types', {})
         alba_backends = previous_structure.get('alba_backends', {})
@@ -176,27 +174,18 @@ class AlbaDalHelper(object):
                 alba_node.node_id = 'node_{0}'.format(an_id)
                 alba_node.save()
                 alba_nodes[an_id] = alba_node
-        for ad_id, an_id in structure.get('alba_disks', ()):
-            if ad_id not in alba_disks:
-                alba_disk = AlbaDisk()
-                alba_disk.aliases = ['/dev/alba_disk_{0}'.format(ad_id)]
-                alba_disk.alba_node = alba_nodes[an_id]
-                alba_disk.save()
-                alba_disks[ad_id] = alba_disk
         for ao_id, ad_id, ab_id in structure.get('alba_osds', ()):
             if ao_id not in alba_osds:
                 osd = AlbaOSD()
                 osd.osd_id = 'alba_osd_{0}'.format(ao_id)
                 osd.osd_type = AlbaOSD.OSD_TYPES.ASD
                 osd.alba_backend = alba_backends[ab_id]
-                osd.alba_disk = alba_disks[ad_id]
                 osd.ip = '127.0.0.{0}'.format(ao_id)
                 osd.port = 35000 + ao_id
                 osd.save()
                 alba_osds[ao_id] = osd
         return {'alba_osds': alba_osds,
                 'alba_nodes': alba_nodes,
-                'alba_disks': alba_disks,
                 'backend_types': backend_types,
                 'service_types': service_types,
                 'alba_backends': alba_backends,

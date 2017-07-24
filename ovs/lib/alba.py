@@ -28,7 +28,6 @@ import requests
 from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
-from ovs.dal.hybrids.albadisk import AlbaDisk
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albansmcluster import NSMCluster
 from ovs.dal.hybrids.albaosd import AlbaOSD
@@ -138,7 +137,6 @@ class AlbaController(object):
             osd.osd_id = osd_id
             osd.osd_type = AlbaOSD.OSD_TYPES.ALBA_BACKEND if alba_disk is None else AlbaOSD.OSD_TYPES.ASD
             osd.metadata = metadata
-            osd.alba_disk = alba_disk
             osd.alba_backend = alba_backend
             osd.save()
         alba_backend.invalidate_dynamics()
