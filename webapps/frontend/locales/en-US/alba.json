@@ -74,7 +74,6 @@
         "generated": "Generated",
         "health": "Health",
         "initialize": "Initialize",
-        "initializeall": "Initialize all uninitialized disks",
         "inuselegend": "In use by other backends:",
         "mountpoint": "Mtpt",
         "no": "No",

@@ -61,16 +61,6 @@ define([
         self.type              = ko.observable();
 
         // Computed
-        self.canInitializeAll = ko.computed(function() {
-            var hasUninitialized = false;
-            $.each(self.disks(), function(index, disk) {
-                if (disk.status() === 'uninitialized' && disk.processing() === false) {
-                    hasUninitialized = true;
-                    return false;
-                }
-            });
-            return hasUninitialized;
-        });
         self.canClaimAll = ko.computed(function() {
             if (self.albaBackend === undefined) {
                 return false;
@@ -157,13 +147,6 @@ define([
             self.slotsLoading(false);
             generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
             self.loaded(true);
-        };
-        self.highlight = function(status, highlight) {
-            $.each(self.disks(), function(index, disk) {
-                if (disk.status() === status && (!highlight || disk.processing() === false)) {
-                    disk.highlighted(highlight);
-                }
-            });
         };
         self.removeSlot = function(slot) {
             $.each(slot.osds(), function(_, osd) {

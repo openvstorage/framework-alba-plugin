@@ -33,7 +33,6 @@ define([
         self.albaBackendGuid = ko.observable();
         self.device          = ko.observable();
         self.guid            = ko.observable();
-        self.highlighted     = ko.observable(false);
         self.ignoreNext      = ko.observable(false);
         self.loaded          = ko.observable(false);
         self.mountpoint      = ko.observable();

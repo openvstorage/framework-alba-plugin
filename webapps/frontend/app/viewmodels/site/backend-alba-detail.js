@@ -435,7 +435,7 @@ define([
                         if (self.initialRun() === true) {
                             self.initialRun(false);
                             self.refresher.skipPause = true;
-                        }al
+                        }
                     })
             }, 5000);
             self.refresher.run();

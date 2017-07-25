@@ -283,7 +283,7 @@ but WITHOUT ANY WARRANTY of any kind.
                             <th data-i18n="alba:generic.nodeid" style="width: 400px;"></th>
                             <th data-i18n="alba:generic.node"></th>
                             <th data-i18n="alba:generic.nodetype"></th>
-                            <th data-i18n="ovs:generic.actions" style="width: 80px;"></th>
+                            <th data-i18n="ovs:generic.actions" style="width: 55px;"></th>
                         </tr>
                     </thead>
                     <!-- ko foreach: registeredNodes -->
@@ -319,30 +319,12 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <!-- /ko -->
                             </td>
                             <td style="border-top: 0;" data-bind="text: type"></td>
-                            <td style="width: 80px; border-top: 0;">
-                                <i data-bind="attr: { id: 'initialize_all_' + nodeID() },
-                                              click: function() {
-                                                  if (canInitializeAll() && $root.shared.user.roles().contains('manage')) {
-                                                      initializeAll();
-                                                  }
-                                              },
-                                              event: {
-                                                  mouseover: function() { highlight('uninitialized', true); },
-                                                  mouseout: function() { highlight('uninitialized', false); }
-                                              },
-                                              tooltip: 'alba:generic.initializeall',
-                                              style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() ? 'black' : 'lightgrey' }"
-                                   class="hand fa fa-fw" data-i18n="[html]alba:icons.initialize">
-                                </i>
+                            <td style="width: 55px; border-top: 0;">
                                 <i data-bind="attr: { id: 'claim_all_' + nodeID() },
                                               click: function() {
                                                   if (canClaimAll() && $root.shared.user.roles().contains('manage')) {
                                                       claimAll();
                                                   }
-                                              },
-                                              event: {
-                                                  mouseover: function() { highlight('available', true); },
-                                                  mouseout: function() { highlight('available', false); }
                                               },
                                               tooltip: 'alba:generic.claim_all',
                                               style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() ? 'black' : 'lightgrey' }"
@@ -353,10 +335,6 @@ but WITHOUT ANY WARRANTY of any kind.
                                                   if (canDelete() && $root.shared.user.roles().contains('manage')) {
                                                       deleteNode();
                                                   }
-                                              },
-                                              event: {
-                                                  mouseover: function() { highlight('available', true); },
-                                                  mouseout: function() { highlight('available', false); }
                                               },
                                               tooltip: 'alba:generic.remove',
                                               style: { color: $root.shared.user.roles().contains('manage') && canDelete() ? 'black' : 'lightgrey' }"
@@ -448,7 +426,6 @@ but WITHOUT ANY WARRANTY of any kind.
                                                                    'btn-danger': status() === 'error'
                                                                },
                                                                style: {
-                                                                   'font-weight': highlighted() ? 'bold' : '',
                                                                    border: marked() ? '1px solid ' + albaBackend().color() : '',
                                                                    'margin-right': marked() ? '1px' : ''
                                                                }">
