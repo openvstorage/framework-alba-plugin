@@ -43,6 +43,9 @@ define([
                 self.node.nodeMetadata[self.slotId()].slots.clear === false) {
                 return false;
             }
+            if (self.osds().length === 0) {
+                return false;
+            }
             var canClear = true;
             $.each(self.osds(), function(index, osd) {
                 if (osd.status() !== 'available') {
