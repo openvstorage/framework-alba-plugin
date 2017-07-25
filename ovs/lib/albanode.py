@@ -268,80 +268,27 @@ class AlbaNodeController(object):
         return failures
 
     @staticmethod
-    @ovs_task(name='albanode.remove_disk', ensure_single_info={'mode': 'CHAINED'})
-    def remove_disk(node_guid, device_alias):
+    @ovs_task(name='albanode.remove_slot', ensure_single_info={'mode': 'CHAINED'})
+    def remove_slot(node_guid, slot_id):
         """
         Removes a disk
         :param node_guid: Guid of the node to remove a disk from
         :type node_guid: str
-        :param device_alias: Alias of the device to remove  (eg: /dev/disk/by-path/pci-0000:03:00.0-sas-0x5000c29f4cf04566-lun-0)
-        :type device_alias: str
+        :param slot_id: Slot ID
+        :type slot_id: str
         :return: None
         :rtype: NoneType
         """
         # Verify client connectivity
         node = AlbaNode(node_guid)
-        online_node = True
-        try:
-            node.client.get_disks()
-        except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
-            AlbaNodeController._logger.warning('Could not connect to node {0} to validate disks'.format(node.guid))
-            online_node = False
+        osds = [osd for osd in node.osds if osd.slot_id == slot_id]
+        if len(osds) > 0:
+            raise RuntimeError('A slot with claimed OSDs can\'t be removed')
 
-        # Retrieve ASD information for the ALBA Disk
-        device_id = device_alias.split('/')[-1]
-        call_exists = False
-        all_alba_backends = AlbaBackendList.get_albabackends()
-        if online_node is True:
-            asds_in_use = node.client.get_claimed_asds(disk_id=device_id)
-            call_exists = asds_in_use.pop('call_exists')
-            if len(asds_in_use) > 0:
-                id_name_map = dict((ab.alba_id, ab.name) for ab in all_alba_backends)
-                reasons = set()
-                for info in asds_in_use.itervalues():
-                    if info in id_name_map:
-                        reasons.add('ASDs claimed by Backend {0}'.format(id_name_map[info]))
-                    else:
-                        reasons.add(info)
-                raise RuntimeError('Disk {0} on ALBA node {1} with IP {2} cannot be deleted because:\n - {3}'.format(device_alias, node.node_id, node.ip, '\n - '.join(reasons)))
+        node.client.clear_slot(slot_id)
 
-        if online_node is False or call_exists is False:  # Talking to older client, so failed to retrieve the claimed ASDs
-            for alba_backend in all_alba_backends:
-                local_stack = alba_backend.local_stack
-                if node.node_id in local_stack and device_id in local_stack[node.node_id]:
-                    for asd_info in local_stack[node.node_id][device_id]['asds'].values():
-                        if (online_node is True and asd_info.get('status') != 'available') or (online_node is False and asd_info.get('status_detail') == 'nodedown'):
-                            raise RuntimeError('Disk {0} on ALBA node {1} with IP {2} has still some non-available ASDs'.format(device_alias, node.node_id, node.ip))
-
-        # Retrieve the Disk from the framework model matching the ALBA Disk
-        disk_to_clear = None
-        for disk in DiskList.get_disks():
-            if device_alias in disk.aliases:
-                disk_to_clear = disk
-                break
-
-        # Remove the ALBA Disk making use of the ASD Manager Client
-        if online_node is True:
-            partition_aliases = None if disk_to_clear is None or len(disk_to_clear.partitions) == 0 else disk_to_clear.partitions[0].aliases
-            result = node.client.remove_disk(disk_id=device_id, partition_aliases=partition_aliases)
-            if result['_success'] is False:
-                raise RuntimeError('Error removing disk {0}: {1}'.format(device_alias, result['_error']))
-
-        # Clean the model
-        for model_disk in node.disks:
-            if device_alias in model_disk.aliases:
-                for osd in model_disk.osds:
-                    osd.delete()
-                model_disk.delete()
-        if disk_to_clear is not None:
-            for partition in disk_to_clear.partitions:
-                partition.roles = []
-                partition.mountpoint = None
-                partition.save()
-        for alba_backend in all_alba_backends:
-            alba_backend.invalidate_dynamics('local_stack')
         node.invalidate_dynamics()
-        if node.storagerouter is not None and online_node is True:
+        if node.storagerouter is not None:
             DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
 
     @staticmethod

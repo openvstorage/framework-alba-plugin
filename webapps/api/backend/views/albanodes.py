@@ -204,7 +204,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
-    @load(AlbaNode)
+    @load(AlbaNode, max_version=8)
     def remove_disk(self, albanode, disk):
         """
         Removes a disk
@@ -213,7 +213,21 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :param disk: Disk to remove
         :type disk: str
         """
-        return AlbaNodeController.remove_disk.delay(albanode.guid, disk)
+        return AlbaNodeController.remove_slot.delay(albanode.guid, disk)  # Giving a disk alias a try
+
+    @action()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaNode)
+    def remove_slot(self, albanode, slot):
+        """
+        Removes a disk
+        :param albanode: ALBA node to remove a disk from
+        :type albanode: AlbaNode
+        :param slot: Slot to remove
+        :type slot: str
+        """
+        return AlbaNodeController.remove_slot.delay(albanode.guid, slot)
 
     @action()
     @required_roles(['read', 'write', 'manage'])

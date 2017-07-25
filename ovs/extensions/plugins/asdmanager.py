@@ -161,6 +161,12 @@ class ASDManagerClient(object):
         _ = self, osd
         return {'count': 1}
 
+    def clear_slot(self, slot_id):
+        """
+        Clears the slot
+        """
+        return self._call(requests.delete, 'slots/{0}'.format(slot_id))
+
     # The Rest (tm)
 
     def get_metadata(self):

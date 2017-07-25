@@ -165,72 +165,39 @@ define([
                 }
             });
         };
-        self.removeDisk = function(disk) {
-            disk.processing(true);
-            $.each(disk.osds(), function(_, osd) {
+        self.removeSlot = function(slot) {
+            $.each(slot.osds(), function(_, osd) {
                 osd.processing(true);
             });
             return $.Deferred(function(deferred) {
                 generic.alertInfo(
-                    $.t('alba:disks.remove.started'),
-                    $.t('alba:disks.remove.started_msg', {what: disk.device() === undefined ? '' : disk.device()})
+                    $.t('alba:slots.remove.started'),
+                    $.t('alba:slots.remove.started_msg', {what: slot.slotId()})
                 );
-                api.post('alba/nodes/' + self.guid() + '/remove_disk', {
-                    data: { disk: disk.alias() }
+                api.post('alba/nodes/' + self.guid() + '/remove_slot', {
+                    data: { slot: slot.slotId() }
                 })
                     .then(self.shared.tasks.wait)
                     .done(function() {
                         generic.alertSuccess(
-                            $.t('alba:disks.remove.complete'),
-                            $.t('alba:disks.remove.success', {what: disk.device() === undefined ? '' : disk.device()})
+                            $.t('alba:slots.remove.complete'),
+                            $.t('alba:slots.remove.success', {what: slot.slotId()})
                         );
                         deferred.resolve();
-                        disk.ignoreNext(true);
-                        disk.status('uninitialized');
-                        disk.processing(false);
                     })
                     .fail(function(error) {
                         error = generic.extractErrorMessage(error);
                         generic.alertError(
                             $.t('ovs:generic.error'),
-                            $.t('alba:disks.remove.failed', {what: disk.device() === undefined ? '' : disk.device(), why: error})
+                            $.t('alba:slots.remove.failed', {what: slot.slotId(), why: error})
                         );
                         deferred.reject();
-                        disk.processing(false);
-                    });
-            }).promise();
-        };
-        self.restartDisk = function(disk) {
-            disk.processing(true);
-            $.each(disk.osds(), function(_, osd) {
-                osd.processing(true);
-            });
-            return $.Deferred(function(deferred) {
-                generic.alertInfo(
-                    $.t('alba:disks.restart.started'),
-                    $.t('alba:disks.restart.started_msg', {what: disk.device() === undefined ? '' : disk.device()})
-                );
-                api.post('alba/nodes/' + self.guid() + '/restart_disk', {
-                    data: { disk: disk.alias() }
-                })
-                    .then(self.shared.tasks.wait)
-                    .done(function() {
-                        generic.alertSuccess(
-                            $.t('alba:disks.restart.complete'),
-                            $.t('alba:disks.restart.success', {what: disk.device() === undefined ? '' : disk.device()})
-                        );
-                        deferred.resolve();
-                        disk.processing(false);
                     })
-                    .fail(function(error) {
-                        error = generic.extractErrorMessage(error);
-                        generic.alertError(
-                            $.t('ovs:generic.error'),
-                            $.t('alba:disks.restart.failed', {what: disk.device() === undefined ? '' : disk.device(), why: error})
-                        );
-                        deferred.reject();
-                        disk.processing(false);
-                    });
+                    .always(function() {
+                        $.each(slot.osds(), function(_, osd) {
+                            osd.processing(true);
+                        });
+                    })
             }).promise();
         };
         self.claimOSDs = self.albaBackend !== undefined ? self.albaBackend.claimOSDs : undefined;
@@ -281,9 +248,9 @@ define([
             )
             .done(function(answer) {
                 if (answer === $.t('alba:generic.yes')) {
-                    $.each(self.disks(), function(index, disk) {
-                        disk.processing(true);
-                        $.each(disk.osds(), function(jndex, osd) {
+                    $.each(self.slots(), function(index, slot) {
+                        slot.processing(true);
+                        $.each(slot.osds(), function(jndex, osd) {
                             osd.processing(true);
                         });
                     });
@@ -311,9 +278,9 @@ define([
                                 deferred.reject();
                             })
                             .always(function() {
-                                $.each(self.disks(), function(index, disk) {
-                                    disk.processing(false);
-                                    $.each(disk.osds(), function(jndex, osd) {
+                                $.each(self.slots(), function(index, slot) {
+                                    slot.processing(false);
+                                    $.each(slot.osds(), function(jndex, osd) {
                                         osd.processing(false);
                                     });
                                 });

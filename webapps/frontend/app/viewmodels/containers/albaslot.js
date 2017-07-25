@@ -89,7 +89,7 @@ define([
         });
         // Functions
         self.clear = function() {
-            alert('Hhoooosh... And it\'s gone.');
+            self.node.removeSlot(self);
         };
         self.fillData = function(data) {
             self.status(data.status);

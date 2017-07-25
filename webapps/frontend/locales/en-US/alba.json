@@ -34,30 +34,13 @@
             "unknown": "Something went wrong retrieving information about this Backend"
         }
     },
-    "disks" : {
-        "initialize": {
-            "complete": "Initialized",
-            "failed_multi": "Failed initializing disks: __why__",
-            "failed_single": "Failed initializing disk __what__: __why__",
-            "started": "Started",
-            "started_msg_multi": "The disks are being initialized",
-            "started_msg_single": "Disk __what__ is being initialized",
-            "success_multi": "The disks have been initialized",
-            "success_single": "Disk __what__ has been initialized"
-        },
+    "slots" : {
         "remove": {
-            "complete": "Removed",
-            "failed": "Failed removing disk __what__: __why__",
+            "complete": "Cleared",
+            "failed": "Failed clearing slot __what__: __why__",
             "started": "Started",
-            "started_msg": "Disk __what__ is being removed",
-            "success": "Disk __what__ has been removed"
-        },
-        "restart": {
-            "complete": "Restarted",
-            "failed": "Failed restarting disk __what__: __why__",
-            "started": "Started",
-            "started_msg": "Disk __what__ is being restarted",
-            "success": "Disk __what__ has been restarted"
+            "started_msg": "Slot __what__ is being cleared",
+            "success": "Slot __what__ has been cleared"
         }
     },
     "downtime": {
