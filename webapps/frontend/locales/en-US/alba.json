@@ -71,6 +71,7 @@
         "asdlegend": "ASD legend:",
         "asdsremaining": "There are still ASDs in use",
         "backends": "Backends",
+        "clear": "Clear",
         "claim": "Claim",
         "claim_all": "Claim all available disks",
         "compressions": {

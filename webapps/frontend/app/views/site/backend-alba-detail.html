@@ -400,12 +400,16 @@ but WITHOUT ANY WARRANTY of any kind.
                                                 <li style="width: 300px;">
                                                     <a style="position: relative;">
                                                         <span data-i18n="ovs:generic.status"></span>: <span data-bind="translate: 'alba:generic.states.slot.' + status()"></span>
-                                                        <!-- ko if: canClaim() -->
-                                                            <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                                        <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                                            <!-- ko if: canClaim() -->
                                                                 <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
-                                                                        data-bind="click: claimOSDs, css: { disabled: processing() || !canClaim() }"></button>
-                                                            </span>
-                                                        <!-- /ko -->
+                                                                        data-bind="click: claimOSDs, css: { disabled: processing() }"></button>
+                                                            <!-- /ko -->
+                                                            <!-- ko if: canClear() -->
+                                                                <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.clear"
+                                                                        data-bind="click: clear, css: { disabled: processing() }"></button>
+                                                            <!-- /ko -->
+                                                        </span>
                                                     </a>
                                                 </li>
                                                 <li>

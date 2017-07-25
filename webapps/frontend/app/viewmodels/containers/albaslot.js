@@ -37,6 +37,20 @@ define([
         self.processing      = ko.observable(false);
 
         // Computed
+        self.canClear = ko.computed(function() {
+            if (self.node !== undefined && self.node.nodeMetadata() !== undefined &&
+                self.node.nodeMetadata[self.slotId()] !== undefined &&
+                self.node.nodeMetadata[self.slotId()].slots.clear === false) {
+                return false;
+            }
+            var canClear = true;
+            $.each(self.osds(), function(index, osd) {
+                if (osd.status() !== 'available') {
+                    canClear = false;
+                }
+            });
+            return canClear;
+        });
         self.canFill = ko.computed(function() {
            return self.node.nodeMetadata().slots.fill
         });
@@ -71,6 +85,9 @@ define([
             return locked;
         });
         // Functions
+        self.clear = function() {
+            alert('Hhoooosh... And it\'s gone.');
+        };
         self.fillData = function(data) {
             self.status(data.status);
             self.statusDetail(data.status_detail || '');
