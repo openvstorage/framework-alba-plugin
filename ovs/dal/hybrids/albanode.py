@@ -151,7 +151,11 @@ class AlbaNode(DataObject):
                             osd['status'] = 'error'
                             osd['status_detail'] = 'unreachable'
         if self.type == AlbaNode.NODE_TYPES.GENERIC:
-            stack[str(uuid.uuid4())] = {'status': 'empty'}
+            # Add prefix of 2 digits based on amount of slots on this ALBA node for sorting in GUI
+            slot_amount = len(set(osd.slot_id for osd in self.osds))
+            prefix = '{0:02d}'.format(slot_amount)
+            slot_id = '{0}{1}'.format(prefix, str(uuid.uuid4())[2:])
+            stack[slot_id] = {'status': 'empty'}
         return stack
 
     def _node_metadata(self):

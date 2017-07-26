@@ -205,67 +205,7 @@ class AlbaNodeController(object):
                 osds_to_claim[osd['alba_backend_guid']].append(osd)
         for alba_backend_guid, osds in osds_to_claim.iteritems():
             AlbaController.add_osds(alba_backend_guid, node_guid, osds, metadata)
-
-    @staticmethod
-    @ovs_task(name='albanode.initialize_disk')
-    def initialize_disks(node_guid, disks):
-        """
-        Initializes 1 or multiple disks
-        :param node_guid: Guid of the node to which the disks belong
-        :type node_guid: str
-        :param disks: Disks to initialize  (key: device_alias, value: amount of ASDs to deploy)
-        :type disks: dict
-        :return: Dict of all failures with as key the disk name, and as value the error
-        :rtype: dict
-        """
-        node = AlbaNode(node_guid)
-        try:
-            available_disks = node.client.get_disks()
-        except (requests.ConnectionError, requests.Timeout):
-            AlbaNodeController._logger.exception('Could not connect to node {0} to validate disks'.format(node.guid))
-            raise
-        failures = {}
-        added_disks = []
-        for device_alias, amount in disks.iteritems():
-            device_id = device_alias.split('/')[-1]
-            AlbaNodeController._logger.debug('Initializing disk {0} at node {1}'.format(device_alias, node.ip))
-            if device_id not in available_disks or available_disks[device_id]['available'] is False:
-                AlbaNodeController._logger.exception('Disk {0} not available on node {1}'.format(device_alias, node.ip))
-                failures[device_alias] = 'Disk unavailable'
-            else:
-                add_disk_result = node.client.add_disk(disk_id=device_id)
-                # Verify if an AlbaDisk with found aliases already exists (eg: When initialize individual and initialize all run at the same time)
-                exists = False
-                aliases = add_disk_result['aliases']
-                for alba_disk in node.disks:
-                    if set(alba_disk.aliases).intersection(set(aliases)):
-                        exists = True
-                        break
-                if exists is True:
-                    continue
-                disk = AlbaDisk()
-                disk.aliases = aliases
-                disk.alba_node = node
-                disk.save()
-                if add_disk_result['_success'] is False:
-                    failures[device_alias] = add_disk_result['_error']
-                    disk.delete()
-                else:
-                    device_id = disk.aliases[0].split('/')[-1]
-                    for _ in xrange(amount):
-                        add_asd_result = node.client.add_asd(disk_id=device_id)
-                        if add_asd_result['_success'] is False:
-                            failures[device_alias] = add_asd_result['_error']
-                    added_disks.extend(add_disk_result['aliases'])
-        if node.storagerouter is not None:
-            DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
-            for disk in node.storagerouter.disks:
-                if set(disk.aliases).intersection(set(added_disks)):
-                    partition = disk.partitions[0]
-                    if DiskPartition.ROLES.BACKEND not in partition.roles:
-                        partition.roles.append(DiskPartition.ROLES.BACKEND)
-                        partition.save()
-        return failures
+        node.invalidate_dynamics('stack')
 
     @staticmethod
     @ovs_task(name='albanode.remove_slot', ensure_single_info={'mode': 'CHAINED'})

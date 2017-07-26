@@ -129,10 +129,19 @@ class ASDManagerClient(object):
         """
         Gets the remote node stack
         """
-        data = self._call(requests.get, 'slots', timeout=5, clean=True)
-        for slot_info in data.itervalues():
-            for osd in slot_info.get('osds', {}).itervalues():
-                osd['type'] = 'ASD'
+        # Version 3 introduced 'slots'
+        if self.get_metadata()['_version'] >= 3:
+            data = self._call(requests.get, 'slots', timeout=5, clean=True)
+            for slot_info in data.itervalues():
+                for osd in slot_info.get('osds', {}).itervalues():
+                    osd['type'] = 'ASD'
+            return data
+        
+        # Version 2 and older worked with AlbaDisk
+        data = self._call(method=requests.get, url='disks', clean=True)
+        for value in data.itervalues():
+            value[u'osds'] = {}
+            value[u'state'] = 'empty'
         return data
 
     def fill_slot(self, slot_id, extra):

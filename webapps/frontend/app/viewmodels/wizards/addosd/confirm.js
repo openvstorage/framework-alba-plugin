@@ -62,15 +62,15 @@ define([
                     $.t('alba:wizards.add_osd.confirm.started'),
                     $.t('alba:wizards.add_osd.confirm.in_progress')
                 );
-                deferred.resolve();
-                var postData = self.gatherPostData();
-                api.post('alba/nodes/' + self.data.node().guid() + '/fill_slot', {data: postData})
+                (function(postData, node, completed, dfd) {
+                    api.post('alba/nodes/' + node.guid() + '/fill_slot', {data: postData})
                     .then(self.shared.tasks.wait)
                     .done(function () {
                         generic.alertSuccess(
                             $.t('alba:wizards.add_osd.confirm.complete'),
                             $.t('alba:wizards.add_osd.confirm.success')
                         );
+                        completed.resolve(true);
                     })
                     .fail(function (error) {
                         error = generic.extractErrorMessage(error);
@@ -78,7 +78,10 @@ define([
                             $.t('ovs:generic.error'),
                             $.t('alba:wizards.add_osd.confirm.failed', {why: error})
                         );
+                        completed.resolve(false);
                     });
+                    dfd.resolve();
+                })(self.gatherPostData(), self.data.node(), self.data.completed(), deferred);
             }).promise();
         };
     }

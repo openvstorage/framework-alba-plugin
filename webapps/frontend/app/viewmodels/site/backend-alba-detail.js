@@ -47,7 +47,6 @@ define([
         self.domains                = ko.observableArray([]);
         self.initialRun             = ko.observable(true);
         self.localSummary           = ko.observable();
-        self.osds                   = ko.observableArray([]);
         self.otherAlbaBackendsCache = ko.observable({});
         self.registeredNodes        = ko.observableArray([]);
         self.registeredNodesNodeIDs = ko.observableArray([]);
@@ -413,13 +412,33 @@ define([
             return node_to_return
         };
         self.addOSDs = function(node, slot){
-            dialog.show(new AddOSDWizard({
-                modal: true,
-                node: node,
-                slot: slot,
-                albaBackend: self.albaBackend(),
-                confirmOnly: false
-            }));
+            var deferred = $.Deferred(),
+                wizard = new AddOSDWizard({
+                    node: node,
+                    slot: slot,
+                    modal: true,
+                    completed: deferred,
+                    albaBackend: self.albaBackend(),
+                    confirmOnly: false
+                });
+            wizard.closing.always(function() {
+                deferred.resolve();
+            });
+            
+            slot.processing(true);
+            $.each(slot.osds(), function(_, osd) {
+                osd.processing(true);
+            });
+
+            dialog.show(wizard);
+            deferred.always(function() {
+                self.fetchNodes(false);
+                slot.processing(false);
+                $.each(slot.osds(), function(_, osd) {
+                    osd.processing(false);
+                });
+                
+            });
         };
 
         // Durandal
