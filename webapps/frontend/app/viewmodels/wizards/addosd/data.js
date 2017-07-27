@@ -17,15 +17,15 @@
 define(['knockout'], function(ko){
     "use strict";
     var singleton = function() {
-        var data = {
+        return {
             confirmOnly: ko.observable(false),
             node: ko.observable(),
             albaBackend: ko.observable(),
             slot: ko.observable(),
             osdTypes: ko.observableArray(['ASD', 'AD']),
-            formData: ko.observableArray([])  // Will be filled in when gather is activated
+            formData: ko.observableArray([]),  // Will be filled in when gather is activated
+            completed: ko.observable()
         };
-        return data;
     };
     return singleton();
 });

@@ -43,7 +43,7 @@ but WITHOUT ANY WARRANTY of any kind.
                 <button type="button" class="btn btn-mini btn-default" id="removeBackend"
                         data-bind="click: $root.removeBackend,
                                    style: { color: albaBackend() === undefined || !albaBackend().availableActions().contains('REMOVE') ? 'lightgrey' : '#428bca' },
-                                   tooltip: albaBackend() === undefined || !albaBackend().availableActions().contains('REMOVE') ? 'alba:generic.asdsremaining' : 'alba:generic.deletebackend',
+                                   tooltip: albaBackend() === undefined || !albaBackend().availableActions().contains('REMOVE') ? 'alba:generic.asds_remaining' : 'alba:generic.delete_backend',
                                    enable: $root.shared.user.roles().contains('manage') && backend() !== undefined && backend().status() === 'running'">
                     <span class="fa" data-i18n="[html]ovs:icons.delete"></span>
                 </button>
@@ -489,7 +489,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                                 <!-- ko if: osdID() !== undefined -->
                                                     <li>
                                                         <a>
-                                                            <span data-i18n="alba:generic.asdid"></span>:
+                                                            <span data-i18n="alba:generic.asd_id"></span>:
                                                             <span data-bind="shortText: osdID(), maxLength: 23, middle: true"></span>
                                                         </a>
                                                     </li>
@@ -507,7 +507,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                         <!-- /ko -->
                                         <!-- ko if: (canFill() === true || canFillAdd() === true) && osds().length === 0 -->
                                         <div class="btn-group" role="group">
-                                            <button class="btn btn-default" id="buttonAddOsd" data-bind="click: function() { $parents[1].addOSDs($parent, $data)}">
+                                            <button class="btn btn-default" id="buttonAddOsd" data-bind="click: function() { $parents[1].addOSDs($parent, $data)}, enable: !$data.processing()">
                                                 <span class="fa" data-i18n="[html]ovs:icons.add"></span>
                                             </button>
                                         </div>
@@ -552,7 +552,7 @@ but WITHOUT ANY WARRANTY of any kind.
                 <div>
                     <span class="pull-right">
                         <span class="fa" data-i18n="[html]ovs:icons.vdisks"></span>
-                        <span data-i18n="alba:generic.slotlegend" style="margin-right: 10px;"></span>
+                        <span data-i18n="alba:generic.slot_legend" style="margin-right: 10px;"></span>
                         <span class="label pointer" data-i18n="alba:generic.states.slot.empty"
                               data-bind="tooltip: 'alba:generic.states.slotinfo.empty'"
                               style="background-color: #FFF; border: 1px solid #CCC; color: #333;"></span>
@@ -568,7 +568,7 @@ but WITHOUT ANY WARRANTY of any kind.
                 <div style="margin-top: 7px;">
                     <span class="pull-right">
                         <span class="fa" data-i18n="[html]ovs:icons.archive"></span>
-                        <span data-i18n="alba:generic.asdlegend" style="margin-right: 10px;"></span>
+                        <span data-i18n="alba:generic.asd_legend" style="margin-right: 10px;"></span>
                         <span class="label pointer" data-i18n="alba:generic.states.osd.unavailable"
                               data-bind="tooltip: 'alba:generic.states.osdinfo.local.unavailable'"
                               style="background-color: #DDD; color: #333; opacity: .65;"></span>
@@ -607,7 +607,7 @@ but WITHOUT ANY WARRANTY of any kind.
                         data-bind="click: addPreset"
                         style="margin-top: 5px; margin-bottom: 10px;">
                     <span class="fa" data-i18n="[html]ovs:icons.add"></span>&nbsp;
-                    <span data-i18n="alba:generic.addpreset"></span>
+                    <span data-i18n="alba:generic.add_preset"></span>
                 </button>
                 <table class="table table-striped table-hover" style="clear: both;">
                     <thead>
@@ -666,7 +666,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                 </td>
                                 <td>
                                     <i data-bind="click: function() { $root.editPreset($data) },
-                                                  tooltip: 'alba:presets.editpreset'"
+                                                  tooltip: 'alba:presets.edit_preset'"
                                        class="hand fa fa-fw" style="padding-top: 7px;" data-i18n="[html]ovs:icons.edit"></i>
                                 </td>
                                 <td>

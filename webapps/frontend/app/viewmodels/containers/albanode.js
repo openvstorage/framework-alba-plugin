@@ -138,10 +138,6 @@ define([
                 slot.fillData(data.stack[slot.slotId()])
             });
             self.slots.sort(function(a, b) {
-                // An empty slot should always be at the last point
-                if (!(a.status() === 'empty' && b.status() === 'empty') && (a.status() === 'empty' || b.status() === 'empty')) {
-                    return a.status() === 'empty' ? 1 : -1;
-                }
                 return a.slotId() < b.slotId() ? -1 : 1
             });
             self.slotsLoading(false);
@@ -149,6 +145,7 @@ define([
             self.loaded(true);
         };
         self.removeSlot = function(slot) {
+            slot.processing(true);
             $.each(slot.osds(), function(_, osd) {
                 osd.processing(true);
             });
@@ -157,30 +154,34 @@ define([
                     $.t('alba:slots.remove.started'),
                     $.t('alba:slots.remove.started_msg', {what: slot.slotId()})
                 );
-                api.post('alba/nodes/' + self.guid() + '/remove_slot', {
-                    data: { slot: slot.slotId() }
-                })
-                    .then(self.shared.tasks.wait)
-                    .done(function() {
-                        generic.alertSuccess(
-                            $.t('alba:slots.remove.complete'),
-                            $.t('alba:slots.remove.success', {what: slot.slotId()})
-                        );
-                        deferred.resolve();
+                (function(currentSlot, dfd) {
+                    api.post('alba/nodes/' + self.guid() + '/remove_slot', {
+                        data: { slot: currentSlot.slotId() }
                     })
-                    .fail(function(error) {
-                        error = generic.extractErrorMessage(error);
-                        generic.alertError(
-                            $.t('ovs:generic.error'),
-                            $.t('alba:slots.remove.failed', {what: slot.slotId(), why: error})
-                        );
-                        deferred.reject();
-                    })
-                    .always(function() {
-                        $.each(slot.osds(), function(_, osd) {
-                            osd.processing(true);
-                        });
-                    })
+                        .then(self.shared.tasks.wait)
+                        .done(function() {
+                            generic.alertSuccess(
+                                $.t('alba:slots.remove.complete'),
+                                $.t('alba:slots.remove.success', {what: currentSlot.slotId()})
+                            );
+                            dfd.resolve();
+                        })
+                        .fail(function(error) {
+                            error = generic.extractErrorMessage(error);
+                            generic.alertError(
+                                $.t('ovs:generic.error'),
+                                $.t('alba:slots.remove.failed', {what: currentSlot.slotId(), why: error})
+                            );
+                            dfd.reject();
+                        })
+                        .always(function() {
+                            currentSlot.processing(false);
+                            $.each(currentSlot.osds(), function(_, osd) {
+                                osd.processing(false);
+                            });
+                            self.parentVM.fetchNodes(false);
+                        })
+                })(slot, deferred);
             }).promise();
         };
         self.claimOSDs = self.albaBackend !== undefined ? self.albaBackend.claimOSDs : undefined;

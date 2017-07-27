@@ -32,8 +32,9 @@ define([
 
         // Cleaning data
         self.data.node(options.node);
-        self.data.albaBackend(options.albaBackend);
         self.data.slot(options.slot);
+        self.data.completed(options.completed);
+        self.data.albaBackend(options.albaBackend);
         self.data.confirmOnly(options.confirmOnly);
 
         if (options.confirmOnly) {

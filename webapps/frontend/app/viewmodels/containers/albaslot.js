@@ -69,15 +69,6 @@ define([
             });
             return claimable;
         });
-        self.processing = ko.computed(function() {
-            var processing = false;
-            $.each(self.osds(), function(index, osd) {
-                if (osd.processing()) {
-                    processing = true;
-                }
-            });
-            return processing;
-        });
         self.locked = ko.computed(function() {
             var locked = false;
             $.each(self.osds(), function(index, osd) {

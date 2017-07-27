@@ -129,10 +129,19 @@ class ASDManagerClient(object):
         """
         Gets the remote node stack
         """
-        data = self._call(requests.get, 'slots', timeout=5, clean=True)
-        for slot_info in data.itervalues():
-            for osd in slot_info.get('osds', {}).itervalues():
-                osd['type'] = 'ASD'
+        # Version 3 introduced 'slots'
+        if self.get_metadata()['_version'] >= 3:
+            data = self._call(requests.get, 'slots', timeout=5, clean=True)
+            for slot_info in data.itervalues():
+                for osd in slot_info.get('osds', {}).itervalues():
+                    osd['type'] = 'ASD'
+            return data
+        
+        # Version 2 and older worked with AlbaDisk
+        data = self._call(method=requests.get, url='disks', clean=True)
+        for value in data.itervalues():
+            value[u'osds'] = {}
+            value[u'state'] = 'empty'
         return data
 
     def fill_slot(self, slot_id, extra):
@@ -167,120 +176,11 @@ class ASDManagerClient(object):
         """
         return self._call(requests.delete, 'slots/{0}'.format(slot_id))
 
-    # The Rest (tm)
-
     def get_metadata(self):
         """
         Gets metadata from the node
         """
         return self._call(requests.get, '')
-
-    def get_logs(self):
-        """
-        Retrieve the logs from the node
-        """
-        return self._call(requests.get, 'collect_logs', timeout=60)
-
-    def get_disks(self):
-        """
-        Gets the node's disk states
-        """
-        return self._call(requests.get, 'disks', clean=True)
-
-    def get_disk(self, disk_id):
-        """
-        Gets one of the node's disk's state
-        :param disk_id: Identifier of the disk
-        :type disk_id: str
-        """
-        return self._call(requests.get, 'disks/{0}'.format(disk_id), clean=True)
-
-    def add_disk(self, disk_id):
-        """
-        Adds a disk
-        :param disk_id: Identifier of the disk
-        :type disk_id: str
-        """
-        return self._call(requests.post, 'disks/{0}/add'.format(disk_id), timeout=300)
-
-    def remove_disk(self, disk_id, partition_aliases=None):
-        """
-        Removes a disk
-        :param disk_id: Identifier of the disk
-        :type disk_id: str
-        :param partition_aliases: Aliases of the partition of the disk (required for missing disks)
-        :type partition_aliases: list
-        """
-        if partition_aliases is None:
-            partition_aliases = []
-        return self._call(requests.post, 'disks/{0}/delete'.format(disk_id), timeout=60, data={'partition_aliases': json.dumps(partition_aliases)})
-
-    def restart_disk(self, disk_id):
-        """
-        Restarts a disk
-        :param disk_id: Identifier of the disk
-        :type disk_id: str
-        """
-        return self._call(requests.post, 'disks/{0}/restart'.format(disk_id), timeout=60)
-
-    def get_asds(self):
-        """
-        Loads all asds (grouped by disk)
-        """
-        return self._call(requests.get, 'asds', clean=True)
-
-    def get_asds_for_disk(self, disk_id):
-        """
-        Loads all asds from a given disk
-        :param disk_id: The disk identifier for which to load the asds
-        :type disk_id: str
-        """
-        return self._call(requests.get, 'disks/{0}/asds'.format(disk_id), clean=True)
-
-    def get_claimed_asds(self, disk_id):
-        """
-        Retrieve all ASDs claimed by any Backend for the specified disk
-        """
-        try:
-            asd_info = self._call(requests.get, 'disks/{0}/get_claimed_asds'.format(disk_id), clean=True, timeout=60)
-            asd_info['call_exists'] = True
-            return asd_info
-        except NotFoundError:
-            return {'call_exists': False}
-
-    def add_asd(self, disk_id):
-        """
-        Adds an ASD to a disk
-        :param disk_id: Identifier of the disk
-        :type disk_id: str
-        """
-        return self._call(requests.post, 'disks/{0}/asds'.format(disk_id), timeout=30)
-
-    def restart_asd(self, disk_id, asd_id):
-        """
-        Restarts an ASD
-        :param disk_id: Disk identifier
-        :type disk_id: str
-        :param asd_id: AsdID from the ASD to be restarted
-        :type asd_id: str
-        """
-        return self._call(requests.post, 'disks/{0}/asds/{1}/restart'.format(disk_id, asd_id), timeout=30)
-
-    def delete_asd(self, disk_id, asd_id):
-        """
-        Deletes an ASD from a Disk
-        :param disk_id: Disk identifier
-        :type disk_id: str
-        :param asd_id: AsdID from the ASD to be removed
-        :type asd_id: str
-        """
-        return self._call(requests.post, 'disks/{0}/asds/{1}/delete'.format(disk_id, asd_id), timeout=60)
-
-    def list_asd_services(self):
-        """
-        Retrieve the ASD service names and their currently running version
-        """
-        return self._call(requests.get, 'asds/services', timeout=60, clean=True)['services']
 
     def get_package_information(self):
         """

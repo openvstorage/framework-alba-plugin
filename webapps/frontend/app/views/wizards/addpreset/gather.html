@@ -16,9 +16,9 @@ Open vStorage is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY of any kind.
 -->
 <div>
-    <p data-i18n="alba:wizards.addpreset.gather.basicinfo"></p>
+    <p data-i18n="alba:wizards.add_preset.gather.basicinfo"></p>
     <div class="form-group" data-bind="css: { 'has-error': $.inArray('name', canContinue().fields) !== -1 }">
-        <label class="col-lg-3 control-label" for="name" data-i18n="alba:wizards.addpreset.gather.name"></label>
+        <label class="col-lg-3 control-label" for="name" data-i18n="alba:wizards.add_preset.gather.name"></label>
         <div class="col-lg-7" data-bind="disabled: data.editPreset()">
             <input type="text" id="name" class="autofocus form-control"
                    data-bind="value: data.name, valueUpdate: 'input', attr:{ disabled: data.editPreset}" />
@@ -27,29 +27,29 @@ but WITHOUT ANY WARRANTY of any kind.
     <div class="form-group">
         <div class="col-lg-7">
             <input type="checkbox" id="advanced" style="margin-top: 9px; margin-left: 15px;" data-bind="checked: data.advanced">
-            <label for="advanced" class="help-block" data-i18n="alba:wizards.addpreset.gather.advancedtext" style="padding-left: 10px; display: inline-block;"></label>
+            <label for="advanced" class="help-block" data-i18n="alba:wizards.add_preset.gather.advancedtext" style="padding-left: 10px; display: inline-block;"></label>
         </div>
     </div>
     <div class="form-group" data-bind="visible: !data.advanced()">
-        <label class="col-lg-3 control-label" data-i18n="alba:wizards.addpreset.gather.replication"></label>
+        <label class="col-lg-3 control-label" data-i18n="alba:wizards.add_preset.gather.replication"></label>
         <div class="col-lg-7">
             <div data-bind="slider: data.replication" style="margin-left: 4px; margin-bottom: 30px; width: 370px;"></div>
         </div>
     </div>
     <div data-bind="visible: data.advanced() && !data.accepted()">
         <div class="alert alert-warning">
-            <p data-i18n="[html]alba:wizards.addpreset.gather.warning"></p>
+            <p data-i18n="[html]alba:wizards.add_preset.gather.warning"></p>
         </div>
         <div class="form-group">
             <div class="col-lg-7">
                 <input type="checkbox" id="accept" style="margin-top: 9px; margin-left: 15px;" data-bind="checked: data.accepted">
-                <label for="accept" class="help-block" data-i18n="alba:wizards.addpreset.gather.accepttext" style="padding-left: 10px; display: inline-block;"></label>
+                <label for="accept" class="help-block" data-i18n="alba:wizards.add_preset.gather.accepttext" style="padding-left: 10px; display: inline-block;"></label>
             </div>
         </div>
     </div>
     <div data-bind="visible: data.advanced() && data.accepted()">
         <div class="form-group">
-            <label class="col-lg-3 control-label" data-i18n="alba:wizards.addpreset.gather.encryption"></label>
+            <label class="col-lg-3 control-label" data-i18n="alba:wizards.add_preset.gather.encryption"></label>
             <div class="col-lg-7">
                 <span data-bind="dropdown: {
                                      items: data.encryptionOptions, target: data.encryption,
@@ -61,7 +61,7 @@ but WITHOUT ANY WARRANTY of any kind.
             </div>
         </div>
         <div class="form-group">
-            <label class="col-lg-3 control-label" data-i18n="alba:wizards.addpreset.gather.compression"></label>
+            <label class="col-lg-3 control-label" data-i18n="alba:wizards.add_preset.gather.compression"></label>
             <div class="col-lg-7">
                 <span data-bind="dropdown: {
                                      items: data.compressionOptions, target: data.compression,
@@ -73,7 +73,7 @@ but WITHOUT ANY WARRANTY of any kind.
             </div>
         </div>
         <div class="form-group" data-bind="css: { 'has-error': $.inArray('policies', canContinue().fields) !== -1 }">
-            <label class="col-lg-3 control-label" data-i18n="alba:wizards.addpreset.gather.policies"></label>
+            <label class="col-lg-3 control-label" data-i18n="alba:wizards.add_preset.gather.policies"></label>
             <div class="col-lg-7">
                 <table class="table table-condensed table-striped table-hover">
                     <thead>
@@ -125,7 +125,7 @@ but WITHOUT ANY WARRANTY of any kind.
                             <td colspan="6">
                                 <span class="hand" id="buttonAddPolicy" data-bind="click: addPolicy">
                                     <span class="fa hand" data-i18n="[html]ovs:icons.add"></span>&nbsp;
-                                    <span class="hand" data-i18n="alba:generic.addpolicy"></span>
+                                    <span class="hand" data-i18n="alba:generic.add_policy"></span>
                                 </span>
                             </td>
                         </tr>

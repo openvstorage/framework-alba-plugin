@@ -47,12 +47,11 @@
         "backend": "Backend"
     },
     "generic": {
-        "addpolicy": "Add policy",
-        "addpreset": "Add preset",
-        "addosd": "Add OSD",
-        "asdid": "ASD ID",
-        "asdlegend": "ASD legend:",
-        "asdsremaining": "There are still ASDs in use",
+        "add_policy": "Add policy",
+        "add_preset": "Add preset",
+        "asd_id": "ASD ID",
+        "asd_legend": "ASD legend:",
+        "asds_remaining": "There are still ASDs in use",
         "backends": "Backends",
         "clear": "Clear",
         "claim": "Claim",
@@ -62,10 +61,9 @@
             "none": "No compression",
             "snappy": "Snappy"
         },
-        "deletebackend": "Delete this backend",
+        "delete_backend": "Delete this backend",
         "details": "Backend Details",
-        "slotlegend": "Slot legend:",
-        "slotsloading": "Slots are being loaded...",
+        "slot_legend": "Slot legend:",
         "encryptions": {
             "aes-cbc-256": "aes-cbc-256",
             "aes-ctr-256": "aes-ctr-256",
@@ -251,7 +249,7 @@
             "success": "The preset was deleted",
             "warning": "Are you sure you want to delete preset \"__what__\"?"
         },
-        "editpreset": "Edit preset",
+        "edit_preset": "Edit preset",
         "encryption": "Encryption",
         "fragsize": "Fragment size",
         "inuse": "In use",
@@ -325,19 +323,18 @@
                 "success": "OSD added"
             },
             "gather": {
-                "basic_info": "Fill all requested information",
                 "count": "Amount:",
-                "count_help": "Fill the desired amount of ASDs to be added to this slot. This cannot be changed afterwards.",
+                "count_help": "Fill the desired amount of OSDs to be added to this slot. <b>This cannot be changed afterwards.</b>",
                 "invalid_ip": "Invalid IP address",
                 "invalid_port": "Invalid port specified. Port should be between 1 and 65536",
                 "ip": "IP Address:",
                 "osd_type": "OSD type:",
                 "port": "Port:"
             },
-            "title": "Add OSD"
+            "title": "Add OSDs"
         },
-        "addpreset": {
-            "title": "Add preset",
+        "add_preset": {
+            "title": "Add Preset",
             "gather": {
                 "basicinfo": "Define your preset.",
                 "compression": "Compression",
@@ -364,7 +361,7 @@
                 "failed": "Error during preset creation: __why__"
             }
         },
-        "editpreset": {
+        "edit_preset": {
             "title": "Edit preset",
             "confirm": {
                 "basicinfo": "Confirm your preset. Make sure policies are in the correct order and are correctly defined.",
