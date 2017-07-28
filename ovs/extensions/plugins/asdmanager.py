@@ -17,8 +17,8 @@
 """
 Generic module for calling the ASD-Manager
 """
+
 import os
-import json
 import time
 import base64
 import inspect
@@ -137,11 +137,15 @@ class ASDManagerClient(object):
                     osd['type'] = 'ASD'
             return data
         
-        # Version 2 and older worked with AlbaDisk
-        data = self._call(method=requests.get, url='disks', clean=True)
-        for value in data.itervalues():
-            value[u'osds'] = {}
-            value[u'state'] = 'empty'
+        # Version 2 and older used AlbaDisk
+        data = self._call(method=requests.get, url='disks', timeout=5, clean=True)
+        for disk_id, value in data.iteritems():
+            value[u'osds'] = self._call(method=requests.get, url='disks/{0}/asds'.format(disk_id), clean=True)
+            value[u'state'] = 'empty' if len(value['osds']) == 0 else 'ok'
+            for osd_id, osd_info in value['osds'].iteritems():
+                osd_info[u'type'] = 'ASD'
+                osd_info[u'hosts'] = osd_info['ips']
+                osd_info[u'folder'] = osd_id
         return data
 
     def fill_slot(self, slot_id, extra):

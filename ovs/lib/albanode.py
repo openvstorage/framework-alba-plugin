@@ -23,12 +23,10 @@ import random
 import requests
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albaosd import AlbaOSD
-from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.albaosdlist import AlbaOSDList
-from ovs.dal.lists.disklist import DiskList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
@@ -186,7 +184,7 @@ class AlbaNodeController(object):
             except RuntimeError as ex:
                 validation_reasons.append(str(ex))
         if len(validation_reasons) > 0:
-            raise ValueError('Missing required paramater:\n *{0}'.format('\n* '.join(('{0}'.format(reason) for reason in validation_reasons))))
+            raise ValueError('Missing required parameter:\n *{0}'.format('\n* '.join(('{0}'.format(reason) for reason in validation_reasons))))
 
         osds_to_claim = {}
         for osd in osds:
