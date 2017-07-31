@@ -42,7 +42,7 @@ class AlbaOSDList(object):
         :rtype: ovs.dal.hybrids.albaosd.AlbaOSD
         """
         backends = DataList(AlbaOSD, {'type': DataList.where_operator.AND,
-                                          'items': [('osd_id', DataList.operator.EQUALS, osd_id)]})
+                                      'items': [('osd_id', DataList.operator.EQUALS, osd_id)]})
         if len(backends) == 1:
             return backends[0]
         return None

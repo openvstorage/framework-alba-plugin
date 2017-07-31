@@ -53,6 +53,11 @@ from ovs.lib.helpers.toolbox import Schedule, Toolbox
 from ovs.log.log_handler import LogHandler
 
 
+class DecommissionedException(Exception):
+    def __init__(self, *args):
+        super(DecommissionedException, self).__init__(*args)
+
+
 class AlbaController(object):
     """
     Contains all BLL related to ALBA
@@ -72,7 +77,7 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.add_units')
     def add_units(alba_backend_guid, osds, metadata=None):
-        # @Todo Support active drive configurations
+        # @todo Figure out how to make this backwards compatible, this code is used for claiming an asd which is now done by add_osds
         # Active drives are a type of osd unit that should be able to get added
         # For generic type, this will mean spawning a new object as well
         """
@@ -150,38 +155,48 @@ class AlbaController(object):
 
     @staticmethod
     @ovs_task(name='alba.add_osds')
-    def add_osds(alba_backend_guid, albanode_guid, osds, metadata=None):
+    def add_osds(alba_backend_guid, osds, alba_node_guid=None, metadata=None):
         """
         Adds and claims an osd to the backend
         :param alba_backend_guid: Guid of the ALBA Backend
         :type alba_backend_guid: str
-        :param albanode_guid: guid of the alba node
-        :type albanode_guid: str
+        :param alba_node_guid: guid of the alba node
+        :type alba_node_guid: str
         :param osds: OSDs to add to the ALBA Backend
         :type osds: list
         :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
         :type metadata: dict
+        :raises ValueError: - When parameters are missing
+                            -  When the backend does not have an ABM registered
+        :raises RuntimeError: - When some or all osds could not be claimed
+        :raises Exception: - When no Maintenance Agents have been deployed
         :return:
         """
         validation_reasons = []
+        # Sorting for later claiming
+        backend_osds = []
+        generic_osds = []  # Both AD and ASD fit under here
         for osd in osds:
             try:
-                # TODO: Remove osd_type and rely on alba information to track the type of osd
-                Toolbox.verify_required_params(required_params={'osd_type': (str, AlbaOSD.OSD_TYPES.keys()),
-                                                                'ip': (str, Toolbox.regex_ip),
-                                                                'port': (int, {'min': 1, 'max': 65536}),
-                                                                'slot_id': (str, None)},
-                                               actual_params=osd)
+                Toolbox.verify_required_params(required_params={'osd_type': (str, AlbaOSD.OSD_TYPES.keys())}, actual_params=osd)
+                if osd.get('osd_type') != AlbaOSD.OSD_TYPES.ALBA_BACKEND:  # Osd type is optional and will only be given on link_alba_backends
+                    # Alba backend do not need verification
+                    Toolbox.verify_required_params(required_params={'ip': (str, Toolbox.regex_ip),
+                                                                    'port': (int, {'min': 1, 'max': 65536}),
+                                                                    'slot_id': (str, None)},
+                                                   actual_params=osd)
+                    generic_osds.append(osd)
+                else:
+                    backend_osds.append(osd)
             except RuntimeError as ex:
                 validation_reasons.append(str(ex))
         if len(validation_reasons) > 0:
             raise ValueError('Missing required parameter: {0}'.format('\n* '.join(reason for reason in validation_reasons)))
 
-        from ovs.extensions.plugins.albacli import AlbaError
-
         alba_backend = AlbaBackend(alba_backend_guid)
         if alba_backend.abm_cluster is None:
             raise ValueError('ALBA Backend {0} does not have an ABM cluster registered'.format(alba_backend.name))
+
         domain = None
         domain_guid = metadata['backend_info'].get('domain_guid') if metadata is not None else None
         if domain_guid is not None:
@@ -204,11 +219,139 @@ class AlbaController(object):
         if service_deployed is False:
             raise Exception('No maintenance agents have been deployed for ALBA Backend {0}'.format(alba_backend.name))
 
+        # Register osds according to type
+        failed_generic_claims, unclaimed_generic_osds = AlbaController._add_osds(alba_backend_guid, alba_node_guid, generic_osds, domain, metadata)
+        failed_backend_claims, unclaimed_backend_osds = AlbaController._add_backend_osds(alba_backend_guid, backend_osds, domain, metadata)
+
+        failed_claims = failed_generic_claims + failed_backend_claims
+        unclaimed_osds = unclaimed_generic_osds + unclaimed_backend_osds
+        if len(failed_claims) > 0:
+            if len(failed_claims) == len(osds):
+                raise RuntimeError('None of the requested OSDs could be claimed')
+            else:
+                raise RuntimeError('Some of the requested OSDs could not be claimed: {0}'.format(', '.join(failed_claims)))
+        return unclaimed_osds
+
+    @staticmethod
+    def _add_backend_osds(alba_backend_guid, osds, domain, metadata):
+        """
+        Adds and claims an osd of type backend
+        Currently only supports linking one at the time due to the metadata aspect being sent only for a single osd
+        :param alba_backend_guid: Guid of the alba backend
+        :param osds: Information about the osd. Eg: [{111111: {'osd_type': 'ALBA_BACKEND'}}]
+        :type osds: list[dict(str, dict)]
+        :raises RuntimeError: - When metadata cannot be found
+                              - When no preset are found or if no presets are available
+        :raises DecommissionedException: - When the backend to link its state is decommissioned
+        :return:
+        """
+        alba_backend = AlbaBackend(alba_backend_guid)
         config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
-        alba_node = AlbaNode(albanode_guid)
+
         unclaimed_osds = []
         failed_claims = []
-        for osd_info in osds:  # Slots will be replacing disks in the future
+
+        from ovs.extensions.plugins.albacli import AlbaError
+
+        for _ in osds:  # Currently only one osd can be added at once of type local backend
+            # Verify OSD has already been added
+            is_available = False
+            is_claimed = False
+            linked_alba_id = metadata['backend_info']['linked_alba_id']  # Also the osd_id
+            for available_osd in AlbaCLI.run(command='list-all-osds', config=config):
+                if available_osd.get('long_id') == linked_alba_id:
+                    if available_osd.get('decommissioned') is True:
+                        raise DecommissionedException('{0} is decommissioned.'.format(linked_alba_id))
+                    is_available = True
+                    is_claimed = available_osd.get('alba_id') is not None
+            if is_claimed is False and is_available is False:
+                # Add the OSD
+                # Retrieve remote Arakoon configuration
+                preset_name = str(metadata['backend_info']['linked_preset'])
+                connection_info = metadata['backend_connection_info']
+                ovs_client = OVSClient(ip=connection_info['host'],
+                                       port=connection_info['port'],
+                                       credentials=(connection_info['username'], connection_info['password']),
+                                       cache_store=VolatileFactory.get_client())
+                backend_info = ovs_client.get('/alba/backends/{0}'.format(metadata['backend_info']['linked_guid']),
+                                              params={'contents': 'presets'})
+                presets = [preset for preset in backend_info['presets'] if preset['name'] == preset_name]
+                if len(presets) != 1:
+                    raise RuntimeError('Could not locate preset {0}'.format(preset_name))
+                if presets[0]['is_available'] is False:
+                    raise RuntimeError('Preset {0} is not available'.format(preset_name))
+                AlbaController._logger.debug(backend_info)
+                task_id = ovs_client.get('/alba/backends/{0}/get_config_metadata'.format(metadata['backend_info']['linked_guid']))
+                successful, arakoon_config = ovs_client.wait_for_task(task_id, timeout=300)
+                if successful is False:
+                    raise RuntimeError('Could not load metadata from environment {0}'.format(ovs_client.ip))
+
+                # Write Arakoon configuration to file
+                arakoon_config = ArakoonClusterConfig.convert_config_to(config=arakoon_config, return_type='INI')
+                remote_arakoon_config = '/opt/OpenvStorage/arakoon_config_temp'
+                with open(remote_arakoon_config, 'w') as arakoon_cfg:
+                    arakoon_cfg.write(arakoon_config)
+
+                try:
+                    AlbaCLI.run(command='add-osd',
+                                config=config,
+                                named_params={'prefix': alba_backend_guid,
+                                              'preset': preset_name,
+                                              'node-id': metadata['backend_info']['linked_guid'],
+                                              'alba-osd-config-url': 'file://{0}'.format(remote_arakoon_config)})
+                except AlbaError as ae:
+                    AlbaController._logger.exception('Error adding OSD {0}: {1}'.format(linked_alba_id, ae))
+                    failed_claims.append(linked_alba_id)
+                    continue
+                finally:
+                    os.remove(remote_arakoon_config)
+            if is_claimed is False:
+                try:
+                    AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': linked_alba_id})
+                except AlbaError as ae:
+                    AlbaController._logger.exception('Error claiming OSD {0}: {1}'.format(linked_alba_id, ae))
+                    failed_claims.append(linked_alba_id)
+                    continue
+            osd = None
+            for _osd in alba_backend.osds:
+                if _osd.osd_id == linked_alba_id:
+                    osd = _osd
+                    break
+            if osd is None:
+                osd = AlbaOSD()
+                osd.domain = domain
+                osd.osd_id = linked_alba_id
+                osd.osd_type = AlbaOSD.OSD_TYPES.ALBA_BACKEND
+                osd.metadata = metadata
+                osd.alba_backend = alba_backend
+                osd.save()
+        alba_backend.invalidate_dynamics()
+        alba_backend.backend.invalidate_dynamics()
+        return failed_claims, unclaimed_osds
+
+    @staticmethod
+    def _add_osds(alba_backend_guid, alba_node_guid, osds, domain, metadata):
+        """
+        Adds and claims an osd to the backend
+        :param alba_backend_guid: Guid of the ALBA Backend
+        :type alba_backend_guid: str
+        :param alba_node_guid: guid of the alba node
+        :type alba_node_guid: str
+        :param osds: OSDs to add to the ALBA Backend
+        :type osds: list[dict]
+        :param domain: domain
+        :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
+        :type metadata: dict
+        """
+        alba_backend = AlbaBackend(alba_backend_guid)
+        alba_node = AlbaNode(alba_node_guid)
+        config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
+
+        from ovs.extensions.plugins.albacli import AlbaError
+
+        unclaimed_osds = []
+        failed_claims = []
+        for osd_info in osds:
             osd_id = None
             ip = osd_info['ip']
             port = osd_info['port']
@@ -265,12 +408,7 @@ class AlbaController(object):
             osd.alba_node.invalidate_dynamics()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
-        if len(failed_claims) > 0:
-            if len(failed_claims) == len(osds):
-                raise RuntimeError('None of the requested OSDs could be claimed')
-            else:
-                raise RuntimeError('Some of the requested OSDs could not be claimed: {0}'.format(', '.join(failed_claims)))
-        return unclaimed_osds
+        return failed_claims, unclaimed_osds
 
     @staticmethod
     @ovs_task(name='alba.remove_units')
@@ -1399,66 +1537,12 @@ class AlbaController(object):
                                                                                 'linked_alba_id': (str, Toolbox.regex_guid)})},
                                        actual_params=metadata)
 
-        alba_backend = AlbaBackend(alba_backend_guid)
-        if alba_backend.abm_cluster is None:
-            raise ValueError('ALBA Backend {0} does not have an ABM cluster registered'.format(alba_backend.name))
-
-        # Verify OSD has already been added
-        added = False
-        claimed = False
-        config = Configuration.get_configuration_path(alba_backend.abm_cluster.config_location)
-        all_osds = AlbaCLI.run(command='list-all-osds', config=config)
         linked_alba_id = metadata['backend_info']['linked_alba_id']
-        for osd in all_osds:
-            if osd.get('long_id') == linked_alba_id:
-                if osd.get('decommissioned') is True:
-                    return False
-
-                added = True
-                claimed = osd.get('alba_id') is not None
-                break
-
-        if added is False:
-            # Add the OSD
-            # Retrieve remote Arakoon configuration
-            preset_name = str(metadata['backend_info']['linked_preset'])
-            connection_info = metadata['backend_connection_info']
-            ovs_client = OVSClient(ip=connection_info['host'],
-                                   port=connection_info['port'],
-                                   credentials=(connection_info['username'], connection_info['password']),
-                                   cache_store=VolatileFactory.get_client())
-            backend_info = ovs_client.get('/alba/backends/{0}'.format(metadata['backend_info']['linked_guid']),
-                                          params={'contents': 'presets'})
-            presets = [preset for preset in backend_info['presets'] if preset['name'] == preset_name]
-            if len(presets) != 1:
-                raise RuntimeError('Could not locate preset {0}'.format(preset_name))
-            if presets[0]['is_available'] is False:
-                raise RuntimeError('Preset {0} is not available'.format(preset_name))
-            AlbaController._logger.debug(backend_info)
-            task_id = ovs_client.get('/alba/backends/{0}/get_config_metadata'.format(metadata['backend_info']['linked_guid']))
-            successful, arakoon_config = ovs_client.wait_for_task(task_id, timeout=300)
-            if successful is False:
-                raise RuntimeError('Could not load metadata from environment {0}'.format(ovs_client.ip))
-
-            # Write Arakoon configuration to file
-            arakoon_config = ArakoonClusterConfig.convert_config_to(config=arakoon_config, return_type='INI')
-            remote_arakoon_config = '/opt/OpenvStorage/arakoon_config_temp'
-            with open(remote_arakoon_config, 'w') as arakoon_cfg:
-                arakoon_cfg.write(arakoon_config)
-
-            try:
-                AlbaCLI.run(command='add-osd',
-                            config=config,
-                            named_params={'prefix': alba_backend_guid,
-                                          'preset': preset_name,
-                                          'node-id': metadata['backend_info']['linked_guid'],
-                                          'alba-osd-config-url': 'file://{0}'.format(remote_arakoon_config)})
-            finally:
-                os.remove(remote_arakoon_config)
-
-        if claimed is False:
-            # Claim and update model
-            AlbaController.add_units(alba_backend_guid=alba_backend_guid, osds={linked_alba_id: None}, metadata=metadata)
+        try:
+            osds = [{'osd_type': AlbaOSD.OSD_TYPES.ALBA_BACKEND, 'osd_id': linked_alba_id}]
+            AlbaController.add_osds(alba_backend_guid=alba_backend_guid, osds=osds, metadata=metadata)
+        except DecommissionedException:
+            return False
         return True
 
     @staticmethod

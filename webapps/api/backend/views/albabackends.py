@@ -162,7 +162,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :return: Asynchronous result of a CeleryTask
         :rtype: celery.result.AsyncResult
         """
-        return AlbaController.add_osds.s(albabackend.guid, albanode_guid, osds).apply_async(queue='ovs_masters')
+        return AlbaController.add_osds.s(alba_backend_guid=albabackend.guid, osds=osds, alba_node_guid=albanode_guid).apply_async(queue='ovs_masters')
 
     @link()
     @log()

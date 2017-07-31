@@ -202,7 +202,7 @@ class AlbaNodeController(object):
                     osds_to_claim[osd['alba_backend_guid']] = []
                 osds_to_claim[osd['alba_backend_guid']].append(osd)
         for alba_backend_guid, osds in osds_to_claim.iteritems():
-            AlbaController.add_osds(alba_backend_guid, node_guid, osds, metadata)
+            AlbaController.add_osds(alba_backend_guid=alba_backend_guid, osds=osds, alba_node_guid=node_guid, metadata=metadata)
         node.invalidate_dynamics('stack')
 
     @staticmethod
