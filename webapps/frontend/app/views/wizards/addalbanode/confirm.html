@@ -24,7 +24,7 @@ but WITHOUT ANY WARRANTY of any kind.
                 <i data-i18n="alba:generic.generated" data-bind="visible: data.newNode().nodeID() === undefined"></i>
                 <span data-bind="text: data.newNode().nodeID, visible: data.newNode().nodeID() !== undefined"></span>
             </li>
-            <!-- ko if: data.newNode().name() !== '' && data.newNode().name() !== undefined -->
+            <!-- ko if: data.newNode().name() !== '' && data.newNode().name() !== undefined && data.newNode().name() !== null -->
                 <li><b data-i18n="alba:wizards.add_alba_node.confirm.name"></b> <span data-bind="text: data.newNode().name()"></span></li>
             <!-- /ko -->
             <!-- ko if: data.newNode().type() !== 'GENERIC' -->

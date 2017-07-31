@@ -297,26 +297,32 @@ but WITHOUT ANY WARRANTY of any kind.
                             </td>
                             <td style="width: 400px; border-top: 0;" data-bind="text: nodeID"></td>
                             <td style="border-top: 0;">
-                                <!-- ko if: type() !== 'GENERIC' -->
-                                    <!-- ko if: storageRouterGuid() === undefined || storageRouter() === undefined -->
-                                        <span data-bind="text: ip"></span>:<span data-bind="text: port"></span>
+                                <div>
+                                    <!-- ko if: type() !== 'GENERIC' -->
+                                        <!-- ko if: storageRouterGuid() === undefined || storageRouter() === undefined -->
+                                            <span data-bind="text: ip"></span>:<span data-bind="text: port"></span>
+                                        <!-- /ko -->
+                                        <!-- ko if: storageRouterGuid() !== undefined && storageRouter() !== undefined -->
+                                            <span data-bind="lazyloader: { item: storageRouter, loadedObservable: 'loaded', undefinedLoading: true }">
+                                                <a data-part="lazy-entry"
+                                                   data-bind="text: item().name,
+                                                              attr: { href: $root.shared.routing.loadHash('storagerouter-detail', { guid: item().guid }) }"></a>
+                                            </span>
+                                        <!-- /ko -->
                                     <!-- /ko -->
-                                    <!-- ko if: storageRouterGuid() !== undefined && storageRouter() !== undefined -->
-                                        <span data-bind="lazyloader: { item: storageRouter, loadedObservable: 'loaded', undefinedLoading: true }">
-                                            <a data-part="lazy-entry"
-                                               data-bind="text: item().name,
-                                                          attr: { href: $root.shared.routing.loadHash('storagerouter-detail', { guid: item().guid }) }"></a>
-                                        </span>
+                                    <!-- ko if: type() === 'GENERIC' -->
+                                        <!-- ko if: name() !== undefined -->
+                                            <span data-bind="text: name()"></span>
+                                        <!-- /ko -->
+                                        <!-- ko if: name() === undefined -->
+                                            <span data-i18n="ovs:generic.null"></span>
+                                        <!-- /ko -->
                                     <!-- /ko -->
-                                <!-- /ko -->
-                                <!-- ko if: type() === 'GENERIC' -->
-                                    <!-- ko if: name() !== undefined -->
-                                        <span data-bind="text: name()"></span>
-                                    <!-- /ko -->
-                                    <!-- ko if: name() === undefined -->
-                                        <span data-i18n="ovs:generic.null"></span>
-                                    <!-- /ko -->
-                                <!-- /ko -->
+                                </div>
+                                <div class="notification-message" data-bind="visible: readOnlyMode()">
+                                    <a data-i18n="alba:detail.update" data-bind="attr: { href: $root.shared.routing.loadHash('updates') }"></a>
+                                    <span data-i18n="alba:detail.update_required"></span>
+                                </div>
                             </td>
                             <td style="border-top: 0;" data-bind="text: type"></td>
                             <td style="width: 55px; border-top: 0;">
@@ -327,7 +333,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                                   }
                                               },
                                               tooltip: 'alba:generic.claim_all',
-                                              style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() ? 'black' : 'lightgrey' }"
+                                              style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() && !readOnlyMode() ? 'black' : 'lightgrey' }"
                                    class="hand fa fa-fw" data-i18n="[html]alba:icons.claim">
                                 </i>
                                 <i data-bind="attr: { id: 'delete_' + nodeID() },
@@ -381,11 +387,11 @@ but WITHOUT ANY WARRANTY of any kind.
                                                         <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                                             <!-- ko if: canClaim() -->
                                                                 <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
-                                                                        data-bind="click: claimOSDs, css: { disabled: processing() }"></button>
+                                                                        data-bind="click: claimOSDs, css: { disabled: processing() || $parent.readOnlyMode() }"></button>
                                                             <!-- /ko -->
                                                             <!-- ko if: canClear() -->
                                                                 <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.clear"
-                                                                        data-bind="click: clear, css: { disabled: processing() }"></button>
+                                                                        data-bind="click: clear, css: { disabled: processing() || $parent.readOnlyMode() }"></button>
                                                             <!-- /ko -->
                                                         </span>
                                                     </a>
@@ -448,32 +454,32 @@ but WITHOUT ANY WARRANTY of any kind.
                                                         <!-- ko if: albaBackendGuid() === undefined -->
                                                             <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                                                 <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
-                                                                        data-bind="click: claim, css: { disabled: processing() || !loaded() || locked() }
+                                                                        data-bind="click: claim, css: { disabled: processing() || !loaded() || locked() || $parents[1].readOnlyMode() }
                                                                                    placement: 'bottom'"></button>
                                                             </span>
                                                         <!-- /ko -->
                                                         <!-- ko if: albaBackendGuid() === $root.albaBackend().guid() -->
                                                             <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                                                 <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
-                                                                        data-bind="click: remove, css: { disabled: processing() || !loaded() || locked() }"></button>
+                                                                        data-bind="click: remove, css: { disabled: processing() || !loaded() || locked() || $parents[1].readOnlyMode() }"></button>
                                                             </span>
                                                         <!-- /ko -->
                                                         <!-- ko if: status() === 'warning' && isLocal() -->
                                                             <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                                                 <button type="button" class="btn btn-warning btn-xs" data-i18n="alba:generic.restart"
-                                                                        data-bind="click: restart, css: { disabled: processing() || !loaded() || locked() }"></button>
+                                                                        data-bind="click: restart, css: { disabled: processing() || !loaded() || locked() || $parents[1].readOnlyMode() }"></button>
                                                                 <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
-                                                                        data-bind="click: remove, css: { disabled: processing() || !loaded() || locked() }"></button>
+                                                                        data-bind="click: remove, css: { disabled: processing() || !loaded() || locked() || $parents[1].readOnlyMode() }"></button>
                                                             </span>
                                                         <!-- /ko -->
                                                         <!-- ko if: status() === 'error' && isLocal() -->
                                                             <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                                                 <!-- ko if: statusDetail() !== 'nodedown' -->
                                                                     <button type="button" class="btn btn-warning btn-xs" data-i18n="alba:generic.restart"
-                                                                            data-bind="click: restart, css: { disabled: processing() || !loaded() }"></button>
+                                                                            data-bind="click: restart, css: { disabled: processing() || !loaded() || $parents[1].readOnlyMode() }"></button>
                                                                 <!-- /ko -->
                                                                 <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
-                                                                        data-bind="click: remove, css: { disabled: processing() || !loaded() }"></button>
+                                                                        data-bind="click: remove, css: { disabled: processing() || !loaded() || $parents[1].readOnlyMode() }"></button>
                                                             </span>
                                                         <!-- /ko -->
                                                     </a>
@@ -507,7 +513,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                         <!-- /ko -->
                                         <!-- ko if: (canFill() === true || canFillAdd() === true) && osds().length === 0 -->
                                         <div class="btn-group" role="group">
-                                            <button class="btn btn-default" id="buttonAddOsd" data-bind="click: function() { $parents[1].addOSDs($parent, $data)}, enable: !$data.processing()">
+                                            <button class="btn btn-default" id="buttonAddOsd" data-bind="click: function() { $parents[1].addOSDs($parent, $data)}, enable: !$data.processing() && !$parent.readOnlyMode()">
                                                 <span class="fa" data-i18n="[html]ovs:icons.add"></span>
                                             </button>
                                         </div>

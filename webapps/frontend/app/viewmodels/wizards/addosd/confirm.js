@@ -57,31 +57,45 @@ define([
         };
         self.finish = function () {
             return $.Deferred(function (deferred) {
-                // Add OSD
+                var pData = self.gatherPostData();
+                var amount = pData.osds[0].count;
                 generic.alertInfo(
                     $.t('alba:wizards.add_osd.confirm.started'),
-                    $.t('alba:wizards.add_osd.confirm.in_progress')
+                    $.t('alba:wizards.add_osd.confirm.started_msg', {
+                        name: self.data.slot().slotId(),
+                        multi: amount > 1 ? 's': '',
+                        amount: amount
+                    })
                 );
-                (function(postData, node, completed, dfd) {
+                (function(postData, node, slot, osdAmount, completed, dfd) {
                     api.post('alba/nodes/' + node.guid() + '/fill_slot', {data: postData})
                     .then(self.shared.tasks.wait)
                     .done(function () {
                         generic.alertSuccess(
-                            $.t('alba:wizards.add_osd.confirm.complete'),
-                            $.t('alba:wizards.add_osd.confirm.success')
+                            $.t('alba:wizards.add_osd.confirm.success'),
+                            $.t('alba:wizards.add_osd.confirm.success_msg', {
+                                name: slot.slotId(),
+                                multi: osdAmount > 1 ? 's': '',
+                                amount: osdAmount
+                            })
                         );
                         completed.resolve(true);
                     })
                     .fail(function (error) {
                         error = generic.extractErrorMessage(error);
                         generic.alertError(
-                            $.t('ovs:generic.error'),
-                            $.t('alba:wizards.add_osd.confirm.failed', {why: error})
+                            $.t('alba:wizards.add_osd.confirm.failure'),
+                            $.t('alba:wizards.add_osd.confirm.failure_msg', {
+                                why: error,
+                                name: slot.slotId(),
+                                multi: osdAmount > 1 ? 's': '',
+                                amount: osdAmount
+                            })
                         );
                         completed.resolve(false);
                     });
                     dfd.resolve();
-                })(self.gatherPostData(), self.data.node(), self.data.completed(), deferred);
+                })(pData, self.data.node(), self.data.slot(), amount, self.data.completed(), deferred);
             }).promise();
         };
     }

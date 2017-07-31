@@ -28,13 +28,13 @@ define([
         self.albaBackend = albaBackend;
 
         // Observables
-        self.loaded          = ko.observable(false);
-        self.osds            = ko.observableArray([]);
-        self.slotId          = ko.observable(id);
-        self.status          = ko.observable();  // Can be empty, ok, warning ,error
-        self.statusDetail    = ko.observable();
-        self.size            = ko.observable();
-        self.processing      = ko.observable(false);
+        self.loaded       = ko.observable(false);
+        self.osds         = ko.observableArray([]);
+        self.processing   = ko.observable(false);
+        self.size         = ko.observable();
+        self.slotId       = ko.observable(id);
+        self.status       = ko.observable();  // Can be empty, ok, warning ,error
+        self.statusDetail = ko.observable();
 
         // Computed
         self.canClear = ko.computed(function() {

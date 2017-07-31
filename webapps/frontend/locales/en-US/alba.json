@@ -11,14 +11,6 @@
     "detail": {
         "actions": "Actions",
         "addnode": "Add",
-        "health": "Health",
-        "link_backend": "Link Backend",
-        "name": "Name",
-        "preset": "Preset",
-        "scaling": "Scaling",
-        "status": "Status",
-        "title": "Open vStorage Backend",
-        "used": "Used",
         "delete": {
             "failed": "The backend could not be deleted: __why__",
             "started": "Deleting",
@@ -32,7 +24,17 @@
             "backend_deleted": "This Backend has been deleted",
             "not_allowed": "The credentials stored in this ALBA Backend's metadata are not allowed to retrieve this information",
             "unknown": "Something went wrong retrieving information about this Backend"
-        }
+        },
+        "health": "Health",
+        "link_backend": "Link Backend",
+        "name": "Name",
+        "preset": "Preset",
+        "scaling": "Scaling",
+        "status": "Status",
+        "title": "Open vStorage Backend",
+        "update": "Update",
+        "update_required": " required for further Slot/ASD customizations",
+        "used": "Used"
     },
     "slots" : {
         "remove": {
@@ -133,11 +135,11 @@
                     "warning": "1 or more ASDs linked to this Backend is in warning state. Action may be needed"
                 },
                 "local": {
-                    "available": "This ASD is ready to be claimed/in use by the backend",
-                    "claimed": "This ASD is in use by this backend",
-                    "error": "This ASD is in error state. Action is required",
-                    "unavailable": "This ASD is claimed/in use by another backend",
-                    "warning": "This ASD is in warning state. Action may be needed"
+                    "available": "The ASD is ready to be claimed/in use by the backend",
+                    "claimed": "The ASD is in use by this backend",
+                    "error": "The ASD is in error state. Action is required",
+                    "unavailable": "The ASD is claimed/in use by another backend",
+                    "warning": "The ASD is in warning state. Action may be needed"
                 }
             },
             "slot":{
@@ -147,10 +149,10 @@
                 "warning": "Warning"
             },
             "slotinfo":{
-                "empty": "This slot is empty",
+                "empty": "The slot is empty",
                 "error": "The slot is in error state. Action is required",
-                "ok": "This slot is in a good shape",
-                "warning": "This slot is in warning state. Action may be required"
+                "ok": "The slot is in a good shape",
+                "warning": "The slot is in warning state. Action may be required"
             }
         },
         "stats": {
@@ -298,7 +300,7 @@
                 "node_type": "Node type:",
                 "port": "Port:"
             },
-            "title": "Add node"
+            "title": "Add Node"
         },
         "add_backend": {
             "gather": {
@@ -311,16 +313,17 @@
         "add_osd":{
             "confirm": {
                 "basic_info": "Validate and confirm below information",
-                "complete": "Completed",
                 "count": "Amount:",
                 "detailed_info": "OSD(s) with these details will be registered to the backend",
-                "failed": "Adding OSD failed: __why__",
-                "in_progress": "Adding OSD in progress",
+                "failure": "Failure",
+                "failure_msg": "Adding __amount__ OSD__multi__ to Slot __name__ failed: __why__",
                 "ip": "IP Address:",
                 "osd_type": "OSD type:",
                 "port": "Port:",
-                "started": "Started",
-                "success": "OSD added"
+                "started": "Adding",
+                "started_msg": "Adding __amount__ OSD__multi__ to Slot __name__",
+                "success": "Added",
+                "success_msg": "Successfully added __amount__ OSD__multi__ to Slot __name__"
             },
             "gather": {
                 "count": "Amount:",

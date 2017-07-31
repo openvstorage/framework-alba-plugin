@@ -50,7 +50,8 @@ class AlbaNode(DataObject):
                   Dynamic('ips', list, 3600),
                   Dynamic('maintenance_services', dict, 30, locked=True),
                   Dynamic('node_metadata', dict, 3600),
-                  Dynamic('supported_osd_types', list, 3600)]
+                  Dynamic('supported_osd_types', list, 3600),
+                  Dynamic('read_only_mode', bool, 60)]
 
     def __init__(self, *args, **kwargs):
         """
@@ -187,3 +188,13 @@ class AlbaNode(DataObject):
             return [AlbaOSD.OSD_TYPES.ASD, AlbaOSD.OSD_TYPES.AD]
         if self.type == AlbaNode.NODE_TYPES.ASD:
             return [AlbaOSD.OSD_TYPES.ASD]
+
+    def _read_only_mode(self):
+        """
+        Indicates whether the ALBA Node can be used for OSD manipulation
+        If the version on the ALBA Node is lower than a specific version required by the framework, the ALBA Node becomes read only,
+        this means, that actions such as creating, restarting, deleting OSDs becomes impossible until the node's software has been updated
+        :return: True if the ALBA Node should be read only, False otherwise
+        :rtype: bool
+        """
+        return self.client.get_metadata()['_version'] < 3  # Version 3 was introduced when Slots for Active Drives have been introduced

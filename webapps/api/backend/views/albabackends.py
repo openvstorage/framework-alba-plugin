@@ -132,7 +132,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @log()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
-    @load(AlbaBackend, validator=_validate_access)
+    @load(AlbaBackend, max_version=8, validator=_validate_access)
     def add_units(self, albabackend, osds):
         """
         Add storage units to the backend and register with alba nsm

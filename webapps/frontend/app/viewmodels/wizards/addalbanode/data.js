@@ -17,13 +17,12 @@
 define(['knockout'], function(ko){
     "use strict";
     var singleton = function() {
-        var data = {
+        return {
             confirmOnly: ko.observable(false),
             newNode: ko.observable(),
             oldNode: ko.observable(),
-            nodeTypes: ko.observableArray(['GENERIC']) // The `ASD` type can't be added (yet) using the wizard
+            nodeTypes: ko.observableArray(['GENERIC'])
         };
-        return data;
     };
     return singleton();
 });

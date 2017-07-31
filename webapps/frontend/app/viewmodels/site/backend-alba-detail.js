@@ -150,9 +150,15 @@ define([
             }
             return $.Deferred(function(deferred) {
                 if (generic.xhrCompleted(self.nodesHandle[discover])) {
+                    var contents = '_relations';
+                    if (discover === true) {
+                        contents += ',ips,stack,node_metadata';
+                    } else {
+                        contents += ',stack,node_metadata,read_only_mode';
+                    }
                     var options = {
                         sort: 'ip',
-                        contents: 'node_id,_relations,stack,node_metadata' + (discover ? ',_dynamics' : ''),
+                        contents: contents,
                         discover: discover
                     };
                     if (self.albaBackend() !== undefined) {
@@ -170,7 +176,7 @@ define([
                                     nodeIDs, oArray,
                                     function(nodeID) {
                                         var node = new Node(nodeID, self.albaBackend(), self);
-                                        node.disksLoading(true);
+                                        node.slotsLoading(true);
                                         return node;
                                     }, 'nodeID'
                                 );
