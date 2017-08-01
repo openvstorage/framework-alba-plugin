@@ -17,23 +17,8 @@
 """
 Generic module for calling the Generic Manager. Well, sort off, since it's a dummy manager
 """
-from ovs.extensions.generic.configuration import Configuration
-# from ovs.extensions.plugins.albacli import AlbaCLI
+
 from ovs.log.log_handler import LogHandler
-
-
-class InvalidCredentialsError(RuntimeError):
-    """
-    Invalid credentials error
-    """
-    pass
-
-
-class NotFoundError(RuntimeError):
-    """
-    Method not found error
-    """
-    pass
 
 
 class GenericManagerClient(object):
@@ -85,3 +70,10 @@ class GenericManagerClient(object):
         """
         _ = self, osd
         return {}
+
+    def get_metadata(self):
+        """
+        Gets metadata from the node
+        """
+        _ = self
+        return {'_version': 3}
