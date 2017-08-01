@@ -317,7 +317,7 @@ class AlbaBackend(DataObject):
             client = OVSClient(ip=_connection_info['host'],
                                port=_connection_info['port'],
                                credentials=(_connection_info['username'], _connection_info['password']),
-                               version=3)
+                               version=6)
 
             try:
                 new_guids = client.get('/alba/backends/{0}/'.format(_alba_backend_guid),
@@ -370,7 +370,6 @@ class AlbaBackend(DataObject):
             try:
                 info = client.get('/alba/backends/{0}/'.format(_alba_backend_guid),
                                   params={'contents': 'local_summary,live_status'})
-                AlbaBackend._logger.exception('Fetchiing remote stack gave: {0}'.format(info))
                 with lock:
                     return_value[_alba_backend_guid].update(info['local_summary'])
                     return_value[_alba_backend_guid]['live_status'] = info['live_status']

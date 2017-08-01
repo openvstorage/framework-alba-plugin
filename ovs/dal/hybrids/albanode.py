@@ -51,7 +51,8 @@ class AlbaNode(DataObject):
                   Dynamic('maintenance_services', dict, 30, locked=True),
                   Dynamic('node_metadata', dict, 3600),
                   Dynamic('supported_osd_types', list, 3600),
-                  Dynamic('read_only_mode', bool, 60)]
+                  Dynamic('read_only_mode', bool, 60),
+                  Dynamic('local_summary', dict, 3600)]
 
     def __init__(self, *args, **kwargs):
         """
@@ -198,3 +199,25 @@ class AlbaNode(DataObject):
         :rtype: bool
         """
         return self.client.get_metadata()['_version'] < 3  # Version 3 was introduced when Slots for Active Drives have been introduced
+
+    def _local_summary(self):
+        """
+        Return a summary of the osds
+        :return:
+        """
+        device_info = {'red': 0,
+                       'green': 0,
+                       'orange': 0}
+        local_summary = {'devices': device_info}  # For future additions?
+        for slot_id, slot_data in self.stack.iteritems():
+            if slot_data.get('status', 'empty') == 'empty':
+                continue
+            for osd_id, osd_data in slot_data['osds'].iteritems():
+                status = osd_data.get('status', 'unknown')
+                if status == 'ok':
+                    device_info['green'] += 1
+                elif status == 'warning':
+                    device_info['orange'] += 1
+                elif status == 'error':
+                    device_info['red'] += 1
+        return local_summary

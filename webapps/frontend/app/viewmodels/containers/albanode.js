@@ -40,7 +40,6 @@ define([
 
         // Observables
         self.diskNames         = ko.observableArray([]);
-        self.disks             = ko.observableArray([]);  // @todo add asds related to disks to osds and replace disks with slots
         self.downLoadingLogs   = ko.observable(false);
         self.downloadLogState  = ko.observable($.t('alba:support.download_logs'));
         self.expanded          = ko.observable(true);
@@ -48,6 +47,7 @@ define([
         self.ip                = ko.observable();
         self.ips               = ko.observableArray([]);
         self.loaded            = ko.observable(false);
+        self.localSummary      = ko.observable();
         self.name              = ko.observable();
         self.nodeID            = ko.observable(nodeID);
         self.nodeMetadata      = ko.observable();
@@ -81,18 +81,9 @@ define([
         });
         self.canDelete = ko.computed(function() {
             var deletePossible = true;
-            $.each(self.disks(), function(index, disk) {
-                if ((disk.status() !== 'error' && disk.status() !== 'uninitialized') || disk.processing() === true) {
+            $.each(self.osds(), function(jndex, osd) {
+                if ((osd.status() !== 'error' && osd.status() !== 'available') || osd.processing() === true) {
                     deletePossible = false;
-                    return false;
-                }
-                $.each(disk.osds(), function(jndex, osd) {
-                    if ((osd.status() !== 'error' && osd.status() !== 'available') || osd.processing() === true) {
-                        deletePossible = false;
-                        return false;
-                    }
-                });
-                if (deletePossible === false) {
                     return false;
                 }
             });
@@ -128,8 +119,8 @@ define([
             generic.trySet(self.ips, data, 'ips');
             generic.trySet(self.nodeMetadata, data, 'node_metadata');
             generic.trySet(self.readOnlyMode, data, 'read_only_mode');
+            generic.trySet(self.localSummary, data, 'local_summary');
             generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
-            
             // Add slots
             var slotIds = Object.keys(data.stack);
             generic.crossFiller(

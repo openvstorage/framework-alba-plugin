@@ -87,6 +87,20 @@ define([
                 return expanded;
             }
         });
+        self.anyCollapsed = ko.computed(function() {
+            /**
+             * Check if any node is collapsed
+             * Differant than the expanded check in the way this will return true when any are collapsed as opposed to all
+              */
+            var collapsed = false;
+            $.each(self.registeredNodes(), function(index, node) {
+                if (node.expanded() === false) {
+                    collapsed = true;
+                    return false;
+                }
+            });
+            return collapsed;
+        });
         self.otherAlbaBackends = ko.computed(function() {
             var albaBackends = [], cache = self.otherAlbaBackendsCache(), counter = 0;
             $.each(cache, function(index, albaBackend) {
@@ -152,9 +166,9 @@ define([
                 if (generic.xhrCompleted(self.nodesHandle[discover])) {
                     var contents = '_relations';
                     if (discover === true) {
-                        contents += ',ips,stack,node_metadata';
+                        contents += ',ips,stack,node_metadata,local_summary';
                     } else {
-                        contents += ',stack,node_metadata,read_only_mode';
+                        contents += ',stack,node_metadata,local_summary,read_only_mode';
                     }
                     var options = {
                         sort: 'ip',

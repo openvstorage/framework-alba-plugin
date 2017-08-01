@@ -85,6 +85,7 @@
             "asd": "ASD",
             "generic": "Generic"
         },
+        "node_summary": "Summary",
         "nodisks": "No disks available",
         "nodomain": "None",
         "osds": "ASDs",
@@ -130,16 +131,21 @@
             },
             "osdinfo": {
                 "global": {
-                    "claimed": "All ASDs linked to this Backend are fully functional",
-                    "error": "1 or more ASDs linked to this Backend is in error state. Action is required",
-                    "warning": "1 or more ASDs linked to this Backend is in warning state. Action may be needed"
+                    "claimed": "All OSDs linked to this Backend are fully functional",
+                    "error": "1 or more OSDs linked to this Backend is in error state. Action is required",
+                    "warning": "1 or more OSDs linked to this Backend is in warning state. Action may be needed"
                 },
                 "local": {
-                    "available": "The ASD is ready to be claimed/in use by the backend",
-                    "claimed": "The ASD is in use by this backend",
-                    "error": "The ASD is in error state. Action is required",
-                    "unavailable": "The ASD is claimed/in use by another backend",
-                    "warning": "The ASD is in warning state. Action may be needed"
+                    "available": "The OSD is ready to be claimed/in use by the backend",
+                    "claimed": "The OSD is in use by this backend",
+                    "error": "The OSD is in error state. Action is required",
+                    "unavailable": "The OSD is claimed/in use by another backend",
+                    "warning": "The OSD is in warning state. Action may be needed"
+                },
+                "node": {
+                    "claimed": "The OSDs from this node are fully functional",
+                    "error": "The OSDs are in error state. Action is required",
+                    "warning": "The OSDs are in warning state. Action may be needed"
                 }
             },
             "slot":{
