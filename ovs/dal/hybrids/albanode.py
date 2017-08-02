@@ -24,8 +24,9 @@ from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
 from ovs.extensions.generic.configuration import Configuration
+from ovs_extensions.generic.exceptions import InvalidCredentialsError
 from ovs.extensions.plugins.albacli import AlbaCLI
-from ovs.extensions.plugins.asdmanager import ASDManagerClient, InvalidCredentialsError
+from ovs.extensions.plugins.asdmanager import ASDManagerClient
 from ovs.extensions.plugins.genericmanager import GenericManagerClient
 from ovs.log.log_handler import LogHandler
 
@@ -164,21 +165,21 @@ class AlbaNode(DataObject):
         """
         Returns a set of metadata hinting on how the Node should be used
         """
-        slots_metadata = {'fill': False,
-                          'fill_add': False,
-                          'clear': False}
+        slots_metadata = {'fill': False,  # Prepare Slot for future usage
+                          'fill_add': False,  # OSDs will added and claimed right away
+                          'clear': False}  # Indicates whether OSDs can be removed from ALBA Node / Slot 
         if self.type == AlbaNode.NODE_TYPES.ASD:
             slots_metadata.update({'fill': True,
                                    'fill_metadata': {'count': 'integer'},
                                    'clear': True})
-        if self.type == AlbaNode.NODE_TYPES.GENERIC:
+        elif self.type == AlbaNode.NODE_TYPES.GENERIC:
             slots_metadata.update({'fill_add': True,
                                    'fill_add_metadata': {'osd_type': 'osd_type',
                                                          'ip': 'ip',
                                                          'port': 'port'},
                                    'clear': True})
 
-        return {'slots': slots_metadata}
+        return slots_metadata
 
     def _supported_osd_types(self):
         """

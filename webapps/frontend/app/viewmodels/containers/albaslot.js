@@ -32,15 +32,13 @@ define([
         self.osds         = ko.observableArray([]);
         self.processing   = ko.observable(false);
         self.size         = ko.observable();
-        self.slotId       = ko.observable(id);
+        self.slotID       = ko.observable(id);
         self.status       = ko.observable();  // Can be empty, ok, warning ,error
         self.statusDetail = ko.observable();
 
         // Computed
         self.canClear = ko.computed(function() {
-            if (self.node !== undefined && self.node.nodeMetadata() !== undefined &&
-                self.node.nodeMetadata[self.slotId()] !== undefined &&
-                self.node.nodeMetadata[self.slotId()].slots.clear === false) {
+            if (self.node !== undefined && self.node.metadata() !== undefined && self.node.metadata().clear === false) {
                 return false;
             }
             if (self.osds().length === 0) {
@@ -55,10 +53,10 @@ define([
             return canClear;
         });
         self.canFill = ko.computed(function() {
-           return self.node.nodeMetadata().slots.fill
+           return self.node.metadata().fill
         });
         self.canFillAdd = ko.computed(function() {
-            return self.node.nodeMetadata().slots.fill_add
+            return self.node.metadata().fill_add
         });
         self.canClaim = ko.computed(function() {
             var claimable = false;
@@ -109,7 +107,7 @@ define([
                     osds.push(osd);
                 }
             });
-            data[self.slotId()] = osds;
+            data[self.slotID()] = {slot: self, osds: osds};
             self.node.claimOSDs(data, self.node.guid());
         };
     };

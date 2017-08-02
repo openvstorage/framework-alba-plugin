@@ -34,20 +34,19 @@ define([
         self.device          = ko.observable();
         self.guid            = ko.observable();
         self.ignoreNext      = ko.observable(false);
+        self.ips             = ko.observableArray([]);
         self.loaded          = ko.observable(false);
         self.mountpoint      = ko.observable();
         self.nodeID          = ko.observable();
         self.osdID           = ko.observable(id);
         self.parentABGuid    = ko.observable(parentAlbaBackend.guid());
-        self.port            = ko.observable();
+        self.port            = ko.observable().extend({numeric: {min: 1, max: 65535}});
         self.processing      = ko.observable(false);
+        self.slotID          = ko.observable();
         self._status         = ko.observable();  // can be ok, warning, error
         self.statusDetail    = ko.observable();
-        self.usage           = ko.observable();
-        self.slotId          = ko.observable();
         self.type            = ko.observable();
-        self.port            = ko.observable().extend({numeric: {min: 1, max: 65536}});
-        self.ips             = ko.observableArray([]);
+        self.usage           = ko.observable();
 
         // Computed
         self.status = ko.computed(function() {
@@ -84,7 +83,7 @@ define([
                 self._status(data.status);
                 self.nodeID(data.node_id);
                 if (self.slot !== undefined) {
-                    self.slotId(self.slot.slotId());
+                    self.slotID(self.slot.slotID());
                 }
                 generic.trySet(self.guid, data, 'guid');
                 generic.trySet(self.statusDetail, data, 'status_detail');
@@ -109,7 +108,7 @@ define([
 
         self.claim = function() {
             var data = {};
-            data[self.slotId()] = [self];
+            data[self.slotID()] = {slot: self.slot, osds: [self]};
             self.node.claimOSDs(data, self.node.guid());
         };
         self.remove = function() {

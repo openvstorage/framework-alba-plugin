@@ -160,10 +160,10 @@ class AlbaController(object):
         Adds and claims an osd to the backend
         :param alba_backend_guid: Guid of the ALBA Backend
         :type alba_backend_guid: str
-        :param alba_node_guid: guid of the alba node
-        :type alba_node_guid: str
         :param osds: OSDs to add to the ALBA Backend
         :type osds: list
+        :param alba_node_guid: Guid of the alba node
+        :type alba_node_guid: str
         :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
         :type metadata: dict
         :raises ValueError: - When parameters are missing
@@ -243,7 +243,8 @@ class AlbaController(object):
         :raises RuntimeError: - When metadata cannot be found
                               - When no preset are found or if no presets are available
         :raises DecommissionedException: - When the backend to link its state is decommissioned
-        :return:
+        :return: OSDs which couldn't be claimed and unclaimed OSDs
+        :rtype: tuple
         """
         alba_backend = AlbaBackend(alba_backend_guid)
         config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
@@ -272,7 +273,8 @@ class AlbaController(object):
                 ovs_client = OVSClient(ip=connection_info['host'],
                                        port=connection_info['port'],
                                        credentials=(connection_info['username'], connection_info['password']),
-                                       cache_store=VolatileFactory.get_client())
+                                       cache_store=VolatileFactory.get_client(),
+                                       version=6)
                 backend_info = ovs_client.get('/alba/backends/{0}'.format(metadata['backend_info']['linked_guid']),
                                               params={'contents': 'presets'})
                 presets = [preset for preset in backend_info['presets'] if preset['name'] == preset_name]
@@ -1491,7 +1493,7 @@ class AlbaController(object):
         junction_service.save()
 
     @staticmethod
-    @add_hooks('nodeinstallation', ['firstnode', 'extranode'])  # Arguments: cluster_ip and for extranode also master_ip
+    @add_hooks('nodeinstallation', ['firstnode', 'extranode'])  # Arguments: cluster_ip and for extra node also master_ip
     @add_hooks('plugin', ['postinstall'])  # Arguments: ip
     def _add_base_configuration(*args, **kwargs):
         _ = args, kwargs

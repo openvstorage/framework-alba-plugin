@@ -16,16 +16,26 @@
 /*global define */
 define(['knockout'], function(ko){
     "use strict";
+
     var singleton = function() {
-        return {
-            confirmOnly: ko.observable(false),
+        var data = {
             node: ko.observable(),
-            albaBackend: ko.observable(),
-            slot: ko.observable(),
-            osdTypes: ko.observableArray(['ASD', 'AD']),
-            formData: ko.observableArray([]),  // Will be filled in when gather is activated
-            completed: ko.observable()
+            slots: ko.observableArray([]),
+            formData: ko.observableArray([]),
+            completed: ko.observable(),
+            confirmOnly: ko.observable()
         };
+        
+        // Computed
+        data.hasHelpText = ko.computed(function() {
+            var hasText = {};
+            $.each(data.formData(), function(index, item) {
+                var key = 'alba:wizards.add_osd.gather.' + item.field + '_help';
+                hasText[item.field] = key !== $.t(key);
+            });
+            return hasText;
+        });
+        return data;
     };
     return singleton();
 });

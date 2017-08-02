@@ -431,15 +431,13 @@ define([
             });
             return node_to_return
         };
-        self.addOSDs = function(node, slot){
+        self.addOSDs = function(node, slot){  // Add single OSD in Slot on ALBA node
             var deferred = $.Deferred(),
                 wizard = new AddOSDWizard({
                     node: node,
-                    slot: slot,
+                    slots: [slot],
                     modal: true,
-                    completed: deferred,
-                    albaBackend: self.albaBackend(),
-                    confirmOnly: false
+                    completed: deferred
                 });
             wizard.closing.always(function() {
                 deferred.resolve();

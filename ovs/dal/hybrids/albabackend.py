@@ -76,7 +76,7 @@ class AlbaBackend(DataObject):
             node_id = _node.node_id
             _storage_map[node_id] = {}
             for slot_id, _slot_data in _node.stack.iteritems():
-                # Prefill some info
+                # Pre-fill some info
                 _storage_map[node_id][slot_id] = {'osds': {},
                                                   'name': slot_id,
                                                   'status': 'error',

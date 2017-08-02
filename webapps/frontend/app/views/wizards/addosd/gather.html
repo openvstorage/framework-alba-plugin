@@ -17,28 +17,30 @@ but WITHOUT ANY WARRANTY of any kind.
 -->
 <div>
     <!-- ko foreach: data.formData() -->
-        <div class="form-group" data-bind="css: { 'has-error': $parent.canContinue().fields.contains(field) }">
-            <label class="col-lg-3 control-label" data-bind="attr: { 'for': field }, translate: 'alba:wizards.add_osd.gather.' + field"></label>
-            <div class="col-lg-8">
-                <!-- ko if: input.type !== 'dropdown' -->
-                    <input class="autofocus form-control" style="width: 150px;"
-                           data-bind="value: data,
-                                      valueUpdate: 'afterkeydown',
-                                      attr:{'id': field, 'type': input.type}"/>
-                <!-- /ko -->
-                <!-- ko if: input.type === 'dropdown' -->
-                    <span data-bind="dropdown: {
-                                         items: input.items, target: data,
-                                         text: function(item) {
-                                             return $.t('alba:generic.osdtypes.' + item.toLowerCase());
-                                         }
-                                     }"></span>
-                <!-- /ko -->
-                <!-- ko if: $root.hasHelpText()[field] -->
-                    <p class="help-block" data-bind="translate: 'alba:wizards.add_osd.gather.' + field + '_help'"></p>
-                <!-- /ko -->
+        <!-- ko if: display.contains('gather') -->
+            <div class="form-group" data-bind="css: { 'has-error': $parent.canContinue().fields.contains(field) }">
+                <label class="col-lg-3 control-label" data-bind="attr: { 'for': field }, translate: 'alba:wizards.add_osd.gather.' + field"></label>
+                <div class="col-lg-8">
+                    <!-- ko if: input.type !== 'dropdown' -->
+                        <input class="autofocus form-control" style="width: 150px;"
+                               data-bind="value: data,
+                                          valueUpdate: 'afterkeydown',
+                                          attr:{'id': field, 'type': input.type}"/>
+                    <!-- /ko -->
+                    <!-- ko if: input.type === 'dropdown' -->
+                        <span data-bind="dropdown: {
+                                             items: input.items, target: data,
+                                             text: function(item) {
+                                                 return $.t('alba:generic.osdtypes.' + item.toLowerCase());
+                                             }
+                                         }"></span>
+                    <!-- /ko -->
+                    <!-- ko if: $parent.data.hasHelpText()[field] -->
+                        <p class="help-block" data-bind="translate: 'alba:wizards.add_osd.gather.' + field + '_help'"></p>
+                    <!-- /ko -->
+                </div>
             </div>
-        </div>
+        <!-- /ko -->
     <!-- /ko -->
     <div class="alert alert-danger" data-bind="visible: !canContinue().value" style="margin-bottom: -10px;">
         <p data-bind="visible: canContinue().reasons.length === 0"><span data-i18n="ovs:generic.errorsfound"></span></p>

@@ -16,18 +16,51 @@ Open vStorage is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY of any kind.
 -->
 <div>
-    <div>
+    <!-- ko foreach: data.formData() -->
+        <!-- ko if: display.contains('confirm') -->
+            <div class="form-group" data-bind="css: { 'has-error': $parent.canContinue().fields.contains(field) }">
+                <label class="col-lg-3 control-label" data-bind="attr: { 'for': field }, translate: 'alba:wizards.add_osd.gather.' + field"></label>
+                <div class="col-lg-8">
+                    <!-- ko if: input.type !== 'dropdown' -->
+                        <input class="autofocus form-control" style="width: 150px;"
+                               data-bind="value: data,
+                                          valueUpdate: 'afterkeydown',
+                                          attr:{'id': field, 'type': input.type}"/>
+                    <!-- /ko -->
+                    <!-- ko if: input.type === 'dropdown' -->
+                        <span data-bind="dropdown: {
+                                             items: input.items, target: data,
+                                             text: function(item) {
+                                                 return $.t('alba:generic.osdtypes.' + item.toLowerCase());
+                                             }
+                                         }"></span>
+                    <!-- /ko -->
+                    <!-- ko if: $parent.data.hasHelpText()[field] -->
+                        <p class="help-block" data-bind="translate: 'alba:wizards.add_osd.gather.' + field + '_help'"></p>
+                    <!-- /ko -->
+                </div>
+            </div>
+        <!-- /ko -->
+    <!-- /ko -->
+    <!-- ko if: !data.confirmOnly() -->
         <div>
-            <p data-i18n="alba:wizards.add_osd.confirm.basic_info"></p>
-            <p data-i18n="alba:wizards.add_osd.confirm.detailed_info"></p>
+            <div>
+                <p data-i18n="alba:wizards.add_osd.confirm.basic_info"></p>
+                <p data-i18n="alba:wizards.add_osd.confirm.detailed_info"></p>
+            </div>
+            <ul>
+                <!-- ko foreach: data.formData() -->
+                    <li>
+                        <b data-bind="translate: 'alba:wizards.add_osd.confirm.' + field"></b>
+                        <!-- ko if: field === 'osd_type' -->
+                            <span data-bind="translate: 'alba:generic.osdtypes.' + (data() !== undefined ? data().toLowerCase() : ''), visible: data() !== undefined"></span>
+                        <!-- /ko -->
+                        <!-- ko if: field !== 'osd_type' -->
+                            <span data-bind="text: data, visible: data() !== undefined"></span>
+                        <!-- /ko -->
+                    </li>
+                <!-- /ko -->
+            </ul>
         </div>
-        <ul>
-            <!-- ko foreach: data.formData() -->
-                <li>
-                    <b data-bind="translate: 'alba:wizards.add_osd.confirm.' + field"></b>
-                    <span data-bind="text: data, visible: data() !== undefined"></span>
-                </li>
-            <!-- /ko -->
-        </ul>
-    </div>
+    <!-- /ko -->
 </div>

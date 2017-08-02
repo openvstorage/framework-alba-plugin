@@ -17,12 +17,12 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
     'ovs/generic', 'ovs/api', 'ovs/shared',
-    '../wizards/removeosd/index',
-    '../containers/albaslot'
+    '../containers/albaslot',
+    '../wizards/addosd/index', '../wizards/removeosd/index'
 ], function($, app, ko, dialog,
             generic, api, shared,
-            RemoveOSDWizard,
-            Slot) {
+            Slot,
+            AddOSDWizard, RemoveOSDWizard) {
     "use strict";
     return function(nodeID, albaBackend, parentVM) {
         var self = this;
@@ -48,9 +48,9 @@ define([
         self.ips               = ko.observableArray([]);
         self.loaded            = ko.observable(false);
         self.localSummary      = ko.observable();
+        self.metadata          = ko.observable();
         self.name              = ko.observable();
         self.nodeID            = ko.observable(nodeID);
-        self.nodeMetadata      = ko.observable();
         self.osds              = ko.observableArray([]);
         self.port              = ko.observable();
         self.readOnlyMode      = ko.observable(false);
@@ -61,6 +61,16 @@ define([
         self.username          = ko.observable();
 
         // Computed
+        self.canInitializeAll = ko.computed(function() {
+            var hasUninitialized = false;
+            $.each(self.slots(), function(index, slot) {
+                if (slot.osds().length === 0 && slot.processing() === false) {
+                    hasUninitialized = true;
+                    return false;
+                }
+            });
+            return hasUninitialized;
+        });
         self.canClaimAll = ko.computed(function() {
             if (self.albaBackend === undefined) {
                 return false;
@@ -117,35 +127,35 @@ define([
             self.type(data.type);
             self.username(data.username);
             generic.trySet(self.ips, data, 'ips');
-            generic.trySet(self.nodeMetadata, data, 'node_metadata');
+            generic.trySet(self.metadata, data, 'node_metadata');
             generic.trySet(self.readOnlyMode, data, 'read_only_mode');
             generic.trySet(self.localSummary, data, 'local_summary');
             generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
+            
             // Add slots
             var slotIds = Object.keys(data.stack);
             generic.crossFiller(
                 slotIds, self.slots,
-                function(slotId) {
-                    return new Slot(slotId, self, self.albaBackend);
-                }, 'slotId'
+                function(slotID) {
+                    return new Slot(slotID, self, self.albaBackend);
+                }, 'slotID'
             );
             $.each(self.slots(), function (index, slot) {
-                slot.fillData(data.stack[slot.slotId()])
+                slot.fillData(data.stack[slot.slotID()])
             });
             self.slots.sort(function(a, b) {
-                return a.slotId() < b.slotId() ? -1 : 1
+                return a.slotID() < b.slotID() ? -1 : 1
             });
             self.slotsLoading(false);
             self.loaded(true);
         };
         self.claimAll = function() {
-            if (self.readOnlyMode()) {
+            if (!self.canClaimAll() || self.readOnlyMode() || !self.shared.user.roles().contains('manage')) {
                 return;
             }
             var osds = {};
             if (self.albaBackend !== undefined) {
                 $.each(self.slots(), function (index, slot) {
-                    osds[slot.slotId()] = [];
                     if (slot.processing()) {
                         return true;
                     }
@@ -153,13 +163,166 @@ define([
                         if (osd.albaBackendGuid() !== undefined || osd.processing()) {
                             return true;
                         }
-                        osds[slot.slotId()].push(osd);
+                        if (!osds.hasOwnProperty(slot.slotID())) {
+                            osds[slot.slotID()] = {osds: []};
+                        }
+                        osds[slot.slotID()].osds.push(osd);
+                        if (!osds[slot.slotID()].hasOwnProperty('slot')) {
+                            osds[slot.slotID()].slot = slot;
+                        }
                     });
                 });
             }
-            return self.albaBackend.claimOSDs(osds, self.guid());
+            return self.claimOSDs(osds, self.guid());
         };
-        self.claimOSDs = self.albaBackend !== undefined ? self.albaBackend.claimOSDs : undefined;
+        self.claimOSDs = function(osdsToClaim, nodeGuid) {
+            return $.Deferred(function(deferred) {
+                var osdData = [], allOsds = [], osdIDs = [];
+                $.each(osdsToClaim, function(slotID, slotInfo) {
+                    slotInfo.slot.processing(true);
+                    $.each(slotInfo.osds, function(index, osd) {
+                        osdData.push({
+                            osd_type: osd.type(),
+                            ip: osd.ip(),
+                            port: osd.port(),
+                            slot_id: slotID
+                        });
+                        osd.processing(true);
+                        osdIDs.push(osd.osdID());
+                        allOsds.push(osd);
+                    });
+                });
+                app.showMessage(
+                    $.t('alba:osds.claim.warning', { what: '<ul><li>' + osdIDs.join('</li><li>') + '</li></ul>', multi: allOsds.length === 1 ? '' : 's' }).trim(),
+                    $.t('alba:osds.claim.title', {multi: allOsds.length === 1 ? '' : 's'}),
+                    [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
+                )
+                    .done(function(answer) {
+                        if (answer === $.t('ovs:generic.yes')) {
+                            if (allOsds.length === 1) {
+                                generic.alertInfo(
+                                    $.t('alba:osds.claim.started'),
+                                    $.t('alba:osds.claim.started_msg_single', {what: allOsds[0].osdID()})
+                                );
+                            } else {
+                                generic.alertInfo(
+                                    $.t('alba:osds.claim.started'),
+                                    $.t('alba:osds.claim.started_msg_multi')
+                                );
+                            }
+                            api.post('alba/backends/' + self.guid() + '/add_osds', {
+                                data: {
+                                    osds: osdData,
+                                    albanode_guid: nodeGuid
+                                }
+                            })
+                                .then(self.shared.tasks.wait)
+                                .done(function(data) {
+                                    if (data.length === 0) {
+                                        if (allOsds.length === 1) {
+                                            generic.alertSuccess(
+                                                $.t('alba:osds.claim.complete'),
+                                                $.t('alba:osds.claim.success_single', {what: allOsds[0].osdID()})
+                                            );
+                                        } else {
+                                            generic.alertSuccess(
+                                                $.t('alba:osds.claim.complete'),
+                                                $.t('alba:osds.claim.success_multi')
+                                            );
+                                        }
+                                    } else {
+                                        if (allOsds.length === 1 || allOsds.length === data.length) {
+                                            generic.alertError(
+                                                $.t('alba:osds.claim.failed_already_claimed'),
+                                                $.t('alba:osds.claim.failed_already_claimed_all')
+                                            );
+                                        } else {
+                                            generic.alertWarning(
+                                                $.t('alba:osds.claim.warning_already_claimed'),
+                                                $.t('alba:osds.claim.warning_already_claimed_some', {requested: allOsds.length, actual: data.length})
+                                            );
+                                        }
+                                    }
+                                    $.each(allOsds, function(index, osd) {
+                                        osd.ignoreNext(true);
+                                        osd._status('claimed');
+                                        osd.processing(false);
+                                    });
+                                    deferred.resolve();
+                                })
+                                .fail(function(error) {
+                                    error = generic.extractErrorMessage(error);
+                                    generic.alertError(
+                                        $.t('ovs:generic.error'),
+                                        $.t('alba:osds.claim.failed', { multi: allOsds.length === 1 ? '' : 's', why: error })
+                                    );
+                                    $.each(osdsToClaim, function(_, slotInfo) {
+                                        var slot = slotInfo[0], osds = slotInfo[1];
+                                        slot.processing(false);
+                                        $.each(osds, function(index, osd) {
+                                            osd.processing(false);
+                                        });
+                                    });
+                                    deferred.reject();
+                                });
+                        } else {
+                            $.each(osdsToClaim, function(_, slotInfo) {
+                                slotInfo.slot.processing(false);
+                                $.each(slotInfo.osds, function(index, osd) {
+                                    osd.processing(false);
+                                });
+                            });
+                            deferred.reject();
+                        }
+                    })
+                    .fail(function() {
+                        $.each(osdsToClaim, function(_, slotInfo) {
+                            slotInfo.slot.processing(false);
+                            $.each(slotInfo.osds, function(index, osd) {
+                                osd.processing(false);
+                            });
+                        });
+                        deferred.reject();
+                    });
+            }).promise();
+        };
+        self.addOSDs = function(node) {  // Add OSDs on all empty Slots
+            if (!self.canInitializeAll() || self.readOnlyMode() || !self.shared.user.roles().contains('manage')) {
+                return;
+            }
+            var slots = [];
+            $.each(node.slots(), function(index, slot) {
+                if (slot.osds().length === 0 && slot.processing() === false) {
+                    slots.push(slot);
+                }
+            });
+            var deferred = $.Deferred(),
+                wizard = new AddOSDWizard({
+                    node: node,
+                    slots: slots,
+                    modal: true,
+                    completed: deferred
+                });
+            wizard.closing.always(function() {
+                deferred.resolve();
+            });
+            
+            $.each(slots, function(index, slot) {
+                slot.processing(true);
+                $.each(slot.osds(), function(_, osd) {
+                    osd.processing(true);
+                });
+            });
+            dialog.show(wizard);
+            deferred.always(function() {
+                $.each(slots, function(index, slot) {
+                    slot.processing(false);
+                    $.each(slot.osds(), function(_, osd) {
+                        osd.processing(false);
+                    });
+                });
+            });
+        };
         self.removeOSD = function(asd) {
             var matchingSlot = undefined;
             $.each(self.slots(), function(index, slot) {
@@ -221,17 +384,17 @@ define([
             return $.Deferred(function(deferred) {
                 generic.alertInfo(
                     $.t('alba:slots.remove.started'),
-                    $.t('alba:slots.remove.started_msg', {what: slot.slotId()})
+                    $.t('alba:slots.remove.started_msg', {what: slot.slotID()})
                 );
                 (function(currentSlot, dfd) {
                     api.post('alba/nodes/' + self.guid() + '/remove_slot', {
-                        data: { slot: currentSlot.slotId() }
+                        data: { slot: currentSlot.slotID() }
                     })
                         .then(self.shared.tasks.wait)
                         .done(function() {
                             generic.alertSuccess(
                                 $.t('alba:slots.remove.complete'),
-                                $.t('alba:slots.remove.success', {what: currentSlot.slotId()})
+                                $.t('alba:slots.remove.success', {what: currentSlot.slotID()})
                             );
                             dfd.resolve();
                         })
@@ -239,7 +402,7 @@ define([
                             error = generic.extractErrorMessage(error);
                             generic.alertError(
                                 $.t('ovs:generic.error'),
-                                $.t('alba:slots.remove.failed', {what: currentSlot.slotId(), why: error})
+                                $.t('alba:slots.remove.failed', {what: currentSlot.slotID(), why: error})
                             );
                             dfd.reject();
                         })
@@ -254,6 +417,9 @@ define([
             }).promise();
         };
         self.deleteNode = function() {
+            if (!self.canDelete() || !self.shared.user.roles().contains('manage')) {
+                return;
+            }
             app.showMessage(
                 $.t('alba:node.remove.warning'),
                 $.t('alba:node.remove.title'),

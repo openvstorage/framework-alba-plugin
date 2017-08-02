@@ -39,6 +39,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     base_name = 'albanodes'
     return_exceptions = ['albanodes.create', 'albanodes.destroy']
 
+    # noinspection PyProtectedMember
     @log()
     @required_roles(['read'])
     @return_list(AlbaNode)
@@ -173,24 +174,24 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaNode)
-    def fill_slot(self, albanode, slot_id, osds, metadata=None):
+    def fill_slots(self, albanode, slot_information, metadata=None):
         """
-        Fills a slot
-        :param albanode: The AlbaNode on which a slot will be filled
-        :type albanode: AlbaNode
-        :param slot_id: The ID of the slot to be filled
-        :type slot_id: str
-        :param osds: A list of OSD data
-        :type osds: list
+        Fills 1 or more Slots
+        :param albanode: The AlbaNode on which the Slots will be filled
+        :type albanode: ovs.dal.hybrids.albanode.AlbaNode
+        :param slot_information: A list of Slot information
+        :type slot_information: list
         :param metadata: Extra metadata if required
         :type metadata: dict
         """
-        return AlbaNodeController.fill_slot.delay(albanode.guid, slot_id, osds, metadata)
+        return AlbaNodeController.fill_slots.delay(node_guid=albanode.guid,
+                                                   slot_information=slot_information,
+                                                   metadata=metadata)
 
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
-    @load(AlbaNode)
+    @load(AlbaNode, max_version=8)
     def initialize_disks(self, albanode, disks):
         """
         Initializes disks
@@ -199,6 +200,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :param disks: Disks to initialize (dict from type {disk_alias (str): amount of asds (int)})
         :type disks: dict
         """
+        # noinspection PyUnresolvedReferences
         return AlbaNodeController.initialize_disks.delay(albanode.guid, disks)
 
     @action()
@@ -315,7 +317,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @load(AlbaNode)
     def get_logfiles(self, albanode, local_storagerouter):
         """
-        Retrieve the logfiles of an ALBA node
+        Retrieve the log files of an ALBA node
         :param albanode: ALBA node to restart a disk from
         :type albanode: AlbaNode
         :param local_storagerouter: The StorageRouter on which the call was initiated and on which the logs will end up

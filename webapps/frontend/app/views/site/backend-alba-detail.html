@@ -284,7 +284,7 @@ but WITHOUT ANY WARRANTY of any kind.
                             <th data-i18n="alba:generic.node"></th>
                             <th data-bind="if: $root.anyCollapsed()" data-i18n="alba:generic.node_summary" style="width: 10em;"></th>
                             <th data-i18n="alba:generic.nodetype"></th>
-                            <th data-i18n="ovs:generic.actions" style="width: 55px;"></th>
+                            <th data-i18n="ovs:generic.actions" style="width: 80px;"></th>
                         </tr>
                     </thead>
                     <!-- ko foreach: registeredNodes -->
@@ -337,27 +337,28 @@ but WITHOUT ANY WARRANTY of any kind.
                                                      text: (localSummary() === undefined ? 0 : localSummary().devices.red)"></span>
                             </td>
                             <td style="border-top: 0;" data-bind="text: type"></td>
-                            <td style="width: 55px; border-top: 0;">
-                                <i data-bind="attr: { id: 'claim_all_' + nodeID() },
-                                              click: function() {
-                                                  if (canClaimAll() && $root.shared.user.roles().contains('manage')) {
-                                                      claimAll();
-                                                  }
-                                              },
-                                              tooltip: 'alba:generic.claim_all',
-                                              style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() && !readOnlyMode() ? 'black' : 'lightgrey' }"
-                                   class="hand fa fa-fw" data-i18n="[html]alba:icons.claim">
-                                </i>
-                                <i data-bind="attr: { id: 'delete_' + nodeID() },
-                                              click: function() {
-                                                  if (canDelete() && $root.shared.user.roles().contains('manage')) {
-                                                      deleteNode();
-                                                  }
-                                              },
-                                              tooltip: 'alba:generic.remove',
-                                              style: { color: $root.shared.user.roles().contains('manage') && canDelete() ? 'black' : 'lightgrey' }"
-                                   class="hand fa fa-fw" data-i18n="[html]alba:icons.delete">
-                                </i>
+                            <td style="width: 80px; border-top: 0;">
+                                <span class="hand fa fa-fw"
+                                      data-i18n="[html]alba:icons.initialize"
+                                      data-bind="attr: { id: 'initialize_all_' + nodeID() },
+                                                 click: function() { addOSDs($data); },
+                                                 tooltip: 'alba:generic.initialize_all',
+                                                 style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !readOnlyMode() ? 'black': 'lightgrey' }">
+                                </span>
+                                <span class="hand fa fa-fw"
+                                      data-i18n="[html]alba:icons.claim"
+                                      data-bind="attr: { id: 'claim_all_' + nodeID() },
+                                                 click: function() { claimAll(); },
+                                                 tooltip: 'alba:generic.claim_all',
+                                                 style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() && !readOnlyMode() ? 'black' : 'lightgrey' }">
+                                </span>
+                                <span class="hand fa fa-fw"
+                                      data-i18n="[html]alba:icons.delete"
+                                      data-bind="attr: { id: 'delete_' + nodeID() },
+                                                 click: function() { deleteNode(); },
+                                                 tooltip: 'alba:generic.remove',
+                                                 style: { color: $root.shared.user.roles().contains('manage') && canDelete() ? 'black' : 'lightgrey' }">
+                                </span>
                             </td>
                         </tr>
                         <tr data-bind="visible: expanded()">
@@ -368,7 +369,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <!-- /ko -->
                                 <div data-bind="foreach: slots">
                                     <div class="btn-group" role="group" style="margin-bottom: 10px; margin-left: 10px;"
-                                         data-bind="attr: { 'data-status': status(), 'id': slotId(), 'data-statusdetail': statusDetail() }">
+                                         data-bind="attr: { 'data-status': status(), 'id': slotID(), 'data-statusdetail': statusDetail() }">
                                         <div class="btn-group" role="group">
                                             <button type="button" class="btn btn-small dropdown-toggle" data-toggle="dropdown"
                                                     style="width: 57px; position: relative; text-align: left;"
@@ -380,7 +381,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                                                }">
                                                 <span style="display: inline-block;">
                                                     <!-- ko if: !processing() -->
-                                                        <abbr data-bind="attr: { 'title': slotId() }">
+                                                        <abbr data-bind="attr: { 'title': slotID() }">
                                                             <i class="hand fa fa-fw" data-i18n="[html]ovs:icons.vdisks"></i>
                                                         </abbr>
                                                     <!-- /ko -->
@@ -411,7 +412,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                                 <li>
                                                     <a>
                                                         <span data-i18n="ovs:generic.name"></span>:
-                                                        <span data-bind="shortText: slotId(), maxLength: 25, middle: true"></span>
+                                                        <span data-bind="shortText: slotID(), maxLength: 25, middle: true"></span>
                                                     </a>
                                                 </li>
                                                 <!-- ko if: (status() === 'error' || status() === 'warning') && statusDetail() !== undefined && statusDetail() !== '' -->

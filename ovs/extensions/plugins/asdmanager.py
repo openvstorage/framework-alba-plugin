@@ -24,6 +24,7 @@ import base64
 import inspect
 import logging
 import requests
+from ovs_extensions.generic.exceptions import InvalidCredentialsError, NotFoundError
 from ovs.log.log_handler import LogHandler
 try:
     from requests.packages.urllib3 import disable_warnings
@@ -38,20 +39,6 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from requests.packages.urllib3.exceptions import SNIMissingWarning
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 logging.getLogger('requests').setLevel(logging.WARNING)
-
-
-class InvalidCredentialsError(RuntimeError):
-    """
-    Invalid credentials error
-    """
-    pass
-
-
-class NotFoundError(RuntimeError):
-    """
-    Method not found error
-    """
-    pass
 
 
 class ASDManagerClient(object):
