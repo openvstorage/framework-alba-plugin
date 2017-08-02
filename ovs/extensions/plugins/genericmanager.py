@@ -40,7 +40,9 @@ class GenericManagerClient(object):
                 stack[osd.slot_id] = {'state': 'ok',
                                       'available': False,
                                       'osds': {}}
-            stack[osd.slot_id]['osds'][osd.osd_id] = osd.stack_info
+            stack_info = osd.stack_info
+            stack_info['status'] = 'ok'
+            stack[osd.slot_id]['osds'][osd.osd_id] = stack_info
         return stack
 
     def fill_slot(self, slot_id, extra):

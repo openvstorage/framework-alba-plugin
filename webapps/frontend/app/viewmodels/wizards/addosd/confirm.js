@@ -35,7 +35,7 @@ define([
         // Function
         self.gatherSlotData = function() {
             // Gather info from the dynamic form
-            var slots = [];
+            var slotData = [];
             var fields = []; // Remove this when the type is fetched by alba
             $.each(self.data.slots(), function(_, slot) {
                 var osdData = {
@@ -50,20 +50,20 @@ define([
                 if (!fields.contains('osd_type')) {
                     osdData.osd_type = 'ASD';
                 }
-                slots.push(osdData);
+                slotData.push(osdData);
             });
-            return slots;
+            return slotData;
         };
         self.finish = function () {
             return $.Deferred(function (deferred) {
-                (function(slots, node, completed, dfd) {
-                    var osdAmount = slots[0].hasOwnProperty('count') ? slots[0].count : 1;
-                    var slotAmount = slots.length;
+                (function(slotData, node, completed, dfd) {
+                    var osdAmount = slotData[0].hasOwnProperty('count') ? slotData[0].count : 1;
+                    var slotAmount = slotData.length;
                     if (slotAmount === 1) {
                         generic.alertInfo(
                             $.t('alba:wizards.add_osd.confirm.started'),
                             $.t('alba:wizards.add_osd.confirm.started_msg', {
-                                name: slots[0].slot_id,
+                                name: slotData[0].slot_id,
                                 multi: osdAmount > 1 ? 's' : '',
                                 amount: osdAmount
                             })
@@ -77,14 +77,14 @@ define([
                             })
                         );
                     }
-                    api.post('alba/nodes/' + node.guid() + '/fill_slots', {data: {slot_information: slots}})
+                    api.post('alba/nodes/' + node.guid() + '/fill_slots', {data: {slot_information: slotData}})
                     .then(self.shared.tasks.wait)
                     .done(function () {
                         if (slotAmount === 1) {
                             generic.alertSuccess(
                                 $.t('alba:wizards.add_osd.confirm.success'),
                                 $.t('alba:wizards.add_osd.confirm.success_msg', {
-                                    name: slots[0].slot_id,
+                                    name: slotData[0].slot_id,
                                     multi: osdAmount > 1 ? 's': '',
                                     amount: osdAmount
                                 })
@@ -107,7 +107,7 @@ define([
                                 $.t('alba:wizards.add_osd.confirm.failure'),
                                 $.t('alba:wizards.add_osd.confirm.failure_msg', {
                                     why: error,
-                                    name: slots[0].slot_id,
+                                    name: slotData[0].slot_id,
                                     multi: osdAmount > 1 ? 's': '',
                                     amount: osdAmount
                                 })

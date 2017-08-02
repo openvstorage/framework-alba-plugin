@@ -92,13 +92,6 @@ class AlbaBackend(DataObject):
         for thread in threads:
             thread.join()
 
-        # Mix in usage information
-        # for asd_id, stats in self.osd_statistics.iteritems():
-        #     if asd_id in asd_map:
-        #         asd_map[asd_id]['usage'] = {'size': int(stats['capacity']),
-        #                                     'used': int(stats['disk_usage']),
-        #                                     'available': int(stats['capacity'] - stats['disk_usage'])}
-
         # Load information from alba
         backend_interval_key = '/ovs/alba/backends/{0}/gui_error_interval'.format(self.guid)
         if Configuration.exists(backend_interval_key):

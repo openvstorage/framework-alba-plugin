@@ -341,7 +341,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <span class="hand fa fa-fw"
                                       data-i18n="[html]alba:icons.initialize"
                                       data-bind="attr: { id: 'initialize_all_' + nodeID() },
-                                                 click: function() { addOSDs($data); },
+                                                 click: function() { addOSDs(); },
                                                  tooltip: 'alba:generic.initialize_all',
                                                  style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !readOnlyMode() ? 'black': 'lightgrey' }">
                                 </span>
@@ -362,7 +362,7 @@ but WITHOUT ANY WARRANTY of any kind.
                             </td>
                         </tr>
                         <tr data-bind="visible: expanded()">
-                            <td colspan="5" style="border-top: 0; padding-left: 35px;">
+                            <td colspan="6" style="border-top: 0; padding-left: 35px;">
                                 <!-- ko if: slots().length === 0 -->
                                     <i style="padding-left: 12px;" data-bind="visible: !slotsLoading()" data-i18n="alba:generic.slots.notfound"></i>
                                     <i style="padding-left: 12px;" data-bind="visible: slotsLoading()" data-i18n="alba:generic.slots.loading"></i>
@@ -526,7 +526,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                         <!-- /ko -->
                                         <!-- ko if: (canFill() === true || canFillAdd() === true) && osds().length === 0 -->
                                         <div class="btn-group" role="group">
-                                            <button class="btn btn-default" id="buttonAddOsd" data-bind="click: function() { $parents[1].addOSDs($parent, $data)}, enable: !$data.processing() && !$parent.readOnlyMode()">
+                                            <button class="btn btn-default" id="buttonAddOsd" data-bind="click: function() { $parent.addOSDs($data)}, enable: !$data.processing() && !$parent.readOnlyMode()">
                                                 <span class="fa" data-i18n="[html]ovs:icons.add"></span>
                                             </button>
                                         </div>
@@ -561,7 +561,7 @@ but WITHOUT ANY WARRANTY of any kind.
                     <!-- ko if: rNodesLoading() || dNodesLoading()-->
                     <tbody>
                         <tr>
-                            <td colspan="5">
+                            <td colspan="6">
                                 <i class="fa fa-spin" data-i18n="[html]ovs:icons.loading"></i>
                             </td>
                         </tr>

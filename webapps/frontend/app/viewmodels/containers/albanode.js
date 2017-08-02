@@ -133,16 +133,30 @@ define([
             generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
             
             // Add slots
-            var slotIds = Object.keys(data.stack);
-            generic.crossFiller(
-                slotIds, self.slots,
-                function(slotID) {
-                    return new Slot(slotID, self, self.albaBackend);
-                }, 'slotID'
-            );
-            $.each(self.slots(), function (index, slot) {
-                slot.fillData(data.stack[slot.slotID()])
-            });
+            var slotIDs = Object.keys(data.stack);
+            if (self.type() === 'GENERIC') {
+                slotIDs.sort(function(slot1, slot2) {
+                    return slot1 < slot2 ? 1 : -1; // Reverse sort alphabetically
+                });
+                // Initially 1 slotID is passed in, no slots have been created in JS --> 1 slot will be added in the crossfiller
+                // Next refresh (5s) 1 slotID is passed in, 1 slot has been created --> don't create a new slot (to not overwrite the 'processing' flag)
+                // When new slot is added due to a slot being filled, a new slotID is passed (2 in total) --> another slot will be created
+                // So in order to achieve this, we remove the latest added slotID from the list (which is first in list)
+                if (slotIDs.length === self.slots().length) {
+                    slotIDs.splice(0, 1);
+                }    
+            }
+            if (self.type() !== 'GENERIC' || slotIDs.length > self.slots().length) {
+                generic.crossFiller(
+                    slotIDs, self.slots,
+                    function(slotID) {
+                        return new Slot(slotID, self, self.albaBackend);
+                    }, 'slotID'
+                );
+                $.each(self.slots(), function (index, slot) {
+                    slot.fillData(data.stack[slot.slotID()])
+                });
+            }
             self.slots.sort(function(a, b) {
                 return a.slotID() < b.slotID() ? -1 : 1
             });
@@ -173,11 +187,69 @@ define([
                     });
                 });
             }
-            return self.claimOSDs(osds, self.guid());
+            return self.claimOSDs(osds);
         };
-        self.claimOSDs = function(osdsToClaim, nodeGuid) {
+        self.addOSDs = function(slot) {  // Fill the slot specified or all empty Slots if 'slot' is undefined
+            if (!self.canInitializeAll() || self.readOnlyMode() || !self.shared.user.roles().contains('manage')) {
+                return;
+            }
+            var slots = [];
+            $.each(self.slots(), function(index, currentSlot) {
+                if (slot === undefined) {
+                    if (currentSlot.osds().length === 0 && currentSlot.processing() === false) {
+                        slots.push(currentSlot);
+                    }
+                } else if (slot.slotID() === currentSlot.slotID() && currentSlot.osds().length === 0 && currentSlot.processing() === false) {
+                    slots.push(currentSlot);
+                }
+            });
+            var deferred = $.Deferred(),
+                wizardCancelled = false,
+                wizard = new AddOSDWizard({
+                    node: self,
+                    slots: slots,
+                    modal: true,
+                    completed: deferred
+                });
+            wizard.closing.always(function() {
+                wizardCancelled = true;
+                deferred.resolve();
+            });
+            
+            $.each(slots, function(index, slot) {
+                slot.processing(true);
+                $.each(slot.osds(), function(_, osd) {
+                    osd.processing(true);
+                });
+            });
+            dialog.show(wizard);
+            deferred.always(function() {
+                if (wizardCancelled) {
+                    $.each(slots, function(index, slot) {
+                        slot.processing(false);
+                        $.each(slot.osds(), function(_, osd) {
+                            osd.processing(false);
+                        });
+                    });
+                } else {
+                    self.parentVM.fetchNodes(false)
+                        .then(function() {
+                            $.each(slots, function(index, slot) {
+                                slot.processing(false);
+                                $.each(slot.osds(), function(_, osd) {
+                                    osd.processing(false);
+                                });
+                            });
+                        });
+                }
+            });
+        };
+        self.claimOSDs = function(osdsToClaim) {
+            if (self.albaBackend === undefined) {
+                return;
+            }
             return $.Deferred(function(deferred) {
-                var osdData = [], allOsds = [], osdIDs = [];
+                var osdData = [], osdIDs = [];
                 $.each(osdsToClaim, function(slotID, slotInfo) {
                     slotInfo.slot.processing(true);
                     $.each(slotInfo.osds, function(index, osd) {
@@ -189,20 +261,19 @@ define([
                         });
                         osd.processing(true);
                         osdIDs.push(osd.osdID());
-                        allOsds.push(osd);
                     });
                 });
                 app.showMessage(
-                    $.t('alba:osds.claim.warning', { what: '<ul><li>' + osdIDs.join('</li><li>') + '</li></ul>', multi: allOsds.length === 1 ? '' : 's' }).trim(),
-                    $.t('alba:osds.claim.title', {multi: allOsds.length === 1 ? '' : 's'}),
+                    $.t('alba:osds.claim.warning', { what: '<ul><li>' + osdIDs.join('</li><li>') + '</li></ul>', multi: osdIDs.length === 1 ? '' : 's' }).trim(),
+                    $.t('alba:osds.claim.title', {multi: osdIDs.length === 1 ? '' : 's'}),
                     [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
                 )
                     .done(function(answer) {
                         if (answer === $.t('ovs:generic.yes')) {
-                            if (allOsds.length === 1) {
+                            if (osdIDs.length === 1) {
                                 generic.alertInfo(
                                     $.t('alba:osds.claim.started'),
-                                    $.t('alba:osds.claim.started_msg_single', {what: allOsds[0].osdID()})
+                                    $.t('alba:osds.claim.started_msg_single', {what: osdIDs[0]})
                                 );
                             } else {
                                 generic.alertInfo(
@@ -210,19 +281,19 @@ define([
                                     $.t('alba:osds.claim.started_msg_multi')
                                 );
                             }
-                            api.post('alba/backends/' + self.guid() + '/add_osds', {
+                            api.post('alba/backends/' + self.albaBackend.guid() + '/add_osds', {
                                 data: {
                                     osds: osdData,
-                                    albanode_guid: nodeGuid
+                                    alba_node_guid: self.guid()
                                 }
                             })
                                 .then(self.shared.tasks.wait)
                                 .done(function(data) {
                                     if (data.length === 0) {
-                                        if (allOsds.length === 1) {
+                                        if (osdIDs.length === 1) {
                                             generic.alertSuccess(
                                                 $.t('alba:osds.claim.complete'),
-                                                $.t('alba:osds.claim.success_single', {what: allOsds[0].osdID()})
+                                                $.t('alba:osds.claim.success_single', {what: osdIDs[0]})
                                             );
                                         } else {
                                             generic.alertSuccess(
@@ -231,7 +302,7 @@ define([
                                             );
                                         }
                                     } else {
-                                        if (allOsds.length === 1 || allOsds.length === data.length) {
+                                        if (osdIDs.length === 1 || osdIDs.length === data.length) {
                                             generic.alertError(
                                                 $.t('alba:osds.claim.failed_already_claimed'),
                                                 $.t('alba:osds.claim.failed_already_claimed_all')
@@ -239,27 +310,30 @@ define([
                                         } else {
                                             generic.alertWarning(
                                                 $.t('alba:osds.claim.warning_already_claimed'),
-                                                $.t('alba:osds.claim.warning_already_claimed_some', {requested: allOsds.length, actual: data.length})
+                                                $.t('alba:osds.claim.warning_already_claimed_some', {requested: osdIDs.length, actual: data.length})
                                             );
                                         }
                                     }
-                                    $.each(allOsds, function(index, osd) {
-                                        osd.ignoreNext(true);
-                                        osd._status('claimed');
-                                        osd.processing(false);
-                                    });
+                                    self.parentVM.fetchNodes(false)
+                                        .then(function() {
+                                            $.each(osdsToClaim, function(_, slotInfo) {
+                                                slotInfo.slot.processing(false);
+                                                $.each(slotInfo.osds, function(_, osd) {
+                                                    osd.processing(false);
+                                                });
+                                            });
+                                        });
                                     deferred.resolve();
                                 })
                                 .fail(function(error) {
                                     error = generic.extractErrorMessage(error);
                                     generic.alertError(
                                         $.t('ovs:generic.error'),
-                                        $.t('alba:osds.claim.failed', { multi: allOsds.length === 1 ? '' : 's', why: error })
+                                        $.t('alba:osds.claim.failed', { multi: osdIDs.length === 1 ? '' : 's', why: error })
                                     );
                                     $.each(osdsToClaim, function(_, slotInfo) {
-                                        var slot = slotInfo[0], osds = slotInfo[1];
-                                        slot.processing(false);
-                                        $.each(osds, function(index, osd) {
+                                        slotInfo.slot.processing(false);
+                                        $.each(slotInfo.osds, function(index, osd) {
                                             osd.processing(false);
                                         });
                                     });
@@ -286,48 +360,11 @@ define([
                     });
             }).promise();
         };
-        self.addOSDs = function(node) {  // Add OSDs on all empty Slots
-            if (!self.canInitializeAll() || self.readOnlyMode() || !self.shared.user.roles().contains('manage')) {
-                return;
-            }
-            var slots = [];
-            $.each(node.slots(), function(index, slot) {
-                if (slot.osds().length === 0 && slot.processing() === false) {
-                    slots.push(slot);
-                }
-            });
-            var deferred = $.Deferred(),
-                wizard = new AddOSDWizard({
-                    node: node,
-                    slots: slots,
-                    modal: true,
-                    completed: deferred
-                });
-            wizard.closing.always(function() {
-                deferred.resolve();
-            });
-            
-            $.each(slots, function(index, slot) {
-                slot.processing(true);
-                $.each(slot.osds(), function(_, osd) {
-                    osd.processing(true);
-                });
-            });
-            dialog.show(wizard);
-            deferred.always(function() {
-                $.each(slots, function(index, slot) {
-                    slot.processing(false);
-                    $.each(slot.osds(), function(_, osd) {
-                        osd.processing(false);
-                    });
-                });
-            });
-        };
-        self.removeOSD = function(asd) {
+        self.removeOSD = function(osd) {
             var matchingSlot = undefined;
             $.each(self.slots(), function(index, slot) {
-                $.each(slot.osds(), function(_, osd) {
-                    if (osd.osdID() === asd.osdID()) {
+                $.each(slot.osds(), function(_, currentOSD) {
+                    if (currentOSD.osdID() === osd.osdID()) {
                         matchingSlot = slot;
                         return false;
                     }
@@ -336,13 +373,41 @@ define([
                     return false;
                 }
             });
-            dialog.show(new RemoveOSDWizard({
-                modal: true,
-                albaBackend: self.albaBackend,
-                albaNode: self,
-                albaOSD: asd,
-                albaSlot: matchingSlot
-            }));
+            if (matchingSlot === undefined) {
+                return;
+            }
+            
+            var deferred = $.Deferred(),
+                wizardCancelled = false,
+                wizard = new RemoveOSDWizard({
+                    modal: true,
+                    albaOSD: osd,
+                    albaNode: self,
+                    albaSlot: matchingSlot,
+                    completed: deferred,
+                    albaBackend: self.albaBackend
+                });
+            wizard.closing.always(function() {
+                wizardCancelled = true;
+                deferred.resolve();
+            });
+            
+            osd.processing(true);
+            matchingSlot.processing(true);
+        
+            dialog.show(wizard);
+            deferred.always(function() {
+                if (wizardCancelled) {
+                    osd.processing(false);
+                    matchingSlot.processing(false);
+                } else {
+                    self.parentVM.fetchNodes(false)
+                        .then(function() {
+                            osd.processing(false);
+                            matchingSlot.processing(false);
+                        });
+                }
+            });
         };
         self.restartOSD = function(osd) {
             osd.processing(true);
@@ -407,11 +472,13 @@ define([
                             dfd.reject();
                         })
                         .always(function() {
-                            currentSlot.processing(false);
-                            $.each(currentSlot.osds(), function(_, osd) {
-                                osd.processing(false);
-                            });
-                            self.parentVM.fetchNodes(false);
+                            self.parentVM.fetchNodes(false)
+                                .then(function() {
+                                    currentSlot.processing(false);
+                                    $.each(currentSlot.osds(), function(_, osd) {
+                                        osd.processing(false);
+                                    });
+                                });
                         })
                 })(slot, deferred);
             }).promise();

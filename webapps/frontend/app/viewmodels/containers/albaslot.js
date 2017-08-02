@@ -108,7 +108,7 @@ define([
                 }
             });
             data[self.slotID()] = {slot: self, osds: osds};
-            self.node.claimOSDs(data, self.node.guid());
+            self.node.claimOSDs(data);
         };
     };
 });

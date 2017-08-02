@@ -23,20 +23,26 @@ define([
         var self = this;
 
         // Variables
+        self.data      = data;
         self.shared    = shared;
         self.refresher = new Refresher();
-        self.data      = data;
+
+        // Handles
+        self.loadSafetyHandle = undefined;
+
+        // Observables
+        self.failureCalcSafety = ko.observable(false);
 
         // Computed
         self.canContinue = ko.computed(function() {
-            var valid = (!self.data.shouldConfirm() || self.data.confirmed()) && self.data.loaded();
+            var valid = (!self.data.shouldConfirm() || self.data.confirmed()) && self.data.loaded() && !self.failureCalcSafety();
             return { value: valid, reasons: [], fields: [] };
         });
 
         // Functions
         self.finish = function() {
             return $.Deferred(function(deferred) {
-                (function(albaOSD, albaNode) {
+                (function(albaOSD, albaNode, completed, dfd) {
                     generic.alertInfo(
                         $.t('alba:wizards.remove_osd.started'),
                         $.t('alba:wizards.remove_osd.started_msg', {what: albaOSD.osdID()})
@@ -53,6 +59,7 @@ define([
                                 $.t('alba:wizards.remove_osd.complete'),
                                 $.t('alba:wizards.remove_osd.success', {what: albaOSD.osdID()})
                             );
+                            completed.resolve(true);
                         })
                         .fail(function(error) {
                             error = generic.extractErrorMessage(error);
@@ -60,33 +67,36 @@ define([
                                 $.t('ovs:generic.error'),
                                 $.t('alba:wizards.remove_osd.failed', {what: albaOSD.osdID(), why: error})
                             );
-                        })
-                        .always(function() {
-                            albaOSD.processing(false);
+                            completed.resolve(false);
                         });
-                    deferred.resolve();
-                })(self.data.albaOSD(), self.data.albaNode());
+                    dfd.resolve();
+                })(self.data.albaOSD(), self.data.albaNode(), self.data.completed(), deferred);
             }).promise();
         };
 
         // Durandal
         self.activate = function() {
-            self.data.albaOSD().processing(true);
             self.refresher.init(function() {
-                api.get('alba/backends/' + self.data.albaBackend().guid() + '/calculate_safety', {
-                    queryparams: { osd_id: self.data.albaOSD().osdID() }
-                })
-                    .then(self.shared.tasks.wait)
-                    .done(function(safety) {
-                        self.data.safety(safety);
-                        self.data.loaded(true);
-                    });
+                if (generic.xhrCompleted(self.loadSafetyHandle)) {
+                    self.loadSafetyHandle = api.get('alba/backends/' + self.data.albaBackend().guid() + '/calculate_safety', {
+                        queryparams: { osd_id: self.data.albaOSD().osdID() }
+                    })
+                        .then(self.shared.tasks.wait)
+                        .done(function(safety) {
+                            self.data.safety(safety);
+                        })
+                        .fail(function() {
+                            self.failureCalcSafety(true);
+                        })
+                        .always(function() {
+                            self.data.loaded(true);
+                        });
+                }
             }, 5000);
             self.refresher.run();
             self.refresher.start();
             parent.closing.always(function() {
                 self.refresher.stop();
-                self.data.albaOSD().processing(false);
             });
             parent.finishing.always(function() {
                 self.refresher.stop();

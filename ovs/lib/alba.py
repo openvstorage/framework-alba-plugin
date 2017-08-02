@@ -1321,11 +1321,11 @@ class AlbaController(object):
             raise ValueError('ALBA Backend {0} does not have an ABM cluster registered'.format(alba_backend.name))
 
         error_disks = []
-        for disks in alba_backend.local_stack.values():
-            for disk in disks.values():
-                for asd_id, asd in disk['asds'].iteritems():
-                    if asd['status'] == 'error':
-                        error_disks.append(asd_id)
+        for slots in alba_backend.local_stack.values():
+            for slot_information in slots.values():
+                for osd_id, osd_info in slot_information['osds'].iteritems():
+                    if osd_info['status'] == 'error':
+                        error_disks.append(osd_id)
         extra_parameters = ['--include-decommissioning-as-dead']
         for osd in alba_backend.osds:
             if osd.osd_id in removal_osd_ids or osd.osd_id in error_disks:

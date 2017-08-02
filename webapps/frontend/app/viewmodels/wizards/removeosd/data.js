@@ -19,11 +19,12 @@ define(['knockout'], function(ko){
     var singleton = function() {
         var data = {
             safety: ko.observable({}),
-            confirmed:  ko.observable(false),
             loaded: ko.observable(false),
             albaOSD: ko.observable(),
-            albaBackend: ko.observable(),
-            albaNode: ko.observable()
+            albaNode: ko.observable(),
+            confirmed:  ko.observable(false),
+            completed:  ko.observable(),
+            albaBackend: ko.observable()
         };
         data.shouldConfirm = ko.computed(function() {
             return (data.safety().lost !== undefined && data.safety().lost > 0) ||

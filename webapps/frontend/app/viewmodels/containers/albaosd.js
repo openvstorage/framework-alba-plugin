@@ -109,7 +109,7 @@ define([
         self.claim = function() {
             var data = {};
             data[self.slotID()] = {slot: self.slot, osds: [self]};
-            self.node.claimOSDs(data, self.node.guid());
+            self.node.claimOSDs(data);
         };
         self.remove = function() {
             self.node.removeOSD(self);

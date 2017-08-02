@@ -307,6 +307,7 @@ class AlbaNodeController(object):
             node.client.fill_slot(osd.slot_id, fill_slot_extra)
         except (requests.ConnectionError, requests.Timeout):
             AlbaNodeController._logger.warning('Could not connect to node {0} to (re)configure ASD'.format(node.guid))
+        node.invalidate_dynamics('stack')
 
     @staticmethod
     @ovs_task(name='albanode.restart_osd')

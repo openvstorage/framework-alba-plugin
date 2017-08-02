@@ -431,33 +431,6 @@ define([
             });
             return node_to_return
         };
-        self.addOSDs = function(node, slot){  // Add single OSD in Slot on ALBA node
-            var deferred = $.Deferred(),
-                wizard = new AddOSDWizard({
-                    node: node,
-                    slots: [slot],
-                    modal: true,
-                    completed: deferred
-                });
-            wizard.closing.always(function() {
-                deferred.resolve();
-            });
-            
-            slot.processing(true);
-            $.each(slot.osds(), function(_, osd) {
-                osd.processing(true);
-            });
-
-            dialog.show(wizard);
-            deferred.always(function() {
-                self.fetchNodes(false);
-                slot.processing(false);
-                $.each(slot.osds(), function(_, osd) {
-                    osd.processing(false);
-                });
-                
-            });
-        };
 
         // Durandal
         self.activate = function(mode, guid) {
