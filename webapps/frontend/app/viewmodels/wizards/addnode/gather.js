@@ -24,12 +24,17 @@ define([
         var self = this;
 
         // Variables
-        self.data             = data;
-        self.shared           = shared;
+        self.data   = data;
+        self.shared = shared;
 
         // Computed
         self.canContinue = ko.computed(function() {
-            return {value: true, reasons: [], fields: []};
+            var reasons = [], fields = [];
+            if (!self.data.name.valid()) {
+                fields.push('name');
+                reasons.push($.t('alba:wizards.add_node.gather.invalid_name'));
+            }
+            return {value: reasons.length === 0, reasons: reasons, fields: fields};
         });
     }
 });

@@ -19,11 +19,11 @@ define([
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     '../containers/albabackend', '../containers/albanode', '../containers/backend',
     '../containers/backendtype', '../containers/domain', '../containers/storagerouter', '../containers/albaosd',
-    '../wizards/addalbanode/index', '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index', '../wizards/addosd/index'
+    '../wizards/addnode/index', '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index'
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
             AlbaBackend, Node, Backend, BackendType, Domain, StorageRouter, AlbaOSD,
-            AddAlbaNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard, AddOSDWizard) {
+            AddNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -366,7 +366,7 @@ define([
         };
         self.addNode = function() {
             var node = new Node();
-            dialog.show(new AddAlbaNodeWizard({
+            dialog.show(new AddNodeWizard({
                 modal: true,
                 newNode: node,
                 oldNode: undefined,
@@ -381,7 +381,7 @@ define([
                     return false;
                 }
             });
-            dialog.show(new AddAlbaNodeWizard({
+            dialog.show(new AddNodeWizard({
                 modal: true,
                 newNode: node,
                 oldNode: oldNode,

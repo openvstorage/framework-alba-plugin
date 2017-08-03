@@ -285,30 +285,6 @@
         "title": "Alba"
     },
     "wizards": {
-        "add_alba_node": {
-            "confirm": {
-                "basic_info": "Validate and confirm below information",
-                "complete": "Completed",
-                "failed": "Adding node failed: __why__",
-                "in_progress": "Adding node in progress",
-                "ip": "IP Address:",
-                "name": "Name:",
-                "node_id": "Node ID:",
-                "port": "Port:",
-                "started": "Started",
-                "success": "Node added",
-                "username": "Username:"
-            },
-            "gather": {
-                "basic_info": "Fill all requested information",
-                "ip": "IP Address:",
-                "name": "Name:",
-                "node_id": "Node ID:",
-                "node_type": "Node type:",
-                "port": "Port:"
-            },
-            "title": "Add Node"
-        },
         "add_backend": {
             "gather": {
                 "scaling": "Scaling:",
@@ -317,9 +293,35 @@
                 "unable_to_determine_roles": "Failed to determine all required roles"
             }
         },
+        "add_node": {
+            "confirm": {
+                "basic_info": "Validate and confirm information below",
+                "complete": "Completed",
+                "failed": "Adding node failed: __why__",
+                "id": "ID:",
+                "in_progress": "Adding node in progress",
+                "ip": "IP Address:",
+                "name": "Name:",
+                "port": "Port:",
+                "started": "Started",
+                "success": "Node added",
+                "type": "Type:",
+                "username": "Username:"
+            },
+            "gather": {
+                "basic_info": "Fill all requested information",
+                "id": "ID:",
+                "invalid_name": "Name is not valid",
+                "ip": "IP Address:",
+                "name": "Name:",
+                "port": "Port:",
+                "type": "Type:"
+            },
+            "title": "Add Node"
+        },
         "add_osd":{
             "confirm": {
-                "basic_info": "Validate and confirm below information",
+                "basic_info": "Validate and confirm information below",
                 "count": "Amount:",
                 "detailed_info": "OSD(s) with these details will be registered to the backend",
                 "failure": "Failure",
@@ -431,7 +433,7 @@
                 "warning": "Are you sure you want to remove the following ASD?"
             }
         },
-        "replace_alba_node": {
+        "replace_node": {
             "complete": "Completed",
             "failed": "Replacing node failed: __why__",
             "in_progress": "Node is being replaced",

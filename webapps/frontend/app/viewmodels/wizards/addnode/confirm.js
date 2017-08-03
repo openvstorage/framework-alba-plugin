@@ -24,7 +24,7 @@ define([
         var self = this;
 
         // Variables
-        self.data = data;
+        self.data   = data;
         self.shared = shared;
 
         // Computed
@@ -37,29 +37,29 @@ define([
                 // Add ALBA node
                 if (self.data.oldNode() === undefined) {
                     generic.alertInfo(
-                        $.t('alba:wizards.add_alba_node.confirm.started'),
-                        $.t('alba:wizards.add_alba_node.confirm.in_progress')
+                        $.t('alba:wizards.add_node.confirm.started'),
+                        $.t('alba:wizards.add_node.confirm.in_progress')
                     );
                     deferred.resolve();
                     api.post('alba/nodes', {
                         data: {
                             node_id: self.data.newNode().nodeID(),
                             node_type: self.data.newNode().type(),
-                            name: self.data.newNode().name()
+                            name: self.data.name()
                         }
                     })
                         .then(self.shared.tasks.wait)
                         .done(function () {
                             generic.alertSuccess(
-                                $.t('alba:wizards.add_alba_node.confirm.complete'),
-                                $.t('alba:wizards.add_alba_node.confirm.success')
+                                $.t('alba:wizards.add_node.confirm.complete'),
+                                $.t('alba:wizards.add_node.confirm.success')
                             );
                         })
                         .fail(function (error) {
                             error = generic.extractErrorMessage(error);
                             generic.alertError(
                                 $.t('ovs:generic.error'),
-                                $.t('alba:wizards.add_alba_node.confirm.failed', {why: error})
+                                $.t('alba:wizards.add_node.confirm.failed', {why: error})
                             );
                         });
                 // Replace ALBA node
@@ -71,23 +71,23 @@ define([
                         })
                     });
                     generic.alertInfo(
-                        $.t('alba:wizards.replace_alba_node.started'),
-                        $.t('alba:wizards.replace_alba_node.in_progress')
+                        $.t('alba:wizards.replace_node.started'),
+                        $.t('alba:wizards.replace_node.in_progress')
                     );
                     deferred.resolve();
                     api.post('alba/nodes/' + self.data.oldNode().guid() + '/replace_node', {data: {new_node_id: self.data.newNode().nodeID()}})
                         .then(self.shared.tasks.wait)
                         .done(function() {
                             generic.alertSuccess(
-                                $.t('alba:wizards.replace_alba_node.complete'),
-                                $.t('alba:wizards.replace_alba_node.success')
+                                $.t('alba:wizards.replace_node.complete'),
+                                $.t('alba:wizards.replace_node.success')
                             );
                         })
                         .fail(function (error) {
                             error = generic.extractErrorMessage(error);
                             generic.alertError(
                                 $.t('ovs:generic.error'),
-                                $.t('alba:wizards.replace_alba_node.failed', {why: error})
+                                $.t('alba:wizards.replace_node.failed', {why: error})
                             );
                         })
                         .always(function() {

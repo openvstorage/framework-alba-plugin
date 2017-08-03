@@ -27,8 +27,11 @@ define([
         self.data = data;
 
         // Setup
-        self.title(generic.tryGet(options, 'title', (options.oldNode === undefined ? $.t('alba:wizards.add_alba_node.title') : $.t('alba:wizards.replace_alba_node.title'))));
+        self.title(generic.tryGet(options, 'title', (options.oldNode === undefined ? $.t('alba:wizards.add_node.title') : $.t('alba:wizards.replace_node.title'))));
         self.modal(generic.tryGet(options, 'modal', false));
+        self.data.newNode(options.newNode);
+        self.data.oldNode(options.oldNode);
+        self.data.confirmOnly(options.confirmOnly);
         if (options.confirmOnly) {
             self.steps([new Confirm()]);
         } else {
@@ -37,8 +40,6 @@ define([
         self.activateStep();
 
         // Cleaning data
-        data.newNode(options.newNode);
-        data.oldNode(options.oldNode);
-        data.confirmOnly(options.confirmOnly);
+        self.data.name(undefined);
     };
 });

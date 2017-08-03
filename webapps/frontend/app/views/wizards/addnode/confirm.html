@@ -17,34 +17,35 @@ but WITHOUT ANY WARRANTY of any kind.
 -->
 <div>
     <div>
-        <p data-i18n="[html]alba:wizards.add_alba_node.confirm.basic_info"></p>
+        <p data-i18n="[html]alba:wizards.add_node.confirm.basic_info"></p>
         <ul>
             <li>
-                <b data-i18n="alba:wizards.add_alba_node.confirm.node_id"></b>
+                <b data-i18n="alba:wizards.add_node.confirm.id"></b>
                 <i data-i18n="alba:generic.generated" data-bind="visible: data.newNode().nodeID() === undefined"></i>
                 <span data-bind="text: data.newNode().nodeID, visible: data.newNode().nodeID() !== undefined"></span>
             </li>
-            <!-- ko if: data.newNode().name() !== '' && data.newNode().name() !== undefined && data.newNode().name() !== null -->
-                <li><b data-i18n="alba:wizards.add_alba_node.confirm.name"></b> <span data-bind="text: data.newNode().name()"></span></li>
+            <!-- ko if: data.name.valid() -->
+                <li><b data-i18n="alba:wizards.add_node.confirm.name"></b> <span data-bind="text: data.name()"></span></li>
             <!-- /ko -->
+            <li><b data-i18n="alba:wizards.add_node.confirm.type"></b> <span data-bind="text: data.newNode().type()"></span></li>
             <!-- ko if: data.newNode().type() !== 'GENERIC' -->
-                <li><b data-i18n="alba:wizards.add_alba_node.confirm.ip"></b> <span data-bind="text: data.newNode().ip()"></span></li>
-                <li><b data-i18n="alba:wizards.add_alba_node.confirm.port"></b> <span data-bind="text: data.newNode().port()"></span></li>
-                <li><b data-i18n="alba:wizards.add_alba_node.confirm.username"></b> <span data-bind="text: data.newNode().username()"></span></li>
+                <li><b data-i18n="alba:wizards.add_node.confirm.ip"></b> <span data-bind="text: data.newNode().ip()"></span></li>
+                <li><b data-i18n="alba:wizards.add_node.confirm.port"></b> <span data-bind="text: data.newNode().port()"></span></li>
+                <li><b data-i18n="alba:wizards.add_node.confirm.username"></b> <span data-bind="text: data.newNode().username()"></span></li>
             <!-- /ko -->
         </ul>
-        <p data-i18n="[html]alba:wizards.add_alba_node.confirm.asd_ips" data-bind="visible: data.newNode().ips().length > 0"></p>
+        <p data-i18n="[html]alba:wizards.add_node.confirm.asd_ips" data-bind="visible: data.newNode().ips().length > 0"></p>
         <ul data-bind="foreach: data.newNode().ips()">
             <li><span data-bind="text: $data"></span></li>
         </ul>
     </div>
     <!-- ko if: data.oldNode() !== undefined -->
     <div class="alert alert-warning" style="margin-top: 10px;">
-        <span data-i18n="alba:wizards.replace_alba_node.replace_msg_1"></span>
+        <span data-i18n="alba:wizards.replace_node.replace_msg_1"></span>
         <span data-bind="text: data.oldNode().nodeID()"></span>
-        <span data-i18n="alba:wizards.replace_alba_node.replace_msg_2"></span>
+        <span data-i18n="alba:wizards.replace_node.replace_msg_2"></span>
         <span data-bind="text: data.newNode().ip()"></span>
-        <span data-i18n="alba:wizards.replace_alba_node.replace_msg_3"></span>
+        <span data-i18n="alba:wizards.replace_node.replace_msg_3"></span>
     </div>
     <!-- /ko -->
 </div>
