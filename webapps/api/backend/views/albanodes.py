@@ -18,6 +18,7 @@
 Contains the AlbaNodeViewSet
 """
 
+import re
 from rest_framework import viewsets
 from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
@@ -28,6 +29,7 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs_extensions.api.exceptions import HttpNotAcceptableException
 from ovs.extensions.generic.configuration import Configuration
 from ovs.lib.albanode import AlbaNodeController
+from ovs.lib.helpers.toolbox import Toolbox
 
 
 class AlbaNodeViewSet(viewsets.ViewSet):
@@ -127,16 +129,24 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load()
-    def create(self, node_id=None, node_type=None, name=None):
+    def create(self, version, node_id=None, node_type=None, name=None):
         """
         Adds a node with a given node_id to the model
+        :param version: Version of the client making the request
+        :type version: int
         :param node_id: ID of the ALBA node to create
         :type node_id: str
         :param node_type: Type of the ALBA node to create
         :type node_type: str
         :param name: Name of the node (optional)
         :type name: str
+        :return: Celery async task result
+        :rtype: CeleryTask
         """
+        if version >= 9:
+            if name is not None and not re.match(Toolbox.regex_preset, name):
+                raise HttpNotAcceptableException(error='invalid_data',
+                                                 error_description='Invalid name specified. Minimum 3, maximum 20 alpha-numeric characters, dashes and underscores')
         if node_id is None and node_type != AlbaNode.NODE_TYPES.GENERIC:
             raise HttpNotAcceptableException(error='invalid_data',
                                              error_description='Field node_id is mandatory for node_type != GENERIC')
