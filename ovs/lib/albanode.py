@@ -192,12 +192,10 @@ class AlbaNodeController(object):
                                       extra=dict((key, slot_info[key]) for key in node.node_metadata['fill_add_metadata']))
 
                 # And add/claim the OSD
-                osds_to_claim = {}
-                if slot_info['alba_backend_guid'] not in osds_to_claim:
-                    osds_to_claim[slot_info['alba_backend_guid']] = []
-                osds_to_claim[slot_info['alba_backend_guid']].append(slot_info)
-                for alba_backend_guid, osds in osds_to_claim.iteritems():
-                    AlbaController.add_osds(alba_backend_guid=alba_backend_guid, osds=osds, alba_node_guid=node_guid, metadata=metadata)
+                AlbaController.add_osds(alba_backend_guid=slot_info['alba_backend_guid'],
+                                        osds=[slot_info],
+                                        alba_node_guid=node_guid,
+                                        metadata=metadata)
         node.invalidate_dynamics('stack')
 
     @staticmethod

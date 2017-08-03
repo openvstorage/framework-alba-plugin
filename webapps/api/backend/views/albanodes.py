@@ -55,6 +55,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type ip: str
         :param node_id: ID of the ALBA node
         :type node_id: str
+        :return: A list of ALBA nodes
+        :rtype: ovs.dal.datalist.DataList
         """
         if discover is False and (ip is not None or node_id is not None):
             raise HttpNotAcceptableException(error='invalid_data',
@@ -122,6 +124,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         Load information about a given AlbaBackend
         :param albanode: ALBA node to retrieve
         :type albanode: AlbaNode
+        :return: The requested AlbaNode object
+        :rtype: ovs.dal.hybrids.albanode.AlbaNode
         """
         return albanode
 
@@ -177,6 +181,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         Deletes an ALBA node
         :param albanode: The AlbaNode to be removed
         :type albanode: AlbaNode
+        :return: Celery async task result
+        :rtype: CeleryTask
         """
         return AlbaNodeController.remove_node.delay(node_guid=albanode.guid)
 
@@ -193,6 +199,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type slot_information: list
         :param metadata: Extra metadata if required
         :type metadata: dict
+        :return: Celery async task result
+        :rtype: CeleryTask
         """
         return AlbaNodeController.fill_slots.delay(node_guid=albanode.guid,
                                                    slot_information=slot_information,
@@ -209,6 +217,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type albanode: AlbaNode
         :param disks: Disks to initialize (dict from type {disk_alias (str): amount of asds (int)})
         :type disks: dict
+        :return: Celery async task result
+        :rtype: CeleryTask
         """
         # noinspection PyUnresolvedReferences
         return AlbaNodeController.initialize_disks.delay(albanode.guid, disks)
@@ -224,6 +234,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type albanode: AlbaNode
         :param disk: Disk to remove
         :type disk: str
+        :return: Celery async task result
+        :rtype: CeleryTask
         """
         return AlbaNodeController.remove_slot.delay(albanode.guid, disk)  # Giving a disk alias a try
 
@@ -238,6 +250,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type albanode: AlbaNode
         :param slot: Slot to remove
         :type slot: str
+        :return: Celery async task result
+        :rtype: CeleryTask
         """
         return AlbaNodeController.remove_slot.delay(albanode.guid, slot)
 
@@ -254,6 +268,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type asd_id: str
         :param safety: Safety to maintain
         :type safety: dict
+        :return: Celery async task result
+        :rtype: CeleryTask
         """
         if safety is None:
             raise HttpNotAcceptableException(error='invalid_data',
@@ -273,6 +289,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type osd_id: str
         :param safety: Safety to maintain
         :type safety: dict
+        :return: Celery async task result
+        :rtype: CeleryTask
         """
         if safety is None:
             raise HttpNotAcceptableException(error='invalid_data',
@@ -290,6 +308,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type albanode: AlbaNode
         :param asd_id: The ASD to restart
         :type asd_id: str
+        :return: Celery async task result
+        :rtype: CeleryTask
         """
         return AlbaNodeController.restart_osd.delay(albanode.guid, osd_id=asd_id)
 
@@ -304,6 +324,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type albanode: AlbaNode
         :param osd_id: The OSD to restart
         :type osd_id: str
+        :return: Celery async task result
+        :rtype: CeleryTask
         """
         return AlbaNodeController.restart_osd.delay(albanode.guid, osd_id)
 
@@ -318,6 +340,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type albanode: AlbaNode
         :param disk: Disk to restart
         :type disk: str
+        :return: Celery async task result
+        :rtype: CeleryTask
         """
         return AlbaNodeController.restart_disk.delay(albanode.guid, disk)
 
@@ -332,5 +356,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :type albanode: AlbaNode
         :param local_storagerouter: The StorageRouter on which the call was initiated and on which the logs will end up
         :type local_storagerouter: ovs.dal.hybrids.storagerouter.StorageRouter
+        :return: Celery async task result
+        :rtype: CeleryTask
         """
         return AlbaNodeController.get_logfiles.delay(albanode_guid=albanode.guid, local_storagerouter_guid=local_storagerouter.guid)

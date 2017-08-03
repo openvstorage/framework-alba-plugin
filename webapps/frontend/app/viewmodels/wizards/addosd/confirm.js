@@ -36,7 +36,7 @@ define([
         self.gatherSlotData = function() {
             // Gather info from the dynamic form
             var slotData = [];
-            var fields = []; // Remove this when the type is fetched by alba
+            var fields = [];
             $.each(self.data.slots(), function(_, slot) {
                 var osdData = {
                     slot_id: slot.slotID(),
