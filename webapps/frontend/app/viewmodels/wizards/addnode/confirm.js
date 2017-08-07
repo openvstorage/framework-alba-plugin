@@ -64,9 +64,9 @@ define([
                         });
                 // Replace ALBA node
                 } else {
-                    $.each(self.data.oldNode().disks(), function(index, disk) {
-                        disk.processing(true);
-                        $.each(disk.osds(), function(jndex, osd) {
+                    $.each(self.data.oldNode().slots(), function(index, slot) {
+                        slot.processing(true);
+                        $.each(slot.osds(), function(jndex, osd) {
                             osd.processing(true);
                         })
                     });
@@ -91,9 +91,9 @@ define([
                             );
                         })
                         .always(function() {
-                            $.each(self.data.oldNode().disks(), function(index, disk) {
-                                disk.processing(false);
-                                $.each(disk.osds(), function(jndex, osd) {
+                            $.each(self.data.oldNode().slots(), function(index, slot) {
+                                slot.processing(false);
+                                $.each(slot.osds(), function(jndex, osd) {
                                     osd.processing(false);
                                 })
                             });

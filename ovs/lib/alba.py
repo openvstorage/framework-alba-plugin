@@ -1021,11 +1021,13 @@ class AlbaController(object):
         if storage_router.alba_node is None:
             return {'confirm': False}
 
-        for disk in storage_router.alba_node.disks:
-            for osd in disk.osds:
-                if osd.alba_backend_guid not in asd_ids:
-                    asd_ids[osd.alba_backend_guid] = []
-                asd_ids[osd.alba_backend_guid].append(osd.osd_id)
+        for slot_info in storage_router.alba_node.stack.itervalues():
+            for osd_id, osd_info in slot_info['osds'].iteritems():
+                ab_guid = osd_info['claimed_by']
+                if ab_guid is not None:
+                    if ab_guid not in asd_ids:
+                        asd_ids[ab_guid] = []
+                    asd_ids[ab_guid].append(osd_id)
 
         confirm = False
         messages = []
@@ -1625,12 +1627,13 @@ class AlbaController(object):
                 AlbaController._logger.exception('* Cannot fetch maintenance information for {0}'.format(node.ip))
                 continue
 
-            for disk in node.disks:
-                for osd in disk.osds:
-                    backend_guid = osd.alba_backend_guid
-                    if backend_guid not in available_node_map:
-                        available_node_map[backend_guid] = set()
-                    available_node_map[backend_guid].add(node)
+            for slot_info in node.stack.itervalues():
+                for osd_info in slot_info['osds'].itervalues():
+                    backend_guid = osd_info['claimed_by']
+                    if backend_guid is not None:
+                        if backend_guid not in available_node_map:
+                            available_node_map[backend_guid] = set()
+                        available_node_map[backend_guid].add(node)
 
             for service_name in service_names:
                 backend_name, service_hash = service_name.split('_', 1)[1].rsplit('-', 1)  # E.g. alba-maintenance_my-backend-a4f7e3c61

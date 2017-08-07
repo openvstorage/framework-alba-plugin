@@ -102,10 +102,10 @@ class AlbaNodeController(object):
         """
         node = AlbaNode(node_guid)
         if node.type == AlbaNode.NODE_TYPES.ASD:
-            for disk in node.disks:
-                for osd in disk.osds:
-                    AlbaNodeController.remove_asd(node_guid=osd.alba_disk.alba_node_guid, asd_id=osd.osd_id, expected_safety=None)
-                AlbaNodeController.remove_disk(node_guid=disk.alba_node_guid, device_alias=disk.aliases[0])
+            for slot_id, slot_info in node.stack.iteritems():
+                for osd_id, osd_info in slot_info['osds'].iteritems():
+                    AlbaNodeController.remove_asd(node_guid=node.guid, asd_id=osd_id, expected_safety=None)
+                AlbaNodeController.remove_disk(node_guid=node.guid, device_alias=slot_id)
 
             try:
                 for service_name in node.client.list_maintenance_services():
