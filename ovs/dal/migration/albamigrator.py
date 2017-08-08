@@ -28,7 +28,7 @@ class ALBAMigrator(object):
     """
 
     identifier = 'alba'
-    THIS_VERSION = 14
+    THIS_VERSION = 15
 
     def __init__(self):
         """ Init method """
@@ -70,20 +70,24 @@ class ALBAMigrator(object):
         # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
         elif working_version < ALBAMigrator.THIS_VERSION:
             import hashlib
+            from ovs.dal.exceptions import ObjectNotFoundException
             from ovs.dal.helpers import HybridRunner, Descriptor
             from ovs.dal.hybrids.albaabmcluster import ABMCluster
+            from ovs.dal.hybrids.albaosd import AlbaOSD
             from ovs.dal.hybrids.albansmcluster import NSMCluster
             from ovs.dal.hybrids.j_abmservice import ABMService
             from ovs.dal.hybrids.j_nsmservice import NSMService
             from ovs.dal.hybrids.service import Service
             from ovs.dal.hybrids.servicetype import ServiceType
             from ovs.dal.lists.albabackendlist import AlbaBackendList
+            from ovs.dal.lists.albanodelist import AlbaNodeList
             from ovs.dal.lists.servicetypelist import ServiceTypeList
             from ovs.dal.lists.storagerouterlist import StorageRouterList
             from ovs.extensions.db.arakooninstaller import ArakoonClusterConfig, ArakoonInstaller
             from ovs.extensions.generic.configuration import Configuration, NotFoundException
             from ovs_extensions.generic.toolbox import ExtensionsToolbox
             from ovs.extensions.plugins.albacli import AlbaCLI
+            from ovs_extensions.storage.exceptions import KeyNotFoundException
             from ovs.extensions.storage.persistentfactory import PersistentFactory
 
             # Migrate unique constraints & indexes
@@ -262,5 +266,54 @@ class ALBAMigrator(object):
             for nsm_service in all_nsm_services:
                 nsm_service.delete()
                 nsm_service.service.delete()
+
+            ################################
+            # Introduction of Active Drive #
+            ################################
+            # Remove unique constraints for AlbaNode IP
+            client = PersistentFactory.get_client()
+            for key in client.prefix('ovs_unique_albanode_ip_'):
+                client.delete(key=key, must_exist=False)
+
+            # Move relation from AlbaDisk to AlbaNode for all OSDs
+            for key in client.prefix('ovs_reverseindex_albadisk_'):
+                if '|osds|' in key:
+                    new_key = key.replace('albadisk', 'albanode')
+                    try:
+                        client.set(new_key, client.get(key))
+                    except KeyNotFoundException:
+                        pass  # If the get would fail because its been deleted in the meantime, we don't care
+                client.delete(key=key, must_exist=False)
+
+            # Remove the relation between AlbaNode and AlbaDisk
+            for key in client.prefix('ovs_reverseindex_albanode_'):
+                if '|disks|' in key:
+                    client.delete(key=key, must_exist=False)
+
+            # Update slot_id for all OSDs
+            disk_osd_map = {}
+            for key, data in client.prefix_entries('ovs_data_albaosd_'):
+                alba_disk_guid = data.get('alba_disk', {}).get('guid')
+                if alba_disk_guid is not None:
+                    if alba_disk_guid not in disk_osd_map:
+                        disk_osd_map[alba_disk_guid] = []
+                    disk_osd_map[alba_disk_guid].append(key.replace('ovs_data_albaosd_', ''))
+
+            alba_guid_node_map = dict((an.guid, an) for an in AlbaNodeList.get_albanodes())
+            for key, data in client.prefix_entries('ovs_data_albadisk_'):
+                alba_disk_guid = key.replace('ovs_data_albadisk_', '')
+                alba_node_guid = data.get('alba_node', {}).get('guid')
+                if alba_disk_guid in disk_osd_map and len(data.get('aliases', [])) > 0:
+                    slot_id = data['aliases'][0].split('/')[-1]
+                    for osd_guid in disk_osd_map[alba_disk_guid]:
+                        try:
+                            osd = AlbaOSD(osd_guid)
+                        except ObjectNotFoundException:
+                            continue
+                        osd.slot_id = slot_id
+                        osd.alba_node = alba_guid_node_map.get(alba_node_guid)
+                        osd.save()
+
+                client.delete(key=key, must_exist=False)
 
         return ALBAMigrator.THIS_VERSION
