@@ -20,7 +20,7 @@ AlbaOSD module
 import time
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.albabackend import AlbaBackend
-from ovs.dal.hybrids.albadisk import AlbaDisk
+from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.domain import Domain
 from ovs.dal.structures import Property, Relation, Dynamic
 from ovs.extensions.storage.volatilefactory import VolatileFactory
@@ -30,15 +30,19 @@ class AlbaOSD(DataObject):
     """
     The AlbaOSD represents a claimed ASD or an AlbaBackend
     """
-    OSD_TYPES = DataObject.enumerator('Osd_type', ['ASD', 'ALBA_BACKEND'])
+    OSD_TYPES = DataObject.enumerator('OSDType', ['ASD', 'ALBA_BACKEND', 'AD'])
 
-    __properties = [Property('osd_id', str, doc='OSD identifier'),
+    __properties = [Property('osd_id', str, unique=True, doc='OSD identifier'),
                     Property('osd_type', OSD_TYPES.keys(), doc='Type of OSD (ASD, ALBA_BACKEND)'),
-                    Property('metadata', dict, mandatory=False, doc='Additional information about this OSD, such as connection information (if OSD is an ALBA backend')]
+                    Property('ip', str, mandatory=False, doc='IP Address of the OSD (only one, even though an OSD can have multiple IP Addresses)'),
+                    Property('port', int, mandatory=False, doc='Port of the OSD'),
+                    Property('metadata', dict, mandatory=False, doc='Additional information about this OSD, such as connection information (if OSD is an ALBA backend'),
+                    Property('slot_id', str, indexed=True, mandatory=False, doc='A pointer towards a certain slot. Will be used to map OSDs into container')]
     __relations = [Relation('alba_backend', AlbaBackend, 'osds', doc='The AlbaBackend that claimed the OSD'),
-                   Relation('alba_disk', AlbaDisk, 'osds', mandatory=False, doc='The AlbaDisk to which the OSD belongs'),
+                   Relation('alba_node', AlbaNode, 'osds', mandatory=False, doc='The Alba Node to which the OSD belongs'),
                    Relation('domain', Domain, 'osds', mandatory=False, doc='The Domain in which the OSD resides')]
-    __dynamics = [Dynamic('statistics', dict, 5, locked=True)]
+    __dynamics = [Dynamic('statistics', dict, 5, locked=True),
+                  Dynamic('stack_info', dict, 5)]
 
     def _statistics(self, dynamic):
         """
@@ -53,7 +57,7 @@ class AlbaOSD(DataObject):
         prev_key = '{0}_{1}'.format(self._key, 'statistics_previous')
         previous_stats = volatile.get(prev_key, default={})
         try:
-            all_statistics = self.alba_backend.asd_statistics
+            all_statistics = self.alba_backend.osd_statistics
             if self.osd_id not in all_statistics:
                 return {}
             data = all_statistics[self.osd_id]
@@ -88,3 +92,14 @@ class AlbaOSD(DataObject):
         except Exception:
             # This might fail every now and then, e.g. on disk removal. Let's ignore for now.
             return {}
+
+    def _stack_info(self):
+        """
+        Returns summarized properties for adding to the storage stacks
+        """
+        return {'osd_id': self.osd_id,
+                'type': self.osd_type,
+                'ip': self.ip,
+                'port': self.port,
+                'metadata': self.metadata,
+                'claimed_by': self.alba_backend_guid}

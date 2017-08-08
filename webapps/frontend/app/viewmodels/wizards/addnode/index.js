@@ -16,8 +16,8 @@
 /*global define */
 define([
     'jquery', 'ovs/generic',
-    '../build', './gather', './data'
-], function($, generic, build, Gather, data) {
+    '../build', './confirm', './gather', './data'
+], function($, generic, build, Confirm, Gather, data) {
     "use strict";
     return function(options) {
         var self = this;
@@ -27,14 +27,19 @@ define([
         self.data = data;
 
         // Setup
-        self.title(generic.tryGet(options, 'title', $.t('alba:wizards.initializedisk.title')));
+        self.title(generic.tryGet(options, 'title', (options.oldNode === undefined ? $.t('alba:wizards.add_node.title') : $.t('alba:wizards.replace_node.title'))));
         self.modal(generic.tryGet(options, 'modal', false));
-        self.steps([new Gather()]);
+        self.data.newNode(options.newNode);
+        self.data.oldNode(options.oldNode);
+        self.data.confirmOnly(options.confirmOnly);
+        if (options.confirmOnly) {
+            self.steps([new Confirm()]);
+        } else {
+            self.steps([new Gather(), new Confirm()]);
+        }
         self.activateStep();
 
         // Cleaning data
-        data.disks(options.disks);
-        data.node(options.node);
-        data.amount(1);
+        self.data.name(undefined);
     };
 });

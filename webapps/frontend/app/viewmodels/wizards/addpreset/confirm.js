@@ -37,13 +37,13 @@ define([
             return $.Deferred(function(deferred) {
                 if (self.data.editPreset()) {
                     generic.alertInfo(
-                        $.t('alba:wizards.editpreset.confirm.started'),
-                        $.t('alba:wizards.editpreset.confirm.inprogress')
+                        $.t('alba:wizards.edit_preset.confirm.started'),
+                        $.t('alba:wizards.edit_preset.confirm.inprogress')
                     );
                 } else {
                     generic.alertInfo(
-                        $.t('alba:wizards.addpreset.confirm.started'),
-                        $.t('alba:wizards.addpreset.confirm.inprogress')
+                        $.t('alba:wizards.add_preset.confirm.started'),
+                        $.t('alba:wizards.add_preset.confirm.inprogress')
                     );
                 }
                 deferred.resolve();
@@ -71,13 +71,13 @@ define([
                     .done(function() {
                         if (self.data.editPreset()) {
                             generic.alertSuccess(
-                                $.t('alba:wizards.editpreset.confirm.complete'),
-                                $.t('alba:wizards.editpreset.confirm.success')
+                                $.t('alba:wizards.edit_preset.confirm.complete'),
+                                $.t('alba:wizards.edit_preset.confirm.success')
                             );
                         } else {
                             generic.alertSuccess(
-                                $.t('alba:wizards.addpreset.confirm.complete'),
-                                $.t('alba:wizards.addpreset.confirm.success')
+                                $.t('alba:wizards.add_preset.confirm.complete'),
+                                $.t('alba:wizards.add_preset.confirm.success')
                             );
                         }
                     })
@@ -86,14 +86,14 @@ define([
                         if (self.data.editPreset()) {
                             generic.alertError(
                                 $.t('ovs:generic.error'),
-                                $.t('alba:wizards.editpreset.confirm.failed', {
+                                $.t('alba:wizards.edit_preset.confirm.failed', {
                                     why: error
                                 })
                             );
                         } else {
                             generic.alertError(
                                 $.t('ovs:generic.error'),
-                                $.t('alba:wizards.addpreset.confirm.failed', {
+                                $.t('alba:wizards.add_preset.confirm.failed', {
                                     why: error
                                 })
                             );

@@ -20,6 +20,7 @@ Module for AlbaUpdateController
 import copy
 import inspect
 import requests
+from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
@@ -218,6 +219,9 @@ class AlbaUpdateController(object):
         :return: None
         """
         for alba_node in AlbaNodeList.get_albanodes():
+            if alba_node.type == AlbaNode.NODE_TYPES.GENERIC:
+                continue
+
             if alba_node.ip not in information:
                 information[alba_node.ip] = {'errors': []}
             elif 'errors' not in information[alba_node.ip]:

@@ -18,29 +18,42 @@
 AlbaNode module
 """
 import re
+import uuid
 import requests
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
 from ovs.extensions.generic.configuration import Configuration
-from ovs.extensions.plugins.asdmanager import ASDManagerClient, InvalidCredentialsError
+from ovs_extensions.generic.exceptions import InvalidCredentialsError
+from ovs.extensions.plugins.albacli import AlbaCLI
+from ovs.extensions.plugins.asdmanager import ASDManagerClient
+from ovs.extensions.plugins.genericmanager import GenericManagerClient
+from ovs.log.log_handler import LogHandler
 
 
 class AlbaNode(DataObject):
     """
     The AlbaNode contains information about nodes (containing OSDs)
     """
-    __properties = [Property('ip', str, unique=True, indexed=True, doc='IP Address'),
-                    Property('port', int, doc='Port'),
+    NODE_TYPES = DataObject.enumerator('NodeType', ['ASD', 'GENERIC'])
+    _logger = LogHandler.get('dal', name='hybrid')
+
+    __properties = [Property('ip', str, indexed=True, mandatory=False, doc='IP Address'),
+                    Property('port', int, mandatory=False, doc='Port'),
                     Property('node_id', str, unique=True, indexed=True, doc='Alba node_id identifier'),
-                    Property('username', str, doc='Username of the AlbaNode'),
-                    Property('password', str, doc='Password of the AlbaNode'),
-                    Property('type', ['ASD'], default='ASD', doc='The type of the AlbaNode'),
+                    Property('name', str, mandatory=False, doc='Optional name for the AlbaNode'),
+                    Property('username', str, mandatory=False, doc='Username of the AlbaNode'),
+                    Property('password', str, mandatory=False, doc='Password of the AlbaNode'),
+                    Property('type', NODE_TYPES.keys(), default=NODE_TYPES.ASD, doc='The type of the AlbaNode'),
                     Property('package_information', dict, mandatory=False, default={}, doc='Information about installed packages and potential available new versions')]
     __relations = [Relation('storagerouter', StorageRouter, 'alba_node', onetoone=True, mandatory=False, doc='StorageRouter hosting the AlbaNode')]
-    __dynamics = [Dynamic('storage_stack', dict, 15, locked=True),
+    __dynamics = [Dynamic('stack', dict, 15, locked=True),
                   Dynamic('ips', list, 3600),
-                  Dynamic('maintenance_services', dict, 30, locked=True)]
+                  Dynamic('maintenance_services', dict, 30, locked=True),
+                  Dynamic('node_metadata', dict, 3600),
+                  Dynamic('supported_osd_types', list, 3600),
+                  Dynamic('read_only_mode', bool, 60),
+                  Dynamic('local_summary', dict, 3600)]
 
     def __init__(self, *args, **kwargs):
         """
@@ -48,76 +61,12 @@ class AlbaNode(DataObject):
         """
         DataObject.__init__(self, *args, **kwargs)
         self._frozen = False
-        self.client = ASDManagerClient(self)
+        self.client = None
+        if self.type == AlbaNode.NODE_TYPES.ASD:
+            self.client = ASDManagerClient(self)
+        if self.type == AlbaNode.NODE_TYPES.GENERIC:
+            self.client = GenericManagerClient(self)
         self._frozen = True
-
-    def _storage_stack(self):
-        """
-        Returns a live list of all disks known to this AlbaNode
-        """
-        storage_stack = {'status': 'ok',
-                         'stack': {}}
-        stack = storage_stack['stack']
-
-        try:
-            disk_data = self.client.get_disks()
-        except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
-            storage_stack['status'] = 'nodedown'
-            disk_data = {}
-        partition_device_map = {}
-        for disk_id, disk_info in disk_data.iteritems():
-            entry = {'name': disk_id,
-                     'asds': {}}
-            entry.update(disk_info)
-            if disk_info['state'] == 'ok':
-                entry['status'] = 'uninitialized' if disk_info['available'] is True else 'initialized'
-                entry['status_detail'] = ''
-            else:
-                entry['status'] = disk_info['state']
-                entry['status_detail'] = disk_info.get('state_detail', '')
-            stack[disk_id] = entry
-            if 'partition_aliases' in disk_info:
-                for partition_alias in disk_info['partition_aliases']:
-                    partition_device_map[partition_alias] = disk_id
-            else:
-                partition_device_map[disk_id] = disk_id
-
-        # Model Disk information
-        for disk in self.disks:
-            found = False
-            for disk_id, disk_info in stack.iteritems():
-                if any(alias in disk.aliases for alias in disk_info['aliases']):
-                    found = True
-            if found is False and len(disk.aliases) > 0:
-                disk_id = disk.aliases[0].split('/')[-1]
-                stack[disk_id] = {'available': False,
-                                  'name': disk_id,
-                                  'asds': {},
-                                  'status': 'error',
-                                  'status_detail': 'missing',
-                                  'aliases': disk.aliases,
-                                  'device': disk.aliases[0],
-                                  'partition_aliases': [],
-                                  'node_id': self.node_id}
-
-        # Live ASD information
-        try:
-            asd_data = self.client.get_asds()
-        except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
-            storage_stack['status'] = 'nodedown'
-            asd_data = {}
-        for partition_id, asds in asd_data.iteritems():
-            if partition_id not in partition_device_map:
-                continue
-            disk_id = partition_device_map.get(partition_id)
-            if disk_id is not None and disk_id in stack:
-                for asd_id, asd_info in asds.iteritems():
-                    stack[disk_id]['asds'][asd_id] = {'asd_id': asd_id,
-                                                      'status': 'error' if asd_info['state'] == 'error' else 'initialized',
-                                                      'status_detail': asd_info.get('state_detail', ''),
-                                                      'state': asd_info['state'],
-                                                      'state_detail': asd_info.get('state_detail', '')}
-        return storage_stack
 
     def _ips(self):
         """
@@ -127,7 +76,7 @@ class AlbaNode(DataObject):
 
     def _maintenance_services(self):
         """
-        Returns all maintenance services on this node, grouped by backend name 
+        Returns all maintenance services on this node, grouped by backend name
         """
         services = {}
         try:
@@ -142,3 +91,134 @@ class AlbaNode(DataObject):
         except:
             pass
         return services
+
+    def _stack(self):
+        """
+        Returns an overview of this node's storage stack
+        """
+        from ovs.dal.lists.albabackendlist import AlbaBackendList
+
+        def _move(info):
+            for move in [('state', 'status'),
+                         ('state_detail', 'status_detail')]:
+                if move[0] in info:
+                    info[move[1]] = info[move[0]]
+                    del info[move[0]]
+
+        stack = {}
+        node_status = None
+        try:
+            remote_stack = self.client.get_stack()
+            for slot_id, slot_data in remote_stack.iteritems():
+                stack[slot_id] = {'status': 'ok'}
+                stack[slot_id].update(slot_data)
+                # Migrate state > status
+                _move(stack[slot_id])
+                for osd_info in slot_data.get('osds', {}).itervalues():
+                    _move(osd_info)
+        except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
+            node_status = 'nodedown'
+
+        model_osds = {}
+        for osd in self.osds:
+            if osd.slot_id not in stack:
+                stack[osd.slot_id] = {'status': 'missing' if node_status is None else node_status,
+                                      'osds': {}}
+            osd_info = stack[osd.slot_id]['osds'].get(osd.osd_id, {})
+            osd_info.update(osd.stack_info)
+            stack[osd.slot_id]['osds'][osd.osd_id] = osd_info
+            model_osds[osd.osd_id] = osd
+
+        for slot_info in stack.itervalues():
+            for osd_id, osd in slot_info['osds'].iteritems():
+                if osd_id not in model_osds or self.type == AlbaNode.NODE_TYPES.GENERIC:
+                    # The is known by the remote node but not in the model OR it's a generic node
+                    # In that case, let's connect to the OSD to see whether we get some info from it
+                    try:
+                        if osd_id in model_osds:
+                            host = model_osds[osd_id].ip
+                            port = model_osds[osd_id].port
+                        else:
+                            host = osd['hosts'][0] if 'hosts' in osd else osd['ips'][0]
+                            port = osd['port']
+                        claimed_by = AlbaCLI.run('get-osd-claimed-by', named_params={'host': host,
+                                                                                     'port': port})
+                        alba_backend = AlbaBackendList.get_by_alba_id(claimed_by)
+                        osd['claimed_by'] = alba_backend.guid if alba_backend is not None else claimed_by
+                    except KeyError:
+                        osd['claimed_by'] = 'unknown'
+                    except:
+                        AlbaNode._logger.exception('Could not load OSD info: {0}'.format(osd_id))
+                        osd['claimed_by'] = 'unknown'
+                        if osd.get('status') not in ['error', 'warning']:
+                            osd['status'] = 'error'
+                            osd['status_detail'] = 'unreachable'
+        if self.type == AlbaNode.NODE_TYPES.GENERIC:
+            # Add prefix of 2 digits based on amount of slots on this ALBA node for sorting in GUI
+            slot_amount = len(set(osd.slot_id for osd in self.osds))
+            prefix = '{0:02d}'.format(slot_amount)
+            slot_id = '{0}{1}'.format(prefix, str(uuid.uuid4())[2:])
+            stack[slot_id] = {'status': 'empty'}
+        return stack
+
+    def _node_metadata(self):
+        """
+        Returns a set of metadata hinting on how the Node should be used
+        """
+        slots_metadata = {'fill': False,  # Prepare Slot for future usage
+                          'fill_add': False,  # OSDs will added and claimed right away
+                          'clear': False}  # Indicates whether OSDs can be removed from ALBA Node / Slot
+        if self.type == AlbaNode.NODE_TYPES.ASD:
+            slots_metadata.update({'fill': True,
+                                   'fill_metadata': {'count': 'integer'},
+                                   'clear': True})
+        elif self.type == AlbaNode.NODE_TYPES.GENERIC:
+            slots_metadata.update({'fill_add': True,
+                                   'fill_add_metadata': {'osd_type': 'osd_type',
+                                                         'ip': 'ip',
+                                                         'port': 'port'},
+                                   'clear': True})
+
+        return slots_metadata
+
+    def _supported_osd_types(self):
+        """
+        Returns a list of all supported OSD types
+        """
+        from ovs.dal.hybrids.albaosd import AlbaOSD
+        if self.type == AlbaNode.NODE_TYPES.GENERIC:
+            return [AlbaOSD.OSD_TYPES.ASD, AlbaOSD.OSD_TYPES.AD]
+        if self.type == AlbaNode.NODE_TYPES.ASD:
+            return [AlbaOSD.OSD_TYPES.ASD]
+
+    def _read_only_mode(self):
+        """
+        Indicates whether the ALBA Node can be used for OSD manipulation
+        If the version on the ALBA Node is lower than a specific version required by the framework, the ALBA Node becomes read only,
+        this means, that actions such as creating, restarting, deleting OSDs becomes impossible until the node's software has been updated
+        :return: True if the ALBA Node should be read only, False otherwise
+        :rtype: bool
+        """
+        return self.client.get_metadata()['_version'] < 3  # Version 3 was introduced when Slots for Active Drives have been introduced
+
+    def _local_summary(self):
+        """
+        Return a summary of the osds
+        :return:
+        """
+        device_info = {'red': 0,
+                       'green': 0,
+                       'orange': 0}
+        local_summary = {'devices': device_info}  # For future additions?
+        for slot_id, slot_data in self.stack.iteritems():
+            if slot_data.get('status', 'empty') == 'empty':
+                continue
+            for osd_id, osd_data in slot_data['osds'].iteritems():
+                status = osd_data.get('status', 'unknown')
+                if status == 'ok':
+                    device_info['green'] += 1
+                elif status == 'warning':
+                    device_info['orange'] += 1
+                elif status == 'error':
+                    device_info['red'] += 1
+        return local_summary

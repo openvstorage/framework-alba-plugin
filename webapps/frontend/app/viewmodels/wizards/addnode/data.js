@@ -16,9 +16,13 @@
 /*global define */
 define(['knockout'], function(ko){
     "use strict";
+    var nameRegex = /^[0-9a-zA-Z][\-_a-zA-Z0-9]{1,18}[a-zA-Z0-9]$/;
     var singleton = function() {
         return {
+            confirmOnly: ko.observable(false),
+            name: ko.observable('').extend({regex: nameRegex}),
             newNode: ko.observable(),
+            nodeTypes: ko.observableArray(['GENERIC']),
             oldNode: ko.observable()
         };
     };
