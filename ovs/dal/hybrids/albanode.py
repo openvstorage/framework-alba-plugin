@@ -76,7 +76,7 @@ class AlbaNode(DataObject):
 
     def _maintenance_services(self):
         """
-        Returns all maintenance services on this node, grouped by backend name 
+        Returns all maintenance services on this node, grouped by backend name
         """
         services = {}
         try:
@@ -168,7 +168,7 @@ class AlbaNode(DataObject):
         """
         slots_metadata = {'fill': False,  # Prepare Slot for future usage
                           'fill_add': False,  # OSDs will added and claimed right away
-                          'clear': False}  # Indicates whether OSDs can be removed from ALBA Node / Slot 
+                          'clear': False}  # Indicates whether OSDs can be removed from ALBA Node / Slot
         if self.type == AlbaNode.NODE_TYPES.ASD:
             slots_metadata.update({'fill': True,
                                    'fill_metadata': {'count': 'integer'},

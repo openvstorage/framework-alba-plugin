@@ -17,6 +17,7 @@
 """
 AlbaBackend module
 """
+
 import time
 from threading import Lock, Thread
 from ovs.dal.dataobject import DataObject
@@ -471,7 +472,7 @@ class AlbaBackend(DataObject):
 
         if self.backend.status == Backend.STATUSES.DELETING:
             return 'deleting'
-        
+
         # Verify failed disks
         devices = self.local_summary['devices']
         if devices['red'] > 0:
@@ -490,10 +491,15 @@ class AlbaBackend(DataObject):
 
         # Retrieve ASD and maintenance service information
         def _get_node_information(_node):
-            for disk in _node.disks:
-                for osd in disk.osds:
-                    if osd.alba_backend_guid == self.guid:
-                        nodes_used_by_this_backend.add(_node)
+            if _node not in nodes_used_by_this_backend:
+                for slot_info in _node.stack.itervalues():
+                    for osd_info in slot_info['osds'].itervalues():
+                        if osd_info['claimed_by'] == self.guid:
+                            nodes_used_by_this_backend.add(_node)
+                            break
+                    if _node in nodes_used_by_this_backend:
+                        break
+
             try:
                 services = _node.maintenance_services
                 if self.name in services:
