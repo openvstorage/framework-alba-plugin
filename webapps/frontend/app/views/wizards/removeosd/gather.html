@@ -37,7 +37,7 @@ but WITHOUT ANY WARRANTY of any kind.
             </li>
         </ul>
     </div>
-    <div data-bind="visible: !data.loaded()" class="alert alert-info" style="margin-top: 20px;">
+    <div class="alert alert-info" data-bind="visible: !data.loaded()" style="margin-top: 20px;">
         <span class="fa fa-spin" style="margin-right: 10px;" data-i18n="[html]ovs:icons.loading"></span>
         <span data-i18n="alba:wizards.remove_osd.gather.loading"></span>
     </div>
@@ -46,5 +46,9 @@ but WITHOUT ANY WARRANTY of any kind.
             <input type="checkbox" id="accept" style="margin-top: 9px; margin-left: 15px;" data-bind="checked: data.confirmed">
             <label for="accept" class="help-block" data-i18n="alba:wizards.remove_osd.gather.accepttext" style="padding-left: 10px; display: inline-block;"></label>
         </div>
+    </div>
+    <div class="alert alert-danger"
+         style="margin-bottom: -10px;"
+         data-bind="visible: data.loaded() && failureCalcSafety(), translate: 'alba:wizards.remove_osd.gather.failure_calculating_safety'">
     </div>
 </div>

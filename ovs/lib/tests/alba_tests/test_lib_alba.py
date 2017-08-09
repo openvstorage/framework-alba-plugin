@@ -17,6 +17,7 @@
 """
 ALBA generic test module
 """
+
 import unittest
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.tests.alba_helpers import AlbaDalHelper
@@ -25,8 +26,8 @@ from ovs.extensions.db.arakooninstaller import ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs_extensions.generic.tests.sshclient_mock import MockedSSHClient
+from ovs_extensions.log.log_handler import LogHandler
 from ovs.lib.alba import AlbaController
-from ovs.log.log_handler import LogHandler
 
 
 class AlbaGeneric(unittest.TestCase):

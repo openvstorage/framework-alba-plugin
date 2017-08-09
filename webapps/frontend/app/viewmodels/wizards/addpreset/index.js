@@ -34,7 +34,7 @@ define([
 
         // Cleaning data
         if (options.editPreset) {
-            self.title(generic.tryGet(options, 'title', $.t('alba:wizards.editpreset.title')));
+            self.title(generic.tryGet(options, 'title', $.t('alba:wizards.edit_preset.title')));
             self.data.currentPreset(options.currentPreset);
             self.data.name(options.currentPreset.name);
             self.data.replication(options.currentPreset.replication);
@@ -62,7 +62,7 @@ define([
             self.data.editPreset(true);
 
         } else {
-            self.title(generic.tryGet(options, 'title', $.t('alba:wizards.addpreset.title')));
+            self.title(generic.tryGet(options, 'title', $.t('alba:wizards.add_preset.title')));
             data.name('');
             data.advanced(false);
             data.accepted(false);

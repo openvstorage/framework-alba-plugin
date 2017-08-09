@@ -22,11 +22,11 @@ from rest_framework import viewsets
 from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
 from api.backend.decorators import load, log, required_roles, return_list, return_object, return_task, return_simple
-from api.backend.exceptions import HttpForbiddenException, HttpNotAcceptableException
 from api.backend.serializers.serializers import FullSerializer
 from api.backend.toolbox import ApiToolbox
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albabackendlist import AlbaBackendList
+from ovs_extensions.api.exceptions import HttpForbiddenException, HttpNotAcceptableException
 from ovs.lib.alba import AlbaController
 from ovs.lib.albapreset import AlbaPresetController
 
@@ -132,7 +132,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @log()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
-    @load(AlbaBackend, validator=_validate_access)
+    @load(AlbaBackend, max_version=8, validator=_validate_access)
     def add_units(self, albabackend, osds):
         """
         Add storage units to the backend and register with alba nsm
@@ -144,6 +144,25 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :rtype: celery.result.AsyncResult
         """
         return AlbaController.add_units.s(albabackend.guid, osds).apply_async(queue='ovs_masters')
+
+    @action()
+    @log()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaBackend, validator=_validate_access)
+    def add_osds(self, albabackend, alba_node_guid, osds):
+        """
+        Add storage units to the backend and register with alba nsm
+        :param albabackend: ALBA backend to add units to
+        :type albabackend: ovs.dal.hybrids.albabackend.AlbaBackend
+        :param alba_node_guid: Guid of the AlbaNode on which the added OSDs are added
+        :type alba_node_guid: str
+        :param osds: List of OSD information objects (containing: ip, port
+        :type osds: list
+        :return: Asynchronous result of a CeleryTask
+        :rtype: celery.result.AsyncResult
+        """
+        return AlbaController.add_osds.s(alba_backend_guid=albabackend.guid, osds=osds, alba_node_guid=alba_node_guid).apply_async(queue='ovs_masters')
 
     @link()
     @log()
@@ -244,17 +263,19 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read'])
     @return_task()
     @load(AlbaBackend, validator=_validate_access)
-    def calculate_safety(self, albabackend, asd_id):
+    def calculate_safety(self, albabackend, asd_id=None, osd_id=None):
         """
         Returns the safety resulting the removal of a given disk
         :param albabackend: ALBA backend to calculate safety for
         :type albabackend: AlbaBackend
-        :param asd_id: ID of the ASD to calculate safety off
+        :param asd_id: ID of the OSD to calculate safety off
         :type asd_id: str
+        :param osd_id: ID of the OSD to calculate safety off
+        :type osd_id: str
         :return: Asynchronous result of a CeleryTask
         :rtype: celery.result.AsyncResult
         """
-        return AlbaController.calculate_safety.delay(albabackend.guid, [asd_id])
+        return AlbaController.calculate_safety.delay(albabackend.guid, [osd_id if osd_id is not None else asd_id])
 
     @action()
     @log()
@@ -276,8 +297,8 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :rtype: celery.result.AsyncResult
         """
         if 'backend_connection_info' not in metadata:
-            raise HttpNotAcceptableException(error_description='Invalid metadata passed',
-                                             error='invalid_data')
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description='Invalid metadata passed')
         connection_info = metadata['backend_connection_info']
         if connection_info['host'] == '':
             client = None
@@ -285,8 +306,8 @@ class AlbaBackendViewSet(viewsets.ViewSet):
                 if _client.ovs_type == 'INTERNAL' and _client.grant_type == 'CLIENT_CREDENTIALS':
                     client = _client
             if client is None:
-                raise HttpNotAcceptableException(error_description='Invalid metadata passed',
-                                                 error='invalid_data')
+                raise HttpNotAcceptableException(error='invalid_data',
+                                                 error_description='Invalid metadata passed')
             connection_info['username'] = client.client_id
             connection_info['password'] = client.client_secret
             connection_info['host'] = local_storagerouter.ip
@@ -333,9 +354,9 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         if cluster_names is None:
             cluster_names = []
         if not isinstance(amount, int) or not 1 <= amount <= 10:
-            raise HttpNotAcceptableException(error_description="Amount passed should be of type 'int' and should be between in range 1 - 10",
-                                             error='invalid_data')
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description="Amount passed should be of type 'int' and should be between in range 1 - 10")
         if not isinstance(cluster_names, list):
-            raise HttpNotAcceptableException(error_description="Cluster names passed should be of type 'list'",
-                                             error='invalid_data')
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description="Cluster names passed should be of type 'list'")
         return AlbaController.nsm_checkup.delay(alba_backend_guid=albabackend.guid, additional_nsms={'amount': amount, 'names': cluster_names})

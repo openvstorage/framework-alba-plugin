@@ -16,12 +16,26 @@
 /*global define */
 define(['knockout'], function(ko){
     "use strict";
+
     var singleton = function() {
-        return {
-            amount: ko.observable(1).extend({ numeric: { min: 1, max: 10 }}),
-            disks:  ko.observableArray([]),
-            node:   ko.observable()
+        var data = {
+            node: ko.observable(),
+            slots: ko.observableArray([]),
+            formData: ko.observableArray([]),
+            completed: ko.observable(),
+            confirmOnly: ko.observable()
         };
+        
+        // Computed
+        data.hasHelpText = ko.computed(function() {
+            var hasText = {};
+            $.each(data.formData(), function(index, item) {
+                var key = 'alba:wizards.add_osd.gather.' + item.field + '_help';
+                hasText[item.field] = key !== $.t(key);
+            });
+            return hasText;
+        });
+        return data;
     };
     return singleton();
 });

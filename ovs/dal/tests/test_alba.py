@@ -101,58 +101,57 @@ class Alba(unittest.TestCase):
             'alba_backends': [1],
             'alba_abm_clusters': [1],
             'alba_nsm_clusters': [(1, 1)],  # (<abackend_id>, <amount_of_nsm_clusters>)
-            'alba_nodes': [1]
+            'alba_nodes': [1],
         })
         node = structure['alba_nodes'][1]
-        backend = structure['alba_backends'][1]
+        alba_backend = structure['alba_backends'][1]
         VirtualAlbaBackend.data['backend_1-abm'] = {}
         VirtualAlbaBackend.data['backend_1-abm']['osds'] = []
 
         # Validate local_stack when the node is alive, but not returning any data
         ASDManagerClient.test_exceptions[node] = {}
-        ASDManagerClient.test_results[node] = {'get_disks': {},
-                                               'get_asds': {}}
+        ASDManagerClient.test_results[node] = {'get_stack': {},
+                                               'get_metadata': {'_version': 3}}
         expected = {'node_1': {}}
         node.invalidate_dynamics()
-        self.assertDictEqual(backend._local_stack(), expected)
+        self.assertDictEqual(alba_backend._local_stack(), expected)
 
         # Validate local_stack when the node is offline
-        ASDManagerClient.test_exceptions[node] = {'get_disks': requests.ConnectionError('test'),
-                                                  'get_asds': requests.ConnectionError('test')}
-        ASDManagerClient.test_results[node] = {'get_disks': {'alba_disk_1': {'available': True,
+        ASDManagerClient.test_exceptions[node] = {'get_stack': requests.ConnectionError('test'),
+                                                  'get_metadata': requests.ConnectionError('test')}
+        ASDManagerClient.test_results[node] = {'get_stack': {'alba_disk_1': {'available': True,
                                                                              'device': '/dev/disk/by-id/alba_disk_1',
                                                                              'name': 'alba_disk_1',
+                                                                             'osds': {},
                                                                              'node_id': node.node_id,
                                                                              'state': 'ok'}},
-                                               'get_asds': {}}
+                                               'get_metadata': {'_version': 3}}
         expected = {'node_1': {}}
         node.invalidate_dynamics()
-        self.assertDictEqual(backend._local_stack(), expected)
+        self.assertDictEqual(alba_backend._local_stack(), expected)
 
         # Validate uninitialized disks
         ASDManagerClient.test_exceptions[node] = {}
-        expected = {'node_1': {'alba_disk_1': {'asds': {},
-                                               'available': True,
+        expected = {'node_1': {'alba_disk_1': {'available': True,
                                                'device': '/dev/disk/by-id/alba_disk_1',
                                                'name': 'alba_disk_1',
                                                'node_id': 'node_1',
-                                               'state': 'ok',
-                                               'status': 'uninitialized',
-                                               'status_detail': ''}}}
+                                               'osds': {},
+                                               'status': 'ok',
+                                               'status_detail': 'unknown'}}}
         node.invalidate_dynamics()
-        self.assertDictEqual(backend._local_stack(), expected)
+        self.assertDictEqual(alba_backend._local_stack(), expected)
 
         # Validate initialized disks
-        ASDManagerClient.test_results[node]['get_disks']['alba_disk_1'].update({'available': False,
+        ASDManagerClient.test_results[node]['get_stack']['alba_disk_1'].update({'available': False,
                                                                                 'mountpoint': '/mnt/alba-asd/disk-1'})
         expected['node_1']['alba_disk_1'].update({'mountpoint': '/mnt/alba-asd/disk-1',
-                                                  'available': False,
-                                                  'status': 'initialized'})
+                                                  'available': False})
         node.invalidate_dynamics()
-        self.assertDictEqual(backend._local_stack(), expected)
+        self.assertDictEqual(alba_backend._local_stack(), expected)
 
         # Validate running but not claimed ASD
-        ASDManagerClient.test_results[node]['get_disks']['alba_disk_1'].update({'asds': {'alba_osd_1': {'asd_id': 'alba_osd_1',
+        ASDManagerClient.test_results[node]['get_stack']['alba_disk_1'].update({'osds': {'alba_osd_1': {'asd_id': 'alba_osd_1',
                                                                                                         'capacity': 1024 ** 3,
                                                                                                         'home': '/mnt/alba-asd/disk-1/alba_osd_1',
                                                                                                         'log_level': 'info',
@@ -161,21 +160,20 @@ class Alba(unittest.TestCase):
                                                                                                         'rocksdb_block_cache_size': 8 * 1024 ** 2,
                                                                                                         'state': 'ok',
                                                                                                         'transport': 'tcp'}}})
-        expected['node_1']['alba_disk_1'].update({'mountpoint': '/mnt/alba-asd/disk-1',
-                                                  'available': False,
-                                                  'status': 'initialized',
-                                                  'asds': {'alba_osd_1': {'asd_id': 'alba_osd_1',
+        expected['node_1']['alba_disk_1'].update({'osds': {'alba_osd_1': {'asd_id': 'alba_osd_1',
                                                                           'capacity': 1024 ** 3,
+                                                                          'claimed_by': 'unknown',
                                                                           'home': '/mnt/alba-asd/disk-1/alba_osd_1',
                                                                           'log_level': 'info',
                                                                           'node_id': 'node_1',
                                                                           'port': 10000,
                                                                           'rocksdb_block_cache_size': 8 * 1024 ** 2,
-                                                                          'state': 'ok',
-                                                                          'transport': 'tcp'}}})
+                                                                          'status': 'ok',
+                                                                          'transport': 'tcp',
+                                                                          'type': 'ASD'}}})
         ASDManagerClient.test_exceptions[node] = {}
         node.invalidate_dynamics()
-        self.assertDictEqual(backend._local_stack(), expected)
+        self.assertDictEqual(alba_backend._local_stack(), expected)
 
         # Validate with claimed OSD
         VirtualAlbaBackend.data['backend_1-abm']['osds'] = [{'node_id': 'node_1',
@@ -184,35 +182,17 @@ class Alba(unittest.TestCase):
                                                              'read': [],
                                                              'write': [],
                                                              'errors': []}]
-        structure = AlbaDalHelper.build_dal_structure({
-            'alba_disks': [(1, 1)],
-            'alba_osds': [(1, 1, 1)]
-        }, structure)
-        disk = structure['alba_disks'][1]
-        osd = structure['alba_osds'][1]
-        ASDManagerClient.test_results[node]['get_disks']['alba_disk_1'].update({'aliases': ['/dev/alba_disk_1']})
-        expected['node_1']['alba_disk_1'].update({'guid': disk.guid,
-                                                  'aliases': disk.aliases})
-        expected['node_1']['alba_disk_1']['asds']['alba_osd_1'].update({'alba_backend_guid': backend.guid,
+        AlbaDalHelper.build_dal_structure(structure={'alba_osds': [(1, 1, 1)]},
+                                          previous_structure=structure)
+        expected['node_1']['alba_disk_1']['osds']['alba_osd_1'].update({'alba_backend_guid': alba_backend.guid,
                                                                         'status': 'claimed',
-                                                                        'status_detail': '',
-                                                                        'transport': 'tcp',
-                                                                        'guid': osd.guid})
+                                                                        'status_detail': ''})
         node.invalidate_dynamics()
-        self.assertDictEqual(backend._local_stack(), expected)
+        self.assertDictEqual(alba_backend._local_stack(), expected)
 
         # Oops, it's offline again
-        ASDManagerClient.test_exceptions[node] = {'get_disks': requests.ConnectionError('test'),
-                                                  'get_asds': requests.ConnectionError('test')}
-        expected = {'node_1': {'alba_disk_1': {'status': 'error',
-                                               'name': 'alba_disk_1',
-                                               'status_detail': 'nodedown',
-                                               'guid': disk.guid,
-                                               'aliases': disk.aliases,
-                                               'asds': {'alba_osd_1': {'asd_id': 'alba_osd_1',
-                                                                       'status': 'error',
-                                                                       'status_detail': 'nodedown',
-                                                                       'alba_backend_guid': backend.guid,
-                                                                       'guid': osd.guid}}}}}
+        ASDManagerClient.test_exceptions[node] = {'get_stack': requests.ConnectionError('test'),
+                                                  'get_metadata': requests.ConnectionError('test')}
+        expected = {'node_1': {}}
         node.invalidate_dynamics()
-        self.assertDictEqual(backend._local_stack(), expected)
+        self.assertDictEqual(alba_backend._local_stack(), expected)
