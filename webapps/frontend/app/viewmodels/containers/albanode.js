@@ -255,7 +255,7 @@ define([
                     $.each(slotInfo.osds, function(index, osd) {
                         osdData.push({
                             osd_type: osd.type(),
-                            ip: osd.ip(),
+                            ips: osd.ips(),
                             port: osd.port(),
                             slot_id: slotID
                         });

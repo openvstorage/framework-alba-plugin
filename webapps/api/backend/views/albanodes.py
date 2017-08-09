@@ -213,6 +213,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     def initialize_disks(self, albanode, disks):
         """
         Initializes disks
+        DEPRECATED API call - use fill_slot in the future
         :param albanode: ALBA node to initialize disks
         :type albanode: AlbaNode
         :param disks: Disks to initialize (dict from type {disk_alias (str): amount of asds (int)})
@@ -220,8 +221,21 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :return: Celery async task result
         :rtype: CeleryTask
         """
-        # noinspection PyUnresolvedReferences
-        return AlbaNodeController.initialize_disks.delay(albanode.guid, disks)
+        # Currently backwards compatible, should be removed at some point
+        # Map to fill_slot for backwards compatibility
+        # Old call example:
+        # Data: {disks: {/dev/disk/by-id/ata-QEMU_HARDDISK_7f8acdce-979d-11e6-b: 2}}
+        # New call example:
+        # Data: [{alba_backend_guid: "0d3829bb-98fb-4ead-8772-862f37fb45dd", count:1, osd_type:"ASD", slot_id:"ata-QEMU_HARDDISK_1a078cce-511c-11e7-8"}]
+        # Alba backend guid can be ignored for just filling slots
+        osd_type = 'ASD'  # Always for this backwards compatible call
+        slot_information = []
+        for disk_alias, count in disks.iteritems():
+            slot_id = disk_alias.split('/')[-1]
+            slot_information.append({'slot_id': slot_id,
+                                     'count': count,
+                                     'osd_type': osd_type})
+        return AlbaNodeController.fill_slots.delay(node_guid=albanode.guid, slot_information=slot_information)
 
     @action()
     @required_roles(['read', 'write', 'manage'])
@@ -237,7 +251,9 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :return: Celery async task result
         :rtype: CeleryTask
         """
-        return AlbaNodeController.remove_slot.delay(albanode.guid, disk)  # Giving a disk alias a try
+        # Currently backwards compatible, should be removed at some point
+        slot_id = disk.split('/')[-1]
+        return AlbaNodeController.remove_slot.delay(albanode.guid, slot_id)  # Giving a disk alias a try
 
     @action()
     @required_roles(['read', 'write', 'manage'])
@@ -311,6 +327,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :return: Celery async task result
         :rtype: CeleryTask
         """
+        # Currently backwards compatible, should be removed at some point
         return AlbaNodeController.restart_osd.delay(albanode.guid, osd_id=asd_id)
 
     @action()
@@ -343,6 +360,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :return: Celery async task result
         :rtype: CeleryTask
         """
+        # Currently backwards compatible, should be removed at some point
+        # @todo make this backwards compatible
         return AlbaNodeController.restart_disk.delay(albanode.guid, disk)
 
     @link()

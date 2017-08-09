@@ -327,7 +327,7 @@
                 "failure": "Failure",
                 "failure_msg": "Adding __amount__ OSD__multi__ to Slot __name__ failed: __why__",
                 "failure_multi_msg": "Adding __amount__ OSD__multi__ to all empty Slots failed: __why__",
-                "ip": "IP Address:",
+                "ips": "IP Address:",
                 "osd_type": "OSD type:",
                 "port": "Port:",
                 "started": "Adding",
@@ -340,9 +340,10 @@
             "gather": {
                 "count": "Amount:",
                 "count_help": "Fill the desired amount of OSDs to be added.<br/><b>This cannot be changed afterwards.</b>",
-                "invalid_ip": "Invalid IP address",
+                "invalid_ips": "Invalid IP address",
                 "invalid_port": "Invalid port specified. Port should be between 1 and 65536",
-                "ip": "IP Address:",
+                "ips": "IP Address:",
+                "add_ips": "Add IP address",
                 "osd_type": "OSD type:",
                 "port": "Port:"
             },

@@ -16,9 +16,9 @@
 /*global define */
 define([
     'jquery', 'knockout',
-    'ovs/api', 'ovs/shared', 'ovs/generic',
+    'ovs/api', 'ovs/shared', 'ovs/generic', 'ovs/formBuilder',
     './data'
-], function($, ko, api, shared, generic, data) {
+], function($, ko, api, shared, generic, formBuilder, data) {
     "use strict";
     return function() {
         var self = this;
@@ -42,12 +42,9 @@ define([
                     slot_id: slot.slotID(),
                     alba_backend_guid: self.data.node().albaBackend.guid()
                 };
-                $.each(self.data.formData(), function(index, formItem){
-                    osdData[formItem.field] = formItem.data();
-                    fields.push(formItem.field)
-                });
+                $.extend(osdData,formBuilder.gatherData(self.data.formFieldMapping))
                 // @TODO remove this part as type should be fetched
-                if (!fields.contains('osd_type')) {
+                if (!('osd_type' in osdData)) {
                     osdData.osd_type = 'ASD';
                 }
                 slotData.push(osdData);

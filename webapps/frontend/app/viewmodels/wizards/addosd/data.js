@@ -14,14 +14,17 @@
 // Open vStorage is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
-define(['knockout'], function(ko){
+define(['knockout', 'jquery', 'ovs/formBuilder'], function(ko, $, formBuilder){
     "use strict";
 
     var singleton = function() {
         var data = {
             node: ko.observable(),
             slots: ko.observableArray([]),
-            formData: ko.observableArray([]),
+            formQuestions: ko.observableArray([]),
+            formFieldMapping: ko.observable(),
+            formMapping: ko.observable(),
+            formMetadata: ko.observable(),
             completed: ko.observable(),
             confirmOnly: ko.observable()
         };
@@ -29,12 +32,22 @@ define(['knockout'], function(ko){
         // Computed
         data.hasHelpText = ko.computed(function() {
             var hasText = {};
-            $.each(data.formData(), function(index, item) {
+            $.each(data.formQuestions(), function(index, item) {
                 var key = 'alba:wizards.add_osd.gather.' + item.field + '_help';
                 hasText[item.field] = key !== $.t(key);
             });
             return hasText;
         });
+
+        // Functions
+        data.insertItem = function(field){
+            // Generates an item to be added to the form
+            return formBuilder.insertGeneratedFormItem(field, data.formMetadata(), data.formMapping());
+        };
+
+        data.removeItem = function(index){
+            return formBuilder.removeFormItem(index)
+        };
         return data;
     };
     return singleton();
