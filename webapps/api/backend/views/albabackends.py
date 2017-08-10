@@ -190,7 +190,6 @@ class AlbaBackendViewSet(viewsets.ViewSet):
 
     @action()
     @log()
-    @link()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaBackend, validator=_validate_access)
@@ -206,6 +205,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         return AlbaController.update_osds.s(alba_backend_guid=albabackend.guid, osds=osds)
 
+    @link()
     @log()
     @required_roles(['read', 'manage'])
     @return_task()
