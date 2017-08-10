@@ -270,6 +270,7 @@ class ALBAMigrator(object):
             # Introduction of Active Drive #
             ################################
             # Update slot_id and Alba Node relation for all OSDs
+            client = PersistentFactory.get_client()
             disk_osd_map = {}
             for key, data in client.prefix_entries('ovs_data_albaosd_'):
                 alba_disk_guid = data.get('alba_disk', {}).get('guid')
@@ -277,6 +278,12 @@ class ALBAMigrator(object):
                     if alba_disk_guid not in disk_osd_map:
                         disk_osd_map[alba_disk_guid] = []
                     disk_osd_map[alba_disk_guid].append(key.replace('ovs_data_albaosd_', ''))
+                try:
+                    value = client.get(key)
+                    value.pop('alba_disk', None)
+                    client.set(key=key, value=value)
+                except Exception:
+                    pass  # We don't care if we would have any leftover AlbaDisk information in _data, but its cleaner not to
 
             alba_guid_node_map = dict((an.guid, an) for an in AlbaNodeList.get_albanodes())
             for key, data in client.prefix_entries('ovs_data_albadisk_'):
@@ -295,7 +302,6 @@ class ALBAMigrator(object):
                 client.delete(key=key, must_exist=False)
 
             # Remove unique constraints for AlbaNode IP
-            client = PersistentFactory.get_client()
             for key in client.prefix('ovs_unique_albanode_ip_'):
                 client.delete(key=key, must_exist=False)
 
