@@ -349,7 +349,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
-    @load(AlbaNode)
+    @load(AlbaNode, max_version=8)
     def restart_disk(self, albanode, disk):
         """
         Restarts a disk
@@ -361,8 +361,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :rtype: CeleryTask
         """
         # Currently backwards compatible, should be removed at some point
-        # @todo make this backwards compatible
-        return AlbaNodeController.restart_disk.delay(albanode.guid, disk)
+        slot_id = disk.split('/')[-1]
+        return AlbaNodeController.restart_slot.delay(albanode.guid, slot_id)
 
     @link()
     @required_roles(['read', 'manage'])

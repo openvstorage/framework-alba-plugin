@@ -51,7 +51,6 @@ define([
         self.metadata          = ko.observable();
         self.name              = ko.observable();
         self.nodeID            = ko.observable(nodeID);
-        self.osds              = ko.observableArray([]);
         self.port              = ko.observable();
         self.readOnlyMode      = ko.observable(false);
         self.slots             = ko.observableArray([]);
@@ -77,7 +76,7 @@ define([
             }
             var hasUnclaimed = false;
             $.each(self.slots(), function(index, slot) {
-                $.each(slot.osds(), function(jndex, osd) {
+                $.each(slot.osds(), function(index, osd) {
                     if (osd.albaBackendGuid() === undefined && osd.processing() === false && slot.processing() === false) {
                         hasUnclaimed = true;
                         return false;
@@ -91,11 +90,13 @@ define([
         });
         self.canDelete = ko.computed(function() {
             var deletePossible = true;
-            $.each(self.osds(), function(jndex, osd) {
-                if ((osd.status() !== 'error' && osd.status() !== 'available') || osd.processing() === true) {
-                    deletePossible = false;
-                    return false;
-                }
+            $.each(self.slots(), function(index, slot) {
+                $.each(slot.osds(), function(index, osd) {
+                    if ((osd.status() !== 'error' && osd.status() !== 'available') || osd.processing() === true) {
+                        deletePossible = false;
+                        return false;
+                    }
+                });
             });
             return deletePossible;
         });

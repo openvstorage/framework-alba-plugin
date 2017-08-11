@@ -167,6 +167,9 @@ class ASDManagerClient(object):
         """
         return self._call(requests.delete, 'slots/{0}'.format(slot_id))
 
+    def restart_slot(self, slot_id):
+        return self._call(requests.post, 'slots/{0}/restart'.format(slot_id))
+
     def get_metadata(self):
         """
         Gets metadata from the node
