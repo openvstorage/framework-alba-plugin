@@ -65,7 +65,7 @@ define([
         // Cleaning data
         self.data.node(options.node);
         self.data.slots(options.slots);
-        self.data.formQuestions = formQuestions;
+        self.data.formQuestions(formQuestions());
         self.data.formFieldMapping(fieldMapping);
         self.data.formMetadata(metadata);
         self.data.formMapping(formMapping);
