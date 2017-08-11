@@ -33,8 +33,8 @@ define(['knockout', 'jquery', 'ovs/formBuilder'], function(ko, $, formBuilder){
         data.hasHelpText = ko.computed(function() {
             var hasText = {};
             $.each(data.formQuestions(), function(index, item) {
-                var key = 'alba:wizards.add_osd.gather.' + item.field + '_help';
-                hasText[item.field] = key !== $.t(key);
+                var key = 'alba:wizards.add_osd.gather.' + item().field() + '_help';
+                hasText[item().field()] = key !== $.t(key);
             });
             return hasText;
         });
@@ -42,11 +42,11 @@ define(['knockout', 'jquery', 'ovs/formBuilder'], function(ko, $, formBuilder){
         // Functions
         data.insertItem = function(field){
             // Generates an item to be added to the form
-            return formBuilder.insertGeneratedFormItem(field, data.formMetadata(), data.formMapping());
+            return formBuilder.insertGeneratedFormItem(field, data.formMetadata(), data.formMapping(), data.formQuestions, data.formFieldMapping);
         };
 
         data.removeItem = function(index){
-            return formBuilder.removeFormItem(index)
+            return formBuilder.removeFormItem(index, data.formQuestions, data.formFieldMapping)
         };
         return data;
     };
