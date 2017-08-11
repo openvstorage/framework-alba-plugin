@@ -59,6 +59,15 @@ class GenericManagerClient(object):
         _ = self, slot_id, osd_id
         return {'_success': True}
 
+    def restart_slot(self, slot_id):
+        """
+        Pretends to restart a slot
+        :param slot_id:
+        :return:
+        """
+        _ = self, slot_id
+        return {'success': True}
+
     def delete_osd(self, slot_id, osd_id):
         """
         Pretends to delete the OSD from the Slot
