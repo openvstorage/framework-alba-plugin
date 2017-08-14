@@ -136,13 +136,13 @@ class AlbaNode(DataObject):
                     # In that case, let's connect to the OSD to see whether we get some info from it
                     try:
                         if osd_id in model_osds:
-                            host = model_osds[osd_id].ips[0]
+                            ip = model_osds[osd_id].ips[0]
                             port = model_osds[osd_id].port
                         else:
                             # @todo check impact once https://github.com/openvstorage/alba/issues/773 lands
-                            host = osd['hosts'][0] if 'hosts' in osd else osd['ips'][0]
+                            ip = osd['ips'][0]
                             port = osd['port']
-                        claimed_by = AlbaCLI.run('get-osd-claimed-by', named_params={'host': host,
+                        claimed_by = AlbaCLI.run('get-osd-claimed-by', named_params={'host': ip,
                                                                                      'port': port})
                         alba_backend = AlbaBackendList.get_by_alba_id(claimed_by)
                         osd['claimed_by'] = alba_backend.guid if alba_backend is not None else claimed_by
