@@ -28,7 +28,7 @@ define(['knockout', 'jquery', 'ovs/formBuilder'], function(ko, $, formBuilder){
             completed: ko.observable(),
             confirmOnly: ko.observable()
         };
-        
+
         // Computed
         data.hasHelpText = ko.computed(function() {
             var hasText = {};
@@ -44,7 +44,6 @@ define(['knockout', 'jquery', 'ovs/formBuilder'], function(ko, $, formBuilder){
             // Generates an item to be added to the form
             return formBuilder.insertGeneratedFormItem(field, data.formMetadata(), data.formMapping(), data.formQuestions, data.formFieldMapping);
         };
-
         data.removeItem = function(index){
             return formBuilder.removeFormItem(index, data.formQuestions, data.formFieldMapping)
         };

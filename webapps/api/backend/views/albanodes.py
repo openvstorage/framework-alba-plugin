@@ -244,6 +244,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     def remove_disk(self, albanode, disk):
         """
         Removes a disk
+        DEPRECATED API call - Use 'remove_slot' instead
         :param albanode: ALBA node to remove a disk from
         :type albanode: AlbaNode
         :param disk: Disk to remove
@@ -278,6 +279,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     def reset_asd(self, albanode, asd_id, safety):
         """
         Removes and re-add an ASD
+        DEPRECATED API call - Use 'reset_osd' instead
         :param albanode: ALBA node to remove a disk from
         :type albanode: AlbaNode
         :param asd_id: ASD ID to reset
@@ -320,6 +322,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     def restart_asd(self, albanode, asd_id):
         """
         Restarts an ASD process
+        DEPRECATED API call - Use 'restart_osd' instead
         :param albanode: The node on which the ASD runs
         :type albanode: AlbaNode
         :param asd_id: The ASD to restart
@@ -353,6 +356,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     def restart_disk(self, albanode, disk):
         """
         Restarts a disk
+        DEPRECATED API call
         :param albanode: ALBA node to restart a disk from
         :type albanode: AlbaNode
         :param disk: Disk to restart

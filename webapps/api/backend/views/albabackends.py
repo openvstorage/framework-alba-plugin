@@ -137,10 +137,11 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     def add_units(self, albabackend, osds):
         """
         Add storage units to the backend and register with alba nsm
+        DEPRECATED API call - Use 'add_osds' instead
         :param albabackend: ALBA backend to add units to
         :type albabackend: AlbaBackend
-        :param osds: dict of osd_id as key, disk_id as value
-        :type osds: dict
+        :param osds: Dict of osd_id as key, disk_id as value
+        :type osds: Dict
         :return: Asynchronous result of a CeleryTask
         :rtype: celery.result.AsyncResult
         """
@@ -153,13 +154,16 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         stack = None
         for osd_id, disk_alias in osds.iteritems():
             slot_id = disk_alias.split('/')[-1]
-            # Add units is pushed for a single alba node so stack should be fetched one
+            # Add units is pushed for a single ALBA Node so stack should be fetched one
             if stack is None:
                 for alba_node in AlbaNodeList.get_albanodes():
                     _stack = alba_node.stack
-                    if slot_id in _stack.keys():
+                    if slot_id in _stack:
                         stack = _stack
                         break
+            if stack is None:
+                raise HttpNotAcceptableException(error='stack_not_found',
+                                                 error_description='Could not find the matching stack for slot with ID {0}'.format(slot_id))
             _osd = stack[slot_id]['osds'].get(osd_id)
             if _osd is None:
                 raise HttpNotFoundException(error='osd_not_found', error_description='Could not find OSD {0} on Slot {1}'.format(osd_id, slot_id))
@@ -179,7 +183,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         Add storage units to the backend and register with alba nsm
         :param albabackend: ALBA backend to add units to
         :type albabackend: ovs.dal.hybrids.albabackend.AlbaBackend
-        :param alba_node_guid: Guid of the AlbaNode on which the added OSDs are added
+        :param alba_node_guid: Guid of the Alba Node on which the OSDs are added
         :type alba_node_guid: str
         :param osds: List of OSD information objects (containing: ips, port)
         :type osds: list
@@ -190,20 +194,19 @@ class AlbaBackendViewSet(viewsets.ViewSet):
 
     @action()
     @log()
-    @required_roles(['read', 'write', 'manage'])
+    @required_roles(['write', 'manage'])
     @return_task()
-    @load(AlbaBackend, validator=_validate_access)
-    def update_osds(self, albabackend, osds):
+    @load(validator=_validate_access)
+    def update_osds(self, osds):
         """
-        Update osds that are already registered on a backend
-        :param albabackend: ALBA backend to add units to
-        :type albabackend: ovs.dal.hybrids.albabackend.AlbaBackend
-        :param osds: List of OSD information objects (containing: ips, port)
+        Update OSDs that are already registered on an ALBA Backend
+        Currently used to update the IPs on which the OSD should be exposed
+        :param osds: List of OSD information objects [ [osd_id, osd_data],  ]
         :type osds: list
         :return: Asynchronous result of a CeleryTask
         :rtype: celery.result.AsyncResult
         """
-        return AlbaController.update_osds.s(alba_backend_guid=albabackend.guid, osds=osds)
+        return AlbaController.update_osds.s(osds=osds)
 
     @link()
     @log()

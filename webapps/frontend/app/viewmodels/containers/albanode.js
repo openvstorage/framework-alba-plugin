@@ -75,8 +75,8 @@ define([
                 return false;
             }
             var hasUnclaimed = false;
-            $.each(self.slots(), function(index, slot) {
-                $.each(slot.osds(), function(index, osd) {
+            $.each(self.slots(), function(_, slot) {
+                $.each(slot.osds(), function(_, osd) {
                     if (osd.albaBackendGuid() === undefined && osd.processing() === false && slot.processing() === false) {
                         hasUnclaimed = true;
                         return false;
@@ -90,8 +90,12 @@ define([
         });
         self.canDelete = ko.computed(function() {
             var deletePossible = true;
-            $.each(self.slots(), function(index, slot) {
-                $.each(slot.osds(), function(index, osd) {
+            $.each(self.slots(), function(_, slot) {
+                if (slot.processing() === true) {
+                    deletePossible = false;
+                    return false;
+                }
+                $.each(slot.osds(), function(_, osd) {
                     if ((osd.status() !== 'error' && osd.status() !== 'available') || osd.processing() === true) {
                         deletePossible = false;
                         return false;
@@ -100,7 +104,7 @@ define([
             });
             return deletePossible;
         });
-        
+
         // Functions
         self.downloadLogfiles = function () {
             if (self.downLoadingLogs() === true) {
@@ -132,7 +136,7 @@ define([
             generic.trySet(self.readOnlyMode, data, 'read_only_mode');
             generic.trySet(self.localSummary, data, 'local_summary');
             generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
-            
+
             // Add slots
             var slotIDs = Object.keys(data.stack);
             if (self.type() === 'GENERIC') {
@@ -145,7 +149,7 @@ define([
                 // So in order to achieve this, we remove the latest added slotID from the list (which is first in list)
                 if (slotIDs.length === self.slots().length) {
                     slotIDs.splice(0, 1);
-                }    
+                }
             }
             if (self.type() !== 'GENERIC' || slotIDs.length > self.slots().length) {
                 generic.crossFiller(
@@ -216,7 +220,7 @@ define([
                 wizardCancelled = true;
                 deferred.resolve();
             });
-            
+
             $.each(slots, function(index, slot) {
                 slot.processing(true);
                 $.each(slot.osds(), function(_, osd) {
@@ -377,7 +381,7 @@ define([
             if (matchingSlot === undefined) {
                 return;
             }
-            
+
             var deferred = $.Deferred(),
                 wizardCancelled = false,
                 wizard = new RemoveOSDWizard({
@@ -392,10 +396,10 @@ define([
                 wizardCancelled = true;
                 deferred.resolve();
             });
-            
+
             osd.processing(true);
             matchingSlot.processing(true);
-        
+
             dialog.show(wizard);
             deferred.always(function() {
                 if (wizardCancelled) {

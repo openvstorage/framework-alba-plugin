@@ -62,11 +62,9 @@ class GenericManagerClient(object):
     def restart_slot(self, slot_id):
         """
         Pretends to restart a slot
-        :param slot_id:
-        :return:
         """
         _ = self, slot_id
-        return {'success': True}
+        return {'_success': True}
 
     def delete_osd(self, slot_id, osd_id):
         """

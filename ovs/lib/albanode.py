@@ -179,7 +179,7 @@ class AlbaNodeController(object):
             except RuntimeError as ex:
                 validation_reasons.append(str(ex))
         if len(validation_reasons) > 0:
-            raise ValueError('Missing required parameter:\n *{0}'.format('\n* '.join(('{0}'.format(reason) for reason in validation_reasons))))
+            raise ValueError('Missing required parameter:\n *{0}'.format('\n* '.join(validation_reasons)))
 
         for slot_info in slot_information:
             if node.node_metadata['fill'] is True:
@@ -337,27 +337,27 @@ class AlbaNodeController(object):
     @ovs_task(name='albanode.restart_slot')
     def restart_slot(node_guid, slot_id):
         """
-        Restarts a disk
-        :param node_guid: Guid of the node to restart a disk of
+        Restarts a slot
+        :param node_guid: Guid of the ALBA Node to restart a slot on
         :type node_guid: str
-        :param slot_id: Id of the slot (eg. pci-0000:03:00.0-sas-0x5000c29f4cf04566-lun-0)
+        :param slot_id: ID of the slot (eg. pci-0000:03:00.0-sas-0x5000c29f4cf04566-lun-0)
         :type slot_id: str
         :return: None
         :rtype: NoneType
         """
         node = AlbaNode(node_guid)
-        AlbaNodeController._logger.debug('Restarting slot {0} at node {1}'.format(slot_id, node.ip))
+        AlbaNodeController._logger.debug('Restarting slot {0} on node {1}'.format(slot_id, node.ip))
         try:
-            if slot_id not in node.client.get_stack().keys():
-                AlbaNodeController._logger.exception('Slot {0} not available for restart on node {1}'.format(slot_id, node.ip))
+            if slot_id not in node.client.get_stack():
+                AlbaNodeController._logger.exception('Slot {0} not available for restart on ALBA Node {1}'.format(slot_id, node.ip))
                 raise RuntimeError('Could not find slot')
         except (requests.ConnectionError, requests.Timeout):
-            AlbaNodeController._logger.warning('Could not connect to node {0} to validate disk'.format(node.guid))
+            AlbaNodeController._logger.warning('Could not connect to node {0} to validate slot'.format(node.guid))
             raise
 
         result = node.client.restart_slot(slot_id=slot_id)
         if result['_success'] is False:
-            raise RuntimeError('Error restarting disk: {0}'.format(result['_error']))
+            raise RuntimeError('Error restarting slot: {0}'.format(result['_error']))
         for backend in AlbaBackendList.get_albabackends():
             backend.invalidate_dynamics()
 

@@ -25,11 +25,11 @@ define([
 
         // Variables
         self.data = data;
-        
+
         // Setup
         self.title(generic.tryGet(options, 'title', $.t('alba:wizards.add_osd.title')));
         self.modal(generic.tryGet(options, 'modal', false));
-        
+
         var formMapping = {
             'ips': {
                 'extender': {regex: generic.ipRegex},
@@ -39,7 +39,7 @@ define([
                 'displayOn': ['gather']
             },
             'port': {
-                'extender': {numeric: {min: 1, max: 65536}},
+                'extender': {numeric: {min: 1, max: 65535}},
                 'group': 1,
                 'displayOn': ['gather']
             },

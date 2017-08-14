@@ -341,7 +341,7 @@
                 "count": "Amount:",
                 "count_help": "Fill the desired amount of OSDs to be added.<br/><b>This cannot be changed afterwards.</b>",
                 "invalid_ips": "Invalid IP address",
-                "invalid_port": "Invalid port specified. Port should be between 1 and 65536",
+                "invalid_port": "Invalid port specified. Port should be between 1 and 65535",
                 "ips": "IP Address:",
                 "add_ips": "Add IP address",
                 "osd_type": "OSD type:",

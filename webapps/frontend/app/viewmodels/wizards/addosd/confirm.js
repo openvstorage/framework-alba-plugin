@@ -36,13 +36,12 @@ define([
         self.gatherSlotData = function() {
             // Gather info from the dynamic form
             var slotData = [];
-            var fields = [];
             $.each(self.data.slots(), function(_, slot) {
                 var osdData = {
                     slot_id: slot.slotID(),
                     alba_backend_guid: self.data.node().albaBackend.guid()
                 };
-                $.extend(osdData,formBuilder.gatherData(self.data.formFieldMapping))
+                $.extend(osdData, formBuilder.gatherData(self.data.formFieldMapping));
                 // @TODO remove this part as type should be fetched
                 if (!('osd_type' in osdData)) {
                     osdData.osd_type = 'ASD';
