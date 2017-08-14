@@ -104,8 +104,8 @@ class AlbaNodeController(object):
         if node.type == AlbaNode.NODE_TYPES.ASD:
             for slot_id, slot_info in node.stack.iteritems():
                 for osd_id, osd_info in slot_info['osds'].iteritems():
-                    AlbaNodeController.remove_asd(node_guid=node.guid, asd_id=osd_id, expected_safety=None)
-                AlbaNodeController.remove_disk(node_guid=node.guid, device_alias=slot_id)
+                    AlbaNodeController.remove_osd(node_guid=node.guid, osd_id=osd_id, expected_safety=None)
+                AlbaNodeController.remove_slot(node_guid=node.guid, slot_id=slot_id)
 
             try:
                 for service_name in node.client.list_maintenance_services():
@@ -179,7 +179,7 @@ class AlbaNodeController(object):
             except RuntimeError as ex:
                 validation_reasons.append(str(ex))
         if len(validation_reasons) > 0:
-            raise ValueError('Missing required parameter:\n *{0}'.format('\n* '.join(('{0}'.format(reason) for reason in validation_reasons))))
+            raise ValueError('Missing required parameter:\n *{0}'.format('\n* '.join(validation_reasons)))
 
         for slot_info in slot_information:
             if node.node_metadata['fill'] is True:
@@ -266,8 +266,8 @@ class AlbaNodeController(object):
         if Configuration.exists(AlbaNodeController.ASD_CONFIG.format(osd_id), raw=True):
             Configuration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(osd_id), raw=True)
 
-        if osd is not None:
-            osd.delete()
+        osd.delete()
+        node.invalidate_dynamics()
         if alba_backend is not None:
             alba_backend.invalidate_dynamics()
             alba_backend.backend.invalidate_dynamics()
@@ -334,31 +334,30 @@ class AlbaNodeController(object):
             raise
 
     @staticmethod
-    @ovs_task(name='albanode.restart_disk')
-    def restart_disk(node_guid, device_alias):
+    @ovs_task(name='albanode.restart_slot')
+    def restart_slot(node_guid, slot_id):
         """
-        Restarts a disk
-        :param node_guid: Guid of the node to restart a disk of
+        Restarts a slot
+        :param node_guid: Guid of the ALBA Node to restart a slot on
         :type node_guid: str
-        :param device_alias: Alias of the device to restart  (eg: /dev/disk/by-path/pci-0000:03:00.0-sas-0x5000c29f4cf04566-lun-0)
-        :type device_alias: str
+        :param slot_id: ID of the slot (eg. pci-0000:03:00.0-sas-0x5000c29f4cf04566-lun-0)
+        :type slot_id: str
         :return: None
         :rtype: NoneType
         """
         node = AlbaNode(node_guid)
-        device_id = device_alias.split('/')[-1]
-        AlbaNodeController._logger.debug('Restarting disk {0} at node {1}'.format(device_alias, node.ip))
+        AlbaNodeController._logger.debug('Restarting slot {0} on node {1}'.format(slot_id, node.ip))
         try:
-            if device_id not in node.client.get_disks():
-                AlbaNodeController._logger.exception('Disk {0} not available for restart on node {1}'.format(device_alias, node.ip))
-                raise RuntimeError('Could not find disk')
+            if slot_id not in node.client.get_stack():
+                AlbaNodeController._logger.exception('Slot {0} not available for restart on ALBA Node {1}'.format(slot_id, node.ip))
+                raise RuntimeError('Could not find slot')
         except (requests.ConnectionError, requests.Timeout):
-            AlbaNodeController._logger.warning('Could not connect to node {0} to validate disk'.format(node.guid))
+            AlbaNodeController._logger.warning('Could not connect to node {0} to validate slot'.format(node.guid))
             raise
 
-        result = node.client.restart_disk(disk_id=device_id)
+        result = node.client.restart_slot(slot_id=slot_id)
         if result['_success'] is False:
-            raise RuntimeError('Error restarting disk: {0}'.format(result['_error']))
+            raise RuntimeError('Error restarting slot: {0}'.format(result['_error']))
         for backend in AlbaBackendList.get_albabackends():
             backend.invalidate_dynamics()
 

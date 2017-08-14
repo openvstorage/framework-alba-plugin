@@ -15,7 +15,7 @@
 # but WITHOUT ANY WARRANTY of any kind.
 
 """
-AlbaBackendList module
+AlbaOSDList module
 """
 from ovs.dal.datalist import DataList
 from ovs.dal.hybrids.albaosd import AlbaOSD
@@ -23,13 +23,13 @@ from ovs.dal.hybrids.albaosd import AlbaOSD
 
 class AlbaOSDList(object):
     """
-    This AlbaBackendList class contains various lists regarding to the AlbaBackend class
+    This AlbaOSDList class contains various lists regarding to the AlbaOSD class
     """
 
     @staticmethod
     def get_albaosds():
         """
-        Returns a list of all ALBABackends
+        Returns a list of all AlbaOSDs
         :rtype: list[ovs.dal.hybrids.albaosd.AlbaOSD]
         """
         return DataList(AlbaOSD, {'type': DataList.where_operator.AND,
@@ -38,11 +38,11 @@ class AlbaOSDList(object):
     @staticmethod
     def get_by_osd_id(osd_id):
         """
-        Gets an AlbaBackend by the alba_id
+        Gets an AlbaOSD by the osd_id
         :rtype: ovs.dal.hybrids.albaosd.AlbaOSD
         """
-        backends = DataList(AlbaOSD, {'type': DataList.where_operator.AND,
-                                      'items': [('osd_id', DataList.operator.EQUALS, osd_id)]})
-        if len(backends) == 1:
-            return backends[0]
+        alba_osds = DataList(AlbaOSD, {'type': DataList.where_operator.AND,
+                                       'items': [('osd_id', DataList.operator.EQUALS, osd_id)]})
+        if len(alba_osds) == 1:
+            return alba_osds[0]
         return None

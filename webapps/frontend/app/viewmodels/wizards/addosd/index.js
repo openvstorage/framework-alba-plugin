@@ -15,9 +15,9 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'knockout', 'ovs/generic',
+    'jquery', 'knockout', 'ovs/generic', 'ovs/formBuilder',
     '../build', './confirm', './gather', './data'
-], function($, ko, generic, build, Confirm, Gather, data) {
+], function($, ko, generic, formBuilder, build, Confirm, Gather, data) {
     "use strict";
     return function(options) {
         var self = this;
@@ -25,13 +25,13 @@ define([
 
         // Variables
         self.data = data;
-        
+
         // Setup
         self.title(generic.tryGet(options, 'title', $.t('alba:wizards.add_osd.title')));
         self.modal(generic.tryGet(options, 'modal', false));
-        
+
         var formMapping = {
-            'ip': {
+            'ips': {
                 'extender': {regex: generic.ipRegex},
                 'inputType': 'text',  // default if missing
                 'inputItems': null,  // default if missing
@@ -39,15 +39,15 @@ define([
                 'displayOn': ['gather']
             },
             'port': {
-                'extender': {numeric: {min: 1, max: 65536}},
-                'group': 0,
+                'extender': {numeric: {min: 1, max: 65535}},
+                'group': 1,
                 'displayOn': ['gather']
             },
             'osd_type': {
                 'fieldMap': 'type',  // Translate osd_type to type so in the form it will be self.data.formdata().type
                 'inputType': 'dropdown',  // Generate dropdown, needs items
                 'inputItems': ko.observableArray(['ASD', 'AD']),
-                'group': 1,
+                'group': 2,
                 'displayOn': ['gather']
             },
             'count': {
@@ -58,68 +58,17 @@ define([
             }
         };
         var metadata = options.node.metadata();
-        var formDatas = [];
-        // Determine on what basis the wizard should act
-        for (var actionKey in metadata){
-            if (!metadata.hasOwnProperty(actionKey)) {
-                continue;
-            }
-            if (metadata[actionKey] !== true) {
-                continue
-            }
-            // Question data is stored within the key_metadata part
-            var metadataKey = actionKey + '_metadata';
-            for (var field in metadata[metadataKey]){
-                if (!metadata[metadataKey].hasOwnProperty(field)) {
-                    continue;
-                }
-                // @TODO use the type returned by the api to determine the type here
-                // current types returned: ip, port, osd_type, integer
-                var target = field;
-                var items = null;
-                var type = 'text';
-                var group = 0;
-                var display = undefined;
-                if (field in formMapping){
-                    // Possibly determine target, extenders and inputType/items
-                    target = formMapping[field].fieldMap || target;
-                    items = formMapping[field].inputItems || items;
-                    type = formMapping[field].inputType || type;
-                    group = formMapping[field].group || group;
-                    display = formMapping[field].displayOn;
-                }
-                // Add data-binding
-                var observable = ko.observable();
-                if (field in formMapping) {
-                    if (formMapping[field].extender){
-                        observable = observable.extend(formMapping[field].extender)
-                    }
-                }
-                var formItem = {
-                    'data': observable,  // Item corresponding to this input
-                    'field': field,
-                    'group': group,
-                    'display': display,
-                    'mappedField': target,
-                    'input': {
-                        'type': type,  // If type = dropdown, will be populated with items
-                        'items': items
-                    }
-                };
-                formDatas.push(formItem);
-            }
-        }
-        formDatas.sort(function(a, b){
-            if (a.group === b.group) {
-                return a.field.localeCompare(b.field);
-            }
-            return a.group < b.group ? -1 : 1;
-        });
+        var formData = formBuilder.generateFormData(metadata, formMapping);
+        var formQuestions = formData.questions;
+        var fieldMapping = formData.fieldMapping;
 
         // Cleaning data
         self.data.node(options.node);
         self.data.slots(options.slots);
-        self.data.formData(formDatas);
+        self.data.formQuestions(formQuestions());
+        self.data.formFieldMapping(fieldMapping);
+        self.data.formMetadata(metadata);
+        self.data.formMapping(formMapping);
         self.data.completed(options.completed);
 
         if (self.data.node().type() === 'ASD') {

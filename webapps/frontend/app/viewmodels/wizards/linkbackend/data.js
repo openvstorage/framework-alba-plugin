@@ -29,7 +29,7 @@ define(['knockout'], function(ko){
             domains:      ko.observableArray([]),
             host:         ko.observable('').extend({regex: hostRegex}),
             localHost:    ko.observable(true),
-            port:         ko.observable(80).extend({numeric: {min: 1, max: 65536}}),
+            port:         ko.observable(80).extend({numeric: {min: 1, max: 65535}}),
             target:       ko.observable()
         }, resetAlbaBackends = function() {
             wizardData.albaBackends([]);

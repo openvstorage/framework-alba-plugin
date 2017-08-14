@@ -15,8 +15,8 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'knockout', 'ovs/shared', './data'
-], function($, ko, shared, data) {
+    'jquery', 'knockout', 'ovs/shared', 'ovs/formBuilder', './data'
+], function($, ko, shared, formBuilder, data) {
     "use strict";
     return function() {
         var self = this;
@@ -27,15 +27,7 @@ define([
 
         // Computed
         self.canContinue = ko.computed(function() {
-            var reasons = [], fields = [];
-            $.each(self.data.formData(), function(index, formItem){
-                var observable = formItem.data;
-                if (observable() === undefined || (typeof observable.valid === 'function' && !observable.valid())){
-                    fields.push(formItem.field);
-                    reasons.push($.t('alba:wizards.add_osd.gather.invalid_' + formItem.field))
-                }
-            });
-            return {value: reasons.length === 0, reasons: reasons, fields: fields};
+            return formBuilder.validateForm('alba:wizards.add_osd.gather.invalid_', self.data.formQuestions());
         });
     }
 });

@@ -68,12 +68,6 @@ define([
         self.marked = ko.computed(function() {
             return (self.status() === 'unavailable' || (!self.isLocal() && (self.status() === 'warning' || self.status() === 'error'))) && self.albaBackend() !== undefined;
         });
-        self.ip = ko.computed(function() {
-            if (self.ips().length === 0) {
-                return undefined;
-            }
-            return self.ips()[0];
-        });
 
         // Functions
         self.fillData = function(data) {
