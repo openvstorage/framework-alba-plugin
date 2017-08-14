@@ -19,6 +19,7 @@ Generic module for calling the ASD-Manager
 """
 
 import os
+import json
 import time
 import base64
 import inspect
@@ -123,7 +124,7 @@ class ASDManagerClient(object):
                 for osd in slot_info.get('osds', {}).itervalues():
                     osd['type'] = 'ASD'
             return data
-        
+
         # Version 2 and older used AlbaDisk
         data = self._call(method=requests.get, url='disks', timeout=5, clean=True)
         for disk_id, value in data.iteritems():
@@ -147,6 +148,14 @@ class ASDManagerClient(object):
         Restarts a given OSD in a given Slot
         """
         return self._call(requests.post, 'slots/{0}/asds/{1}/restart'.format(slot_id, osd_id))
+
+    def update_osd(self, slot_id, osd_id, update_data):
+        """
+        Updates a given OSD in a given Slot
+        """
+        return self._call(method=requests.post,
+                          url='slots/{0}/asds/{1}/update'.format(slot_id, osd_id),
+                          data={'update_data': json.dumps(update_data)})
 
     def delete_osd(self, slot_id, osd_id):
         """

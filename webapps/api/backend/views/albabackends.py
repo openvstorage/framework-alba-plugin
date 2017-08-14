@@ -196,17 +196,19 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @log()
     @required_roles(['write', 'manage'])
     @return_task()
-    @load(validator=_validate_access)
-    def update_osds(self, osds):
+    @load(AlbaBackend, validator=_validate_access)
+    def update_osds(self, osds, alba_node_guid):
         """
         Update OSDs that are already registered on an ALBA Backend
         Currently used to update the IPs on which the OSD should be exposed
         :param osds: List of OSD information objects [ [osd_id, osd_data],  ]
         :type osds: list
+        :param alba_node_guid: Guid of the Alba Node on which the OSDs reside
+        :type alba_node_guid: str
         :return: Asynchronous result of a CeleryTask
         :rtype: celery.result.AsyncResult
         """
-        return AlbaController.update_osds.s(osds=osds)
+        return AlbaController.update_osds.s(osds=osds, alba_node_guid=alba_node_guid)
 
     @link()
     @log()

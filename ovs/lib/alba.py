@@ -77,12 +77,14 @@ class AlbaController(object):
 
     @staticmethod
     @ovs_task(name='alba.update_osds')
-    def update_osds(osds):
+    def update_osds(osds, alba_node_guid):
         """
         Update OSDs that are already registered on an ALBA Backend.
         Currently used to update the IPs on which the OSD should be exposed
         :param osds: List of OSD information objects [ [osd_id, osd_data],  ]
         :type osds: list
+        :param alba_node_guid: Guid of the ALBA Node on which the OSDs reside
+        :type alba_node_guid: str
         :return: OSDs that could not be updated
         :rtype: list
         """
@@ -112,8 +114,9 @@ class AlbaController(object):
             osd_data['object'] = osd
             osds_to_process.append([osd_id, osd_data])
 
+        alba_node = AlbaNode(alba_node_guid)
         if len(validation_reasons) > 0:
-            raise ValueError('Missing required parameter: {0}'.format('\n* '.join(validation_reasons)))
+            raise ValueError('- {0}'.format('\n- '.join(validation_reasons)))
 
         # Processing
         failures = []
@@ -125,9 +128,18 @@ class AlbaController(object):
             config_location = Configuration.get_configuration_path(key=osd.alba_backend.abm_cluster.config_location)
             AlbaController._logger.debug('OSD with ID {0}: Updating on ALBA'.format(osd_id))
             try:
+                alba_node.client.update_osd(slot_id=osd.slot_id,
+                                            osd_id=osd.osd_id,
+                                            update_data={'ips': ips})
+            except Exception:
+                AlbaController._logger.exception('OSD with ID {0}: Failed to update IPs via asd-manager'.format(osd_id))
+                failures.append(osd_id)
+                continue
+
+            try:
                 AlbaCLI.run(command='update-osd', config=config_location, named_params={'long-id': osd_id, 'ip': ','.join(ips)})
             except AlbaError:
-                AlbaController._logger.exception('OSD with ID {0}'.format(osd_id))
+                AlbaController._logger.exception('OSD with ID {0}: Failed to update IPs via ALBA'.format(osd_id))
                 failures.append(osd_id)
                 continue
 
@@ -203,7 +215,7 @@ class AlbaController(object):
             validation_reasons.append('No maintenance agents have been deployed for ALBA Backend {0}'.format(alba_backend.name))
 
         if len(validation_reasons) > 0:
-            raise RuntimeError('Missing required parameter: {0}'.format('\n* '.join(validation_reasons)))
+            raise RuntimeError('- {0}'.format('\n- '.join(validation_reasons)))
 
         # Process
         domain = None
