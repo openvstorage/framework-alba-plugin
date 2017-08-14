@@ -20,7 +20,6 @@ AlbaController module
 
 import os
 import re
-import copy
 import time
 import string
 import random
@@ -206,7 +205,7 @@ class AlbaController(object):
         if len(validation_reasons) > 0:
             raise RuntimeError('Missing required parameter: {0}'.format('\n* '.join(validation_reasons)))
 
-        ### Process
+        # Process
         domain = None
         domain_guid = metadata['backend_info'].get('domain_guid') if metadata is not None else None
         if domain_guid is not None:
@@ -366,7 +365,7 @@ class AlbaController(object):
             requested_osd_info['osd_id'] = None
             requested_osd_info['claimed'] = False
             requested_osd_info['available'] = False
-            port_osd_info_map[port] = copy.deepcopy(requested_osd_info)
+            port_osd_info_map[port] = requested_osd_info
 
         # Verify ALBA responsive to make mapping
         alba_backend = AlbaBackend(alba_backend_guid)
@@ -383,7 +382,8 @@ class AlbaController(object):
                                      [available_osds, 'available']]:
             for actual_osd_info in osd_list:
                 port = actual_osd_info['port']
-                if port in port_osd_info_map:
+                decommissioned = actual_osd_info['decommissioned']
+                if port in port_osd_info_map and decommissioned is False:
                     requested_osd_info = port_osd_info_map[port]
                     requested_osd_info['osd_id'] = actual_osd_info['long_id']
                     requested_osd_info[osd_status] = True
