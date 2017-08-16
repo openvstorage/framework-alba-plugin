@@ -163,7 +163,6 @@ class AlbaNode(DataObject):
                         if osd.get('status') not in ['error', 'warning']:
                             osd['status'] = 'error'
                             osd['status_detail'] = 'unreachable'
-                        raise
         if self.type == AlbaNode.NODE_TYPES.GENERIC:
             # Add prefix of 2 digits based on amount of slots on this ALBA node for sorting in GUI
             slot_amount = len(set(osd.slot_id for osd in self.osds))
