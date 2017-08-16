@@ -131,8 +131,8 @@ class ASDManagerClient(object):
             value[u'osds'] = self._call(method=requests.get, url='disks/{0}/asds'.format(disk_id), clean=True)
             value[u'state'] = 'empty' if len(value['osds']) == 0 else 'ok'
             for osd_id, osd_info in value['osds'].iteritems():
+                osd_info[u'ips'] = osd_info['ips']
                 osd_info[u'type'] = 'ASD'
-                osd_info[u'hosts'] = osd_info['ips']
                 osd_info[u'folder'] = osd_id
         return data
 

@@ -25,7 +25,7 @@ from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
 from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.generic.exceptions import InvalidCredentialsError
-from ovs.extensions.plugins.albacli import AlbaCLI
+from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 from ovs.extensions.plugins.asdmanager import ASDManagerClient
 from ovs.extensions.plugins.genericmanager import GenericManagerClient
 from ovs.log.log_handler import LogHandler
@@ -136,14 +136,23 @@ class AlbaNode(DataObject):
                     # In that case, let's connect to the OSD to see whether we get some info from it
                     try:
                         if osd_id in model_osds:
-                            host = model_osds[osd_id].ips[0]
+                            ips = model_osds[osd_id].ips
                             port = model_osds[osd_id].port
                         else:
-                            # @todo check impact once https://github.com/openvstorage/alba/issues/773 lands
-                            host = osd['hosts'][0] if 'hosts' in osd else osd['ips'][0]
+                            # TODO: Check impact once https://github.com/openvstorage/alba/issues/773 lands
+                            ips = osd['ips']
                             port = osd['port']
-                        claimed_by = AlbaCLI.run('get-osd-claimed-by', named_params={'host': host,
-                                                                                     'port': port})
+                        # TODO: Function call below should be executed only once when https://github.com/openvstorage/alba/issues/783 is solved
+                        claimed_by = None
+                        for ip in ips:
+                            try:
+                                claimed_by = AlbaCLI.run('get-osd-claimed-by', named_params={'host': ip, 'port': port})
+                                break
+                            except (AlbaError, RuntimeError):
+                                AlbaNode._logger.warning('get-osd-claimed-by failed for IP:port {0}:{1}'.format(ip, port))
+                        if claimed_by is None:
+                            raise
+
                         alba_backend = AlbaBackendList.get_by_alba_id(claimed_by)
                         osd['claimed_by'] = alba_backend.guid if alba_backend is not None else claimed_by
                     except KeyError:

@@ -447,9 +447,6 @@ class AlbaUpdateController(object):
         if 'alba' not in components:
             return False
 
-        # Refresh the package information for all ALBA nodes and update accordingly
-        AlbaUpdateController._get_package_information_alba_plugin_storage_nodes(information={})
-
         for alba_node in AlbaNodeList.get_albanodes():
             for component, packages_info in alba_node.package_information.iteritems():
                 if component != 'alba':
