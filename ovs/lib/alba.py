@@ -395,8 +395,13 @@ class AlbaController(object):
             for actual_osd_info in osd_list:
                 port = actual_osd_info['port']
                 decommissioned = actual_osd_info['decommissioned']
+                ips = actual_osd_info['ips']
                 if port in port_osd_info_map and decommissioned is False:
                     requested_osd_info = port_osd_info_map[port]
+                    # Potential candidate, check ips
+                    any_ip_match = not set(ips).isdisjoint(requested_osd_info['ips'])
+                    if any_ip_match is False:
+                        continue
                     requested_osd_info['osd_id'] = actual_osd_info['long_id']
                     requested_osd_info[osd_status] = True
 
