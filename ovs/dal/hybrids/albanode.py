@@ -150,7 +150,7 @@ class AlbaNode(DataObject):
                                 break
                             except (AlbaError, RuntimeError):
                                 AlbaNode._logger.warning('get-osd-claimed-by failed for IP:port {0}:{1}'.format(ip, port))
-                        if claimed_by == 'unknown':
+                        if claimed_by == 'unknown' and len(ips) > 0:
                             raise
 
                         alba_backend = AlbaBackendList.get_by_alba_id(claimed_by)
