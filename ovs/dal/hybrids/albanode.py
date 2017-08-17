@@ -140,7 +140,7 @@ class AlbaNode(DataObject):
                             port = model_osds[osd_id].port
                         else:
                             # TODO: Check impact once https://github.com/openvstorage/alba/issues/773 lands
-                            ips = osd['ips']
+                            ips = osd['hosts'] if 'hosts' in osd and len(osd['hosts']) > 0 else osd.get('ips', [])
                             port = osd['port']
                         # TODO: Function call below should be executed only once when https://github.com/openvstorage/alba/issues/783 is solved
                         claimed_by = 'unknown'
@@ -150,7 +150,7 @@ class AlbaNode(DataObject):
                                 break
                             except (AlbaError, RuntimeError):
                                 AlbaNode._logger.warning('get-osd-claimed-by failed for IP:port {0}:{1}'.format(ip, port))
-                        if claimed_by == 'unknown':
+                        if claimed_by == 'unknown' and len(ips) > 0:
                             raise
 
                         alba_backend = AlbaBackendList.get_by_alba_id(claimed_by)
