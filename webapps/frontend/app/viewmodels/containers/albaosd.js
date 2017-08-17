@@ -86,7 +86,7 @@ define([
                 generic.trySet(self.device, data, 'device');
                 generic.trySet(self.mountpoint, data, 'mountpoint');
                 generic.trySet(self.port, data, 'port');
-                generic.trySet(self.ips, data, 'ips');
+                generic.trySet(self.ips, data, 'hosts');
                 generic.trySet(self.type, data, 'type');
                 if (data.hasOwnProperty('alba_backend_guid') && data.alba_backend_guid !== null) {
                     self.albaBackendGuid(data.alba_backend_guid);
