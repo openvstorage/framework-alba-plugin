@@ -128,6 +128,11 @@ class ASDManagerClient(object):
         # Version 2 and older used AlbaDisk
         data = self._call(method=requests.get, url='disks', timeout=5, clean=True)
         for disk_id, value in data.iteritems():
+            if len(value.get('partition_aliases', [])) == 0:  # disks/<disk_id>/asds raises error if no partition_aliases could be found for current disk
+                value[ur'osds'] = {}
+                value[u'state'] = 'empty'
+                continue
+
             value[u'osds'] = self._call(method=requests.get, url='disks/{0}/asds'.format(disk_id), clean=True)
             value[u'state'] = 'empty' if len(value['osds']) == 0 else 'ok'
             for osd_id, osd_info in value['osds'].iteritems():
