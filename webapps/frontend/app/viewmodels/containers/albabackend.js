@@ -39,6 +39,7 @@ define([
         self.linkedBackendGuids = ko.observableArray();
         self.loaded             = ko.observable(false);
         self.loading            = ko.observable(false);
+        self.localStack         = ko.observable();
         self.localSummary       = ko.observable();
         self.name               = ko.observable();
         self.presets            = ko.observableArray([]);
@@ -124,12 +125,11 @@ define([
             self.scaling(data.scaling);
             generic.trySet(self.presets, data, 'presets');
             generic.trySet(self.localSummary, data, 'local_summary');
+            generic.trySet(self.linkedBackendGuids, data, 'linked_backend_guids');
+            generic.trySet(self.localStack, data, 'local_stack');
             if (self.backendGuid() !== data.backend_guid) {
                 self.backendGuid(data.backend_guid);
                 self.backend(new Backend(data.backend_guid));
-            }
-            if (data.hasOwnProperty('linked_backend_guids')) {
-                self.linkedBackendGuids(data.linked_backend_guids);
             }
             if (data.hasOwnProperty('usages')) {
                 var stats = data.usages;
