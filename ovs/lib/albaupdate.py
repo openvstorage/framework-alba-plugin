@@ -542,3 +542,10 @@ class AlbaUpdateController(object):
         AlbaUpdateController._logger.debug('Checkup maintenance agents')
         AlbaController.checkup_maintenance_agents.delay()
         AlbaUpdateController._logger.debug('Executed hook {0}'.format(inspect.currentframe().f_code.co_name))
+
+        try:
+            # noinspection PyUnresolvedReferences
+            from ovs.lib.albamigration import AlbaMigrationController
+            AlbaMigrationController.migrate.delay()
+        except ImportError:
+            AlbaUpdateController._logger.error('Could not import AlbaMigrationController')
