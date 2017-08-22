@@ -153,6 +153,7 @@ define([
         };
         self.load = function(contents) {
             if (contents === undefined) {
+                // TODO: Remove collecting all dynamics and all relations on every load action
                 contents = '_dynamics,-statistics,-ns_data,_relations';
             }
             return $.Deferred(function(deferred) {
