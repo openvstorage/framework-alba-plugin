@@ -90,7 +90,7 @@ define([
         self.anyCollapsed = ko.computed(function() {
             /**
              * Check if any node is collapsed
-             * Differant than the expanded check in the way this will return true when any are collapsed as opposed to all
+             * Different than the expanded check in the way this will return true when any are collapsed as opposed to all
               */
             var collapsed = false;
             $.each(self.registeredNodes(), function(index, node) {
@@ -121,23 +121,23 @@ define([
 
         // Functions
         // Private
-        self._updateNodeData = function(nodeID, data){
+        self._updateNodeData = function(nodeID, data) {
             var localStack = self.albaBackend().localStack();
-            if (!(nodeID in localStack)){
+            if (!(nodeID in localStack)) {
                 return data;
             }
             data = $.extend(true, {}, data);  // Deep copy
-            $.each(data.stack, function(slotID, slotData){
-                if (!(slotID in localStack[nodeID])){
+            $.each(data.stack, function(slotID, slotData) {
+                if (!(slotID in localStack[nodeID])) {
                     return true;  // Continue
                 }
-                $.each(slotData.osds, function(osdID, osdData){
-                    if (!(osdID in localStack[nodeID][slotID].osds)){
+                $.each(slotData.osds, function(osdID, osdData) {
+                    if (!(osdID in localStack[nodeID][slotID].osds)) {
                         return true;  // Continue
                     }
                     osdData.status = localStack[nodeID][slotID].osds[osdID].status;
                     osdData.status_detail = localStack[nodeID][slotID].osds[osdID].status_detail;
-                })
+                });
             });
             return data;
         };
