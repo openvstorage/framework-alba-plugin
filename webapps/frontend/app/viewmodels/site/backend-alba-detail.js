@@ -121,25 +121,25 @@ define([
 
         // Functions
         // Private
-        var updateNodeData = function(nodeID, data){
+        self._updateNodeData = function(nodeID, data){
             var localStack = self.albaBackend().localStack();
             if (!(nodeID in localStack)){
-                return data
+                return data;
             }
             data = $.extend(true, {}, data);  // Deep copy
             $.each(data.stack, function(slotID, slotData){
                 if (!(slotID in localStack[nodeID])){
-                    return true  // Continue
+                    return true;  // Continue
                 }
                 $.each(slotData.osds, function(osdID, osdData){
                     if (!(osdID in localStack[nodeID][slotID].osds)){
-                        return true
+                        return true;  // Continue
                     }
                     osdData.status = localStack[nodeID][slotID].osds[osdID].status;
                     osdData.status_detail = localStack[nodeID][slotID].osds[osdID].status_detail;
                 })
             });
-            return data
+            return data;
         };
 
         // Public
@@ -206,7 +206,7 @@ define([
                                     // Prepare node data
                                     nodeIDs.push(item.node_id);
                                     // Overrule status from the local summary as the local summary status is the most valid one for this backend
-                                    nodes[item.node_id] = updateNodeData(item.node_id, item);
+                                    nodes[item.node_id] = self._updateNodeData(item.node_id, item);
                                 });
                                 if (!discover) {
                                     self.registeredNodesNodeIDs(nodeIDs);
