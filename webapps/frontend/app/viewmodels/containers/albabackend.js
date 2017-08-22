@@ -124,9 +124,9 @@ define([
             self.albaId(data.alba_id);
             self.scaling(data.scaling);
             generic.trySet(self.presets, data, 'presets');
+            generic.trySet(self.localStack, data, 'local_stack');
             generic.trySet(self.localSummary, data, 'local_summary');
             generic.trySet(self.linkedBackendGuids, data, 'linked_backend_guids');
-            generic.trySet(self.localStack, data, 'local_stack');
             if (self.backendGuid() !== data.backend_guid) {
                 self.backendGuid(data.backend_guid);
                 self.backend(new Backend(data.backend_guid));
