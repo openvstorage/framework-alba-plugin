@@ -39,7 +39,6 @@ define([
         self.linkedBackendGuids = ko.observableArray();
         self.loaded             = ko.observable(false);
         self.loading            = ko.observable(false);
-        self.localStack         = ko.observable();
         self.localSummary       = ko.observable();
         self.name               = ko.observable();
         self.presets            = ko.observableArray([]);
@@ -124,7 +123,6 @@ define([
             self.albaId(data.alba_id);
             self.scaling(data.scaling);
             generic.trySet(self.presets, data, 'presets');
-            generic.trySet(self.localStack, data, 'local_stack');
             generic.trySet(self.localSummary, data, 'local_summary');
             generic.trySet(self.linkedBackendGuids, data, 'linked_backend_guids');
             if (self.backendGuid() !== data.backend_guid) {
@@ -154,7 +152,7 @@ define([
         self.load = function(contents) {
             if (contents === undefined) {
                 // TODO: Remove collecting all dynamics and all relations on every load action
-                contents = '_dynamics,-statistics,-ns_data,_relations';
+                contents = '_dynamics,-statistics,-ns_data,-local_stack,_relations';
             }
             return $.Deferred(function(deferred) {
                 self.loading(true);

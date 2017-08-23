@@ -23,6 +23,9 @@ define([
     return function(id, slot, node, parentAlbaBackend) {
         var self = this;
 
+        // variables
+        self.errorStatuses = ['warning', 'error', 'unavailable', 'unknown'];
+
         // External injected
         self.node = node;
         self.slot = slot;
@@ -43,15 +46,14 @@ define([
         self.port            = ko.observable().extend({numeric: {min: 1, max: 65535}});
         self.processing      = ko.observable(false);
         self.slotID          = ko.observable();
-        self._status         = ko.observable();  // can be ok, warning, error
+        self._status         = ko.observable();  // can be ok, warning, error, unavailable, unknown
         self.statusDetail    = ko.observable();
         self.type            = ko.observable();
         self.usage           = ko.observable();
 
         // Computed
         self.status = ko.computed(function() {
-            // Returns error, warning, claimed, available, unavailable
-            if (['warning', 'error'].contains(self._status())) {
+            if (self.errorStatuses.contains(self._status())) {
                 return self._status();
             }
             if (self.albaBackendGuid() === undefined) {

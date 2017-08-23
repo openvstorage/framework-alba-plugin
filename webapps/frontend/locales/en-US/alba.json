@@ -128,7 +128,8 @@
                 "initialized": "Unavailable",
                 "unavailable": "Unavailable",
                 "warning": "Warning",
-                "ok": "Good"
+                "ok": "Good",
+                "unknown": "Unknown"
             },
             "osdinfo": {
                 "global": {
@@ -141,19 +142,23 @@
                     "claimed": "The OSD is in use by this backend",
                     "error": "The OSD is in error state. Action is required",
                     "unavailable": "The OSD is claimed/in use by another backend",
-                    "warning": "The OSD is in warning state. Action may be needed"
+                    "warning": "The OSD is in warning state. Action may be needed",
+                    "unknown": "The status about the OSD is unknown. Action may be needed"
                 },
                 "node": {
                     "claimed": "The OSDs from this node are fully functional",
                     "error": "The OSDs are in error state. Action is required",
-                    "warning": "The OSDs are in warning state. Action may be needed"
+                    "warning": "The OSDs are in warning state. Action may be needed",
+                    "unknown": "The status about the OSD is uknown. Action may be needed"
                 }
             },
             "slot":{
                 "error": "Faulted",
                 "ok": "Good",
                 "empty": "Empty",
-                "warning": "Warning"
+                "warning": "Warning",
+                "nodedown": "Node is unreachable",
+                "unknown": "Unknown"
             },
             "slotinfo":{
                 "empty": "The slot is empty",

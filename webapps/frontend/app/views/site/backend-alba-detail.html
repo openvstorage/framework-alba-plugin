@@ -106,7 +106,10 @@ but WITHOUT ANY WARRANTY of any kind.
                                                      text: ($root.localSummary() === undefined ? 0 : $root.localSummary().devices.orange)"></span>&nbsp;
                                     <span class="label label-danger pointer"
                                           data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + $root.localSummary().scaling.toLowerCase() + '.error'),
-                                                     text: ($root.localSummary() === undefined ? 0 : $root.localSummary().devices.red)"></span>
+                                                     text: ($root.localSummary() === undefined ? 0 : $root.localSummary().devices.red)"></span>&nbsp;
+                                    <span class="label label-missing pointer"
+                                          data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + $root.localSummary().scaling.toLowerCase() + '.unknown'),
+                                                     text: ($root.localSummary() === undefined ? 0 : $root.localSummary().devices.gray)"></span>
                                 </td>
                                 <td>&nbsp;</td>
                             </tr>
@@ -234,7 +237,10 @@ but WITHOUT ANY WARRANTY of any kind.
                                                      text: error === '' ? devices.orange : 0"></span>&nbsp;
                                     <span class="label label-danger pointer"
                                           data-bind="tooltip: error === '' ? $.t('alba:generic.states.osdinfo.' + scaling.toLowerCase() + '.error') : '',
-                                                     text: error === '' ? devices.red : 0"></span>
+                                                     text: error === '' ? devices.red : 0"></span>&nbsp;
+                                    <span class="label label-missing pointer"
+                                          data-bind="tooltip: unknown === '' ? $.t('alba:generic.states.osdinfo.' + scaling.toLowerCase() + '.unknown' : ''),
+                                                     text: (unknown === '' ? devices.gray : 0)"></span>
                                 </td>
                                 <td>
                                     <!-- ko if: error === '' -->
@@ -334,7 +340,10 @@ but WITHOUT ANY WARRANTY of any kind.
                                                      text: (localSummary() === undefined ? 0 : localSummary().devices.orange)"></span>&nbsp;
                                     <span class="label label-danger pointer"
                                           data-bind="tooltip: localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.node.error'),
-                                                     text: (localSummary() === undefined ? 0 : localSummary().devices.red)"></span>
+                                                     text: (localSummary() === undefined ? 0 : localSummary().devices.red)"></span>&nbsp;
+                                    <span class="label label-missing pointer"
+                                          data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.node.unknown'),
+                                                     text: (localSummary() === undefined ? 0 : localSummary().devices.gray)"></span>
                             </td>
                             <td style="border-top: 0;" data-bind="text: type"></td>
                             <td style="width: 80px; border-top: 0;">
@@ -409,17 +418,17 @@ but WITHOUT ANY WARRANTY of any kind.
                                                         </span>
                                                     </a>
                                                 </li>
-                                                <li>
-                                                    <a>
-                                                        <span data-i18n="ovs:generic.name"></span>:
-                                                        <span data-bind="shortText: slotID(), maxLength: 25, middle: true"></span>
-                                                    </a>
-                                                </li>
-                                                <!-- ko if: (status() === 'error' || status() === 'warning') && statusDetail() !== undefined && statusDetail() !== '' -->
+                                                <!-- ko if: errorStatuses.contains(status()) && statusDetail() !== undefined && statusDetail() !== '' -->
                                                 <li>
                                                     <a>
                                                         <span data-i18n="alba:generic.statusdetail"></span>:
                                                         <span data-bind="shortText: $.t('alba:generic.statusdetails.' + statusDetail()), maxLength: 23"></span>
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a>
+                                                        <span data-i18n="ovs:generic.name"></span>:
+                                                        <span data-bind="shortText: slotID(), maxLength: 25, middle: true"></span>
                                                     </a>
                                                 </li>
                                                 <!-- /ko -->
@@ -497,7 +506,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                                         <!-- /ko -->
                                                     </a>
                                                 </li>
-                                                <!-- ko if: (status() === 'error' || status() === 'warning' || status() === 'unavailable') && statusDetail() !== undefined && statusDetail() !== '' -->
+                                                <!-- ko if: errorStatuses.contains(status()) && statusDetail() !== undefined && statusDetail() !== '' -->
                                                     <li>
                                                         <a>
                                                             <span data-i18n="alba:generic.statusdetail"></span>:
