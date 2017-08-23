@@ -96,6 +96,8 @@ class AlbaNode(DataObject):
         """
         Returns an overview of this node's storage stack
         """
+        from ovs.dal.lists.albabackendlist import AlbaBackendList
+
         def _move(info):
             for move in [('state', 'status'),
                          ('state_detail', 'status_detail')]:
@@ -122,11 +124,14 @@ class AlbaNode(DataObject):
         found_osds = {}
         # Apply own model to fetched stack
         for osd in self.osds:
+            model_osds[osd.osd_id] = osd  # Initially set the info
             if osd.slot_id not in stack:
                 stack[osd.slot_id] = {'status': 'missing' if node_status is None else 'unknown',
                                       'status_detail': '' if node_status is None else node_status,
                                       'osds': {}}
             osd_data = stack[osd.slot_id]['osds'].get(osd.osd_id, {})
+            stack[osd.slot_id]['osds'][osd.osd_id] = osd_data  # Initially set the info in the stack
+            osd_data.update(osd.stack_info)
             if node_status is not None:
                 osd_data['status'] = 'unknown'
                 osd_data['status_detail'] = node_status
@@ -143,6 +148,8 @@ class AlbaNode(DataObject):
                     found_osds[osd.alba_backend_guid] = {}
                     for found_osd in AlbaCLI.run(command='list-all-osds', config=config):
                         found_osds[osd.alba_backend_guid][found_osd['long_id']] = found_osd
+                if osd.osd_id not in found_osds[osd.alba_backend_guid]:
+                    continue
                 found_osd = found_osds[osd.alba_backend_guid][osd.osd_id]
                 if found_osd.get('decommissioned') is True:
                     osd_data['status'] = 'unavailable'
@@ -156,9 +163,37 @@ class AlbaNode(DataObject):
                 if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + interval):
                     osd_data['status'] = 'warning'
                     osd_data['status_detail'] = 'recenterrors'
-            osd_data.update(osd.stack_info)
-            stack[osd.slot_id]['osds'][osd.osd_id] = osd_data
-            model_osds[osd.osd_id] = osd
+
+        for slot_info in stack.itervalues():
+            for osd_id, osd in slot_info['osds'].iteritems():
+                if osd_id not in model_osds:
+                    # The osd is known by the remote node but not in the model
+                    # In that case, let's connect to the OSD to see whether we get some info from it
+                    try:
+                        ips = osd['hosts'] if 'hosts' in osd and len(osd['hosts']) > 0 else osd.get('ips', [])
+                        port = osd['port']
+                        # TODO: Function call below should be executed only once when https://github.com/openvstorage/alba/issues/783 is solved
+                        claimed_by = 'unknown'
+                        for ip in ips:
+                            try:
+                                # Output will be None if it is not claimed
+                                claimed_by = AlbaCLI.run('get-osd-claimed-by',
+                                                         named_params={'host': ip, 'port': port})
+                                break
+                            except (AlbaError, RuntimeError):
+                                AlbaNode._logger.warning('get-osd-claimed-by failed for IP:port {0}:{1}'.format(ip, port))
+                        if claimed_by == 'unknown' and len(ips) > 0:
+                            raise
+                        alba_backend = AlbaBackendList.get_by_alba_id(claimed_by)
+                        osd['claimed_by'] = alba_backend.guid if alba_backend is not None else claimed_by
+                    except KeyError:
+                        osd['claimed_by'] = 'unknown'
+                    except:
+                        AlbaNode._logger.exception('Could not load OSD info: {0}'.format(osd_id))
+                        osd['claimed_by'] = 'unknown'
+                        if osd.get('status') not in ['error', 'warning']:
+                            osd['status'] = 'error'
+                            osd['status_detail'] = 'unreachable'
 
         if self.type == AlbaNode.NODE_TYPES.GENERIC:
             # Add prefix of 2 digits based on amount of slots on this ALBA node for sorting in GUI
