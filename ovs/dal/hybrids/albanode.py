@@ -137,7 +137,7 @@ class AlbaNode(DataObject):
                 osd_data['status_detail'] = node_status
             elif osd.alba_backend_guid is not None:  # Osds has been claimed
                 # Load information from alba
-                backend_interval_key = '/ovs/alba/backends/{0}/gui_error_interval'.format(self.guid)
+                backend_interval_key = '/ovs/alba/backends/{0}/gui_error_interval'.format(osd.alba_backend_guid)
                 if Configuration.exists(backend_interval_key):
                     interval = Configuration.get(backend_interval_key)
                 else:
