@@ -21,6 +21,7 @@ AlbaBackend module
 import time
 from threading import Lock, Thread
 from ovs.dal.dataobject import DataObject
+from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.backend import Backend
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
@@ -244,9 +245,9 @@ class AlbaBackend(DataObject):
             raw_statistics = AlbaCLI.run(command='asd-multistatistics', config=config, named_params={'long-id': ','.join(osd_ids)})
         except RuntimeError:
             return statistics
-        for asd_id, stats in raw_statistics.iteritems():
+        for osd_id, stats in raw_statistics.iteritems():
             if stats['success'] is True:
-                statistics[asd_id] = stats['result']
+                statistics[osd_id] = stats['result']
         return statistics
 
     def _linked_backend_guids(self):
@@ -381,13 +382,13 @@ class AlbaBackend(DataObject):
                     for osd_info in slot_values.get('osds', {}).itervalues():
                         if self.guid == osd_info.get('claimed_by'):
                             status = osd_info.get('status', 'unknown')
-                            if status == 'ok':
+                            if status == AlbaNode.OSD_STATUSES.OK:
                                 device_info['green'] += 1
-                            elif status == 'warning':
+                            elif status == AlbaNode.OSD_STATUSES.WARNING:
                                 device_info['orange'] += 1
-                            elif status == 'error':
+                            elif status == AlbaNode.OSD_STATUSES.ERROR:
                                 device_info['red'] += 1
-                            elif status == 'unknown':
+                            elif status == AlbaNode.OSD_STATUSES.UNKNOWN:
                                 device_info['gray'] += 1
 
             # Calculate used and total size

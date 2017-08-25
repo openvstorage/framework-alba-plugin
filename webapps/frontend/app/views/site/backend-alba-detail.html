@@ -180,14 +180,14 @@ but WITHOUT ANY WARRANTY of any kind.
                 <table class="table table-striped table-hover" style="clear: both;">
                     <thead>
                         <tr>
-                            <th data-i18n="alba:detail.status" style="width: 30px;"></th>
+                            <th data-i18n="alba:detail.status" style="width: 2.5em;"></th>
                             <th data-i18n="alba:detail.name"></th>
-                            <th data-i18n="alba:detail.domain" style="width: 150px;"></th>
-                            <th data-i18n="alba:detail.scaling" style="width: 100px;"></th>
-                            <th data-i18n="alba:detail.preset" style="width: 100px;"></th>
-                            <th data-i18n="alba:detail.health" style="width: 100px;"></th>
-                            <th data-i18n="alba:detail.used" style="width: 150px;"></th>
-                            <th data-i18n="alba:detail.actions" style="width: 50px;"></th>
+                            <th data-i18n="alba:detail.domain" style="width: 13em,;"></th>
+                            <th data-i18n="alba:detail.scaling" style="width: 9em;"></th>
+                            <th data-i18n="alba:detail.preset" style="width: 9e,,;"></th>
+                            <th data-i18n="alba:detail.health" style="width: 9em;"></th>
+                            <th data-i18n="alba:detail.used" style="width: 13em;"></th>
+                            <th data-i18n="alba:detail.actions" style="width: 4em;"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -239,8 +239,8 @@ but WITHOUT ANY WARRANTY of any kind.
                                           data-bind="tooltip: error === '' ? $.t('alba:generic.states.osdinfo.' + scaling.toLowerCase() + '.error') : '',
                                                      text: error === '' ? devices.red : 0"></span>&nbsp;
                                     <span class="label label-missing pointer"
-                                          data-bind="tooltip: unknown === '' ? $.t('alba:generic.states.osdinfo.' + scaling.toLowerCase() + '.unknown' : ''),
-                                                     text: (unknown === '' ? devices.gray : 0)"></span>
+                                          data-bind="tooltip: error === '' ? $.t('alba:generic.states.osdinfo.' + scaling.toLowerCase() + '.unknown') : '',
+                                                     text: error === '' ? devices.gray : 0"></span>
                                 </td>
                                 <td>
                                     <!-- ko if: error === '' -->

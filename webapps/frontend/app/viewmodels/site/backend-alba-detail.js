@@ -243,9 +243,9 @@ define([
             }
             self.localSummary(data.local_summary);
             var remoteStacks = [];
-            $.each(data.remote_stack, function(key, value) {
-                value.alba_backend_guid = key;
-                remoteStacks.push(value);
+            $.each(data.remote_stack, function(alba_backend_guid, stack_data) {
+                value.alba_backend_guid = alba_backend_guid;
+                remoteStacks.push(stack_data);
             });
             self.remoteStack(remoteStacks);
             self.remoteStack.sort(function(stack1, stack2) {

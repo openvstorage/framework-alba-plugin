@@ -175,14 +175,14 @@ class AlbaDalHelper(object):
                 alba_node.node_id = 'node_{0}'.format(an_id)
                 alba_node.save()
                 alba_nodes[an_id] = alba_node
-        for ao_id, ad_id, ab_id, an_id, slot_id in structure.get('alba_osds', ()):
+        for ao_id, ab_id, an_id, slot_id in structure.get('alba_osds', ()):
             if ao_id not in alba_osds:
                 osd = AlbaOSD()
                 osd.osd_id = 'alba_osd_{0}'.format(ao_id)
                 osd.osd_type = AlbaOSD.OSD_TYPES.ASD
                 osd.alba_backend = alba_backends[ab_id]
                 osd.alba_node = alba_nodes[an_id]
-                osd.slot_id = slot_id
+                osd.slot_id = 'alba_slot_{0}'.format(slot_id)
                 osd.ips = ['127.0.0.{0}'.format(ao_id)]
                 osd.port = 35000 + ao_id
                 osd.save()

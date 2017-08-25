@@ -59,8 +59,7 @@ class Alba(unittest.TestCase):
             'alba_abm_clusters': [1],
             'alba_nsm_clusters': [(1, 1)],  # (<abackend_id>, <amount_of_nsm_clusters>)
             'alba_nodes': [1],
-            'alba_disks': [(1, 1)],  # (<adisk_id>, <anode_id>)
-            'alba_osds': [(1, 1, 1, 1, '1')]  # (<osd_id>, <adisk_id>, <abackend_id>, <anode_id> <slot_id>)
+            'alba_osds': [(1, 1, 1, 1)]  # (<osd_id>, <abackend_id>, <anode_id> <slot_id>)
         })
         osd = structure['alba_osds'][1]
         base_time = time.time()
@@ -132,65 +131,73 @@ class Alba(unittest.TestCase):
                 if move[0] in info:
                     info[move[1]] = info.pop(move[0])
         ASDManagerClient.test_exceptions[node] = {}
-        get_stack = {'get_stack': {'alba_slot_1': {'aliases': ['/dev/disk/by-path/pci-0000:00:01.0-ata-1'],
-                                                   'available': True,
-                                                   'device': '/dev/disk/by-id/alba_disk_1',
-                                                   'mountpoint': None,
-                                                   'node_id': node.node_id,
-                                                   'osds': {},
-                                                   'partition_aliases': [],
-                                                   'partition_amount': 0,
-                                                   'size': 1024 ** 3,
-                                                   'state': 'empty',
-                                                   'state_detail': '',
-                                                   'usage': {}}},
-                     'get_metadata': {'_version': 3}}
-        stack = copy.deepcopy(get_stack)['get_stack']['alba_slot_1']
-        _move(stack)  # Do mapping
-        ASDManagerClient.test_results[node] = get_stack
-        expected = {'alba_slot_1': stack}
+        # Asd manager return value
+        asd_manager_stack = {'get_stack': {'alba_slot_1': {'aliases': ['/dev/disk/by-path/pci-0000:00:01.0-ata-1'],
+                                                           'available': True,
+                                                           'device': '/dev/disk/by-id/alba_disk_1',
+                                                           'mountpoint': None,
+                                                           'node_id': node.node_id,
+                                                           'osds': {},
+                                                           'partition_aliases': [],
+                                                           'partition_amount': 0,
+                                                           'size': 1024 ** 3,
+                                                           'state': 'empty',
+                                                           'state_detail': '',
+                                                           'usage': {}}},
+                             'get_metadata': {'_version': 3}}
+        ASDManagerClient.test_results[node] = asd_manager_stack
+        # Create a copy of the asd-manager return value to mutate it into the expected values for the node.stack
+        expected_stack = copy.deepcopy(asd_manager_stack)['get_stack']['alba_slot_1']
+        _move(expected_stack)  # Change state -> status and state_detail -> status_detail as this is what the node.stack will return
+        expected = {'alba_slot_1': expected_stack}
         node.invalidate_dynamics()
         self.assertDictEqual(node._stack(), expected)
 
         # Validate initialized disks
-        updated_osd_values = {'asd_id': 'alba_osd_1',
-                              'osd_id': 'alba_osd_1',
-                              'metadata': None,
-                              'capacity': 1024 ** 3,
-                              'folder': 'alba_osd_1',
-                              'home': '/mnt/alba-asd/disk-1/alba_osd_1',
-                              'ips': ['127.0.0.1'],
-                              'log_level': 'info',
-                              'multicast': None,
-                              'node_id': 'node_1',
-                              'port': 35001,
-                              'rocksdb_block_cache_size': 8 * 1024 ** 2,
-                              'state': 'ok',
-                              'transport': 'tcp',
-                              'type': 'ASD'}
-        updated_stack_values = {'available': False,
-                                'mountpoint': '/mnt/alba-asd/asd_1',
-                                'state': 'ok',
-                                'partition_amount': 1,
-                                'partition_aliases': ['/dev/disk/by-id/alba_disk_1_partition_1'],
-                                'osds': {'alba_osd_1': updated_osd_values},
-                                'usage': {'available': 1024 ** 3 - 1024,
-                                          'size': 1024 ** 3,
-                                          'used': 1024}}
+        # Initialized disks mean that asds have been created.
+        # Update asd-manager stack
+        asd_manager_osd_stack = {'asd_id': 'alba_osd_1',
+                                 'osd_id': 'alba_osd_1',
+                                 'metadata': None,
+                                 'capacity': 1024 ** 3,
+                                 'folder': 'alba_osd_1',
+                                 'home': '/mnt/alba-asd/disk-1/alba_osd_1',
+                                 'ips': ['127.0.0.1'],
+                                 'log_level': 'info',
+                                 'multicast': None,
+                                 'node_id': 'node_1',
+                                 'port': 35001,
+                                 'rocksdb_block_cache_size': 8 * 1024 ** 2,
+                                 'state': 'ok',
+                                 'transport': 'tcp',
+                                 'type': 'ASD'}
+        asd_manager_stack_changes = {'available': False,
+                                     'mountpoint': '/mnt/alba-asd/asd_1',
+                                     'state': 'ok',
+                                     'partition_amount': 1,
+                                     'partition_aliases': ['/dev/disk/by-id/alba_disk_1_partition_1'],
+                                     'osds': {'alba_osd_1': asd_manager_osd_stack},
+                                     'usage': {'available': 1024 ** 3 - 1024,
+                                               'size': 1024 ** 3,
+                                               'used': 1024}}
+        ASDManagerClient.test_results[node]['get_stack']['alba_slot_1'].update(asd_manager_stack_changes)
 
-        expected_updated_osds = copy.deepcopy(updated_osd_values)
+        # Change the asd-manager stack to what we expect in the node.stack
+        expected_updated_osds = copy.deepcopy(asd_manager_osd_stack)
         _move(expected_updated_osds)  # Map state <-> status
-        expected_values_stack = copy.deepcopy(updated_stack_values)
+        expected_values_stack = copy.deepcopy(asd_manager_stack_changes)
         _move(expected_values_stack)  # Map state <-> status
+
+        # Additional changes to node.stack which are not returned by the asd-manager
         expected_updated_osds.update({'claimed_by': None})  # Osd not in model and is not claimed no None
         expected_values_stack['osds']['alba_osd_1'] = expected_updated_osds
 
-        ASDManagerClient.test_results[node]['get_stack']['alba_slot_1'].update(updated_stack_values)
         expected['alba_slot_1'].update(expected_values_stack)
         node.invalidate_dynamics()
         self.assertDictEqual(node._stack(), expected)
 
         # Validate initialized disk but node is offline
+        # The asd manager is not returning any information and nothing about the initialized disk is stored in the DAL so nothing will be returned
         ASDManagerClient.test_exceptions[node] = {'get_stack': requests.ConnectionError('test'),
                                                   'get_metadata': requests.ConnectionError('test')}
         node.invalidate_dynamics()
@@ -199,8 +206,9 @@ class Alba(unittest.TestCase):
         # Validate claimed ASD
         ASDManagerClient.test_exceptions[node] = {}
         # Nothing changes for the client getting the stack
-        AlbaDalHelper.build_dal_structure(structure={'alba_osds': [(1, 1, 1, 1, 'alba_slot_1')]}, previous_structure=structure)  # Osd enters the model
+        AlbaDalHelper.build_dal_structure(structure={'alba_osds': [(1, 1, 1, 1)]}, previous_structure=structure)  # Osd enters the model
 
+        # Additional changes to node.stack which are not returned by the asd-manager
         expected_updated_osds.update({'claimed_by': alba_backend.guid,  # Osds in model will be marked as claimed by the linked backends guid
                                       'status': 'ok'})
         expected_values_stack['osds']['alba_osd_1'] = expected_updated_osds
@@ -212,7 +220,7 @@ class Alba(unittest.TestCase):
         # Validate claimed osds but node is offline
         ASDManagerClient.test_exceptions[node] = {'get_stack': requests.ConnectionError('test'),
                                                   'get_metadata': requests.ConnectionError('test')}
-        # osds are known in model but the state or other stats cannot be fetch
+        # Osds are known in model but the state or other stats cannot be fetch
         expected_updated_osds.update({'claimed_by': alba_backend.guid,  # Osd not in model and is not claimed no None
                                       'status': 'unknown',  # State cannot be queried and will be set to unknown
                                       'status_detail': 'nodedown'})  # Detail will be set to 'nodedown'
