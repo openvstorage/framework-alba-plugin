@@ -17,7 +17,7 @@
 define([
     'jquery', 'knockout',
     'ovs/api', 'ovs/shared', 'ovs/generic', 'ovs/refresher',
-    '../containers/albabackend'
+    '../../containers/albabackend'
 ], function($, ko, api, shared, generic, Refresher, AlbaBackend) {
     "use strict";
     return function() {

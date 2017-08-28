@@ -1,0 +1,268 @@
+<!--
+Copyright (C) 2016 iNuron NV
+
+This file is part of Open vStorage Open Source Edition (OSE),
+as available from
+
+      http://www.openvstorage.org and
+      http://www.openvstorage.com.
+
+This file is free software; you can redistribute it and/or modify it
+under the terms of the GNU Affero General Public License v3 (GNU AGPLv3)
+as published by the Free Software Foundation, in version 3 as it comes
+in the LICENSE.txt file of the Open vStorage OSE distribution.
+
+Open vStorage is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY of any kind.
+-->
+<tbody>
+    <tr>
+        <td style="width: 40px; border-top: 0;">
+            <span class="hand fa" data-i18n="[html]alba:icons.collapse"
+                  data-bind="visible: expanded(), click: function() { expanded(!expanded()); }"></span>
+            <span class="hand fa" data-i18n="[html]alba:icons.expand"
+                  data-bind="visible: !expanded(), click: function() { expanded(!expanded()); }"></span>
+        </td>
+        <td style="width: 400px; border-top: 0;" data-bind="text: nodeID"></td>
+        <td style="border-top: 0;">
+            <div>
+                <!-- ko if: type() !== 'GENERIC' -->
+                    <!-- ko if: storageRouterGuid() === undefined || storageRouter() === undefined -->
+                        <span data-bind="text: ip"></span>:<span data-bind="text: port"></span>
+                    <!-- /ko -->
+                    <!-- ko if: storageRouterGuid() !== undefined && storageRouter() !== undefined -->
+                        <span data-bind="lazyloader: { item: storageRouter, loadedObservable: 'loaded', undefinedLoading: true }">
+                            <a data-part="lazy-entry"
+                               data-bind="text: item().name,
+                                          attr: { href: $root.shared.routing.loadHash('storagerouter-detail', { guid: item().guid }) }"></a>
+                        </span>
+                    <!-- /ko -->
+                <!-- /ko -->
+                <!-- ko if: type() === 'GENERIC' -->
+                    <!-- ko if: name() !== undefined -->
+                        <span data-bind="text: name()"></span>
+                    <!-- /ko -->
+                    <!-- ko if: name() === undefined -->
+                        <span data-i18n="ovs:generic.null"></span>
+                    <!-- /ko -->
+                <!-- /ko -->
+            </div>
+            <div class="notification-message" data-bind="visible: readOnlyMode()">
+                <a data-i18n="alba:detail.update" data-bind="attr: { href: $root.shared.routing.loadHash('updates') }"></a>
+                <span data-i18n="alba:detail.update_required"></span>
+            </div>
+        </td>
+        <td data-bind="if: !expanded()" style="border-top: 0; width: 10em;">
+                <span class="label label-success pointer"
+                      data-bind="tooltip: localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.node.claimed'),
+                                 text: (localSummary() === undefined ? 0 : localSummary().devices.green)"></span>&nbsp;
+                <span class="label label-warning pointer"
+                      data-bind="tooltip: localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.node.warning'),
+                                 text: (localSummary() === undefined ? 0 : localSummary().devices.orange)"></span>&nbsp;
+                <span class="label label-danger pointer"
+                      data-bind="tooltip: localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.node.error'),
+                                 text: (localSummary() === undefined ? 0 : localSummary().devices.red)"></span>&nbsp;
+                <span class="label label-missing pointer"
+                      data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.node.unknown'),
+                                 text: (localSummary() === undefined ? 0 : localSummary().devices.gray)"></span>
+        </td>
+        <td style="border-top: 0;" data-bind="text: type"></td>
+        <td style="width: 80px; border-top: 0;">
+            <span class="hand fa fa-fw"
+                  data-i18n="[html]alba:icons.initialize"
+                  data-bind="attr: { id: 'initialize_all_' + nodeID() },
+                             click: function() { addOSDs(); },
+                             tooltip: 'alba:generic.initialize_all',
+                             style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !readOnlyMode() ? 'black': 'lightgrey' }">
+            </span>
+            <span class="hand fa fa-fw"
+                  data-i18n="[html]alba:icons.claim"
+                  data-bind="attr: { id: 'claim_all_' + nodeID() },
+                             click: function() { claimAll(); },
+                             tooltip: 'alba:generic.claim_all',
+                             style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() && !readOnlyMode() ? 'black' : 'lightgrey' }">
+            </span>
+            <span class="hand fa fa-fw"
+                  data-i18n="[html]alba:icons.delete"
+                  data-bind="attr: { id: 'delete_' + nodeID() },
+                             click: function() { deleteNode(); },
+                             tooltip: 'alba:generic.remove',
+                             style: { color: $root.shared.user.roles().contains('manage') && canDelete() ? 'black' : 'lightgrey' }">
+            </span>
+        </td>
+    </tr>
+    <tr data-bind="visible: expanded()">
+        <td colspan="6" style="border-top: 0; padding-left: 35px;">
+            <!-- ko if: slots().length === 0 -->
+                <i style="padding-left: 12px;" data-bind="visible: !slotsLoading()" data-i18n="alba:generic.slots.notfound"></i>
+                <i style="padding-left: 12px;" data-bind="visible: slotsLoading()" data-i18n="alba:generic.slots.loading"></i>
+            <!-- /ko -->
+            <div data-bind="foreach: slots">
+                <div class="btn-group" role="group" style="margin-bottom: 10px; margin-left: 10px;"
+                     data-bind="attr: { 'data-status': status(), 'id': slotID(), 'data-statusdetail': statusDetail() }">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-small dropdown-toggle" data-toggle="dropdown"
+                                style="width: 57px; position: relative; text-align: left;"
+                                data-bind="css: {
+                                               'btn-default': status() === 'empty',
+                                               'btn-success': status() === 'ok',
+                                               'btn-warning': status() === 'warning',
+                                               'btn-danger': status() === 'error'
+                                           }">
+                            <span style="display: inline-block;">
+                                <!-- ko if: !processing() -->
+                                    <abbr data-bind="attr: { 'title': slotID() }">
+                                        <i class="hand fa fa-fw" data-i18n="[html]ovs:icons.vdisks"></i>
+                                    </abbr>
+                                <!-- /ko -->
+                                <!-- ko if: processing() -->
+                                    <span style="padding-right: 7px;"><i class="hand fa fa-fw fa-spin" data-i18n="[html]ovs:icons.loading"></i></span>
+                                <!-- /ko -->
+                            </span>
+                            <span style="display: inline-block; position: absolute; right: 12px; top: 6px;">
+                                <span class="caret"></span>
+                            </span>
+                        </button>
+                        <ul class="dropdown-menu" role="menu" style="max-height: 250px; overflow: auto; z-index: 6000;">
+                            <li style="width: 300px;">
+                                <a style="position: relative;">
+                                    <span data-i18n="ovs:generic.status"></span>: <span data-bind="translate: 'alba:generic.states.slot.' + status()"></span>
+                                    <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                        <!-- ko if: canClaim() -->
+                                            <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
+                                                    data-bind="click: claimOSDs, css: { disabled: processing() || $parent.readOnlyMode() }"></button>
+                                        <!-- /ko -->
+                                        <!-- ko if: canClear() -->
+                                            <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.clear"
+                                                    data-bind="click: clear, css: { disabled: processing() || $parent.readOnlyMode() }"></button>
+                                        <!-- /ko -->
+                                    </span>
+                                </a>
+                            </li>
+                            <!-- ko if: errorStatuses.contains(status()) && statusDetail() !== undefined && statusDetail() !== '' -->
+                            <li>
+                                <a>
+                                    <span data-i18n="alba:generic.statusdetail"></span>:
+                                    <span data-bind="shortText: $.t('alba:generic.statusdetails.' + statusDetail()), maxLength: 23"></span>
+                                </a>
+                            </li>
+                            <li>
+                                <a>
+                                    <span data-i18n="ovs:generic.name"></span>:
+                                    <span data-bind="shortText: slotID(), maxLength: 25, middle: true"></span>
+                                </a>
+                            </li>
+                            <!-- /ko -->
+                            <!-- ko if: size() !== undefined -->
+                                <li>
+                                    <a>
+                                        <span data-i18n="ovs:generic.size"></span>:
+                                        <span data-bind="text: $root.formatBytes(size())"></span>
+                                    </a>
+                                </li>
+                            <!-- /ko -->
+                        </ul>
+                    </div>
+                    <!-- ko foreach: osds -->
+                    <div class="btn-group" role="group"
+                         data-bind="attr: { 'data-status': status(), 'id': osdID(), 'data-local': isLocal(), 'data-statusdetail': statusDetail() }">
+                        <button type="button" class="btn btn-small dropdown-toggle" data-toggle="dropdown"
+                                style="width: 57px; position: relative; text-align: left;"
+                                data-bind="css: {
+                                               'btn-primary': status() === 'available',
+                                               'btn-success': status() === 'claimed',
+                                               'btn-warning': status() === 'warning',
+                                               'btn-danger': status() === 'error'
+                                           },
+                                           style: {
+                                               border: marked() ? '1px solid ' + albaBackend().color() : '',
+                                               'margin-right': marked() ? '1px' : ''
+                                           }">
+                            <span style="display: inline-block;">
+                                <!-- ko if: !processing() -->
+                                    <i class="hand fa fa-fw" data-i18n="[html]ovs:icons.archive" style="padding-right: 25px;"></i>
+                                <!-- /ko -->
+                                <!-- ko if: processing() -->
+                                    <span style="padding-right: 7px;"><i class="hand fa fa-fw fa-spin" data-i18n="[html]ovs:icons.loading"></i></span>
+                                <!-- /ko -->
+                            </span>
+                            <span style="display: inline-block; position: absolute; right: 12px; top: 6px;">
+                                <span class="caret"></span>
+                            </span>
+                        </button>
+                        <ul class="dropdown-menu" role="menu" style="max-height: 250px; overflow: auto; z-index: 6000;">
+                            <li style="width: 300px;">
+                                <a style="position: relative;">
+                                    <span data-i18n="ovs:generic.status"></span>: <span data-bind="translate: 'alba:generic.states.osd.' + status()"></span>
+                                    <!-- ko if: albaBackendGuid() === undefined -->
+                                        <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                            <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
+                                                    data-bind="click: claim, css: { disabled: processing() || !loaded() || locked() || $parents[1].readOnlyMode() }
+                                                               placement: 'bottom'"></button>
+                                        </span>
+                                    <!-- /ko -->
+                                    <!-- ko if: albaBackendGuid() === $root.albaBackend().guid() -->
+                                        <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                            <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
+                                                    data-bind="click: remove, css: { disabled: processing() || !loaded() || locked() || $parents[1].readOnlyMode() }"></button>
+                                        </span>
+                                    <!-- /ko -->
+                                    <!-- ko if: status() === 'warning' && isLocal() -->
+                                        <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                            <button type="button" class="btn btn-warning btn-xs" data-i18n="alba:generic.restart"
+                                                    data-bind="click: restart, css: { disabled: processing() || !loaded() || locked() || $parents[1].readOnlyMode() }"></button>
+                                            <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
+                                                    data-bind="click: remove, css: { disabled: processing() || !loaded() || locked() || $parents[1].readOnlyMode() }"></button>
+                                        </span>
+                                    <!-- /ko -->
+                                    <!-- ko if: status() === 'error' && isLocal() -->
+                                        <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                            <!-- ko if: statusDetail() !== 'nodedown' -->
+                                                <button type="button" class="btn btn-warning btn-xs" data-i18n="alba:generic.restart"
+                                                        data-bind="click: restart, css: { disabled: processing() || !loaded() || $parents[1].readOnlyMode() }"></button>
+                                            <!-- /ko -->
+                                            <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
+                                                    data-bind="click: remove, css: { disabled: processing() || !loaded() || $parents[1].readOnlyMode() }"></button>
+                                        </span>
+                                    <!-- /ko -->
+                                </a>
+                            </li>
+                            <!-- ko if: errorStatuses.contains(status()) && statusDetail() !== undefined && statusDetail() !== '' -->
+                                <li>
+                                    <a>
+                                        <span data-i18n="alba:generic.statusdetail"></span>:
+                                        <span data-bind="shortText: $.t('alba:generic.statusdetails.' + statusDetail()), maxLength: 23"></span>
+                                    </a>
+                                </li>
+                            <!-- /ko -->
+                            <!-- ko if: osdID() !== undefined -->
+                                <li>
+                                    <a>
+                                        <span data-i18n="alba:generic.asd_id"></span>:
+                                        <span data-bind="shortText: osdID(), maxLength: 23, middle: true"></span>
+                                    </a>
+                                </li>
+                            <!-- /ko -->
+                            <!-- ko if: status() !== 'unavailable' && status() !== 'uninitialized' && usage() !== undefined -->
+                                <li>
+                                    <a>
+                                        <span data-i18n="ovs:generic.usage"></span>: <span data-bind="text: $root.formatBytes(usage().used)"></span> / <span data-bind="text: $root.formatBytes(usage().size)"></span>
+                                        - <span data-bind="text: $root.formatPercentage(usage().used / usage().size)"></span>
+                                    </a>
+                                </li>
+                            <!-- /ko -->
+                        </ul>
+                    </div>
+                    <!-- /ko -->
+                    <!-- ko if: (canFill() === true || canFillAdd() === true) && osds().length === 0 -->
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-default" id="buttonAddOsd" data-bind="click: function() { $parent.addOSDs($data)}, enable: !$data.processing() && !$parent.readOnlyMode()">
+                            <span class="fa" data-i18n="[html]ovs:icons.add"></span>
+                        </button>
+                    </div>
+                <!-- /ko -->
+                </div>
+            </div>
+        </td>
+    </tr>
+</tbody>

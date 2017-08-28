@@ -17,9 +17,10 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
-    '../containers/albabackend', '../containers/albanode', '../containers/backend',
-    '../containers/backendtype', '../containers/domain', '../containers/storagerouter', '../containers/albaosd',
-    '../wizards/addnode/index', '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index'
+    '../../containers/albabackend', '../../containers/albanode', '../../containers/backend',
+    '../../containers/backendtype', '../../containers/domain', '../../containers/storagerouter', '../../containers/albaosd',
+    '../../wizards/addnode/index', '../../wizards/addpreset/index', '../../wizards/linkbackend/index',
+    '../../wizards/unlinkbackend/index'
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
             AlbaBackend, Node, Backend, BackendType, Domain, StorageRouter, AlbaOSD,

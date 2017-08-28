@@ -17,7 +17,7 @@
 define([
     'knockout',
     'ovs/generic',
-    './albabackend'
+    '../containers/albabackend'
 ], function(ko, generic, AlbaBackend) {
     "use strict";
     return function(id, slot, node, parentAlbaBackend) {
