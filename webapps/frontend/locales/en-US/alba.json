@@ -1,8 +1,8 @@
 {
     "dashboard": {
-        "title": "Backends",
+        "helpcontent": "This panel displays the state of the Open vStorage Backends. It shows how many OSDs are in use by the backend, grouped by their state.",
         "helptitle": "Help - Backends",
-        "helpcontent": "This panel displays the state of the Open vStorage Backends. It shows how many OSDs are in use by the backend, grouped by their state."
+        "title": "Backends"
     },
     "dashboard_scalings": {
         "GLOBAL": "Global Backends",
@@ -36,15 +36,6 @@
         "update_required": " required for further Slot/ASD customizations",
         "used": "Used"
     },
-    "slots" : {
-        "remove": {
-            "complete": "Cleared",
-            "failed": "Failed clearing slot __what__: __why__",
-            "started": "Started",
-            "started_msg": "Slot __what__ is being cleared",
-            "success": "Slot __what__ has been cleared"
-        }
-    },
     "downtime": {
         "backend": "Backend"
     },
@@ -55,9 +46,9 @@
         "asd_legend": "ASD legend:",
         "asds_remaining": "There are still ASDs in use",
         "backends": "Backends",
-        "clear": "Clear",
         "claim": "Claim",
         "claim_all": "Claim all available disks",
+        "clear": "Clear",
         "compressions": {
             "bz2": "BZip2",
             "none": "No compression",
@@ -65,7 +56,6 @@
         },
         "delete_backend": "Delete this backend",
         "details": "Backend Details",
-        "slot_legend": "Slot legend:",
         "encryptions": {
             "aes-cbc-256": "aes-cbc-256",
             "aes-ctr-256": "aes-ctr-256",
@@ -79,6 +69,7 @@
         "mountpoint": "Mtpt",
         "no": "No",
         "node": "Node / Storage Router",
+        "node_summary": "Summary",
         "nodeid": "Node ID",
         "nodes": "ASD Nodes",
         "nodetype": "Type",
@@ -86,13 +77,12 @@
             "asd": "ASD",
             "generic": "Generic"
         },
-        "node_summary": "Summary",
         "nodisks": "No disks available",
         "nodomain": "None",
         "osds": "ASDs",
         "osdtypes": {
-            "asd": "ASD",
-            "ad": "Active Drive"
+            "ad": "Active Drive",
+            "asd": "ASD"
         },
         "presets": "Presets",
         "refresh": "Refresh",
@@ -101,35 +91,24 @@
         "restart": "Restart",
         "scaling": "Scaling",
         "scalings": {
-            "local": "Local",
-            "global": "Global"
+            "global": "Global",
+            "local": "Local"
         },
-        "slots":{
+        "slot_legend": "Slot legend:",
+        "slots": {
             "loading": "Loading slots",
             "notfound": "No slots found"
         },
         "states": {
-            "disk": {
-                "error": "Faulted",
-                "initialized": "Good",
-                "uninitialized": "Uninitialized",
-                "warning": "Warning"
-            },
-            "diskinfo": {
-                "error": "This block device is in error state. Action is required",
-                "initialized": "This block device is in use and ready for usage",
-                "uninitialized": "This is a raw block device that's not yet in use",
-                "warning": "This block device is in warning state. Action may be needed"
-            },
             "osd": {
                 "available": "Available",
-                "claimed": "Good",
                 "error": "Faulted",
                 "initialized": "Unavailable",
-                "unavailable": "Unavailable",
-                "warning": "Warning",
+                "missing": "Missing",
                 "ok": "Good",
-                "unknown": "Unknown"
+                "unavailable": "Unavailable",
+                "unknown": "Unknown",
+                "warning": "Warning"
             },
             "osdinfo": {
                 "global": {
@@ -142,25 +121,25 @@
                     "claimed": "The OSD is in use by this backend",
                     "error": "The OSD is in error state. Action is required",
                     "unavailable": "The OSD is claimed/in use by another backend",
-                    "warning": "The OSD is in warning state. Action may be needed",
-                    "unknown": "The status about the OSD is unknown. Action may be needed"
+                    "unknown": "The status about the OSD is unknown. Action may be needed",
+                    "warning": "The OSD is in warning state. Action may be needed"
                 },
                 "node": {
                     "claimed": "The OSDs from this node are fully functional",
                     "error": "The OSDs are in error state. Action is required",
-                    "warning": "The OSDs are in warning state. Action may be needed",
-                    "unknown": "The status about the OSD is uknown. Action may be needed"
+                    "unknown": "The status about the OSD is uknown. Action may be needed",
+                    "warning": "The OSDs are in warning state. Action may be needed"
                 }
             },
-            "slot":{
-                "error": "Faulted",
-                "ok": "Good",
+            "slot": {
                 "empty": "Empty",
-                "warning": "Warning",
-                "nodedown": "Node is unreachable",
-                "unknown": "Unknown"
+                "error": "Faulted",
+                "missing": "Slot is absent",
+                "ok": "Good",
+                "unknown": "Unknown",
+                "warning": "Warning"
             },
-            "slotinfo":{
+            "slotinfo": {
                 "empty": "The slot is empty",
                 "error": "The slot is in error state. Action is required",
                 "ok": "The slot is in a good shape",
@@ -174,16 +153,24 @@
         "status": "Status",
         "statusdetail": "Status detail",
         "statusdetails": {
-            "corruption": "Data corruption",
-            "decommissioned": "Decommissioned",
-            "io_error": "I/O errors",
-            "missing": "Disk is missing",
-            "nodedown": "Node is unreachable",
-            "notmounted": "Disk is not mounted",
-            "recenterrors": "Recent errors",
-            "service_failure": "Service failure",
-            "unknown": "Unknown",
-            "unreachable": "OSD is unreachable"
+            "osds": {
+                "albaerror": "Error in alba",
+                "decommissioned": "Decommissioned",
+                "nodedown": "Node is unreachable",
+                "recenterrors": "Recent errors",
+                "unreachable": "OSD is unreachable"
+            },
+            "slots": {
+                "corruption": "Data corruption",
+                "io_error": "I/O errors",
+                "missing": "Disk is missing",
+                "nodedown": "Node is unreachable",
+                "notmounted": "Disk is not mounted",
+                "recenterrors": "Recent errors",
+                "service_failure": "Service failure",
+                "unknown": "Unknown",
+                "unreachable": "OSD is unreachable"
+            }
         },
         "unknown": "Unknown/external",
         "wayreplication": "-way replication:",
@@ -221,8 +208,8 @@
             "warning": "Are you sure you want to delete this ALBA node?"
         }
     },
-    "osds" : {
-        "add":{
+    "osds": {
+        "add": {
             "complete": "Added",
             "failed": "Failed to add OSD: __why__",
             "started": "Started",
@@ -280,6 +267,15 @@
         "policyinfo": "Policies displayed in bold will be used when writing new data",
         "unavailable": "Unavailable"
     },
+    "slots": {
+        "remove": {
+            "complete": "Cleared",
+            "failed": "Failed clearing slot __what__: __why__",
+            "started": "Started",
+            "started_msg": "Slot __what__ is being cleared",
+            "success": "Slot __what__ has been cleared"
+        }
+    },
     "support": {
         "download_logs": "Download logfiles",
         "downloading_logs": "Collecting logfiles",
@@ -292,9 +288,9 @@
     "wizards": {
         "add_backend": {
             "gather": {
-                "scaling": "Scaling:",
                 "missing_arakoon": "A partition with DB role should be defined",
                 "role_check": "Role check:",
+                "scaling": "Scaling:",
                 "unable_to_determine_roles": "Failed to determine all required roles"
             }
         },
@@ -324,7 +320,7 @@
             },
             "title": "Add Node"
         },
-        "add_osd":{
+        "add_osd": {
             "confirm": {
                 "basic_info": "Validate and confirm information below",
                 "count": "Amount:",
@@ -343,55 +339,55 @@
                 "success_multi_msg": "Successfully added __amount__ OSD__multi__ to all empty Slots"
             },
             "gather": {
+                "add_ips": "Add IP address",
                 "count": "Amount:",
                 "count_help": "Fill the desired amount of OSDs to be added.<br/><b>This cannot be changed afterwards.</b>",
                 "invalid_ips": "Invalid IP address",
                 "invalid_port": "Invalid port specified. Port should be between 1 and 65535",
                 "ips": "IP Address:",
-                "add_ips": "Add IP address",
                 "osd_type": "OSD type:",
                 "port": "Port:"
             },
             "title": "Add OSDs"
         },
         "add_preset": {
-            "title": "Add Preset",
+            "confirm": {
+                "basicinfo": "Confirm your preset. Make sure policies are in the correct order and are correctly defined.",
+                "complete": "Preset created",
+                "failed": "Error during preset creation: __why__",
+                "inprogress": "Creation of the preset is in progress",
+                "started": "Creating preset",
+                "success": "The preset was created successfully"
+            },
             "gather": {
+                "accepttext": "I understand the risks",
+                "advancedtext": "Advanced settings",
                 "basicinfo": "Define your preset.",
                 "compression": "Compression",
+                "duplicatename": "Name already exists",
                 "encryption": "Encryption",
+                "insufficientpolicies": "There should be at least one policy",
+                "invalidc": "One or more 'c' values do not meet the requirement k <= c <= (k + m) and should not be 0",
+                "invalidk": "One or more 'k' values do not meet the requirement k <= c <= (k + m) and should not be 0",
+                "invalidname": "Name should be between 3 and 20 letters, numbers, dashes and underscores (not start and end with dashes or underscores)",
+                "invalidx": "One or more 'x' values do not meet the requirement k <= c <= (k + m) and should not be 0",
                 "name": "Name",
                 "policies": "Policies",
-                "invalidname": "Name should be between 3 and 20 letters, numbers, dashes and underscores (not start and end with dashes or underscores)",
-                "insufficientpolicies": "There should be at least one policy",
-                "duplicatename": "Name already exists",
                 "replication": "Replication copies",
-                "advancedtext": "Advanced settings",
-                "accepttext": "I understand the risks",
-                "invalidk": "One or more 'k' values do not meet the requirement k <= c <= (k + m) and should not be 0",
-                "invalidc": "One or more 'c' values do not meet the requirement k <= c <= (k + m) and should not be 0",
-                "invalidx": "One or more 'x' values do not meet the requirement k <= c <= (k + m) and should not be 0",
                 "warning": "Adding presets can help shape the Open vStorage Backend to your specific needs.<br /><br />When creating a preset, make sure to understand the impact of certain compression algorithms and policies. For example, creating a (1, 0, 1, 1) policy might cause dataloss when a single disk fails. Remember that the order in which policies are defined is the same order in which policies will be used. Make sure to put the safest/most preferred policies on top.<br /><br />Improperly configured presets can cause dataloss!"
             },
-            "confirm": {
-                "basicinfo": "Confirm your preset. Make sure policies are in the correct order and are correctly defined.",
-                "started": "Creating preset",
-                "inprogress": "Creation of the preset is in progress",
-                "complete": "Preset created",
-                "success": "The preset was created successfully",
-                "failed": "Error during preset creation: __why__"
-            }
+            "title": "Add Preset"
         },
         "edit_preset": {
-            "title": "Edit preset",
             "confirm": {
                 "basicinfo": "Confirm your preset. Make sure policies are in the correct order and are correctly defined.",
-                "started": "Updating preset",
-                "inprogress": "Update of preset is in progress",
                 "complete": "Preset updated",
-                "success": "The preset was updated successfully",
-                "failed": "Error during preset update: __why__"
-            }
+                "failed": "Error during preset update: __why__",
+                "inprogress": "Update of preset is in progress",
+                "started": "Updating preset",
+                "success": "The preset was updated successfully"
+            },
+            "title": "Edit preset"
         },
         "link_backend": {
             "alba_backend": "Backend:",
@@ -424,10 +420,6 @@
         "remove_osd": {
             "complete": "Removed",
             "failed": "Failed removing ASD __what__: __why__",
-            "started": "Started",
-            "started_msg": "ASD __what__ is being removed",
-            "success": "ASD __what__ has been removed",
-            "title": "Remove ASD",
             "gather": {
                 "accepttext": "I understand the risks, this disk can be removed.",
                 "alert": "Attention:",
@@ -437,7 +429,11 @@
                 "lost": "The removal of this disk will cause data loss.",
                 "nodedownwarning": "Disk is being removed while node is down!",
                 "warning": "Are you sure you want to remove the following ASD?"
-            }
+            },
+            "started": "Started",
+            "started_msg": "ASD __what__ is being removed",
+            "success": "ASD __what__ has been removed",
+            "title": "Remove ASD"
         },
         "replace_node": {
             "complete": "Completed",
@@ -470,8 +466,8 @@
                 "backend": "ALBA Backend"
             },
             "prerequisites": {
-                "general": "Following prerequisites are unmet:",
-                "alba_node_unresponsive": "ASD manager client is unresponsive on node"
+                "alba_node_unresponsive": "ASD manager client is unresponsive on node",
+                "general": "Following prerequisites are unmet:"
             },
             "title": "Update"
         }
