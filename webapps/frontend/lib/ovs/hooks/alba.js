@@ -26,7 +26,7 @@ define(['jquery'], function($) {
         ],
         pages: {
             'support': [
-                'support/support-alba'
+                'admin/support-alba'
             ]
         },
         wizards: {
