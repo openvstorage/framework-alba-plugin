@@ -170,9 +170,9 @@ but WITHOUT ANY WARRANTY of any kind.
                                 style="width: 57px; position: relative; text-align: left;"
                                 data-bind="css: {
                                                'btn-primary': status() === 'available',
-                                               'btn-success': status() === 'claimed',
-                                               'btn-warning': status() === 'warning',
-                                               'btn-danger': status() === 'error'
+                                               'btn-success': status() === 'claimed' && isLocal(),
+                                               'btn-warning': status() === 'warning' && isLocal(),
+                                               'btn-danger': status() === 'error' && isLocal()
                                            },
                                            style: {
                                                border: marked() ? '1px solid ' + albaBackend().color() : '',

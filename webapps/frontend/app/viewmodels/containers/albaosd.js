@@ -90,10 +90,10 @@ define([
                 generic.trySet(self.port, data, 'port');
                 generic.trySet(self.ips, data, 'ips');
                 generic.trySet(self.type, data, 'type');
-                if (data.hasOwnProperty('alba_backend_guid') && data.alba_backend_guid !== null) {
-                    self.albaBackendGuid(data.alba_backend_guid);
+                if (data.hasOwnProperty('claimed_by') && data.claimed_by !== null) {
+                    self.albaBackendGuid(data.claimed_by);
                 } else {
-                    self.albaBackendGuid(data.claimed_by || undefined);
+                    self.albaBackendGuid(undefined);
                 }
                 if (['unavailable', 'error', 'warning'].contains(self.status())) {
                     self.loadAlbaBackend();
