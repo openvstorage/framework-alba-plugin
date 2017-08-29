@@ -30,19 +30,19 @@ from ovs.dal.lists.albaosdlist import AlbaOSDList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.generic.exceptions import InvalidCredentialsError
+from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.lib.alba import AlbaController
 from ovs.lib.disk import DiskController
 from ovs.lib.helpers.toolbox import Toolbox
 from ovs.lib.helpers.decorators import add_hooks, ovs_task
-from ovs.log.log_handler import LogHandler
 
 
 class AlbaNodeController(object):
     """
     Contains all BLL related to ALBA nodes
     """
-    _logger = LogHandler.get('lib', name='albanode')
+    _logger = Logger('lib')
     ASD_CONFIG_DIR = '/ovs/alba/asds/{0}'
     ASD_CONFIG = '{0}/config'.format(ASD_CONFIG_DIR)
 

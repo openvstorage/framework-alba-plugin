@@ -27,6 +27,7 @@ from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakooninstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs_extensions.db.arakoon.pyrakoon.pyrakoon.compat import ArakoonNoMaster, ArakoonNotFound
 from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.generic.system import System
 from ovs.extensions.packages.packagefactory import PackageFactory
@@ -34,15 +35,13 @@ from ovs.extensions.services.servicefactory import ServiceFactory
 from ovs.lib.alba import AlbaController
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.lib.update import UpdateController
-from ovs.log.log_handler import LogHandler
 
 
 class AlbaUpdateController(object):
     """
     This class contains all logic for updating an environment
     """
-    _logger = LogHandler.get('update', name='alba-plugin')
-    _logger.logger.propagate = False
+    _logger = Logger('lib')
     _packages_alba_plugin = {'alba': {'alba', 'alba-ee', 'openvstorage-sdm'},
                              'framework': {'alba', 'alba-ee', 'arakoon', 'openvstorage-backend'}}
     _packages_alba_plugin_all = _packages_alba_plugin['alba'].union(_packages_alba_plugin['framework'])

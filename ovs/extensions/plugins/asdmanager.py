@@ -26,7 +26,7 @@ import inspect
 import logging
 import requests
 from ovs_extensions.generic.exceptions import InvalidCredentialsError, NotFoundError
-from ovs.log.log_handler import LogHandler
+from ovs.extensions.generic.logger import Logger
 try:
     from requests.packages.urllib3 import disable_warnings
 except ImportError:
@@ -58,7 +58,7 @@ class ASDManagerClient(object):
         self.node = node
         self.timeout = 20
 
-        self._logger = LogHandler.get('extensions', name='asdmanagerclient')
+        self._logger = Logger('extensions-plugins')
         self._unittest_mode = os.environ.get('RUNNING_UNITTESTS') == 'True'
         self._log_min_duration = 1
 

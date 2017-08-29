@@ -18,7 +18,7 @@
 Generic module for calling the Generic Manager. Well, sort off, since it's a dummy manager
 """
 
-from ovs.log.log_handler import LogHandler
+from ovs.extensions.generic.logger import Logger
 
 
 class GenericManagerClient(object):
@@ -27,7 +27,7 @@ class GenericManagerClient(object):
     """
 
     def __init__(self, node):
-        self._logger = LogHandler.get('extensions', name='genericmanagerclient')
+        self._logger = Logger('extensions-plugins')
         self.node = node
 
     def get_stack(self):
