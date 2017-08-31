@@ -124,12 +124,10 @@ define([
             self.scaling(data.scaling);
             generic.trySet(self.presets, data, 'presets');
             generic.trySet(self.localSummary, data, 'local_summary');
+            generic.trySet(self.linkedBackendGuids, data, 'linked_backend_guids');
             if (self.backendGuid() !== data.backend_guid) {
                 self.backendGuid(data.backend_guid);
                 self.backend(new Backend(data.backend_guid));
-            }
-            if (data.hasOwnProperty('linked_backend_guids')) {
-                self.linkedBackendGuids(data.linked_backend_guids);
             }
             if (data.hasOwnProperty('usages')) {
                 var stats = data.usages;
@@ -153,7 +151,8 @@ define([
         };
         self.load = function(contents) {
             if (contents === undefined) {
-                contents = '_dynamics,-statistics,-ns_data,_relations';
+                // TODO: Remove collecting all dynamics and all relations on every load action
+                contents = '_dynamics,-statistics,-ns_data,-local_stack,_relations';
             }
             return $.Deferred(function(deferred) {
                 self.loading(true);

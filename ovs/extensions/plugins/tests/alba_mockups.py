@@ -137,3 +137,15 @@ class VirtualAlbaBackend(object):
         if key not in VirtualAlbaBackend.data:
             raise RuntimeError('Unknown backend: {0}'.format(key))
         return VirtualAlbaBackend.data[key]
+
+    @staticmethod
+    def get_osd_claimed_by(*args, **kwargs):
+        """
+        Check whether an osd is claimed based on ip and port
+        :return: Alba id or None (only None in our mocked case)
+        """
+        _ = args, kwargs
+        # Only called when the osd has not been claimed in the unit test
+        return None
+
+

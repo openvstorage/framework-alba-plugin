@@ -1067,7 +1067,7 @@ class AlbaController(object):
         if storage_router is None:
             raise RuntimeError('Failed to retrieve the StorageRouter with IP {0}'.format(storage_router_ip))
 
-        asd_ids = {}
+        osd_ids = {}
         if storage_router.alba_node is None:
             return {'confirm': False}
 
@@ -1075,15 +1075,15 @@ class AlbaController(object):
             for osd_id, osd_info in slot_info['osds'].iteritems():
                 ab_guid = osd_info['claimed_by']
                 if ab_guid is not None:
-                    if ab_guid not in asd_ids:
-                        asd_ids[ab_guid] = []
-                    asd_ids[ab_guid].append(osd_id)
+                    if ab_guid not in osd_ids:
+                        osd_ids[ab_guid] = []
+                    osd_ids[ab_guid].append(osd_id)
 
         confirm = False
         messages = []
-        for alba_backend_guid, asd_ids in asd_ids.iteritems():
+        for alba_backend_guid, osd_ids in osd_ids.iteritems():
             alba_backend = AlbaBackend(alba_backend_guid)
-            safety = AlbaController.calculate_safety(alba_backend_guid=alba_backend_guid, removal_osd_ids=asd_ids)
+            safety = AlbaController.calculate_safety(alba_backend_guid=alba_backend_guid, removal_osd_ids=osd_ids)
             if safety['lost'] > 0:
                 confirm = True
                 messages.append('The removal of this StorageRouter will cause data loss on Backend {0}'.format(alba_backend.name))

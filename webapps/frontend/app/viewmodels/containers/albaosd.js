@@ -17,11 +17,14 @@
 define([
     'knockout',
     'ovs/generic',
-    './albabackend'
+    '../containers/albabackend'
 ], function(ko, generic, AlbaBackend) {
     "use strict";
     return function(id, slot, node, parentAlbaBackend) {
         var self = this;
+
+        // variables
+        self.errorStatuses = ['warning', 'error', 'unavailable', 'unknown'];
 
         // External injected
         self.node = node;
@@ -43,15 +46,14 @@ define([
         self.port            = ko.observable().extend({numeric: {min: 1, max: 65535}});
         self.processing      = ko.observable(false);
         self.slotID          = ko.observable();
-        self._status         = ko.observable();  // can be ok, warning, error
+        self._status         = ko.observable();  // can be ok, warning, error, unavailable, unknown
         self.statusDetail    = ko.observable();
         self.type            = ko.observable();
         self.usage           = ko.observable();
 
         // Computed
         self.status = ko.computed(function() {
-            // Returns error, warning, claimed, available, unavailable
-            if (['warning', 'error'].contains(self._status())) {
+            if (self.errorStatuses.contains(self._status())) {
                 return self._status();
             }
             if (self.albaBackendGuid() === undefined) {
@@ -88,10 +90,10 @@ define([
                 generic.trySet(self.port, data, 'port');
                 generic.trySet(self.ips, data, 'ips');
                 generic.trySet(self.type, data, 'type');
-                if (data.hasOwnProperty('alba_backend_guid') && data.alba_backend_guid !== null) {
-                    self.albaBackendGuid(data.alba_backend_guid);
+                if (data.hasOwnProperty('claimed_by') && data.claimed_by !== null) {
+                    self.albaBackendGuid(data.claimed_by);
                 } else {
-                    self.albaBackendGuid(data.claimed_by || undefined);
+                    self.albaBackendGuid(undefined);
                 }
                 if (['unavailable', 'error', 'warning'].contains(self.status())) {
                     self.loadAlbaBackend();

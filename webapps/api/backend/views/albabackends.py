@@ -312,6 +312,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     def calculate_safety(self, albabackend, asd_id=None, osd_id=None):
         """
         Returns the safety resulting the removal of a given disk
+        DEPRECATED API PARAMS: asd_id is a deprecated param. Use osd_id instead
         :param albabackend: ALBA backend to calculate safety for
         :type albabackend: AlbaBackend
         :param asd_id: ID of the OSD to calculate safety off

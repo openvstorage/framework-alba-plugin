@@ -21,6 +21,7 @@ AlbaBackend module
 import time
 from threading import Lock, Thread
 from ovs.dal.dataobject import DataObject
+from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.backend import Backend
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
@@ -93,54 +94,6 @@ class AlbaBackend(DataObject):
         for thread in threads:
             thread.join()
 
-        # Load information from alba
-        backend_interval_key = '/ovs/alba/backends/{0}/gui_error_interval'.format(self.guid)
-        if Configuration.exists(backend_interval_key):
-            interval = Configuration.get(backend_interval_key)
-        else:
-            interval = Configuration.get('/ovs/alba/backends/global_gui_error_interval')
-        config = Configuration.get_configuration_path(self.abm_cluster.config_location)
-        osds = {}
-        for found_osd in AlbaCLI.run(command='list-all-osds', config=config):
-            osds[found_osd['long_id']] = found_osd
-        for node_data in storage_map.values():
-            for _slot in node_data.values():
-                for osd_id, osd_data in _slot['osds'].iteritems():
-                    if osd_id not in osds or 'status' not in osd_data or osd_data['status'] == 'empty':
-                        continue
-                    found_osd = osds[osd_id]
-                    if found_osd.get('decommissioned') is True:
-                        osd_data['status'] = 'unavailable'
-                        osd_data['status_detail'] = 'decommissioned'
-                        continue
-                    state = osd_data['status']
-                    if state == 'ok':
-                        if found_osd['id'] is None:
-                            alba_id = found_osd['alba_id']
-                            if alba_id is None:
-                                osd_data['status'] = 'available'
-                            else:
-                                osd_data['status'] = 'unavailable'
-                                alba_backend = alba_backend_map.get(alba_id)
-                                if alba_backend is not None:
-                                    osd_data['alba_backend_guid'] = alba_backend.guid
-                        else:
-                            osd_data['alba_backend_guid'] = self.guid
-                            osd_data['status'] = 'warning'
-                            osd_data['status_detail'] = 'recenterrors'
-
-                            read = found_osd['read'] or [0]
-                            write = found_osd['write'] or [0]
-                            errors = found_osd['errors']
-                            if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + interval):
-                                osd_data['status'] = 'claimed'
-                                osd_data['status_detail'] = ''
-                    else:
-                        osd_data['status'] = 'error'
-                        osd_data['status_detail'] = osd_data.get('state_detail', '')
-                        alba_backend = alba_backend_map.get(found_osd.get('alba_id'))
-                        if alba_backend is not None:
-                            osd_data['alba_backend_guid'] = alba_backend.guid
         return storage_map
 
     def _statistics(self):
@@ -292,9 +245,9 @@ class AlbaBackend(DataObject):
             raw_statistics = AlbaCLI.run(command='asd-multistatistics', config=config, named_params={'long-id': ','.join(osd_ids)})
         except RuntimeError:
             return statistics
-        for asd_id, stats in raw_statistics.iteritems():
+        for osd_id, stats in raw_statistics.iteritems():
             if stats['success'] is True:
-                statistics[asd_id] = stats['result']
+                statistics[osd_id] = stats['result']
         return statistics
 
     def _linked_backend_guids(self):
@@ -413,7 +366,8 @@ class AlbaBackend(DataObject):
                       'used': 0}
         device_info = {'red': 0,
                        'green': 0,
-                       'orange': 0}
+                       'orange': 0,
+                       'gray': 0}
         return_value = {'name': self.name,
                         'sizes': usage_info,
                         'devices': device_info,
@@ -426,14 +380,16 @@ class AlbaBackend(DataObject):
             for node_values in self.local_stack.itervalues():
                 for slot_values in node_values.itervalues():
                     for osd_info in slot_values.get('osds', {}).itervalues():
-                        if self.guid == osd_info.get('alba_backend_guid'):
+                        if self.guid == osd_info.get('claimed_by'):
                             status = osd_info.get('status', 'unknown')
-                            if status == 'claimed':
+                            if status == AlbaNode.OSD_STATUSES.OK:
                                 device_info['green'] += 1
-                            elif status == 'warning':
+                            elif status == AlbaNode.OSD_STATUSES.WARNING:
                                 device_info['orange'] += 1
-                            elif status == 'error':
+                            elif status == AlbaNode.OSD_STATUSES.ERROR:
                                 device_info['red'] += 1
+                            elif status == AlbaNode.OSD_STATUSES.UNKNOWN:
+                                device_info['gray'] += 1
 
             # Calculate used and total size
             for stats in self.osd_statistics.values():
@@ -455,6 +411,8 @@ class AlbaBackend(DataObject):
                     device_info['orange'] += 1
                 elif devices['green'] > 0:
                     device_info['green'] += 1
+                elif devices['gray'] > 0:
+                    device_info['gray'] += 1
 
         return return_value
 
