@@ -18,7 +18,7 @@
 Alba migration module
 """
 
-from ovs.log.log_handler import LogHandler
+from ovs.extensions.generic.logger import Logger
 
 
 class AlbaMigrator(object):
@@ -27,9 +27,9 @@ class AlbaMigrator(object):
     """
 
     identifier = 'alba'  # Used by migrator.py, so don't remove
-    THIS_VERSION = 11
+    THIS_VERSION = 12
 
-    _logger = LogHandler.get('lib', name='alba-migrations')
+    _logger = Logger('extensions')
 
     def __init__(self):
         """ Init method """
@@ -55,7 +55,7 @@ class AlbaMigrator(object):
         if working_version < AlbaMigrator.THIS_VERSION:
             try:
                 from ovs.dal.lists.albabackendlist import AlbaBackendList
-                from ovs.extensions.generic.configuration import Configuration
+                from ovs.extensions.generic.configuration import Configuration, NotFoundException
                 from ovs.lib.alba import AlbaController
 
                 AlbaMigrator._logger.info('Starting migrations...')
@@ -74,6 +74,15 @@ class AlbaMigrator(object):
                             Configuration.set(key=config_key, value=config)
                             AlbaMigrator._logger.debug('Updated multi-cast setting for ALBA Backend {0}'.format(alba_backend.name))
                 AlbaMigrator._logger.info('Finished migrations')
+
+                if not Configuration.exists(key='/ovs/alba/logging'):
+                    try:
+                        current_logging = Configuration.get(key='/ovs/framework/logging')
+                    except (IOError, NotFoundException):
+                        current_logging = {'type': 'console', 'level': 'info'}
+
+                    Configuration.set(key='/ovs/alba/logging', value=current_logging)
+
             except:
                 AlbaMigrator._logger.exception('Error occurred while executing the ALBA migration code')
                 # Don't update migration version with latest version, resulting in next migration trying again to execute this code

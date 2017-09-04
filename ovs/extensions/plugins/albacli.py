@@ -23,7 +23,7 @@ import json
 import time
 import select
 from subprocess import Popen, PIPE, CalledProcessError
-from ovs.log.log_handler import LogHandler
+from ovs.extensions.generic.logger import Logger
 
 
 class AlbaError(RuntimeError):
@@ -75,7 +75,7 @@ class AlbaCLI(object):
         if extra_params is None:
             extra_params = []
 
-        logger = LogHandler.get('extensions', name='alba-cli')
+        logger = Logger('extensions-plugins')
         if os.environ.get('RUNNING_UNITTESTS') == 'True':
             # For the unittest, all commands are passed to a mocked Alba
             from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend

@@ -25,17 +25,17 @@ import random
 import tempfile
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.generic.logger import Logger
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.lib.helpers.decorators import ovs_task
 from ovs.lib.helpers.toolbox import Toolbox
-from ovs.log.log_handler import LogHandler
 
 
 class AlbaPresetController(object):
     """
     Contains all BLL related to ALBA presets
     """
-    _logger = LogHandler.get('lib', name='albapreset')
+    _logger = Logger('lib')
 
     @staticmethod
     @ovs_task(name='alba.add_preset')

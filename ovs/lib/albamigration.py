@@ -18,16 +18,16 @@
 AlbaMigrationController module
 """
 
+from ovs.extensions.generic.logger import Logger
 from ovs.lib.helpers.decorators import ovs_task
 from ovs.lib.helpers.toolbox import Schedule
-from ovs.log.log_handler import LogHandler
 
 
 class AlbaMigrationController(object):
     """
     This controller contains (part of the) migration code. It runs out-of-band with the updater so we reduce the risk of failures during the update
     """
-    _logger = LogHandler.get('lib', name='alba-migrations')
+    _logger = Logger('lib')
 
     @staticmethod
     @ovs_task(name='alba.migration.migrate', schedule=Schedule(minute='15', hour='6'), ensure_single_info={'mode': 'DEFAULT'})

@@ -46,12 +46,12 @@ from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs_extensions.api.client import OVSClient
 from ovs.extensions.db.arakooninstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
+from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 from ovs.extensions.storage.volatilefactory import VolatileFactory
 from ovs.lib.helpers.decorators import add_hooks, ovs_task
 from ovs.lib.helpers.toolbox import Schedule, Toolbox
-from ovs.log.log_handler import LogHandler
 
 
 class DecommissionedException(Exception):
@@ -73,7 +73,7 @@ class AlbaController(object):
     AGENTS_LAYOUT_CONFIG_KEY = '/ovs/alba/backends/{0}/maintenance/agents_layout'
     CONFIG_DEFAULT_NSM_HOSTS_KEY = CONFIG_ALBA_BACKEND_KEY.format('default_nsm_hosts')
 
-    _logger = LogHandler.get('lib', name='alba')
+    _logger = Logger('lib')
 
     @staticmethod
     @ovs_task(name='alba.update_osds')

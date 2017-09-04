@@ -26,7 +26,7 @@ from ovs.extensions.db.arakooninstaller import ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs_extensions.generic.tests.sshclient_mock import MockedSSHClient
-from ovs_extensions.log.log_handler import LogHandler
+from ovs_extensions.log.logger import Logger
 from ovs.lib.alba import AlbaController
 
 
@@ -103,7 +103,7 @@ class AlbaGeneric(unittest.TestCase):
         SSHClient._raise_exceptions[sr_3.ip] = {'users': ['ovs'],
                                                 'exception': UnableToConnectException('No route to host')}
         AlbaController.scheduled_alba_arakoon_checkup()
-        alba_logs = LogHandler._logs.get('lib_alba', [])
+        alba_logs = Logger._logs.get('lib', [])
         self.assertIn(member='Storage Router with IP {0} is not reachable'.format(sr_3.ip),
                       container=alba_logs)
 
