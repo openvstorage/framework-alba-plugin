@@ -93,3 +93,24 @@ class AlbaMigrationController(object):
                 osd.save()
 
         AlbaMigrationController._logger.info('Finished out of band migrations')
+
+    @staticmethod
+    @ovs_task(name='alba.migration.migrate_sdm', schedule=Schedule(minute='30', hour='6'), ensure_single_info={'mode': 'DEFAULT'})
+    def migrate_sdm():
+        """
+        Executes async migrations for ALBA SDM node. It doesn't matter too much when they are executed, as long as they get eventually executed.
+        This code will typically contain:
+        * "dangerous" migration code (it needs certain running services)
+        * Migration code depending on a cluster-wide state
+        * ...
+        """
+        from ovs.dal.lists.albanodelist import AlbaNodeList
+
+        AlbaMigrationController._logger.info('Preparing out of band migrations for SDM...')
+        for alba_node in AlbaNodeList.get_albanodes():
+            try:
+                AlbaMigrationController._logger.info('Executing post-update code for ALBA Node {0}'.format(alba_node.node_id))
+                alba_node.client.execute_migration_code()
+            except Exception:
+                AlbaMigrationController._logger.exception('Executing post-update code for ALBA Node {0} failed'.format(alba_node.node_id))
+        AlbaMigrationController._logger.info('Finished out of band migrations for SDM')

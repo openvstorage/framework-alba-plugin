@@ -546,5 +546,6 @@ class AlbaUpdateController(object):
             # noinspection PyUnresolvedReferences
             from ovs.lib.albamigration import AlbaMigrationController
             AlbaMigrationController.migrate.delay()
+            AlbaMigrationController.migrate_sdm.delay()
         except ImportError:
             AlbaUpdateController._logger.error('Could not import AlbaMigrationController')
