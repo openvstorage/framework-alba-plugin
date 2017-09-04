@@ -22,6 +22,8 @@ define([
     "use strict";
     return function(id, node, albaBackend) {
         var self = this;
+        // Variables
+        self.errorStatuses = ['warning', 'error', 'unavailable', 'unknown'];
 
         // Externally added
         self.node        = node;

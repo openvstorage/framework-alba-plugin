@@ -17,9 +17,10 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
-    '../containers/albabackend', '../containers/albanode', '../containers/backend',
-    '../containers/backendtype', '../containers/domain', '../containers/storagerouter', '../containers/albaosd',
-    '../wizards/addnode/index', '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index'
+    '../../containers/albabackend', '../../containers/albanode', '../../containers/backend',
+    '../../containers/backendtype', '../../containers/domain', '../../containers/storagerouter', '../../containers/albaosd',
+    '../../wizards/addnode/index', '../../wizards/addpreset/index', '../../wizards/linkbackend/index',
+    '../../wizards/unlinkbackend/index'
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
             AlbaBackend, Node, Backend, BackendType, Domain, StorageRouter, AlbaOSD,
@@ -90,7 +91,7 @@ define([
         self.anyCollapsed = ko.computed(function() {
             /**
              * Check if any node is collapsed
-             * Differant than the expanded check in the way this will return true when any are collapsed as opposed to all
+             * Different than the expanded check in the way this will return true when any are collapsed as opposed to all
               */
             var collapsed = false;
             $.each(self.registeredNodes(), function(index, node) {
@@ -243,9 +244,9 @@ define([
             }
             self.localSummary(data.local_summary);
             var remoteStacks = [];
-            $.each(data.remote_stack, function(key, value) {
-                value.alba_backend_guid = key;
-                remoteStacks.push(value);
+            $.each(data.remote_stack, function(alba_backend_guid, stack_data) {
+                value.alba_backend_guid = alba_backend_guid;
+                remoteStacks.push(stack_data);
             });
             self.remoteStack(remoteStacks);
             self.remoteStack.sort(function(stack1, stack2) {

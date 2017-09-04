@@ -51,7 +51,7 @@ The [OVS commandline](https://openvstorage.gitbooks.io/administration/content/Ad
 /ovs/alba/backends/<guid>/maintenance/nr_of_agents = "$Amount of maintenance agents deployed for this backend"  (Defaults to amount of ALBA nodes)
 ```
 
-### Changing the schedule for the ALBA backend verifictaion process
+### Changing the schedule for the ALBA backend verification process
 In case you want to change the schedule for the ALBA backend verifictaion process which checks the state of each object in the backend, add `"alba.verify_namespaces": {"minute": "0", "hour": "0", "month_of_year": "*/X"}` to the `/ovs/framework/scheduling/celery` JSON object. In this schedule X is the amount of months between each run.
 
 In case the configuration cannot be parsed at all (e.g. invalid JSON), the code will fallback to the hardcoded schedule. If the crontab arguments are invalid (e.g. they contain an unsupported key) the task will be disabled.
