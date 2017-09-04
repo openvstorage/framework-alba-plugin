@@ -175,7 +175,6 @@ class AlbaController(object):
         :return: OSDs that have not been claimed
         :rtype: list
         """
-        ### Validation
         # Validate OSD information
         backend_osds = []
         generic_osds = []  # Both AD and ASD fit under here
@@ -266,8 +265,8 @@ class AlbaController(object):
         alba_backend = AlbaBackend(alba_backend_guid)
         config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
 
-        failures = []
-        unclaimed = []
+        failed_claims = []
+        unclaimed_osds = []
         for _ in osds:  # Currently only one OSD can be added at once of type local Backend
             # Verify OSD has already been added
             is_available = False
@@ -317,7 +316,11 @@ class AlbaController(object):
                                               'alba-osd-config-url': 'file://{0}'.format(remote_arakoon_config)})
                 except AlbaError as ae:
                     AlbaController._logger.exception('Error adding OSD {0}: {1}'.format(linked_alba_id, ae))
-                    failures.append(linked_alba_id)
+                    if ae.error_code == 7 and ae.exception_type == AlbaError.ALBAMGR_EXCEPTION:
+                        AlbaController._logger.warning('OSD with ID {0} has already been added'.format(linked_alba_id))
+                        unclaimed_osds.append(linked_alba_id)
+                        continue
+                    failed_claims.append(linked_alba_id)
                     continue
                 finally:
                     os.remove(remote_arakoon_config)
@@ -325,8 +328,12 @@ class AlbaController(object):
                 try:
                     AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': linked_alba_id})
                 except AlbaError as ae:
+                    if ae.error_code == 11 and ae.exception_type == AlbaError.ALBAMGR_EXCEPTION:
+                        AlbaController._logger.warning('OSD with ID {0} has already been claimed'.format(linked_alba_id))
+                        unclaimed_osds.append(linked_alba_id)
+                        continue
                     AlbaController._logger.exception('Error claiming OSD {0}: {1}'.format(linked_alba_id, ae))
-                    failures.append(linked_alba_id)
+                    failed_claims.append(linked_alba_id)
                     continue
             osd = None
             for _osd in alba_backend.osds:
@@ -343,7 +350,7 @@ class AlbaController(object):
                 osd.save()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
-        return failures, unclaimed
+        return failed_claims, unclaimed_osds
 
     @staticmethod
     def _add_osds(alba_backend_guid, alba_node_guid, osds, domain, metadata):
@@ -405,7 +412,8 @@ class AlbaController(object):
                     requested_osd_info['osd_id'] = actual_osd_info['long_id']
                     requested_osd_info[osd_status] = True
 
-        unclaimed = []
+        unclaimed_osds = []
+        failed_claims = []
         alba_node = AlbaNode(alba_node_guid)
         for port, requested_osd_info in port_osd_info_map.iteritems():
             ips = requested_osd_info['ips']
@@ -422,9 +430,13 @@ class AlbaController(object):
                                                        'port': port,
                                                        'node-id': alba_node.node_id})
                     osd_id = result['long_id']
-                except AlbaError:
+                except AlbaError as ae:
+                    if ae.error_code == 7 and ae.exception_type == AlbaError.ALBAMGR_EXCEPTION:
+                        AlbaController._logger.warning('OSD with ID {0}:{1} has already been added'.format(register_ip, port))
+                        unclaimed_osds.append(osd_id)
+                        continue
                     AlbaController._logger.exception('Error adding OSD on IP:port {0}:{1}'.format(register_ip, port))
-                    unclaimed.append(port)
+                    failed_claims.append('{0}:{1}'.format(register_ip, port))
                     continue
 
                 # TODO: Remove 'update-osd' once https://github.com/openvstorage/alba/issues/773 has been resolved, because we're supposed to register with all IPs right away
@@ -436,15 +448,19 @@ class AlbaController(object):
                                                   'ip': ','.join(ips)})  # update-osd needs IPs as comma separated list
                     except AlbaError:
                         AlbaController._logger.exception('Error Updating OSD on IP:port {0}:{1} with IPs {2}'.format(register_ip, port, ', '.join(ips)))
-                        unclaimed.append(port)
+                        failed_claims.append('{0}:{1}'.format(register_ip, port))
                         continue
 
             if is_claimed is False:
                 try:
                     AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': osd_id})
-                except AlbaError:
+                except AlbaError as ae:
+                    if ae.error_code == 11 and ae.exception_type == AlbaError.ALBAMGR_EXCEPTION:
+                        AlbaController._logger.warning('OSD with ID {0} has already been claimed'.format(osd_id))
+                        unclaimed_osds.append(osd_id)
+                        continue
                     AlbaController._logger.exception('Error claiming OSD with ID {0}'.format(osd_id))
-                    unclaimed.append(port)
+                    failed_claims.append(port)
                     continue
 
             osd = AlbaOSD()
@@ -466,7 +482,7 @@ class AlbaController(object):
         alba_node.invalidate_dynamics()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
-        return [], unclaimed
+        return failed_claims, unclaimed_osds
 
     @staticmethod
     @ovs_task(name='alba.remove_units')

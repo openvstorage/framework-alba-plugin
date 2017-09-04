@@ -51,7 +51,8 @@ define([
                 'displayOn': ['gather']
             },
             'count': {
-                'inputType': 'text',
+                'inputType': 'widget',
+                'widgetName': 'numberinput',
                 'group': 0,
                 'extender': {numeric: {min: 1, max: 24}},
                 'displayOn': ['confirm']
