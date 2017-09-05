@@ -319,7 +319,7 @@ class AlbaController(object):
                         AlbaController._logger.warning('OSD with ID {0} has already been added'.format(linked_alba_id))
                         unclaimed_osds.append(linked_alba_id)
                         continue
-                    AlbaController._logger.exception('Error adding OSD {0}: {1}'.format(linked_alba_id))
+                    AlbaController._logger.exception('Error adding OSD {0}'.format(linked_alba_id))
                     failure_osds.append(linked_alba_id)
                     continue
                 finally:
@@ -332,7 +332,7 @@ class AlbaController(object):
                         AlbaController._logger.warning('OSD with ID {0} has already been claimed'.format(linked_alba_id))
                         unclaimed_osds.append(linked_alba_id)
                         continue
-                    AlbaController._logger.exception('Error claiming OSD {0}: {1}'.format(linked_alba_id, ae))
+                    AlbaController._logger.exception('Error claiming OSD {0}'.format(linked_alba_id))
                     failure_osds.append(linked_alba_id)
                     continue
             osd = None
