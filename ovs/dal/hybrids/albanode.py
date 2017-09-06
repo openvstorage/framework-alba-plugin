@@ -154,12 +154,6 @@ class AlbaNode(DataObject):
                 osd_data['status_detail'] = self.OSD_STATUS_DETAILS.NODEDOWN
             elif osd.alba_backend_guid is not None:  # Osds has been claimed
                 # Load information from alba
-                backend_interval_key = '/ovs/alba/backends/{0}/gui_error_interval'.format(osd.alba_backend_guid)
-                if Configuration.exists(backend_interval_key):
-                    interval = Configuration.get(backend_interval_key)
-                else:
-                    interval = Configuration.get('/ovs/alba/backends/global_gui_error_interval')
-
                 if osd.alba_backend_guid not in found_osds:
                     found_osds[osd.alba_backend_guid] = {}
                     if osd.alba_backend.abm_cluster is not None:
@@ -181,14 +175,20 @@ class AlbaNode(DataObject):
                     osd_data['status'] = self.OSD_STATUSES.UNAVAILABLE
                     osd_data['status_detail'] = self.OSD_STATUS_DETAILS.DECOMMISSIONED
                     continue
+
+                backend_interval_key = '/ovs/alba/backends/{0}/gui_error_interval'.format(osd.alba_backend_guid)
+                if Configuration.exists(backend_interval_key):
+                    interval = Configuration.get(backend_interval_key)
+                else:
+                    interval = Configuration.get('/ovs/alba/backends/global_gui_error_interval')
                 read = found_osd['read'] or [0]
                 write = found_osd['write'] or [0]
                 errors = found_osd['errors']
-                osd_data['status'] = self.OSD_STATUSES.OK
-                osd_data['status_detail'] = ''
+                osd_data['status'] = self.OSD_STATUSES.WARNING
+                osd_data['status_detail'] = self.OSD_STATUS_DETAILS.ERROR
                 if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + interval):
-                    osd_data['status'] = self.OSD_STATUSES.WARNING
-                    osd_data['status_detail'] = self.OSD_STATUS_DETAILS.ERROR
+                    osd_data['status'] = self.OSD_STATUSES.OK
+                    osd_data['status_detail'] = ''
 
         for slot_info in stack.itervalues():
             for osd_id, osd in slot_info['osds'].iteritems():

@@ -97,7 +97,8 @@ but WITHOUT ANY WARRANTY of any kind.
                 <i style="padding-left: 12px;" data-bind="visible: !slotsLoading()" data-i18n="alba:generic.slots.notfound"></i>
                 <i style="padding-left: 12px;" data-bind="visible: slotsLoading()" data-i18n="alba:generic.slots.loading"></i>
             <!-- /ko -->
-            <div data-bind="foreach: slots">
+            <div>
+                <!-- ko foreach: slots -->
                 <div class="btn-group" role="group" style="margin-bottom: 10px; margin-left: 10px;"
                      data-bind="attr: { 'data-status': status(), 'id': slotID(), 'data-statusdetail': statusDetail() }">
                     <div class="btn-group" role="group">
@@ -183,7 +184,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                     <i class="hand fa fa-fw" data-i18n="[html]ovs:icons.archive" style="padding-right: 25px;"></i>
                                 <!-- /ko -->
                                 <!-- ko if: processing() -->
-                                    <span style="padding-right: 7px;"><i class="hand fa fa-fw fa-spin" data-i18n="[html]ovs:icons.loading"></i></span>
+                                    <span style="padding-right: 7px;"><i class="fa fa-fw fa-spin" data-i18n="[html]ovs:icons.loading"></i></span>
                                 <!-- /ko -->
                             </span>
                             <span style="display: inline-block; position: absolute; right: 12px; top: 6px;">
@@ -260,8 +261,9 @@ but WITHOUT ANY WARRANTY of any kind.
                             <span class="fa" data-i18n="[html]ovs:icons.add"></span>
                         </button>
                     </div>
-                <!-- /ko -->
+                    <!-- /ko -->
                 </div>
+                <!-- /ko -->
             </div>
         </td>
     </tr>

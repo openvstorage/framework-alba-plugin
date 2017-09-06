@@ -243,7 +243,8 @@ class AlbaUpdateController(object):
         Retrieve the package information for the ALBA plugin, so the core code can merge it all together
         :return: Package information for ALBA nodes
         """
-        return dict((node.ip, node.package_information) for node in AlbaNodeList.get_albanodes())
+        # Ignore generic nodes
+        return dict((node.ip, node.package_information) for node in AlbaNodeList.get_albanodes() if node.type != AlbaNode.NODE_TYPES.GENERIC)
 
     @staticmethod
     @add_hooks('update', 'information')
