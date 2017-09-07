@@ -166,7 +166,7 @@ class AlbaBackend(DataObject):
                 osds[node_id] = 0
                 for slot_id, slot_data in slots.iteritems():
                     for osd_id, osd_data in slot_data['osds'].iteritems():
-                        if osd_data['status'] in ['claimed', 'warning']:
+                        if osd_data['status'] in [AlbaNode.OSD_STATUSES.OK, AlbaNode.OSD_STATUSES.WARNING]:
                             osds[node_id] += 1
         config = Configuration.get_configuration_path(self.abm_cluster.config_location)
         presets = AlbaCLI.run(command='list-presets', config=config)
