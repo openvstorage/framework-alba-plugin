@@ -27,7 +27,7 @@ class AlbaMigrationController(object):
     """
     This controller contains (part of the) migration code. It runs out-of-band with the updater so we reduce the risk of failures during the update
     """
-    _logger = Logger('lib')
+    _logger = Logger('update')
 
     @staticmethod
     @ovs_task(name='alba.migration.migrate', schedule=Schedule(minute='15', hour='6'), ensure_single_info={'mode': 'DEFAULT'})
@@ -50,7 +50,7 @@ class AlbaMigrationController(object):
 
         osd_info_map = {}
         for alba_backend in AlbaBackendList.get_albabackends():
-            AlbaMigrationController._logger.debug('Verifying ALBA Backend {0}'.format(alba_backend.name))
+            AlbaMigrationController._logger.info('Verifying ALBA Backend {0}'.format(alba_backend.name))
             if alba_backend.abm_cluster is None:
                 AlbaMigrationController._logger.warning('ALBA Backend {0} does not have an ABM cluster registered'.format(alba_backend.name))
                 continue
@@ -62,7 +62,7 @@ class AlbaMigrationController(object):
                 AlbaMigrationController._logger.exception('Failed to retrieve the configuration path for ALBA Backend {0}'.format(alba_backend.name))
                 continue
 
-            AlbaMigrationController._logger.debug('Retrieving OSD information for ALBA Backend {0}'.format(alba_backend.name))
+            AlbaMigrationController._logger.info('Retrieving OSD information for ALBA Backend {0}'.format(alba_backend.name))
             try:
                 osd_info = AlbaCLI.run(command='list-all-osds', config=config)
             except (AlbaError, RuntimeError):
@@ -89,7 +89,7 @@ class AlbaMigrationController(object):
                 changes = True
                 osd.port = port
             if changes is True:
-                AlbaMigrationController._logger.debug('Updating OSD with ID {0} with IPS {1} and port {2}'.format(osd.osd_id, ips, port))
+                AlbaMigrationController._logger.info('Updating OSD with ID {0} with IPS {1} and port {2}'.format(osd.osd_id, ips, port))
                 osd.save()
 
         AlbaMigrationController._logger.info('Finished out of band migrations')
@@ -109,8 +109,8 @@ class AlbaMigrationController(object):
         AlbaMigrationController._logger.info('Preparing out of band migrations for SDM...')
         for alba_node in AlbaNodeList.get_albanodes():
             try:
-                AlbaMigrationController._logger.info('Executing post-update code for ALBA Node {0}'.format(alba_node.node_id))
-                alba_node.client.execute_migration_code()
+                AlbaMigrationController._logger.info('Executing post-update migration code for ALBA Node {0}'.format(alba_node.node_id))
+                alba_node.client.update_execute_migration_code()
             except Exception:
-                AlbaMigrationController._logger.exception('Executing post-update code for ALBA Node {0} failed'.format(alba_node.node_id))
+                AlbaMigrationController._logger.exception('Executing post-update migration code for ALBA Node {0} failed'.format(alba_node.node_id))
         AlbaMigrationController._logger.info('Finished out of band migrations for SDM')

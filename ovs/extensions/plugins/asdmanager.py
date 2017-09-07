@@ -232,13 +232,13 @@ class ASDManagerClient(object):
                 if counter == max_counter:
                     raise Exception('Failed to update SDM')
 
-    def execute_post_update_code(self):
+    def update_execute_migration_code(self):
         """
         Run some migration code after an update has been done
         :return: None
         :rtype: NoneType
         """
-        return self._call(requests.post, 'update/execute_post_update_code')
+        return self._call(requests.post, 'update/execute_migration_code')
 
     def update_installed_version_package(self, package_name):
         """
