@@ -111,8 +111,15 @@ class ASDManagerClient(object):
             self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.stack()[1][3], duration, internal_duration))
         return data
 
-    # Slot based
+    def get_metadata(self):
+        """
+        Gets metadata from the node
+        """
+        return self._call(requests.get, '')
 
+    ##############
+    # SLOTS/OSDS #
+    ##############
     def get_stack(self):
         """
         Gets the remote node stack
@@ -184,12 +191,9 @@ class ASDManagerClient(object):
     def restart_slot(self, slot_id):
         return self._call(requests.post, 'slots/{0}/restart'.format(slot_id))
 
-    def get_metadata(self):
-        """
-        Gets metadata from the node
-        """
-        return self._call(requests.get, '')
-
+    ##########
+    # UPDATE #
+    ##########
     def get_package_information(self):
         """
         Retrieve the package information for this ALBA node
@@ -236,6 +240,19 @@ class ASDManagerClient(object):
         """
         return self._call(requests.post, 'update/execute_post_update_code')
 
+    def update_installed_version_package(self, package_name):
+        """
+        Retrieve the currently installed package version
+        :param package_name: Name of the package to retrieve the version for
+        :type package_name: str
+        :return: Version of the currently installed package
+        :rtype: str
+        """
+        return self._call(requests.post, 'update/installed_version_package/{0}'.format(package_name), timeout=60)['version']
+
+    ############
+    # SERVICES #
+    ############
     def restart_services(self):
         """
         Restart the alba-asd-<ID> services

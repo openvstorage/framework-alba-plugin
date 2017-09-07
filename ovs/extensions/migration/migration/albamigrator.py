@@ -72,7 +72,7 @@ class AlbaMigrator(object):
                         if 'multicast_discover_osds' not in config:
                             config['multicast_discover_osds'] = False
                             Configuration.set(key=config_key, value=config)
-                            AlbaMigrator._logger.debug('Updated multi-cast setting for ALBA Backend {0}'.format(alba_backend.name))
+                            AlbaMigrator._logger.info('Updated multi-cast setting for ALBA Backend {0}'.format(alba_backend.name))
                 AlbaMigrator._logger.info('Finished migrations')
 
                 if not Configuration.exists(key='/ovs/alba/logging'):
