@@ -555,8 +555,8 @@ class AlbaUpdateController(object):
         # Renew maintenance services
         AlbaUpdateController._logger.info('Checkup maintenance agents')
         AlbaController.checkup_maintenance_agents.delay()
-        AlbaUpdateController._logger.info('Executed hook {0}'.format(inspect.currentframe().f_code.co_name))
 
+        # Run post-update migrations
         try:
             # noinspection PyUnresolvedReferences
             from ovs.lib.albamigration import AlbaMigrationController
@@ -564,3 +564,5 @@ class AlbaUpdateController(object):
             AlbaMigrationController.migrate_sdm.delay()
         except ImportError:
             AlbaUpdateController._logger.error('Could not import AlbaMigrationController')
+
+        AlbaUpdateController._logger.info('Executed hook {0}'.format(inspect.currentframe().f_code.co_name))
