@@ -460,7 +460,7 @@ class AlbaUpdateController(object):
                     installed = pkg_info['installed']
                     candidate = pkg_info['candidate']
 
-                    if candidate == alba_node.client.get_package_version(package_name=pkg_name)['version']:
+                    if candidate == alba_node.client.update_installed_version_package(package_name=pkg_name):
                         # Package has already been installed by another hook
                         continue
 
