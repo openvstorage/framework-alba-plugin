@@ -20,10 +20,10 @@ but WITHOUT ANY WARRANTY of any kind.
         <!-- ko if: display().contains('gather') -->
             <div class="form-group" data-bind="css: { 'has-error': $parent.canContinue().fields.contains(id()) }">
                 <label class="col-lg-3 control-label" data-bind="attr: { 'for': id() }, translate: 'alba:wizards.add_osd.gather.' + field()"></label>
-                <!-- ko if: input().type === 'widget' -->
-                <div class="col-lg-7" data-bind="widget: {kind: input().widgetName, item:data}"></div>
-                <!-- /ko -->
                 <div class="col-lg-7">
+                    <!-- ko if: input().type === 'widget' -->
+                    <div data-bind="widget: {kind: input().widgetName, item:data}"></div>
+                    <!-- /ko -->
                     <!-- ko if: !['dropdown', 'widget'].contains(input().type)-->
                     <input class="autofocus form-control" style="width: 9.375em;display:inline-block;"
                            data-bind="value: data,

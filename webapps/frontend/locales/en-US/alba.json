@@ -56,6 +56,7 @@
         },
         "delete_backend": "Delete this backend",
         "details": "Backend Details",
+        "device": "Device",
         "encryptions": {
             "aes-cbc-256": "aes-cbc-256",
             "aes-ctr-256": "aes-ctr-256",
@@ -99,13 +100,14 @@
             "loading": "Loading slots",
             "notfound": "No slots found"
         },
+        "socket": "Socket",
         "states": {
             "osd": {
                 "available": "Available",
                 "error": "Faulted",
                 "initialized": "Unavailable",
                 "missing": "Missing",
-                "ok": "Good",
+                "claimed": "Good",
                 "unavailable": "Unavailable",
                 "unknown": "Unknown",
                 "warning": "Warning"

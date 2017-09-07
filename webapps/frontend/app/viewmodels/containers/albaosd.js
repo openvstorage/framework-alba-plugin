@@ -15,10 +15,10 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'knockout',
+    'knockout', 'jquery',
     'ovs/generic',
     '../containers/albabackend'
-], function(ko, generic, AlbaBackend) {
+], function(ko, $, generic, AlbaBackend) {
     "use strict";
     return function(id, slot, node, parentAlbaBackend) {
         var self = this;
@@ -71,6 +71,13 @@ define([
             return (self.status() === 'unavailable' || (!self.isLocal() && (self.status() === 'warning' || self.status() === 'error'))) && self.albaBackend() !== undefined;
         });
 
+        self.sockets = ko.computed(function() {
+            var sockets = [];
+            $.each(self.ips(), function(index, ip) {
+               sockets.push(ip + ":" + self.port())
+            });
+            return sockets
+        });
         // Functions
         self.fillData = function(data) {
             if (self.ignoreNext() === true) {

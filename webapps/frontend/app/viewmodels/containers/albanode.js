@@ -54,6 +54,7 @@ define([
         self.port              = ko.observable();
         self.readOnlyMode      = ko.observable(false);
         self.slots             = ko.observableArray([]);
+        self.slotIDs           = ko.observableArray([]);
         self.slotsLoading      = ko.observable(true);
         self.storageRouterGuid = ko.observable();
         self.type              = ko.observable();
@@ -140,28 +141,35 @@ define([
             // Add slots
             var slotIDs = Object.keys(data.stack);
             if (self.type() === 'GENERIC') {
-                slotIDs.sort(function(slot1, slot2) {
-                    return slot1 < slot2 ? 1 : -1; // Reverse sort alphabetically
-                });
-                // Initially 1 slotID is passed in, no slots have been created in JS --> 1 slot will be added in the crossfiller
-                // Next refresh (5s) 1 slotID is passed in, 1 slot has been created --> don't create a new slot (to not overwrite the 'processing' flag)
-                // When new slot is added due to a slot being filled, a new slotID is passed (2 in total) --> another slot will be created
-                // So in order to achieve this, we remove the latest added slotID from the list (which is first in list)
-                if (slotIDs.length === self.slots().length) {
-                    slotIDs.splice(0, 1);
+                var hasEmptySlot = false;
+                if (self.slotIDs().length > 0){
+                    $.each(self.slots().slice(), function(index, slot) {
+                       if (slot.status === 'empty'){
+                           hasEmptySlot = slot.slotID();
+                           if (slotIDs.indexOf(slot.slotID()) < 0) {
+                               self.slots().splice(index, 1)
+                           }
+                       }
+                    });
+                    $.each(slotIDs.slice(), function(index, slotID) {
+                        // Adjust the stack received by the api to match the current JS model to avoid the refresh from renewing the empty slot object
+                        if (hasEmptySlot === true && (data.stack[slotID].status === 'empty' && self.slotIDs().indexOf(slotID) < 0)) {
+                            slotIDs.splice(index, 1)
+                        }
+                    });
                 }
             }
-            if (self.type() !== 'GENERIC' || slotIDs.length > self.slots().length) {
-                generic.crossFiller(
-                    slotIDs, self.slots,
-                    function(slotID) {
-                        return new Slot(slotID, self, self.albaBackend);
-                    }, 'slotID'
-                );
-                $.each(self.slots(), function (index, slot) {
-                    slot.fillData(data.stack[slot.slotID()])
-                });
-            }
+            generic.crossFiller(
+                slotIDs, self.slots,
+                function(slotID) {
+                    return new Slot(slotID, self, self.albaBackend);
+                }, 'slotID'
+            );
+            self.slotIDs([]);
+            $.each(self.slots(), function (index, slot) {
+                self.slotIDs.push(slot.slotID());
+                slot.fillData(data.stack[slot.slotID()])
+            });
             self.slots.sort(function(a, b) {
                 return a.slotID() < b.slotID() ? -1 : 1
             });

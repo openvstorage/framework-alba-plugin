@@ -227,6 +227,7 @@ class AlbaNode(DataObject):
             prefix = '{0:02d}'.format(slot_amount)
             slot_id = '{0}{1}'.format(prefix, str(uuid.uuid4())[2:])
             stack[slot_id] = {'status': self.SLOT_STATUSES.EMPTY}
+
         return stack
 
     def _node_metadata(self):
