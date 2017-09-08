@@ -17,6 +17,8 @@
 """
 Module for AlbaUpdateController
 """
+
+import os
 import copy
 import inspect
 import requests
@@ -31,11 +33,14 @@ from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.generic.system import System
+from ovs_extensions.generic.toolbox import ExtensionsToolbox
 from ovs.extensions.packages.packagefactory import PackageFactory
 from ovs.extensions.services.servicefactory import ServiceFactory
 from ovs.lib.alba import AlbaController
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.lib.update import UpdateController
+
+os.environ['OVS_LOGTYPE_OVERRIDE'] = 'file'  # Make sure we log to file during update
 
 
 class AlbaUpdateController(object):
@@ -454,7 +459,9 @@ class AlbaUpdateController(object):
             return False
 
         abort = False
-        for alba_node in AlbaNodeList.get_albanodes():
+        alba_nodes = [alba_node for alba_node in AlbaNodeList.get_albanodes() if alba_node.type == AlbaNode.NODE_TYPES.ASD]
+        alba_nodes.sort(key=lambda node: ExtensionsToolbox.advanced_sort(element=node.ip, separator='.'))
+        for alba_node in alba_nodes:
             for pkg_name, pkg_info in alba_node.package_information.get('alba', {}).iteritems():
                 try:
                     installed = pkg_info['installed']
@@ -547,10 +554,12 @@ class AlbaUpdateController(object):
 
         # Update ALBA nodes
         AlbaUpdateController._logger.info('Executing hook {0}'.format(inspect.currentframe().f_code.co_name))
-        for node in AlbaNodeList.get_albanodes():
-            if node.client.get_package_information():
-                AlbaUpdateController._logger.info('{0}: Restarting services'.format(node.ip))
-                node.client.restart_services()
+        alba_nodes = [alba_node for alba_node in AlbaNodeList.get_albanodes() if alba_node.type == AlbaNode.NODE_TYPES.ASD]
+        alba_nodes.sort(key=lambda node: ExtensionsToolbox.advanced_sort(element=node.ip, separator='.'))
+        for alba_node in alba_nodes:
+            if alba_node.client.get_package_information():
+                AlbaUpdateController._logger.info('{0}: Restarting services'.format(alba_node.ip))
+                alba_node.client.restart_services()
 
         # Renew maintenance services
         AlbaUpdateController._logger.info('Checkup maintenance agents')

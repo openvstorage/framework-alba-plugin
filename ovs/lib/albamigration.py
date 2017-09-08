@@ -18,9 +18,12 @@
 AlbaMigrationController module
 """
 
+import os
 from ovs.extensions.generic.logger import Logger
 from ovs.lib.helpers.decorators import ovs_task
 from ovs.lib.helpers.toolbox import Schedule
+
+os.environ['OVS_LOGTYPE_OVERRIDE'] = 'file'  # Make sure we log to file during update
 
 
 class AlbaMigrationController(object):
