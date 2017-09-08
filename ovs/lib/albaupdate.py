@@ -459,7 +459,7 @@ class AlbaUpdateController(object):
             return False
 
         abort = False
-        alba_nodes = AlbaNodeList.get_albanodes()
+        alba_nodes = [alba_node for alba_node in AlbaNodeList.get_albanodes() if alba_node.type == AlbaNode.NODE_TYPES.ASD]
         alba_nodes.sort(key=lambda node: ExtensionsToolbox.advanced_sort(element=node.ip, separator='.'))
         for alba_node in alba_nodes:
             for pkg_name, pkg_info in alba_node.package_information.get('alba', {}).iteritems():
