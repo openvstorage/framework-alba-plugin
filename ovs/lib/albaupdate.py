@@ -554,7 +554,7 @@ class AlbaUpdateController(object):
 
         # Update ALBA nodes
         AlbaUpdateController._logger.info('Executing hook {0}'.format(inspect.currentframe().f_code.co_name))
-        alba_nodes = AlbaNodeList.get_albanodes()
+        alba_nodes = [alba_node for alba_node in AlbaNodeList.get_albanodes() if alba_node.type == AlbaNode.NODE_TYPES.ASD]
         alba_nodes.sort(key=lambda node: ExtensionsToolbox.advanced_sort(element=node.ip, separator='.'))
         for alba_node in alba_nodes:
             if alba_node.client.get_package_information():
