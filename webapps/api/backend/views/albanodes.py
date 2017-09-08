@@ -19,10 +19,11 @@ Contains the AlbaNodeViewSet
 """
 
 import re
+import uuid
 from rest_framework import viewsets
 from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
-from api.backend.decorators import load, log, required_roles, return_list, return_object, return_task
+from api.backend.decorators import load, log, required_roles, return_list, return_object, return_task, return_simple
 from ovs.dal.datalist import DataList
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodelist import AlbaNodeList
@@ -185,6 +186,13 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :rtype: CeleryTask
         """
         return AlbaNodeController.remove_node.delay(node_guid=albanode.guid)
+
+    @action()
+    @required_roles(['read', 'write', 'manage'])
+    @return_simple()
+    @load(AlbaNode)
+    def generate_empty_slot(self, albanode):
+        return AlbaNodeController.generate_empty_slot(albanode.guid)
 
     @action()
     @required_roles(['read', 'write', 'manage'])

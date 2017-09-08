@@ -30,7 +30,7 @@ from ovs_extensions.api.client import OVSClient
 from ovs_extensions.api.exceptions import HttpForbiddenException, HttpNotFoundException
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.logger import Logger
-from ovs.extensions.plugins.albacli import AlbaCLI
+from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 
 
 class AlbaBackend(DataObject):
@@ -145,9 +145,18 @@ class AlbaBackend(DataObject):
         # Collect total usage
         total_size = 0.0
         total_used = 0.0
-        for stats in self.osd_statistics.values():
-            total_size += stats['capacity']
-            total_used += stats['disk_usage']
+        config = Configuration.get_configuration_path(self.abm_cluster.config_location)
+        try:
+            osds_stats = AlbaCLI.run(command='list-osds', config=config)
+        except AlbaError:
+            self._logger.exception('Unable to fetch osd information')
+            return {'free': total_size - total_used,
+                    'size': total_size,
+                    'used': total_used}
+
+        for osd_stats in osds_stats:
+            total_size += osd_stats['total']
+            total_used += osd_stats['used']
 
         return {'free': total_size - total_used,
                 'size': total_size,
@@ -392,9 +401,7 @@ class AlbaBackend(DataObject):
                                 device_info['gray'] += 1
 
             # Calculate used and total size
-            for stats in self.osd_statistics.values():
-                usage_info['size'] += stats['capacity']
-                usage_info['used'] += stats['disk_usage']
+            usage_info = self.usages
 
         if self.scaling != AlbaBackend.SCALINGS.LOCAL:
             for backend_values in self.remote_stack.itervalues():

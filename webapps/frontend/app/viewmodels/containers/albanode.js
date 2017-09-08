@@ -54,7 +54,7 @@ define([
         self.port              = ko.observable();
         self.readOnlyMode      = ko.observable(false);
         self.slots             = ko.observableArray([]);
-        self.slotIDs           = ko.observableArray([]);
+        self.emptySlotMessage  = ko.observable();
         self.slotsLoading      = ko.observable(true);
         self.storageRouterGuid = ko.observable();
         self.type              = ko.observable();
@@ -140,22 +140,17 @@ define([
 
             // Add slots
             var slotIDs = Object.keys(data.stack);
+            var emptySlotID = undefined;
             if (self.type() === 'GENERIC') {
-                var hasEmptySlot = false;
-                if (self.slotIDs().length > 0){
+                if (self.slots().length > 0){
                     $.each(self.slots().slice(), function(index, slot) {
-                       if (slot.status === 'empty'){
-                           hasEmptySlot = slot.slotID();
-                           if (slotIDs.indexOf(slot.slotID()) < 0) {
-                               self.slots().splice(index, 1)
-                           }
+                       if (slot.status() === 'empty' && !slotIDs.contains(slot.slotID())){
+                           // Empty slot found in the model of the GUI, let's add it to the stack output
+                           // This way the crossfiller won't remove it
+                           emptySlotID = slot.slotID();
+                           slotIDs.push(emptySlotID);
+                           return false;  // Break
                        }
-                    });
-                    $.each(slotIDs.slice(), function(index, slotID) {
-                        // Adjust the stack received by the api to match the current JS model to avoid the refresh from renewing the empty slot object
-                        if (hasEmptySlot === true && (data.stack[slotID].status === 'empty' && self.slotIDs().indexOf(slotID) < 0)) {
-                            slotIDs.splice(index, 1)
-                        }
                     });
                 }
             }
@@ -165,16 +160,38 @@ define([
                     return new Slot(slotID, self, self.albaBackend);
                 }, 'slotID'
             );
-            self.slotIDs([]);
             $.each(self.slots(), function (index, slot) {
-                self.slotIDs.push(slot.slotID());
+                if (slot.slotID() === emptySlotID) {
+                    // Skip filling the data for the new slot. There is no stack data for it
+                    return true;
+                }
                 slot.fillData(data.stack[slot.slotID()])
             });
+            // No empty slot found, generate one for the future refresh runs
+            if (emptySlotID === undefined && self.type() === 'GENERIC') {
+                    self.generateEmptySlot();
+            }
             self.slots.sort(function(a, b) {
                 return a.slotID() < b.slotID() ? -1 : 1
             });
             self.slotsLoading(false);
             self.loaded(true);
+        };
+
+        self.generateEmptySlot = function() {
+            self.emptySlotMessage();
+            api.post('alba/nodes/' + self.guid() + '/generate_empty_slot')
+                .done(function (data) {
+                    if (![undefined, null].contains(data)) {
+                    var slotID = Object.keys(data)[0];
+                    var slot = new Slot(slotID, self, self.albaBackend);
+                    slot.fillData(data[slotID]);
+                    self.slots.push(slot);
+                }
+                })
+                .fail(function() {
+                    self.emptySlotMessage('Unable to request an empty slot.');
+                });
         };
         self.claimAll = function() {
             if (!self.canClaimAll() || self.readOnlyMode() || !self.shared.user.roles().contains('manage')) {

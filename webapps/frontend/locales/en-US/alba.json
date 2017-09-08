@@ -64,6 +64,7 @@
         },
         "generated": "Generated",
         "health": "Health",
+        "id": "id",
         "initialize": "Initialize",
         "initialize_all": "Initialize all un-initialized slots",
         "inuselegend": "In use by other backends:",
