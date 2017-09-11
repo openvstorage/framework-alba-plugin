@@ -181,13 +181,11 @@ define([
         self.generateEmptySlot = function() {
             api.post('alba/nodes/' + self.guid() + '/generate_empty_slot')
                 .done(function (data) {
-                    if (![undefined, null].contains(data)) {
-                        self.emptySlotMessage(undefined);
-                        var slotID = Object.keys(data)[0];
-                        var slot = new Slot(slotID, self, self.albaBackend);
-                        slot.fillData(data[slotID]);
-                        self.slots.push(slot);
-                    }
+                    self.emptySlotMessage(undefined);
+                    var slotID = Object.keys(data)[0];
+                    var slot = new Slot(slotID, self, self.albaBackend);
+                    slot.fillData(data[slotID]);
+                    self.slots.push(slot);
                 })
                 .fail(function() {
                     self.emptySlotMessage($.t('alba:slots.error_codes.cannot_get_empty'));
