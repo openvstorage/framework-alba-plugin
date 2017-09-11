@@ -179,19 +179,19 @@ define([
         };
 
         self.generateEmptySlot = function() {
-            self.emptySlotMessage(undefined);
-                api.post('alba/nodes/' + self.guid() + '/generate_empty_slot')
-                    .done(function (data) {
-                        if (![undefined, null].contains(data)) {
-                            var slotID = Object.keys(data)[0];
-                            var slot = new Slot(slotID, self, self.albaBackend);
-                            slot.fillData(data[slotID]);
-                            self.slots.push(slot);
-                        }
-                    })
-                    .fail(function() {
-                        self.emptySlotMessage('Unable to request an empty slot.');
-                    });
+            api.post('alba/nodes/' + self.guid() + '/generate_empty_slot')
+                .done(function (data) {
+                    if (![undefined, null].contains(data)) {
+                        self.emptySlotMessage(undefined);
+                        var slotID = Object.keys(data)[0];
+                        var slot = new Slot(slotID, self, self.albaBackend);
+                        slot.fillData(data[slotID]);
+                        self.slots.push(slot);
+                    }
+                })
+                .fail(function() {
+                    self.emptySlotMessage($.t('alba:generic.slots.cantGetEmpty'));
+                });
         };
         self.claimAll = function() {
             if (!self.canClaimAll() || self.readOnlyMode() || !self.shared.user.roles().contains('manage')) {

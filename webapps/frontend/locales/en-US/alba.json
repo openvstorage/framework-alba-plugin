@@ -98,6 +98,7 @@
         },
         "slot_legend": "Slot legend:",
         "slots": {
+            "cantGetEmpty": "Unable to request an empty slot",
             "loading": "Loading slots",
             "notfound": "No slots found"
         },
