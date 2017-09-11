@@ -139,6 +139,13 @@ class AlbaNodeController(object):
 
     @staticmethod
     def generate_empty_slot(alba_node_guid):
+        """
+        Generates an empty slot on the alba node
+        :param alba_node_guid: Guid of the AlbaNode to generate a slot on
+        :type alba_node_guid: basestring
+        :return: slot information
+        :rtype: dict
+        """
         alba_node = AlbaNode(alba_node_guid)
         if alba_node.type != AlbaNode.NODE_TYPES.GENERIC:
             raise RuntimeError('An empty slot can only be generated for a generic node')

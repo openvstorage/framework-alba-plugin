@@ -406,7 +406,7 @@ class AlbaController(object):
                 port = actual_osd_info['port']
                 decommissioned = actual_osd_info['decommissioned']
                 if decommissioned is True:
-                    failure_osds.append('{0}:{1}'.format(ips, port))
+                    failure_osds.append('{0}:{1}'.format(ips[0], port))
                     continue
                 if port in port_osd_info_map:
                     requested_osd_info = port_osd_info_map[port]

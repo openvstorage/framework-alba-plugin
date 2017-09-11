@@ -143,24 +143,23 @@ class AlbaBackend(DataObject):
         Returns an overview of free space, total space and used space
         """
         # Collect total usage
-        total_size = 0.0
-        total_used = 0.0
+        usages = {'free': 0.0,
+                  'size': 0.0,
+                  'used': 0.0}
+
         config = Configuration.get_configuration_path(self.abm_cluster.config_location)
         try:
             osds_stats = AlbaCLI.run(command='list-osds', config=config)
         except AlbaError:
-            self._logger.exception('Unable to fetch osd information')
-            return {'free': total_size - total_used,
-                    'size': total_size,
-                    'used': total_used}
+            self._logger.exception('Unable to fetch OSD information')
+            return usages
 
         for osd_stats in osds_stats:
-            total_size += osd_stats['total']
-            total_used += osd_stats['used']
+            usages['size'] += osd_stats['total']
+            usages['used'] += osd_stats['used']
+        usages['free'] = usages['size'] - usages['used']
 
-        return {'free': total_size - total_used,
-                'size': total_size,
-                'used': total_used}
+        return usages
 
     def _presets(self):
         """

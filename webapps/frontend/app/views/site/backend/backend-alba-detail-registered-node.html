@@ -147,6 +147,14 @@ but WITHOUT ANY WARRANTY of any kind.
                                     <span data-bind="shortText: $.t('alba:generic.statusdetails.slots.' + statusDetail()), maxLength: 23"></span>
                                 </a>
                             </li>
+                            <!-- ko if: ![undefined, null].contains(slotID()) -->
+                                <li>
+                                    <a>
+                                        <span data-i18n="alba:generic.id"></span>:
+                                        <span data-bind="shortText: slotID(), maxLength: 23, middle: true"></span>
+                                    </a>
+                                </li>
+                            <!-- /ko -->
                             <li>
                                 <a>
                                     <span data-i18n="ovs:generic.name"></span>:
@@ -183,14 +191,6 @@ but WITHOUT ANY WARRANTY of any kind.
                                     <a>
                                         <span data-i18n="ovs:generic.usage"></span>: <span data-bind="text: $root.formatBytes(usage().used)"></span> / <span data-bind="text: $root.formatBytes(usage().size)"></span>
                                         - <span data-bind="text: $root.formatPercentage(usage().used / usage().size)"></span>
-                                    </a>
-                                </li>
-                            <!-- /ko -->
-                            <!-- ko if: ![undefined, null].contains(slotID()) -->
-                                <li>
-                                    <a>
-                                        <span data-i18n="alba:generic.id"></span>:
-                                        <span data-bind="shortText: slotID(), maxLength: 23, middle: true"></span>
                                     </a>
                                 </li>
                             <!-- /ko -->
@@ -271,7 +271,7 @@ but WITHOUT ANY WARRANTY of any kind.
                             <!-- ko if: osdID() !== undefined -->
                                 <li>
                                     <a>
-                                        <span data-i18n="alba:generic.asd_id"></span>:
+                                        <span data-i18n="alba:generic.osd_id"></span>:
                                         <span data-bind="shortText: osdID(), maxLength: 23, middle: true"></span>
                                     </a>
                                 </li>
@@ -306,7 +306,7 @@ but WITHOUT ANY WARRANTY of any kind.
                 <!-- /ko -->
             <!-- ko if: !['', null, undefined].contains(emptySlotMessage()) -->
             <div class="notification-message">
-                <span data-bind="text: 'Could not generate a new slot: ' + emptySlotMessage()"></span>
+                <span data-bind="text: emptySlotMessage()"></span>
             </div>
             <!-- /ko -->
             </div>

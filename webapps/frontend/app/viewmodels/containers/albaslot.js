@@ -38,8 +38,8 @@ define([
         self.status       = ko.observable();  // Can be empty, ok, warning, error
         self.statusDetail = ko.observable();
         // ASD slot properties
-        self.mountpoint   = ko.observable();
         self.device       = ko.observable();
+        self.mountpoint   = ko.observable();
         self.usage        = ko.observable();
 
         // Computed
@@ -82,6 +82,7 @@ define([
             });
             return locked;
         });
+
         // Functions
         self.clear = function() {
             self.node.removeSlot(self);

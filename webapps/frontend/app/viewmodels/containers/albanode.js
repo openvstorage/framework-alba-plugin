@@ -42,6 +42,7 @@ define([
         self.diskNames         = ko.observableArray([]);
         self.downLoadingLogs   = ko.observable(false);
         self.downloadLogState  = ko.observable($.t('alba:support.download_logs'));
+        self.emptySlotMessage  = ko.observable();
         self.expanded          = ko.observable(true);
         self.guid              = ko.observable();
         self.ip                = ko.observable();
@@ -54,7 +55,6 @@ define([
         self.port              = ko.observable();
         self.readOnlyMode      = ko.observable(false);
         self.slots             = ko.observableArray([]);
-        self.emptySlotMessage  = ko.observable();
         self.slotsLoading      = ko.observable(true);
         self.storageRouterGuid = ko.observable();
         self.type              = ko.observable();
@@ -169,7 +169,7 @@ define([
             });
             // No empty slot found, generate one for the future refresh runs
             if (emptySlotID === undefined && self.type() === 'GENERIC') {
-                    self.generateEmptySlot();
+                self.generateEmptySlot();
             }
             self.slots.sort(function(a, b) {
                 return a.slotID() < b.slotID() ? -1 : 1
@@ -179,19 +179,19 @@ define([
         };
 
         self.generateEmptySlot = function() {
-            self.emptySlotMessage();
-            api.post('alba/nodes/' + self.guid() + '/generate_empty_slot')
-                .done(function (data) {
-                    if (![undefined, null].contains(data)) {
-                    var slotID = Object.keys(data)[0];
-                    var slot = new Slot(slotID, self, self.albaBackend);
-                    slot.fillData(data[slotID]);
-                    self.slots.push(slot);
-                }
-                })
-                .fail(function() {
-                    self.emptySlotMessage('Unable to request an empty slot.');
-                });
+            self.emptySlotMessage(undefined);
+                api.post('alba/nodes/' + self.guid() + '/generate_empty_slot')
+                    .done(function (data) {
+                        if (![undefined, null].contains(data)) {
+                            var slotID = Object.keys(data)[0];
+                            var slot = new Slot(slotID, self, self.albaBackend);
+                            slot.fillData(data[slotID]);
+                            self.slots.push(slot);
+                        }
+                    })
+                    .fail(function() {
+                        self.emptySlotMessage('Unable to request an empty slot.');
+                    });
         };
         self.claimAll = function() {
             if (!self.canClaimAll() || self.readOnlyMode() || !self.shared.user.roles().contains('manage')) {

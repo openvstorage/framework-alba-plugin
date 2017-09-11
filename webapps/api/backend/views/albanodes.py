@@ -22,7 +22,7 @@ import re
 from rest_framework import viewsets
 from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
-from api.backend.decorators import load, log, required_roles, return_list, return_object, return_task, return_simple
+from api.backend.decorators import load, log, required_roles, return_list, return_object, return_simple, return_task
 from ovs.dal.datalist import DataList
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodelist import AlbaNodeList
@@ -123,7 +123,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Load information about a given AlbaBackend
         :param albanode: ALBA node to retrieve
-        :type albanode: AlbaNode
+        :type albanode: ovs.dal.hybrids.albanode.AlbaNode
         :return: The requested AlbaNode object
         :rtype: ovs.dal.hybrids.albanode.AlbaNode
         """
@@ -164,7 +164,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Replace an existing Alba node with a newly configured node (only possible if IPs are identical)
         :param albanode: Guid of the ALBA node that needs to be replaced
-        :type albanode: AlbaNode
+        :type albanode: ovs.dal.hybrids.albanode.AlbaNode
         :param new_node_id: ID of the new ALBA node
         :type new_node_id: str
         :return: Celery async task result
@@ -180,7 +180,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Deletes an ALBA node
         :param albanode: The AlbaNode to be removed
-        :type albanode: AlbaNode
+        :type albanode: ovs.dal.hybrids.albanode.AlbaNode
         :return: Celery async task result
         :rtype: CeleryTask
         """
@@ -192,9 +192,9 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @load(AlbaNode)
     def generate_empty_slot(self, albanode):
         """
-        Generates an empty slot on the alba node
+        Generates an empty slot on the Alba Node
         :param albanode: The AlbaNode to generate a slot on
-        :type albanode: AlbaNode
+        :type albanode: ovs.dal.hybrids.albanode.AlbaNode
         :return: slot information
         :rtype: dict
         """
@@ -229,7 +229,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         Initializes disks
         DEPRECATED API call - use fill_slot in the future
         :param albanode: ALBA node to initialize disks
-        :type albanode: AlbaNode
+        :type albanode: ovs.dal.hybrids.albanode.AlbaNode
         :param disks: Disks to initialize (dict from type {disk_alias (str): amount of asds (int)})
         :type disks: dict
         :return: Celery async task result
@@ -260,7 +260,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         Removes a disk
         DEPRECATED API call - Use 'remove_slot' instead
         :param albanode: ALBA node to remove a disk from
-        :type albanode: AlbaNode
+        :type albanode: ovs.dal.hybrids.albanode.AlbaNode
         :param disk: Disk to remove
         :type disk: str
         :return: Celery async task result
@@ -278,7 +278,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Removes a disk
         :param albanode: ALBA node to remove a disk from
-        :type albanode: AlbaNode
+        :type albanode: ovs.dal.hybrids.albanode.AlbaNode
         :param slot: Slot to remove
         :type slot: str
         :return: Celery async task result
@@ -295,7 +295,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         Removes and re-add an ASD
         DEPRECATED API call - Use 'reset_osd' instead
         :param albanode: ALBA node to remove a disk from
-        :type albanode: AlbaNode
+        :type albanode: ovs.dal.hybrids.albanode.AlbaNode
         :param asd_id: ASD ID to reset
         :type asd_id: str
         :param safety: Safety to maintain
@@ -316,7 +316,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Removes and re-add an OSD
         :param albanode: ALBA node to remove a disk from
-        :type albanode: AlbaNode
+        :type albanode: ovs.dal.hybrids.albanode.AlbaNode
         :param osd_id: OSD ID to reset
         :type osd_id: str
         :param safety: Safety to maintain
@@ -338,7 +338,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         Restarts an ASD process
         DEPRECATED API call - Use 'restart_osd' instead
         :param albanode: The node on which the ASD runs
-        :type albanode: AlbaNode
+        :type albanode: ovs.dal.hybrids.albanode.AlbaNode
         :param asd_id: The ASD to restart
         :type asd_id: str
         :return: Celery async task result
@@ -355,7 +355,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Restarts an OSD process
         :param albanode: The node on which the OSD runs
-        :type albanode: AlbaNode
+        :type albanode: ovs.dal.hybrids.albanode.AlbaNode
         :param osd_id: The OSD to restart
         :type osd_id: str
         :return: Celery async task result
@@ -372,7 +372,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         Restarts a disk
         DEPRECATED API call
         :param albanode: ALBA node to restart a disk from
-        :type albanode: AlbaNode
+        :type albanode: ovs.dal.hybrids.albanode.AlbaNode
         :param disk: Disk to restart
         :type disk: str
         :return: Celery async task result
@@ -390,7 +390,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Retrieve the log files of an ALBA node
         :param albanode: ALBA node to restart a disk from
-        :type albanode: AlbaNode
+        :type albanode: ovs.dal.hybrids.albanode.AlbaNode
         :param local_storagerouter: The StorageRouter on which the call was initiated and on which the logs will end up
         :type local_storagerouter: ovs.dal.hybrids.storagerouter.StorageRouter
         :return: Celery async task result

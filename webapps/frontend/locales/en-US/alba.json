@@ -42,7 +42,7 @@
     "generic": {
         "add_policy": "Add policy",
         "add_preset": "Add preset",
-        "asd_id": "ASD ID",
+        "osd_id": "OSD ID",
         "asd_legend": "ASD legend:",
         "asds_remaining": "There are still ASDs in use",
         "backends": "Backends",
@@ -64,7 +64,7 @@
         },
         "generated": "Generated",
         "health": "Health",
-        "id": "id",
+        "id": "ID",
         "initialize": "Initialize",
         "initialize_all": "Initialize all un-initialized slots",
         "inuselegend": "In use by other backends:",
@@ -105,10 +105,10 @@
         "states": {
             "osd": {
                 "available": "Available",
+                "claimed": "Good",
                 "error": "Faulted",
                 "initialized": "Unavailable",
                 "missing": "Missing",
-                "claimed": "Good",
                 "unavailable": "Unavailable",
                 "unknown": "Unknown",
                 "warning": "Warning"

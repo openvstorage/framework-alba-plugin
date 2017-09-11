@@ -18,7 +18,6 @@
 AlbaNode module
 """
 import re
-import uuid
 import requests
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.storagerouter import StorageRouter

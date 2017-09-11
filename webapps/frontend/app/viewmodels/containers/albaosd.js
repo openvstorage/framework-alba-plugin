@@ -70,7 +70,6 @@ define([
         self.marked = ko.computed(function() {
             return (self.status() === 'unavailable' || (!self.isLocal() && (self.status() === 'warning' || self.status() === 'error'))) && self.albaBackend() !== undefined;
         });
-
         self.sockets = ko.computed(function() {
             var sockets = [];
             $.each(self.ips(), function(index, ip) {
@@ -78,6 +77,7 @@ define([
             });
             return sockets
         });
+
         // Functions
         self.fillData = function(data) {
             if (self.ignoreNext() === true) {
@@ -108,7 +108,6 @@ define([
             }
             self.loaded(true);
         };
-
         self.claim = function() {
             var data = {};
             data[self.slotID()] = {slot: self.slot, osds: [self]};
@@ -120,7 +119,6 @@ define([
         self.restart = function() {
             self.node.restartOSD(self);
         };
-
         self.loadAlbaBackend = function() {
             if (self.node !== undefined && self.node.parentVM.hasOwnProperty('otherAlbaBackendsCache')) {
                 var cache = self.node.parentVM.otherAlbaBackendsCache(), ab;
