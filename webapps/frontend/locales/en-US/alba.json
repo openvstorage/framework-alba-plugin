@@ -42,7 +42,6 @@
     "generic": {
         "add_policy": "Add policy",
         "add_preset": "Add preset",
-        "osd_id": "OSD ID",
         "asd_legend": "ASD legend:",
         "asds_remaining": "There are still ASDs in use",
         "backends": "Backends",
@@ -81,6 +80,7 @@
         },
         "nodisks": "No disks available",
         "nodomain": "None",
+        "osd_id": "OSD ID",
         "osds": "ASDs",
         "osdtypes": {
             "ad": "Active Drive",
