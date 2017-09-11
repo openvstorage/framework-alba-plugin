@@ -271,6 +271,9 @@
         "unavailable": "Unavailable"
     },
     "slots": {
+        "error_codes": {
+            "cannot_get_empty": "Unable to request an empty slot"
+        },
         "remove": {
             "complete": "Cleared",
             "failed": "Failed clearing slot __what__: __why__",
