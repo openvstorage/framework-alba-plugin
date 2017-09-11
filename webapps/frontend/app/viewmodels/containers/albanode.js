@@ -190,7 +190,7 @@ define([
                     }
                 })
                 .fail(function() {
-                    self.emptySlotMessage($.t('alba:generic.slots.cantGetEmpty'));
+                    self.emptySlotMessage($.t('alba:slots.error_codes.cannot_get_empty'));
                 });
         };
         self.claimAll = function() {
