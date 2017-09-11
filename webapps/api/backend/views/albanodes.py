@@ -19,7 +19,6 @@ Contains the AlbaNodeViewSet
 """
 
 import re
-import uuid
 from rest_framework import viewsets
 from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
@@ -192,6 +191,13 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @return_simple()
     @load(AlbaNode)
     def generate_empty_slot(self, albanode):
+        """
+        Generates an empty slot on the alba node
+        :param albanode: The AlbaNode to generate a slot on
+        :type albanode: AlbaNode
+        :return: slot information
+        :rtype: dict
+        """
         return AlbaNodeController.generate_empty_slot(albanode.guid)
 
     @action()
