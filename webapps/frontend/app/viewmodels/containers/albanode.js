@@ -42,6 +42,7 @@ define([
         self.diskNames         = ko.observableArray([]);
         self.downLoadingLogs   = ko.observable(false);
         self.downloadLogState  = ko.observable($.t('alba:support.download_logs'));
+        self.emptySlotMessage  = ko.observable();
         self.expanded          = ko.observable(true);
         self.guid              = ko.observable();
         self.ip                = ko.observable();
@@ -139,34 +140,58 @@ define([
 
             // Add slots
             var slotIDs = Object.keys(data.stack);
+            var emptySlotID = undefined;
             if (self.type() === 'GENERIC') {
-                slotIDs.sort(function(slot1, slot2) {
-                    return slot1 < slot2 ? 1 : -1; // Reverse sort alphabetically
-                });
-                // Initially 1 slotID is passed in, no slots have been created in JS --> 1 slot will be added in the crossfiller
-                // Next refresh (5s) 1 slotID is passed in, 1 slot has been created --> don't create a new slot (to not overwrite the 'processing' flag)
-                // When new slot is added due to a slot being filled, a new slotID is passed (2 in total) --> another slot will be created
-                // So in order to achieve this, we remove the latest added slotID from the list (which is first in list)
-                if (slotIDs.length === self.slots().length) {
-                    slotIDs.splice(0, 1);
+                if (self.slots().length > 0){
+                    $.each(self.slots().slice(), function(index, slot) {
+                       if (slot.status() === 'empty' && !slotIDs.contains(slot.slotID())){
+                           // Empty slot found in the model of the GUI, let's add it to the stack output
+                           // This way the crossfiller won't remove it
+                           emptySlotID = slot.slotID();
+                           slotIDs.push(emptySlotID);
+                           return false;  // Break
+                       }
+                    });
                 }
             }
-            if (self.type() !== 'GENERIC' || slotIDs.length > self.slots().length) {
-                generic.crossFiller(
-                    slotIDs, self.slots,
-                    function(slotID) {
-                        return new Slot(slotID, self, self.albaBackend);
-                    }, 'slotID'
-                );
-                $.each(self.slots(), function (index, slot) {
-                    slot.fillData(data.stack[slot.slotID()])
-                });
+            generic.crossFiller(
+                slotIDs, self.slots,
+                function(slotID) {
+                    return new Slot(slotID, self, self.albaBackend);
+                }, 'slotID'
+            );
+            $.each(self.slots(), function (index, slot) {
+                if (slot.slotID() === emptySlotID) {
+                    // Skip filling the data for the new slot. There is no stack data for it
+                    return true;
+                }
+                slot.fillData(data.stack[slot.slotID()])
+            });
+            // No empty slot found, generate one for the future refresh runs
+            if (emptySlotID === undefined && self.type() === 'GENERIC') {
+                self.generateEmptySlot();
             }
             self.slots.sort(function(a, b) {
                 return a.slotID() < b.slotID() ? -1 : 1
             });
             self.slotsLoading(false);
             self.loaded(true);
+        };
+
+        self.generateEmptySlot = function() {
+            self.emptySlotMessage(undefined);
+                api.post('alba/nodes/' + self.guid() + '/generate_empty_slot')
+                    .done(function (data) {
+                        if (![undefined, null].contains(data)) {
+                            var slotID = Object.keys(data)[0];
+                            var slot = new Slot(slotID, self, self.albaBackend);
+                            slot.fillData(data[slotID]);
+                            self.slots.push(slot);
+                        }
+                    })
+                    .fail(function() {
+                        self.emptySlotMessage('Unable to request an empty slot.');
+                    });
         };
         self.claimAll = function() {
             if (!self.canClaimAll() || self.readOnlyMode() || !self.shared.user.roles().contains('manage')) {

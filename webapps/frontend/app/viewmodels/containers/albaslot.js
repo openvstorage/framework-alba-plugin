@@ -35,8 +35,12 @@ define([
         self.processing   = ko.observable(false);
         self.size         = ko.observable();
         self.slotID       = ko.observable(id);
-        self.status       = ko.observable();  // Can be empty, ok, warning ,error
+        self.status       = ko.observable();  // Can be empty, ok, warning, error
         self.statusDetail = ko.observable();
+        // ASD slot properties
+        self.device       = ko.observable();
+        self.mountpoint   = ko.observable();
+        self.usage        = ko.observable();
 
         // Computed
         self.canClear = ko.computed(function() {
@@ -78,6 +82,7 @@ define([
             });
             return locked;
         });
+
         // Functions
         self.clear = function() {
             self.node.removeSlot(self);
@@ -86,7 +91,11 @@ define([
             self.status(data.status);
             self.statusDetail(data.status_detail || '');
             self.size(data.size);
-            // Add osds
+            // ASD slot
+            generic.trySet(self.usage, data, 'usage');
+            generic.trySet(self.device, data, 'device');
+            generic.trySet(self.mountpoint, data, 'mountpoint');
+            // Add OSDs
             var osdIds = Object.keys(data.osds || {});
             generic.crossFiller(
                 osdIds, self.osds,

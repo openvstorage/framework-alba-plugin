@@ -396,6 +396,8 @@ class AlbaController(object):
             AlbaController._logger.exception('Could not load OSD information.')
             raise
 
+        failure_osds = []
+        unclaimed_osds = []
         # Verify each OSD whether it's already been claimed or just available for claiming
         for osd_list, osd_status in [[claimed_osds, 'claimed'],
                                      [available_osds, 'available']]:
@@ -403,7 +405,10 @@ class AlbaController(object):
                 ips = actual_osd_info['ips']
                 port = actual_osd_info['port']
                 decommissioned = actual_osd_info['decommissioned']
-                if port in port_osd_info_map and decommissioned is False:
+                if decommissioned is True:
+                    failure_osds.append('{0}:{1}'.format(ips[0], port))
+                    continue
+                if port in port_osd_info_map:
                     requested_osd_info = port_osd_info_map[port]
                     # Potential candidate, check ips
                     any_ip_match = not set(ips).isdisjoint(requested_osd_info['ips'])
@@ -412,8 +417,6 @@ class AlbaController(object):
                     requested_osd_info['osd_id'] = actual_osd_info['long_id']
                     requested_osd_info[osd_status] = True
 
-        unclaimed_osds = []
-        failure_osds = []
         alba_node = AlbaNode(alba_node_guid)
         for port, requested_osd_info in port_osd_info_map.iteritems():
             ips = requested_osd_info['ips']

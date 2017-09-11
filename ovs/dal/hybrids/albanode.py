@@ -18,7 +18,6 @@
 AlbaNode module
 """
 import re
-import uuid
 import requests
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.storagerouter import StorageRouter
@@ -220,13 +219,6 @@ class AlbaNode(DataObject):
                         if osd.get('status') not in ['error', 'warning']:
                             osd['status'] = self.OSD_STATUSES.ERROR
                             osd['status_detail'] = self.OSD_STATUS_DETAILS.UNREACHABLE
-
-        if self.type == AlbaNode.NODE_TYPES.GENERIC:
-            # Add prefix of 2 digits based on amount of slots on this ALBA node for sorting in GUI
-            slot_amount = len(set(osd.slot_id for osd in self.osds))
-            prefix = '{0:02d}'.format(slot_amount)
-            slot_id = '{0}{1}'.format(prefix, str(uuid.uuid4())[2:])
-            stack[slot_id] = {'status': self.SLOT_STATUSES.EMPTY}
         return stack
 
     def _node_metadata(self):
@@ -285,8 +277,6 @@ class AlbaNode(DataObject):
                        'gray': 0}
         local_summary = {'devices': device_info}  # For future additions?
         for slot_id, slot_data in self.stack.iteritems():
-            if slot_data.get('status', self.SLOT_STATUSES.EMPTY) == self.SLOT_STATUSES.EMPTY:
-                continue
             for osd_id, osd_data in slot_data['osds'].iteritems():
                 status = osd_data.get('status', self.OSD_STATUSES.UNKNOWN)
                 if status == self.OSD_STATUSES.OK:

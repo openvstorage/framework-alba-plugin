@@ -147,6 +147,14 @@ but WITHOUT ANY WARRANTY of any kind.
                                     <span data-bind="shortText: $.t('alba:generic.statusdetails.slots.' + statusDetail()), maxLength: 23"></span>
                                 </a>
                             </li>
+                            <!-- ko if: ![undefined, null].contains(slotID()) -->
+                                <li>
+                                    <a>
+                                        <span data-i18n="alba:generic.id"></span>:
+                                        <span data-bind="shortText: slotID(), maxLength: 23, middle: true"></span>
+                                    </a>
+                                </li>
+                            <!-- /ko -->
                             <li>
                                 <a>
                                     <span data-i18n="ovs:generic.name"></span>:
@@ -159,6 +167,30 @@ but WITHOUT ANY WARRANTY of any kind.
                                     <a>
                                         <span data-i18n="ovs:generic.size"></span>:
                                         <span data-bind="text: $root.formatBytes(size())"></span>
+                                    </a>
+                                </li>
+                            <!-- /ko -->
+                            <!-- ko if: ![undefined, null].contains(device()) -->
+                                <li>
+                                    <a>
+                                        <span data-i18n="alba:generic.device"></span>:
+                                        <span data-bind="shortText: device(), maxLength: 23, middle: true"></span>
+                                    </a>
+                                </li>
+                            <!-- /ko -->
+                            <!-- ko if: ![undefined, null].contains(mountpoint()) -->
+                                <li>
+                                    <a>
+                                        <span data-i18n="alba:generic.mountpoint"></span>:
+                                        <span data-bind="shortText: mountpoint(), maxLength: 23, middle: true"></span>
+                                    </a>
+                                </li>
+                            <!-- /ko -->
+                            <!-- ko if: status() !== 'empty' && usage() !== undefined -->
+                                <li>
+                                    <a>
+                                        <span data-i18n="ovs:generic.usage"></span>: <span data-bind="text: $root.formatBytes(usage().used)"></span> / <span data-bind="text: $root.formatBytes(usage().size)"></span>
+                                        - <span data-bind="text: $root.formatPercentage(usage().used / usage().size)"></span>
                                     </a>
                                 </li>
                             <!-- /ko -->
@@ -239,7 +271,7 @@ but WITHOUT ANY WARRANTY of any kind.
                             <!-- ko if: osdID() !== undefined -->
                                 <li>
                                     <a>
-                                        <span data-i18n="alba:generic.asd_id"></span>:
+                                        <span data-i18n="alba:generic.osd_id"></span>:
                                         <span data-bind="shortText: osdID(), maxLength: 23, middle: true"></span>
                                     </a>
                                 </li>
@@ -249,6 +281,14 @@ but WITHOUT ANY WARRANTY of any kind.
                                     <a>
                                         <span data-i18n="ovs:generic.usage"></span>: <span data-bind="text: $root.formatBytes(usage().used)"></span> / <span data-bind="text: $root.formatBytes(usage().size)"></span>
                                         - <span data-bind="text: $root.formatPercentage(usage().used / usage().size)"></span>
+                                    </a>
+                                </li>
+                            <!-- /ko -->
+                            <!-- ko foreach: sockets -->
+                                <li>
+                                    <a>
+                                        <span data-i18n="alba:generic.socket"></span>:
+                                        <span data-bind="shortText: $data, maxLength: 23, middle: true"></span>
                                     </a>
                                 </li>
                             <!-- /ko -->
@@ -264,6 +304,11 @@ but WITHOUT ANY WARRANTY of any kind.
                     <!-- /ko -->
                 </div>
                 <!-- /ko -->
+            <!-- ko if: !['', null, undefined].contains(emptySlotMessage()) -->
+            <div class="notification-message">
+                <span data-bind="text: emptySlotMessage()"></span>
+            </div>
+            <!-- /ko -->
             </div>
         </td>
     </tr>
