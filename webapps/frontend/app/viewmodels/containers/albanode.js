@@ -43,7 +43,7 @@ define([
         self.downLoadingLogs   = ko.observable(false);
         self.downloadLogState  = ko.observable($.t('alba:support.download_logs'));
         self.emptySlotMessage  = ko.observable();
-        self.expanded          = ko.observable(true);
+        self.expanded          = ko.observable(false);
         self.guid              = ko.observable();
         self.ip                = ko.observable();
         self.ips               = ko.observableArray([]);
