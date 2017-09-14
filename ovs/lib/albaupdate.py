@@ -18,7 +18,6 @@
 Module for AlbaUpdateController
 """
 
-import os
 import copy
 import inspect
 import requests
@@ -40,14 +39,12 @@ from ovs.lib.alba import AlbaController
 from ovs.lib.helpers.decorators import add_hooks
 from ovs.lib.update import UpdateController
 
-os.environ['OVS_LOGTYPE_OVERRIDE'] = 'file'  # Make sure we log to file during update
-
 
 class AlbaUpdateController(object):
     """
     This class contains all logic for updating an environment
     """
-    _logger = Logger('update')
+    _logger = Logger(name='update', forced_target_type='file')
     _packages_alba_plugin = {'alba': {'alba', 'alba-ee', 'openvstorage-sdm'},
                              'framework': {'alba', 'alba-ee', 'arakoon', 'openvstorage-backend'}}
     _packages_alba_plugin_all = _packages_alba_plugin['alba'].union(_packages_alba_plugin['framework'])

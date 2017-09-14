@@ -18,19 +18,16 @@
 AlbaMigrationController module
 """
 
-import os
 from ovs.extensions.generic.logger import Logger
 from ovs.lib.helpers.decorators import ovs_task
 from ovs.lib.helpers.toolbox import Schedule
-
-os.environ['OVS_LOGTYPE_OVERRIDE'] = 'file'  # Make sure we log to file during update
 
 
 class AlbaMigrationController(object):
     """
     This controller contains (part of the) migration code. It runs out-of-band with the updater so we reduce the risk of failures during the update
     """
-    _logger = Logger('update')
+    _logger = Logger(name='update', forced_target_type='file')
 
     @staticmethod
     @ovs_task(name='alba.migration.migrate', schedule=Schedule(minute='15', hour='6'), ensure_single_info={'mode': 'DEFAULT'})
