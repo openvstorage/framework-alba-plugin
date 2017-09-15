@@ -147,6 +147,9 @@ class AlbaBackend(DataObject):
                   'size': 0.0,
                   'used': 0.0}
 
+        if self.abm_cluster is None:
+            return usages
+
         config = Configuration.get_configuration_path(self.abm_cluster.config_location)
         try:
             osds_stats = AlbaCLI.run(command='list-osds', config=config)
