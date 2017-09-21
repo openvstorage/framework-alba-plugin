@@ -54,9 +54,9 @@ class ASDManagerClient(object):
     test_results = {}
     test_exceptions = {}
 
-    def __init__(self, node):
+    def __init__(self, node, timeout=20):
         self.node = node
-        self.timeout = 20
+        self.timeout = timeout
 
         self._logger = Logger('extensions-plugins')
         self._unittest_mode = os.environ.get('RUNNING_UNITTESTS') == 'True'
