@@ -172,7 +172,14 @@ define([
                 self.generateEmptySlot();
             }
             self.slots.sort(function(a, b) {
-                return a.slotID() < b.slotID() ? -1 : 1
+                // Move empty status last
+                if(a.status() === 'empty'){
+                    return 1;
+                } else if(b.status() === 'empty'){
+                    return -1;
+                }
+                // if status is not empty -> compare slot ids
+                return a.slotID() < b.slotID() ? -1 : 1;
             });
             self.slotsLoading(false);
             self.loaded(true);

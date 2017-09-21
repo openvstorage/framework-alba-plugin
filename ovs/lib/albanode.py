@@ -149,15 +149,7 @@ class AlbaNodeController(object):
         alba_node = AlbaNode(alba_node_guid)
         if alba_node.type != AlbaNode.NODE_TYPES.GENERIC:
             raise RuntimeError('An empty slot can only be generated for a generic node')
-        # Add prefix of 2 digits based on highest prefix of the osds for sorting purposes
-        highest_prefix_count = 0
-        for osd in alba_node.osds:
-            prefix = osd.slot_id[0:2]
-            if int(prefix) > highest_prefix_count:
-                highest_prefix_count = int(prefix)
-        prefix = '{0:02d}'.format(highest_prefix_count + 1)
-        slot_id = '{0}{1}'.format(prefix, str(uuid.uuid4())[2:])
-        return {slot_id: {'status': alba_node.SLOT_STATUSES.EMPTY}}
+        return {str(uuid.uuid4()): {'status': alba_node.SLOT_STATUSES.EMPTY}}
 
     @staticmethod
     @ovs_task(name='albanode.fill_slots')
