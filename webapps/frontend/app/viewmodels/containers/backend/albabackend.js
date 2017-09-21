@@ -17,7 +17,7 @@
 define([
     'jquery', 'knockout', 'durandal/app',
     'ovs/generic', 'ovs/api', 'ovs/shared',
-    '../containers/backend'
+    'viewmodels/containers/backend/backend'
 ], function($, ko, app, generic, api, shared, Backend) {
     "use strict";
     return function(guid) {

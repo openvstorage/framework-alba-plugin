@@ -18,7 +18,7 @@ define([
     'jquery', 'knockout',
     'ovs/api', 'ovs/shared', 'ovs/generic',
     './data',
-    '../../containers/albabackend', '../../containers/domain'
+    'viewmodels/containers/backend/albabackend', 'viewmodels/containers/domain/domain'
 ], function($, ko, api, shared, generic, data, AlbaBackend, Domain) {
     "use strict";
     return function() {
