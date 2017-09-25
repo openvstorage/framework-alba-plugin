@@ -1,4 +1,4 @@
-// Copyright (C) 2016 iNuron NV
+// Copyright (C) 2017 iNuron NV
 //
 // This file is part of Open vStorage Open Source Edition (OSE),
 // as available from
@@ -14,14 +14,20 @@
 // Open vStorage is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
-define(['knockout'], function(ko){
+define([
+    'jquery', 'knockout', 'ovs/shared', 'ovs/formBuilder', './data'
+], function($, ko, shared, formBuilder, data) {
     "use strict";
-    var singleton = function() {
-        return {
-            amount: ko.observable(1).extend({ numeric: { min: 1, max: 10 }}),
-            disks:  ko.observableArray([]),
-            node:   ko.observable()
-        };
-    };
-    return singleton();
+    return function() {
+        var self = this;
+
+        // Variables
+        self.data   = data;
+        self.shared = shared;
+
+        // Computed
+        self.canContinue = ko.computed(function() {
+            return formBuilder.validateForm('alba:wizards.add_osd.gather.invalid_', self.data.formQuestions());
+        });
+    }
 });

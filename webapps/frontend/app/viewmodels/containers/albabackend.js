@@ -124,12 +124,10 @@ define([
             self.scaling(data.scaling);
             generic.trySet(self.presets, data, 'presets');
             generic.trySet(self.localSummary, data, 'local_summary');
+            generic.trySet(self.linkedBackendGuids, data, 'linked_backend_guids');
             if (self.backendGuid() !== data.backend_guid) {
                 self.backendGuid(data.backend_guid);
                 self.backend(new Backend(data.backend_guid));
-            }
-            if (data.hasOwnProperty('linked_backend_guids')) {
-                self.linkedBackendGuids(data.linked_backend_guids);
             }
             if (data.hasOwnProperty('usages')) {
                 var stats = data.usages;
@@ -153,7 +151,8 @@ define([
         };
         self.load = function(contents) {
             if (contents === undefined) {
-                contents = '_dynamics,-statistics,-ns_data,_relations';
+                // TODO: Remove collecting all dynamics and all relations on every load action
+                contents = '_dynamics,-statistics,-ns_data,-local_stack,_relations';
             }
             return $.Deferred(function(deferred) {
                 self.loading(true);
@@ -172,98 +171,6 @@ define([
                 } else {
                     deferred.reject();
                 }
-            }).promise();
-        };
-        self.claimOSDs = function(osdsToClaim) {
-            return $.Deferred(function(deferred) {
-                var asdIDs = [], asdData = {}, allAsds = [];
-                $.each(osdsToClaim, function(diskGuid, asds) {
-                    $.each(asds, function(index, asd) {
-                        allAsds.push(asd);
-                        asdIDs.push(asd.osdID());
-                        asdData[asd.osdID()] = diskGuid;
-                        asd.processing(true);
-                    });
-                });
-                app.showMessage(
-                    $.t('alba:osds.claim.warning', { what: '<ul><li>' + asdIDs.join('</li><li>') + '</li></ul>', multi: allAsds.length === 1 ? '' : 's' }).trim(),
-                    $.t('alba:osds.claim.title', {multi: allAsds.length === 1 ? '' : 's'}),
-                    [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
-                )
-                    .done(function(answer) {
-                        if (answer === $.t('ovs:generic.yes')) {
-                            if (allAsds.length === 1) {
-                                generic.alertInfo(
-                                    $.t('alba:osds.claim.started'),
-                                    $.t('alba:osds.claim.started_msg_single', {what: allAsds[0].osdID()})
-                                );
-                            } else {
-                                generic.alertInfo(
-                                    $.t('alba:osds.claim.started'),
-                                    $.t('alba:osds.claim.started_msg_multi')
-                                );
-                            }
-                            api.post('alba/backends/' + self.guid() + '/add_units', {
-                                data: { osds: asdData }
-                            })
-                                .then(self.shared.tasks.wait)
-                                .done(function(data) {
-                                    if (data.length === 0) {
-                                        if (allAsds.length === 1) {
-                                            generic.alertSuccess(
-                                                $.t('alba:osds.claim.complete'),
-                                                $.t('alba:osds.claim.success_single', {what: allAsds[0].osdID()})
-                                            );
-                                        } else {
-                                            generic.alertSuccess(
-                                                $.t('alba:osds.claim.complete'),
-                                                $.t('alba:osds.claim.success_multi')
-                                            );
-                                        }
-                                    } else {
-                                        if (allAsds.length === 1 || allAsds.length === data.length) {
-                                            generic.alertError(
-                                                $.t('alba:osds.claim.failed_already_claimed'),
-                                                $.t('alba:osds.claim.failed_already_claimed_all')
-                                            );
-                                        } else {
-                                            generic.alertWarning(
-                                                $.t('alba:osds.claim.warning_already_claimed'),
-                                                $.t('alba:osds.claim.warning_already_claimed_some', {requested: allAsds.length, actual: data.length})
-                                            );
-                                        }
-                                    }
-                                    $.each(allAsds, function(index, asd) {
-                                        asd.ignoreNext(true);
-                                        asd.status('claimed');
-                                        asd.processing(false);
-                                    });
-                                    deferred.resolve();
-                                })
-                                .fail(function(error) {
-                                    error = generic.extractErrorMessage(error);
-                                    generic.alertError(
-                                        $.t('ovs:generic.error'),
-                                        $.t('alba:osds.claim.failed', { multi: allAsds.length === 1 ? '' : 's', why: error })
-                                    );
-                                    $.each(allAsds, function(index, asd) {
-                                        asd.processing(false);
-                                    });
-                                    deferred.reject();
-                                });
-                        } else {
-                            $.each(allAsds, function(index, asd) {
-                                asd.processing(false);
-                            });
-                            deferred.reject();
-                        }
-                    })
-                    .fail(function() {
-                        $.each(allAsds, function(index, asd) {
-                            asd.processing(false);
-                        });
-                        deferred.reject();
-                    });
             }).promise();
         };
     };

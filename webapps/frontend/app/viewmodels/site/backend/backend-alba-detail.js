@@ -17,13 +17,14 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
-    '../containers/albabackend', '../containers/albadisk', '../containers/albanode', '../containers/backend',
-    '../containers/backendtype', '../containers/domain', '../containers/storagerouter',
-    '../wizards/addalbanode/index', '../wizards/addpreset/index', '../wizards/linkbackend/index', '../wizards/unlinkbackend/index'
+    '../../containers/albabackend', '../../containers/albanode', '../../containers/backend',
+    '../../containers/backendtype', '../../containers/domain', '../../containers/storagerouter', '../../containers/albaosd',
+    '../../wizards/addnode/index', '../../wizards/addpreset/index', '../../wizards/linkbackend/index',
+    '../../wizards/unlinkbackend/index'
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
-            AlbaBackend, Disk, Node, Backend, BackendType, Domain, StorageRouter,
-            AddAlbaNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard) {
+            AlbaBackend, Node, Backend, BackendType, Domain, StorageRouter, AlbaOSD,
+            AddNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -43,7 +44,6 @@ define([
         self.albaBackend            = ko.observable();
         self.backend                = ko.observable();
         self.discoveredNodes        = ko.observableArray([]);
-        self.disks                  = ko.observableArray([]);
         self.dNodesLoading          = ko.observable(false);
         self.domains                = ko.observableArray([]);
         self.initialRun             = ko.observable(true);
@@ -87,6 +87,20 @@ define([
                 });
                 return expanded;
             }
+        });
+        self.anyCollapsed = ko.computed(function() {
+            /**
+             * Check if any node is collapsed
+             * Different than the expanded check in the way this will return true when any are collapsed as opposed to all
+              */
+            var collapsed = false;
+            $.each(self.registeredNodes(), function(index, node) {
+                if (node.expanded() === false) {
+                    collapsed = true;
+                    return false;
+                }
+            });
+            return collapsed;
         });
         self.otherAlbaBackends = ko.computed(function() {
             var albaBackends = [], cache = self.otherAlbaBackendsCache(), counter = 0;
@@ -145,18 +159,21 @@ define([
             }
         };
         self.fetchNodes = function(discover) {
-            if (discover === undefined) {
-                discover = false;
-            }
             discover = !!discover;
             if (self.albaBackend() === undefined || self.albaBackend().scaling() === 'GLOBAL') {
                 return;
             }
             return $.Deferred(function(deferred) {
                 if (generic.xhrCompleted(self.nodesHandle[discover])) {
+                    var contents = '_relations';
+                    if (discover === true) {
+                        contents += ',ips,stack,node_metadata,local_summary';
+                    } else {
+                        contents += ',stack,node_metadata,local_summary,read_only_mode';
+                    }
                     var options = {
                         sort: 'ip',
-                        contents: 'node_id,_relations' + (discover ? ',_dynamics' : ''),
+                        contents: contents,
                         discover: discover
                     };
                     if (self.albaBackend() !== undefined) {
@@ -174,7 +191,7 @@ define([
                                     nodeIDs, oArray,
                                     function(nodeID) {
                                         var node = new Node(nodeID, self.albaBackend(), self);
-                                        node.disksLoading(true);
+                                        node.slotsLoading(true);
                                         return node;
                                     }, 'nodeID'
                                 );
@@ -195,9 +212,12 @@ define([
                                 oArray.sort(function(a, b) {
                                     if (a.storageRouter() !== undefined && b.storageRouter() !== undefined) {
                                         return a.storageRouter().name() < b.storageRouter().name() ? -1 : 1;
-                                    }
-                                    if (a.storageRouter() === undefined && b.storageRouter() === undefined) {
-                                        return generic.ipSort(a.ip(), b.ip());
+                                    } else if (a.storageRouter() === undefined && b.storageRouter() === undefined) {
+                                        if (a.ip() !== undefined && a.ip() !== null && b.ip() !== undefined && b.ip() !== null){
+                                            return generic.ipSort(a.ip(), b.ip());
+                                        } else {
+                                            return a.nodeID() < b.nodeID() ? -1 : 1;
+                                        }
                                     }
                                     return a.storageRouter() !== undefined ? -1 : 1;
                                 });
@@ -224,79 +244,14 @@ define([
             }
             self.localSummary(data.local_summary);
             var remoteStacks = [];
-            $.each(data.remote_stack, function(key, value) {
-                value.alba_backend_guid = key;
-                remoteStacks.push(value);
+            $.each(data.remote_stack, function(alba_backend_guid, stack_data) {
+                value.alba_backend_guid = alba_backend_guid;
+                remoteStacks.push(stack_data);
             });
             self.remoteStack(remoteStacks);
             self.remoteStack.sort(function(stack1, stack2) {
                 return stack1.name < stack2.name ? -1 : 1;
             });
-        };
-        self.loadASDOSDs = function() {
-            var data = self.albaBackend().rawData;
-            if (data === undefined || !data.hasOwnProperty('local_stack')) {
-                return;
-            }
-            var diskNames = [], disks = {}, changes = data.local_stack.length !== self.disks().length,
-                diskNode = {}, nodeDisks = {};
-            $.each(data.local_stack, function (nodeId, disksData) {
-                $.each(disksData, function(index, disk) {
-                    diskNames.push(disk.name);
-                    disks[disk.name] = disk;
-                    diskNode[disk.name] = nodeId;
-                });
-            });
-            generic.crossFiller(
-                diskNames, self.disks,
-                function (name) {
-                    return new Disk(name);
-                }, 'name'
-            );
-            $.each(self.disks(), function (index, disk) {
-                if (diskNames.contains(disk.name())) {
-                    disk.fillData(disks[disk.name()]);
-                }
-                var nodeId = diskNode[disk.name()];
-                if (!nodeDisks.hasOwnProperty(nodeId)) {
-                    nodeDisks[nodeId] = [];
-                }
-                nodeDisks[nodeId].push(disk);
-            });
-            if (changes) {
-                $.each(self.registeredNodes(), function(index, node) {
-                    setTimeout(function() {
-                        if (!nodeDisks.hasOwnProperty(node.nodeID())) {
-                            node.disks([]);
-                        } else {
-                            nodeDisks[node.nodeID()].sort(function (a, b) {
-                                if (a.device() === undefined || b.device() === undefined) {
-                                    return a.alias() < b.alias() ? -1 : 1;
-                                }
-                                return a.device() < b.device() ? -1 : 1;
-                            });
-                            node.disks(nodeDisks[node.nodeID()]);
-                        }
-                        node.disksLoading(self.initialRun());
-                        $.each(node.disks(), function(index, disk) {
-                            disk.node = node;
-                            $.each(disk.osds(), function(_, asd) {
-                                asd.node = node;
-                                asd.parentABGuid(self.albaBackend().guid());
-                            })
-                        })
-                    }, index * 500 + 1);
-                });
-                self.registeredNodes.sort(function(a, b) {
-                    if (a.storageRouter() !== undefined && b.storageRouter() !== undefined) {
-                        return a.storageRouter().name() < b.storageRouter().name() ? -1 : 1;
-                    }
-                    if (a.storageRouter() === undefined && b.storageRouter() === undefined) {
-                        return generic.ipSort(a.ip(), b.ip());
-                    }
-                    return a.storageRouter() !== undefined ? -1 : 1;
-                });
-            }
         };
         self.loadDomains = function() {
             return $.Deferred(function(deferred) {
@@ -410,6 +365,15 @@ define([
                     });
             }).promise();
         };
+        self.addNode = function() {
+            var node = new Node();
+            dialog.show(new AddNodeWizard({
+                modal: true,
+                newNode: node,
+                oldNode: undefined,
+                confirmOnly: false
+            }));
+        };
         self.register = function(node) {
             var oldNode = undefined;
             $.each(self.registeredNodes(), function(index, registeredNode) {
@@ -418,10 +382,11 @@ define([
                     return false;
                 }
             });
-            dialog.show(new AddAlbaNodeWizard({
+            dialog.show(new AddNodeWizard({
                 modal: true,
                 newNode: node,
-                oldNode: oldNode
+                oldNode: oldNode,
+                confirmOnly: true
             }));
         };
         self.addPreset = function() {
@@ -457,6 +422,16 @@ define([
                 linkedOSDInfo: info
             }));
         };
+        self.getNodeById = function(nodeID){
+            var node_to_return = undefined;
+            $.each(self.registeredNodes(), function(index, node) {
+              if (node.nodeID() === nodeID) {
+                  node_to_return = node;
+                  return false
+              }
+            });
+            return node_to_return
+        };
 
         // Durandal
         self.activate = function(mode, guid) {
@@ -464,9 +439,8 @@ define([
             self.refresher.init(function() {
                 self.loadDomains();
                 return self.load()
-                    .then(self.fetchNodes)
-                    .then(function() { self.fetchNodes(true); })
-                    .then(self.loadASDOSDs)
+                    .then(self.fetchNodes)  // Fetch all known nodes
+                    .then(function() { self.fetchNodes(true); })  // Discover new ones
                     .then(self.loadBackendOSDs)
                     .then(function() {
                         if (self.initialRun() === true) {

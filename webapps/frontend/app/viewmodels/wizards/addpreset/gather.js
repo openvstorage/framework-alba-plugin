@@ -32,17 +32,17 @@ define([
             if (!self.data.name.valid() && !self.data.editPreset()) {
                 valid = false;
                 fields.push('name');
-                reasons.push($.t('alba:wizards.addpreset.gather.invalidname'));
+                reasons.push($.t('alba:wizards.add_preset.gather.invalidname'));
             }
             if (self.data.cleanPolicies().length === 0) {
                 valid = false;
                 fields.push('policies');
-                reasons.push($.t('alba:wizards.addpreset.gather.insufficientpolicies'));
+                reasons.push($.t('alba:wizards.add_preset.gather.insufficientpolicies'));
             }
             if (currentNames.contains(self.data.name()) && !self.data.editPreset()) {
                 valid = false;
                 fields.push('name');
-                reasons.push($.t('alba:wizards.addpreset.gather.duplicatename'));
+                reasons.push($.t('alba:wizards.add_preset.gather.duplicatename'));
             }
             $.each(data.policies(), function (index, policy) {
                 if (policy.k() > policy.c() || policy.c() > (policy.k() + policy.m())) {
@@ -50,7 +50,7 @@ define([
                     if (!fields.contains('c')) {
                         valid = false;
                         fields.push('c');
-                        reasons.push($.t('alba:wizards.addpreset.gather.invalidc'));
+                        reasons.push($.t('alba:wizards.add_preset.gather.invalidc'));
                     }
                 }
                 if (policy.k() === 0) {
@@ -58,7 +58,7 @@ define([
                     if (!fields.contains('k')) {
                         valid = false;
                         fields.push('k');
-                        reasons.push($.t('alba:wizards.addpreset.gather.invalidk'));
+                        reasons.push($.t('alba:wizards.add_preset.gather.invalidk'));
                     }
                 }
                 if (policy.c() === 0) {
@@ -66,7 +66,7 @@ define([
                     if (!fields.contains('c')) {
                         valid = false;
                         fields.push('c');
-                        reasons.push($.t('alba:wizards.addpreset.gather.invalidc'));
+                        reasons.push($.t('alba:wizards.add_preset.gather.invalidc'));
                     }
                 }
                 if (policy.x() === 0) {
@@ -74,7 +74,7 @@ define([
                     if (!fields.contains('x')) {
                         valid = false;
                         fields.push('x');
-                        reasons.push($.t('alba:wizards.addpreset.gather.invalidx'));
+                        reasons.push($.t('alba:wizards.add_preset.gather.invalidx'));
                     }
                 }
             });

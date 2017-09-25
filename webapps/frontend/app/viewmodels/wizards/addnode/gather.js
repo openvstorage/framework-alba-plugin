@@ -1,4 +1,4 @@
-// Copyright (C) 2016 iNuron NV
+// Copyright (C) 2017 iNuron NV
 //
 // This file is part of Open vStorage Open Source Edition (OSE),
 // as available from
@@ -15,25 +15,26 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'ovs/generic',
-    '../build', './confirm', './data'
-], function($, generic, build, Confirm, data) {
+    'jquery', 'knockout',
+    'ovs/api', 'ovs/shared', 'ovs/generic',
+    './data'
+], function($, ko, api, shared, generic, data) {
     "use strict";
-    return function(options) {
+    return function() {
         var self = this;
-        build(self);
 
         // Variables
-        self.data = data;
+        self.data   = data;
+        self.shared = shared;
 
-        // Setup
-        self.title(generic.tryGet(options, 'title', (options.oldNode === undefined ? $.t('alba:wizards.add_alba_node.title') : $.t('alba:wizards.replace_alba_node.title'))));
-        self.modal(generic.tryGet(options, 'modal', false));
-        self.steps([new Confirm()]);
-        self.activateStep();
-
-        // Cleaning data
-        data.newNode(options.newNode);
-        data.oldNode(options.oldNode);
-    };
+        // Computed
+        self.canContinue = ko.computed(function() {
+            var reasons = [], fields = [];
+            if (!self.data.name.valid()) {
+                fields.push('name');
+                reasons.push($.t('alba:wizards.add_node.gather.invalid_name'));
+            }
+            return {value: reasons.length === 0, reasons: reasons, fields: fields};
+        });
+    }
 });

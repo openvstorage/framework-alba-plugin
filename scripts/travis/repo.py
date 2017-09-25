@@ -142,4 +142,7 @@ class RepoMapper(object):
 
 if __name__ == '__main__':
     # Make sure it gets outputted to stdout for the Travis build to capture
-    print RepoMapper.get_repository()
+    try:
+        print RepoMapper.get_repository()
+    except:
+        print 'fwk-develop'

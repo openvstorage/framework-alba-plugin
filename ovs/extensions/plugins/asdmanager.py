@@ -17,6 +17,7 @@
 """
 Generic module for calling the ASD-Manager
 """
+
 import os
 import json
 import time
@@ -24,7 +25,8 @@ import base64
 import inspect
 import logging
 import requests
-from ovs.log.log_handler import LogHandler
+from ovs_extensions.generic.exceptions import InvalidCredentialsError, NotFoundError
+from ovs.extensions.generic.logger import Logger
 try:
     from requests.packages.urllib3 import disable_warnings
 except ImportError:
@@ -40,20 +42,6 @@ logging.getLogger('urllib3').setLevel(logging.WARNING)
 logging.getLogger('requests').setLevel(logging.WARNING)
 
 
-class InvalidCredentialsError(RuntimeError):
-    """
-    Invalid credentials error
-    """
-    pass
-
-
-class NotFoundError(RuntimeError):
-    """
-    Method not found error
-    """
-    pass
-
-
 class ASDManagerClient(object):
     """
     ASD Manager Client
@@ -66,10 +54,11 @@ class ASDManagerClient(object):
     test_results = {}
     test_exceptions = {}
 
-    def __init__(self, node):
-        self._logger = LogHandler.get('extensions', name='asdmanagerclient')
+    def __init__(self, node, timeout=20):
         self.node = node
-        self.timeout = 20
+        self.timeout = timeout
+
+        self._logger = Logger('extensions-plugins')
         self._unittest_mode = os.environ.get('RUNNING_UNITTESTS') == 'True'
         self._log_min_duration = 1
 
@@ -84,7 +73,11 @@ class ASDManagerClient(object):
 
         if timeout is None:
             timeout = self.timeout
-        self._refresh()
+
+        # Refresh URL / headers
+        self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
+        self._base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}
+
         start = time.time()
         kwargs = {'url': '{0}/{1}'.format(self._base_url, url),
                   'headers': self._base_headers,
@@ -124,113 +117,83 @@ class ASDManagerClient(object):
         """
         return self._call(requests.get, '')
 
-    def get_logs(self):
+    ##############
+    # SLOTS/OSDS #
+    ##############
+    def get_stack(self):
         """
-        Retrieve the logs from the node
+        Gets the remote node stack
         """
-        return self._call(requests.get, 'collect_logs', timeout=60)
+        # Version 3 introduced 'slots'
+        if self.get_metadata()['_version'] >= 3:
+            data = self._call(requests.get, 'slots', timeout=5, clean=True)
+            for slot_info in data.itervalues():
+                for osd in slot_info.get('osds', {}).itervalues():
+                    osd['type'] = 'ASD'
+            return data
 
-    def get_disks(self):
-        """
-        Gets the node's disk states
-        """
-        return self._call(requests.get, 'disks', clean=True)
+        # Version 2 and older used AlbaDisk
+        data = self._call(method=requests.get, url='disks', timeout=5, clean=True)
+        for disk_id, value in data.iteritems():
+            if len(value.get('partition_aliases', [])) == 0:  # disks/<disk_id>/asds raises error if no partition_aliases could be found for current disk
+                value[ur'osds'] = {}
+                value[u'state'] = 'empty'
+                continue
 
-    def get_disk(self, disk_id):
-        """
-        Gets one of the node's disk's state
-        :param disk_id: Identifier of the disk
-        :type disk_id: str
-        """
-        return self._call(requests.get, 'disks/{0}'.format(disk_id), clean=True)
+            value[u'osds'] = self._call(method=requests.get, url='disks/{0}/asds'.format(disk_id), clean=True)
+            value[u'state'] = 'empty' if len(value['osds']) == 0 else 'ok'
+            for osd_id, osd_info in value['osds'].iteritems():
+                osd_info[u'ips'] = osd_info.get('ips', [])
+                osd_info[u'type'] = 'ASD'
+                osd_info[u'folder'] = osd_id
+        return data
 
-    def add_disk(self, disk_id):
+    def fill_slot(self, slot_id, extra):
         """
-        Adds a disk
-        :param disk_id: Identifier of the disk
-        :type disk_id: str
+        Fills a slot (disk) with one or more OSDs
         """
-        return self._call(requests.post, 'disks/{0}/add'.format(disk_id), timeout=300)
+        for _ in xrange(extra['count']):
+            self._call(requests.post, 'slots/{0}/asds'.format(slot_id))
 
-    def remove_disk(self, disk_id, partition_aliases=None):
+    def restart_osd(self, slot_id, osd_id):
         """
-        Removes a disk
-        :param disk_id: Identifier of the disk
-        :type disk_id: str
-        :param partition_aliases: Aliases of the partition of the disk (required for missing disks)
-        :type partition_aliases: list
+        Restarts a given OSD in a given Slot
         """
-        if partition_aliases is None:
-            partition_aliases = []
-        return self._call(requests.post, 'disks/{0}/delete'.format(disk_id), timeout=60, data={'partition_aliases': json.dumps(partition_aliases)})
+        return self._call(requests.post, 'slots/{0}/asds/{1}/restart'.format(slot_id, osd_id))
 
-    def restart_disk(self, disk_id):
+    def update_osd(self, slot_id, osd_id, update_data):
         """
-        Restarts a disk
-        :param disk_id: Identifier of the disk
-        :type disk_id: str
+        Updates a given OSD in a given Slot
         """
-        return self._call(requests.post, 'disks/{0}/restart'.format(disk_id), timeout=60)
+        return self._call(method=requests.post,
+                          url='slots/{0}/asds/{1}/update'.format(slot_id, osd_id),
+                          data={'update_data': json.dumps(update_data)})
 
-    def get_asds(self):
+    def delete_osd(self, slot_id, osd_id):
         """
-        Loads all asds (grouped by disk)
+        Deletes the OSD from the Slot
         """
-        return self._call(requests.get, 'asds', clean=True)
+        return self._call(requests.delete, 'slots/{0}/asds/{1}'.format(slot_id, osd_id))
 
-    def get_asds_for_disk(self, disk_id):
+    def build_slot_params(self, osd):
         """
-        Loads all asds from a given disk
-        :param disk_id: The disk identifier for which to load the asds
-        :type disk_id: str
+        Builds the "extra" params for replacing an OSD
         """
-        return self._call(requests.get, 'disks/{0}/asds'.format(disk_id), clean=True)
+        _ = self, osd
+        return {'count': 1}
 
-    def get_claimed_asds(self, disk_id):
+    def clear_slot(self, slot_id):
         """
-        Retrieve all ASDs claimed by any Backend for the specified disk
+        Clears the slot
         """
-        try:
-            asd_info = self._call(requests.get, 'disks/{0}/get_claimed_asds'.format(disk_id), clean=True, timeout=60)
-            asd_info['call_exists'] = True
-            return asd_info
-        except NotFoundError:
-            return {'call_exists': False}
+        return self._call(requests.delete, 'slots/{0}'.format(slot_id))
 
-    def add_asd(self, disk_id):
-        """
-        Adds an ASD to a disk
-        :param disk_id: Identifier of the disk
-        :type disk_id: str
-        """
-        return self._call(requests.post, 'disks/{0}/asds'.format(disk_id), timeout=30)
+    def restart_slot(self, slot_id):
+        return self._call(requests.post, 'slots/{0}/restart'.format(slot_id))
 
-    def restart_asd(self, disk_id, asd_id):
-        """
-        Restarts an ASD
-        :param disk_id: Disk identifier
-        :type disk_id: str
-        :param asd_id: AsdID from the ASD to be restarted
-        :type asd_id: str
-        """
-        return self._call(requests.post, 'disks/{0}/asds/{1}/restart'.format(disk_id, asd_id), timeout=30)
-
-    def delete_asd(self, disk_id, asd_id):
-        """
-        Deletes an ASD from a Disk
-        :param disk_id: Disk identifier
-        :type disk_id: str
-        :param asd_id: AsdID from the ASD to be removed
-        :type asd_id: str
-        """
-        return self._call(requests.post, 'disks/{0}/asds/{1}/delete'.format(disk_id, asd_id), timeout=60)
-
-    def list_asd_services(self):
-        """
-        Retrieve the ASD service names and their currently running version
-        """
-        return self._call(requests.get, 'asds/services', timeout=60, clean=True)['services']
-
+    ##########
+    # UPDATE #
+    ##########
     def get_package_information(self):
         """
         Retrieve the package information for this ALBA node
@@ -269,6 +232,27 @@ class ASDManagerClient(object):
                 if counter == max_counter:
                     raise Exception('Failed to update SDM')
 
+    def update_execute_migration_code(self):
+        """
+        Run some migration code after an update has been done
+        :return: None
+        :rtype: NoneType
+        """
+        return self._call(requests.post, 'update/execute_migration_code')
+
+    def update_installed_version_package(self, package_name):
+        """
+        Retrieve the currently installed package version
+        :param package_name: Name of the package to retrieve the version for
+        :type package_name: str
+        :return: Version of the currently installed package
+        :rtype: str
+        """
+        return self._call(requests.post, 'update/installed_version_package/{0}'.format(package_name), timeout=60)['version']
+
+    ############
+    # SERVICES #
+    ############
     def restart_services(self):
         """
         Restart the alba-asd-<ID> services
@@ -312,7 +296,3 @@ class ASDManagerClient(object):
         :rtype: str
         """
         return self._call(requests.get, 'service_status/{0}'.format(name))['status'][1]
-
-    def _refresh(self):
-        self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
-        self._base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}

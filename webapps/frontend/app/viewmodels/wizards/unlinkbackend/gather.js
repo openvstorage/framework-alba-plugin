@@ -74,7 +74,7 @@ define([
             self.refresher.init(function() {
                 if (generic.xhrCompleted(self.calculateSafetyHandle)) {
                     self.calculateSafetyHandle = api.get('alba/backends/' + self.data.target().guid() + '/calculate_safety', {
-                        queryparams: { asd_id: self.data.linkedOSDInfo().osd_id }
+                        queryparams: { osd_id: self.data.linkedOSDInfo().osd_id }
                     })
                         .then(self.shared.tasks.wait)
                         .done(function(safety) {

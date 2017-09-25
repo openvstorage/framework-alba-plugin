@@ -15,16 +15,20 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'knockout',
+    'knockout', 'jquery',
     'ovs/generic',
     '../containers/albabackend'
-], function(ko, generic, AlbaBackend) {
+], function(ko, $, generic, AlbaBackend) {
     "use strict";
-    return function(id) {
+    return function(id, slot, node, parentAlbaBackend) {
         var self = this;
 
+        // variables
+        self.errorStatuses = ['warning', 'error', 'unavailable', 'unknown'];
+
         // External injected
-        self.node = undefined;
+        self.node = node;
+        self.slot = slot;
         self.disk = undefined;
 
         // Observables
@@ -32,20 +36,31 @@ define([
         self.albaBackendGuid = ko.observable();
         self.device          = ko.observable();
         self.guid            = ko.observable();
-        self.highlighted     = ko.observable(false);
         self.ignoreNext      = ko.observable(false);
+        self.ips             = ko.observableArray([]);
         self.loaded          = ko.observable(false);
         self.mountpoint      = ko.observable();
         self.nodeID          = ko.observable();
         self.osdID           = ko.observable(id);
-        self.parentABGuid    = ko.observable();
-        self.port            = ko.observable();
+        self.parentABGuid    = ko.observable(parentAlbaBackend.guid());
+        self.port            = ko.observable().extend({numeric: {min: 1, max: 65535}});
         self.processing      = ko.observable(false);
-        self.status          = ko.observable();
+        self.slotID          = ko.observable();
+        self._status         = ko.observable();  // can be ok, warning, error, unavailable, unknown
         self.statusDetail    = ko.observable();
+        self.type            = ko.observable();
         self.usage           = ko.observable();
 
         // Computed
+        self.status = ko.computed(function() {
+            if (self.errorStatuses.contains(self._status())) {
+                return self._status();
+            }
+            if (self.albaBackendGuid() === undefined) {
+                return 'available';
+            }
+            return self.albaBackendGuid() === self.parentABGuid() ? 'claimed' : 'unavailable';
+        });
         self.isLocal = ko.computed(function() {
             return self.albaBackendGuid() === undefined || self.parentABGuid() === self.albaBackendGuid();
         });
@@ -55,14 +70,24 @@ define([
         self.marked = ko.computed(function() {
             return (self.status() === 'unavailable' || (!self.isLocal() && (self.status() === 'warning' || self.status() === 'error'))) && self.albaBackend() !== undefined;
         });
+        self.sockets = ko.computed(function() {
+            var sockets = [];
+            $.each(self.ips(), function(index, ip) {
+               sockets.push(ip + ":" + self.port())
+            });
+            return sockets
+        });
 
         // Functions
         self.fillData = function(data) {
             if (self.ignoreNext() === true) {
                 self.ignoreNext(false);
             } else {
-                self.status(data.status);
+                self._status(data.status);
                 self.nodeID(data.node_id);
+                if (self.slot !== undefined) {
+                    self.slotID(self.slot.slotID());
+                }
                 generic.trySet(self.guid, data, 'guid');
                 generic.trySet(self.statusDetail, data, 'status_detail');
                 generic.trySet(self.osdID, data, 'asd_id');
@@ -70,22 +95,23 @@ define([
                 generic.trySet(self.device, data, 'device');
                 generic.trySet(self.mountpoint, data, 'mountpoint');
                 generic.trySet(self.port, data, 'port');
-                if (data.hasOwnProperty('alba_backend_guid') && data.alba_backend_guid !== null) {
-                    self.albaBackendGuid(data.alba_backend_guid);
+                generic.trySet(self.ips, data, 'ips');
+                generic.trySet(self.type, data, 'type');
+                if (data.hasOwnProperty('claimed_by') && data.claimed_by !== null) {
+                    self.albaBackendGuid(data.claimed_by);
                 } else {
                     self.albaBackendGuid(undefined);
                 }
-                if (self.status() === 'unavailable' || self.status() === 'error' || self.status() === 'warning') {
+                if (['unavailable', 'error', 'warning'].contains(self.status())) {
                     self.loadAlbaBackend();
                 }
             }
             self.loaded(true);
         };
-
         self.claim = function() {
             var data = {};
-            data[self.disk.guid()] = [self];
-            self.node.claimOSDs(data)
+            data[self.slotID()] = {slot: self.slot, osds: [self]};
+            self.node.claimOSDs(data);
         };
         self.remove = function() {
             self.node.removeOSD(self);
@@ -93,11 +119,10 @@ define([
         self.restart = function() {
             self.node.restartOSD(self);
         };
-
         self.loadAlbaBackend = function() {
-            if (self.node !== undefined && self.node.parent.hasOwnProperty('otherAlbaBackendsCache')) {
-                var cache = self.node.parent.otherAlbaBackendsCache(), ab;
-                if (self.albaBackendGuid() !== undefined) {
+            if (self.node !== undefined && self.node.parentVM.hasOwnProperty('otherAlbaBackendsCache')) {
+                var cache = self.node.parentVM.otherAlbaBackendsCache(), ab;
+                if (self.albaBackendGuid() !== undefined && self.albaBackendGuid() !== 'unknown') {
                     if (!cache.hasOwnProperty(self.albaBackendGuid())) {
                         ab = new AlbaBackend(self.albaBackendGuid());
                         ab.load('backend')
@@ -105,7 +130,7 @@ define([
                                 ab.backend().load();
                             });
                         cache[self.albaBackendGuid()] = ab;
-                        self.node.parent.otherAlbaBackendsCache(cache);
+                        self.node.parentVM.otherAlbaBackendsCache(cache);
                     }
                     self.albaBackend(cache[self.albaBackendGuid()]);
                 }

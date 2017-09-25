@@ -17,18 +17,20 @@
 """
 AlbaBackend module
 """
-import copy
+
 import time
 from threading import Lock, Thread
 from ovs.dal.dataobject import DataObject
+from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.backend import Backend
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.dal.structures import Property, Relation, Dynamic
-from ovs_extensions.api.client import ForbiddenException, NotFoundException, OVSClient
+from ovs_extensions.api.client import OVSClient
+from ovs_extensions.api.exceptions import HttpForbiddenException, HttpNotFoundException
 from ovs.extensions.generic.configuration import Configuration
-from ovs.extensions.plugins.albacli import AlbaCLI
-from ovs.log.log_handler import LogHandler
+from ovs.extensions.generic.logger import Logger
+from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 
 
 class AlbaBackend(DataObject):
@@ -41,7 +43,7 @@ class AlbaBackend(DataObject):
                                                 'WARNING': 'warning',
                                                 'RUNNING': 'running'})  # lower-case values for backwards compatibility
 
-    _logger = LogHandler.get('dal', 'albabackend', False)
+    _logger = Logger('hybrids')
     __properties = [Property('alba_id', str, mandatory=False, indexed=True, doc='ALBA internal identifier'),
                     Property('scaling', SCALINGS.keys(), doc='Scaling for an ALBA Backend can be {0}'.format(' or '.join(SCALINGS.keys())))]
     __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic Backend')]
@@ -52,7 +54,7 @@ class AlbaBackend(DataObject):
                   Dynamic('presets', list, 60, locked=True),
                   Dynamic('available', bool, 60),
                   Dynamic('name', str, 3600),
-                  Dynamic('asd_statistics', dict, 5, locked=True),
+                  Dynamic('osd_statistics', dict, 5, locked=True),
                   Dynamic('linked_backend_guids', set, 30, locked=True),
                   Dynamic('remote_stack', dict, 60, locked=True),
                   Dynamic('local_summary', dict, 15, locked=True),
@@ -71,119 +73,27 @@ class AlbaBackend(DataObject):
         for alba_backend in AlbaBackendList.get_albabackends():
             alba_backend_map[alba_backend.alba_id] = alba_backend
 
-        # Load information based on the model
-        asd_map = {}
-        storage_map = {}
-        alba_nodes = AlbaNodeList.get_albanodes()
-        for node in alba_nodes:
-            node_id = node.node_id
-            storage_map[node_id] = {}
-            for disk in node.disks:
-                disk_id = disk.aliases[0].split('/')[-1]
-                storage_map[node_id][disk_id] = {'asds': {},
-                                                 'name': disk_id,
-                                                 'guid': disk.guid,
-                                                 'status': 'error',
-                                                 'aliases': disk.aliases,
-                                                 'status_detail': 'unknown'}
-                for osd in disk.osds:
-                    osd_id = osd.osd_id
-                    data = {'asd_id': osd_id,
-                            'guid': osd.guid,
-                            'status': 'error',
-                            'status_detail': 'unknown',
-                            'alba_backend_guid': osd.alba_backend_guid}
-                    asd_map[osd_id] = data
-                    storage_map[node_id][disk_id]['asds'][osd_id] = data
-
         # Load information from node
-        def _load_live_info(_node, _node_data):
-            _data = _node.storage_stack
-            if _data['status'] != 'ok':
-                for disk_entry in _node_data.values():
-                    disk_entry['status_detail'] = _data['status']
-                    for entry in disk_entry.get('asds', {}).values():
-                        entry['status_detail'] = _data['status']
-            else:
-                for _disk_id, disk_asd_info in _data['stack'].iteritems():
-                    if _disk_id not in _node_data:
-                        _node_data[_disk_id] = {'asds': {}}
-                    entry = _node_data[_disk_id]
-                    disk_info = copy.deepcopy(disk_asd_info)
-                    del disk_info['asds']
-                    entry.update(disk_info)
-                    asds_info = disk_asd_info['asds']
-                    for _asd_id, asd_info in asds_info.iteritems():
-                        if _asd_id not in _node_data[_disk_id]['asds']:
-                            _node_data[_disk_id]['asds'][_asd_id] = asd_info
-                        else:
-                            _node_data[_disk_id]['asds'][_asd_id].update(asd_info)
+        def _load_live_info(_node, _storage_map):
+            node_id = _node.node_id
+            _storage_map[node_id] = {}
+            for slot_id, _slot_data in _node.stack.iteritems():
+                # Pre-fill some info
+                _storage_map[node_id][slot_id] = {'osds': {},
+                                                  'name': slot_id,
+                                                  'status': 'error',
+                                                  'status_detail': 'unknown'}
+                _storage_map[node_id][slot_id].update(_slot_data)
 
         threads = []
-        for node in alba_nodes:
-            thread = Thread(target=_load_live_info, args=(node, storage_map[node.node_id]))
+        storage_map = {}
+        for node in AlbaNodeList.get_albanodes():
+            thread = Thread(target=_load_live_info, args=(node, storage_map))
             thread.start()
             threads.append(thread)
         for thread in threads:
             thread.join()
 
-        # Mix in usage information
-        for asd_id, stats in self.asd_statistics.iteritems():
-            if asd_id in asd_map:
-                asd_map[asd_id]['usage'] = {'size': int(stats['capacity']),
-                                            'used': int(stats['disk_usage']),
-                                            'available': int(stats['capacity'] - stats['disk_usage'])}
-
-        # Load information from alba
-        backend_interval_key = '/ovs/alba/backends/{0}/gui_error_interval'.format(self.guid)
-        if Configuration.exists(backend_interval_key):
-            interval = Configuration.get(backend_interval_key)
-        else:
-            interval = Configuration.get('/ovs/alba/backends/global_gui_error_interval')
-        config = Configuration.get_configuration_path(self.abm_cluster.config_location)
-        asds = {}
-        for found_osd in AlbaCLI.run(command='list-all-osds', config=config):
-            asds[found_osd['long_id']] = found_osd
-        for node_data in storage_map.values():
-            for _disk in node_data.values():
-                for asd_id, asd_data in _disk['asds'].iteritems():
-                    if asd_id not in asds:
-                        continue
-                    found_osd = asds[asd_id]
-                    if 'state' not in asd_data:
-                        continue
-                    if found_osd.get('decommissioned') is True:
-                        asd_data['status'] = 'unavailable'
-                        asd_data['status_detail'] = 'decommissioned'
-                        continue
-                    state = asd_data['state']
-                    if state == 'ok':
-                        if found_osd['id'] is None:
-                            alba_id = found_osd['alba_id']
-                            if alba_id is None:
-                                asd_data['status'] = 'available'
-                            else:
-                                asd_data['status'] = 'unavailable'
-                                alba_backend = alba_backend_map.get(alba_id)
-                                if alba_backend is not None:
-                                    asd_data['alba_backend_guid'] = alba_backend.guid
-                        else:
-                            asd_data['alba_backend_guid'] = self.guid
-                            asd_data['status'] = 'warning'
-                            asd_data['status_detail'] = 'recenterrors'
-
-                            read = found_osd['read'] or [0]
-                            write = found_osd['write'] or [0]
-                            errors = found_osd['errors']
-                            if len(errors) == 0 or (len(read + write) > 0 and max(min(read), min(write)) > max(error[0] for error in errors) + interval):
-                                asd_data['status'] = 'claimed'
-                                asd_data['status_detail'] = ''
-                    else:
-                        asd_data['status'] = 'error'
-                        asd_data['status_detail'] = asd_data.get('state_detail', '')
-                        alba_backend = alba_backend_map.get(found_osd.get('alba_id'))
-                        if alba_backend is not None:
-                            asd_data['alba_backend_guid'] = alba_backend.guid
         return storage_map
 
     def _statistics(self):
@@ -233,15 +143,26 @@ class AlbaBackend(DataObject):
         Returns an overview of free space, total space and used space
         """
         # Collect total usage
-        total_size = 0.0
-        total_used = 0.0
-        for stats in self.asd_statistics.values():
-            total_size += stats['capacity']
-            total_used += stats['disk_usage']
+        usages = {'free': 0.0,
+                  'size': 0.0,
+                  'used': 0.0}
 
-        return {'free': total_size - total_used,
-                'size': total_size,
-                'used': total_used}
+        if self.abm_cluster is None:
+            return usages
+
+        config = Configuration.get_configuration_path(self.abm_cluster.config_location)
+        try:
+            osds_stats = AlbaCLI.run(command='list-osds', config=config)
+        except AlbaError:
+            self._logger.exception('Unable to fetch OSD information')
+            return usages
+
+        for osd_stats in osds_stats:
+            usages['size'] += osd_stats['total']
+            usages['used'] += osd_stats['used']
+        usages['free'] = usages['size'] - usages['used']
+
+        return usages
 
     def _presets(self):
         """
@@ -250,14 +171,14 @@ class AlbaBackend(DataObject):
         if self.abm_cluster is None:
             return []  # No ABM cluster yet, so backend not fully installed yet
 
-        asds = {}
+        osds = {}
         if self.scaling != AlbaBackend.SCALINGS.GLOBAL:
-            for node in AlbaNodeList.get_albanodes():
-                asds[node.node_id] = 0
-                for disk in self.local_stack[node.node_id].values():
-                    for asd_info in disk['asds'].values():
-                        if asd_info['status'] in ['claimed', 'warning']:
-                            asds[node.node_id] += 1
+            for node_id, slots in self.local_stack.iteritems():
+                osds[node_id] = 0
+                for slot_id, slot_data in slots.iteritems():
+                    for osd_id, osd_data in slot_data['osds'].iteritems():
+                        if osd_data['status'] in [AlbaNode.OSD_STATUSES.OK, AlbaNode.OSD_STATUSES.WARNING]:
+                            osds[node_id] += 1
         config = Configuration.get_configuration_path(self.abm_cluster.config_location)
         presets = AlbaCLI.run(command='list-presets', config=config)
         preset_dict = {}
@@ -274,10 +195,10 @@ class AlbaBackend(DataObject):
             for policy in preset['policies']:
                 is_available = False
                 available_disks = 0
-                if self.scaling != AlbaBackend.SCALINGS.GLOBAL:
-                    available_disks += sum(min(asds[node], policy[3]) for node in asds)
-                if self.scaling != AlbaBackend.SCALINGS.LOCAL:
+                if self.scaling == AlbaBackend.SCALINGS.GLOBAL:
                     available_disks += sum(self.local_summary['devices'].values())
+                if self.scaling == AlbaBackend.SCALINGS.LOCAL:
+                    available_disks += sum(min(osds[node], policy[3]) for node in osds)
                 if available_disks >= policy[2]:
                     if active_policy is None:
                         active_policy = policy
@@ -292,10 +213,10 @@ class AlbaBackend(DataObject):
             policy_usage = namespace['statistics']['bucket_count']
             preset = preset_dict[namespace['namespace']['preset_name']]
             for usage in policy_usage:
-                upolicy = tuple(usage[0])  # Policy as reported to be "in use"
-                for cpolicy in preset['policies']:  # All configured policies
-                    if upolicy[0] == cpolicy[0] and upolicy[1] == cpolicy[1] and upolicy[3] <= cpolicy[3]:
-                        preset['policy_metadata'][cpolicy]['in_use'] = True
+                used_policy = tuple(usage[0])  # Policy as reported to be "in use"
+                for configured_policy in preset['policies']:  # All configured policies
+                    if used_policy[0] == configured_policy[0] and used_policy[1] == configured_policy[1] and used_policy[3] <= configured_policy[3]:
+                        preset['policy_metadata'][configured_policy]['in_use'] = True
                         break
         for preset in presets:
             preset['policies'] = [str(policy) for policy in preset['policies']]
@@ -316,7 +237,7 @@ class AlbaBackend(DataObject):
         """
         return self.backend.name
 
-    def _asd_statistics(self):
+    def _osd_statistics(self):
         """
         Loads statistics from all it's asds in one call
         """
@@ -326,18 +247,18 @@ class AlbaBackend(DataObject):
         if self.abm_cluster is None:
             return statistics  # No ABM cluster yet, so backend not fully installed yet
 
-        asd_ids = [osd.osd_id for osd in self.osds if osd.osd_type == AlbaOSD.OSD_TYPES.ASD]
-        if len(asd_ids) == 0:
+        osd_ids = [osd.osd_id for osd in self.osds if osd.osd_type in [AlbaOSD.OSD_TYPES.ASD, AlbaOSD.OSD_TYPES.AD]]
+        if len(osd_ids) == 0:
             return statistics
-
         try:
             config = Configuration.get_configuration_path(self.abm_cluster.config_location)
-            raw_statistics = AlbaCLI.run(command='asd-multistatistics', config=config, named_params={'long-id': ','.join(asd_ids)})
+            # TODO: This will need to be changed to osd-multistatistics, see openvstorage/alba#749
+            raw_statistics = AlbaCLI.run(command='asd-multistatistics', config=config, named_params={'long-id': ','.join(osd_ids)})
         except RuntimeError:
             return statistics
-        for asd_id, stats in raw_statistics.iteritems():
+        for osd_id, stats in raw_statistics.iteritems():
             if stats['success'] is True:
-                statistics[asd_id] = stats['result']
+                statistics[osd_id] = stats['result']
         return statistics
 
     def _linked_backend_guids(self):
@@ -354,16 +275,16 @@ class AlbaBackend(DataObject):
             client = OVSClient(ip=_connection_info['host'],
                                port=_connection_info['port'],
                                credentials=(_connection_info['username'], _connection_info['password']),
-                               version=3)
+                               version=6)
 
             try:
                 new_guids = client.get('/alba/backends/{0}/'.format(_alba_backend_guid),
                                        params={'contents': 'linked_backend_guids'})['linked_backend_guids']
                 with lock:
                     guids.update(new_guids)
-            except NotFoundException:
+            except HttpNotFoundException:
                 pass  # ALBA Backend has been deleted, we don't care we can't find the linked guids
-            except ForbiddenException as fe:
+            except HttpForbiddenException as fe:
                 AlbaBackend._logger.exception('Collecting remote ALBA Backend information failed due to permission issues. {0}'.format(fe))
                 _exceptions.append('not_allowed')
             except Exception as ex:
@@ -401,7 +322,7 @@ class AlbaBackend(DataObject):
             client = OVSClient(ip=_connection_info['host'],
                                port=_connection_info['port'],
                                credentials=(_connection_info['username'], _connection_info['password']),
-                               version=3)
+                               version=6)
 
             return_value[_alba_backend_guid]['live_status'] = AlbaBackend.STATUSES.UNKNOWN
             try:
@@ -410,10 +331,10 @@ class AlbaBackend(DataObject):
                 with lock:
                     return_value[_alba_backend_guid].update(info['local_summary'])
                     return_value[_alba_backend_guid]['live_status'] = info['live_status']
-            except NotFoundException:
+            except HttpNotFoundException:
                 return_value[_alba_backend_guid]['error'] = 'backend_deleted'
                 return_value[_alba_backend_guid]['live_status'] = AlbaBackend.STATUSES.FAILURE
-            except ForbiddenException:
+            except HttpForbiddenException:
                 return_value[_alba_backend_guid]['error'] = 'not_allowed'
             except Exception as ex:
                 return_value[_alba_backend_guid]['error'] = 'unknown'
@@ -456,7 +377,8 @@ class AlbaBackend(DataObject):
                       'used': 0}
         device_info = {'red': 0,
                        'green': 0,
-                       'orange': 0}
+                       'orange': 0,
+                       'gray': 0}
         return_value = {'name': self.name,
                         'sizes': usage_info,
                         'devices': device_info,
@@ -467,21 +389,21 @@ class AlbaBackend(DataObject):
         # Calculate device information
         if self.scaling != AlbaBackend.SCALINGS.GLOBAL:
             for node_values in self.local_stack.itervalues():
-                for disk_values in node_values.itervalues():
-                    for asd_info in disk_values.get('asds', {}).itervalues():
-                        if self.guid == asd_info.get('alba_backend_guid'):
-                            status = asd_info.get('status', 'unknown')
-                            if status == 'claimed':
+                for slot_values in node_values.itervalues():
+                    for osd_info in slot_values.get('osds', {}).itervalues():
+                        if self.guid == osd_info.get('claimed_by'):
+                            status = osd_info.get('status', 'unknown')
+                            if status == AlbaNode.OSD_STATUSES.OK:
                                 device_info['green'] += 1
-                            elif status == 'warning':
+                            elif status == AlbaNode.OSD_STATUSES.WARNING:
                                 device_info['orange'] += 1
-                            elif status == 'error':
+                            elif status == AlbaNode.OSD_STATUSES.ERROR:
                                 device_info['red'] += 1
+                            elif status == AlbaNode.OSD_STATUSES.UNKNOWN:
+                                device_info['gray'] += 1
 
             # Calculate used and total size
-            for stats in self.asd_statistics.values():
-                usage_info['size'] += stats['capacity']
-                usage_info['used'] += stats['disk_usage']
+            usage_info = self.usages
 
         if self.scaling != AlbaBackend.SCALINGS.LOCAL:
             for backend_values in self.remote_stack.itervalues():
@@ -498,6 +420,8 @@ class AlbaBackend(DataObject):
                     device_info['orange'] += 1
                 elif devices['green'] > 0:
                     device_info['green'] += 1
+                elif devices['gray'] > 0:
+                    device_info['gray'] += 1
 
         return return_value
 
@@ -515,7 +439,7 @@ class AlbaBackend(DataObject):
 
         if self.backend.status == Backend.STATUSES.DELETING:
             return 'deleting'
-        
+
         # Verify failed disks
         devices = self.local_summary['devices']
         if devices['red'] > 0:
@@ -534,10 +458,15 @@ class AlbaBackend(DataObject):
 
         # Retrieve ASD and maintenance service information
         def _get_node_information(_node):
-            for disk in _node.disks:
-                for osd in disk.osds:
-                    if osd.alba_backend_guid == self.guid:
-                        nodes_used_by_this_backend.add(_node)
+            if _node not in nodes_used_by_this_backend:
+                for slot_info in _node.stack.itervalues():
+                    for osd_info in slot_info['osds'].itervalues():
+                        if osd_info['claimed_by'] == self.guid:
+                            nodes_used_by_this_backend.add(_node)
+                            break
+                    if _node in nodes_used_by_this_backend:
+                        break
+
             try:
                 services = _node.maintenance_services
                 if self.name in services:

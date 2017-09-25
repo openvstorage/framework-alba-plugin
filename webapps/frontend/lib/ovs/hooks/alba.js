@@ -18,15 +18,15 @@ define(['jquery'], function($) {
     "use strict";
     return {
         routes: [
-            { route: 'ovs-backend/:guid', moduleId: 'backend-alba-detail', title: $.t('alba:detail.title'), titlecode: 'alba:detail.title', nav: false, main: false }
+            { route: 'backend/:guid', moduleId: 'backend/backend-alba-detail', title: $.t('alba:detail.title'), titlecode: 'alba:detail.title', nav: false, main: false }
         ],
         routePatches: [],
         dashboards: [
-            'dashboard-alba'
+            'dashboard/dashboard-alba'
         ],
         pages: {
             'support': [
-                'support-alba'
+                'admin/support-alba'
             ]
         },
         wizards: {

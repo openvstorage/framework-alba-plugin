@@ -29,10 +29,10 @@ define([
         // Setup
         self.title(generic.tryGet(options, 'title', $.t('alba:wizards.remove_osd.title')));
         self.modal(generic.tryGet(options, 'modal', false));
-        self.data.albaBackend(options.albaBackend);
-        self.data.albaNode(options.albaNode);
         self.data.albaOSD(options.albaOSD);
-        self.data.albaDisk(options.albaDisk);
+        self.data.albaNode(options.albaNode);
+        self.data.completed(options.completed);
+        self.data.albaBackend(options.albaBackend);
         self.steps([new Gather(self)]);
         self.activateStep();
 

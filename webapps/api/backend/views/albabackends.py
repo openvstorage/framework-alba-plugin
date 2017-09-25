@@ -22,11 +22,12 @@ from rest_framework import viewsets
 from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
 from api.backend.decorators import load, log, required_roles, return_list, return_object, return_task, return_simple
-from api.backend.exceptions import HttpForbiddenException, HttpNotAcceptableException
 from api.backend.serializers.serializers import FullSerializer
 from api.backend.toolbox import ApiToolbox
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.lists.albabackendlist import AlbaBackendList
+from ovs.dal.lists.albanodelist import AlbaNodeList
+from ovs_extensions.api.exceptions import HttpForbiddenException, HttpNotAcceptableException, HttpNotFoundException
 from ovs.lib.alba import AlbaController
 from ovs.lib.albapreset import AlbaPresetController
 
@@ -132,18 +133,82 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @log()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
-    @load(AlbaBackend, validator=_validate_access)
+    @load(AlbaBackend, max_version=8, validator=_validate_access)
     def add_units(self, albabackend, osds):
         """
         Add storage units to the backend and register with alba nsm
+        DEPRECATED API call - Use 'add_osds' instead
         :param albabackend: ALBA backend to add units to
         :type albabackend: AlbaBackend
-        :param osds: List of OSD ids
+        :param osds: Dict of osd_id as key, disk_id as value
+        :type osds: Dict
+        :return: Asynchronous result of a CeleryTask
+        :rtype: celery.result.AsyncResult
+        """
+        # Currently backwards compatible, should be removed at some point
+        # Map to fill slots for backwards compatibility
+        # Old call data:
+        # {osd_id: disk_id}
+        osd_type = 'ASD'
+        osd_info = []
+        stack = None
+        for osd_id, disk_alias in osds.iteritems():
+            slot_id = disk_alias.split('/')[-1]
+            # Add units is pushed for a single ALBA Node so stack should be fetched one
+            if stack is None:
+                for alba_node in AlbaNodeList.get_albanodes():
+                    _stack = alba_node.stack
+                    if slot_id in _stack:
+                        stack = _stack
+                        break
+            if stack is None:
+                raise HttpNotAcceptableException(error='stack_not_found',
+                                                 error_description='Could not find the matching stack for slot with ID {0}'.format(slot_id))
+            _osd = stack[slot_id]['osds'].get(osd_id)
+            if _osd is None:
+                raise HttpNotFoundException(error='osd_not_found', error_description='Could not find OSD {0} on Slot {1}'.format(osd_id, slot_id))
+            osd_info.append({'slot_id': slot_id,
+                             'osd_type': osd_type,
+                             'ips': _osd['ips'],
+                             'port': _osd['port']})
+        return AlbaController.add_osds.s(albabackend.guid, osd_info).apply_async(queue='ovs_masters')
+
+    @action()
+    @log()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaBackend, validator=_validate_access)
+    def add_osds(self, albabackend, alba_node_guid, osds):
+        """
+        Add storage units to the backend and register with alba nsm
+        :param albabackend: ALBA backend to add units to
+        :type albabackend: ovs.dal.hybrids.albabackend.AlbaBackend
+        :param alba_node_guid: Guid of the Alba Node on which the OSDs are added
+        :type alba_node_guid: str
+        :param osds: List of OSD information objects (containing: ips, port)
         :type osds: list
         :return: Asynchronous result of a CeleryTask
         :rtype: celery.result.AsyncResult
         """
-        return AlbaController.add_units.s(albabackend.guid, osds).apply_async(queue='ovs_masters')
+        return AlbaController.add_osds.s(alba_backend_guid=albabackend.guid, osds=osds, alba_node_guid=alba_node_guid).apply_async(queue='ovs_masters')
+
+    @action()
+    @log()
+    @required_roles(['write', 'manage'])
+    @return_task()
+    @load(AlbaBackend, validator=_validate_access)
+    def update_osds(self, osds, alba_node_guid):
+        """
+        Update OSDs that are already registered on an ALBA Backend
+        Currently used to update the IPs on which the OSD should be exposed
+        :param osds: List of OSD information objects [ [osd_id, osd_data],  ]
+        :type osds: list
+        :param alba_node_guid: Guid of the Alba Node on which the OSDs reside
+        :type alba_node_guid: str
+        :return: Asynchronous result of a CeleryTask
+        :rtype: celery.result.AsyncResult
+        """
+        return AlbaController.update_osds.s(osds=osds, alba_node_guid=alba_node_guid)
 
     @link()
     @log()
@@ -244,17 +309,20 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read'])
     @return_task()
     @load(AlbaBackend, validator=_validate_access)
-    def calculate_safety(self, albabackend, asd_id):
+    def calculate_safety(self, albabackend, asd_id=None, osd_id=None):
         """
         Returns the safety resulting the removal of a given disk
+        DEPRECATED API PARAMS: asd_id is a deprecated param. Use osd_id instead
         :param albabackend: ALBA backend to calculate safety for
         :type albabackend: AlbaBackend
-        :param asd_id: ID of the ASD to calculate safety off
+        :param asd_id: ID of the OSD to calculate safety off
         :type asd_id: str
+        :param osd_id: ID of the OSD to calculate safety off
+        :type osd_id: str
         :return: Asynchronous result of a CeleryTask
         :rtype: celery.result.AsyncResult
         """
-        return AlbaController.calculate_safety.delay(albabackend.guid, [asd_id])
+        return AlbaController.calculate_safety.delay(albabackend.guid, [osd_id if osd_id is not None else asd_id])
 
     @action()
     @log()
@@ -276,8 +344,8 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         :rtype: celery.result.AsyncResult
         """
         if 'backend_connection_info' not in metadata:
-            raise HttpNotAcceptableException(error_description='Invalid metadata passed',
-                                             error='invalid_data')
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description='Invalid metadata passed')
         connection_info = metadata['backend_connection_info']
         if connection_info['host'] == '':
             client = None
@@ -285,8 +353,8 @@ class AlbaBackendViewSet(viewsets.ViewSet):
                 if _client.ovs_type == 'INTERNAL' and _client.grant_type == 'CLIENT_CREDENTIALS':
                     client = _client
             if client is None:
-                raise HttpNotAcceptableException(error_description='Invalid metadata passed',
-                                                 error='invalid_data')
+                raise HttpNotAcceptableException(error='invalid_data',
+                                                 error_description='Invalid metadata passed')
             connection_info['username'] = client.client_id
             connection_info['password'] = client.client_secret
             connection_info['host'] = local_storagerouter.ip
@@ -333,9 +401,9 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         if cluster_names is None:
             cluster_names = []
         if not isinstance(amount, int) or not 1 <= amount <= 10:
-            raise HttpNotAcceptableException(error_description="Amount passed should be of type 'int' and should be between in range 1 - 10",
-                                             error='invalid_data')
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description="Amount passed should be of type 'int' and should be between in range 1 - 10")
         if not isinstance(cluster_names, list):
-            raise HttpNotAcceptableException(error_description="Cluster names passed should be of type 'list'",
-                                             error='invalid_data')
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description="Cluster names passed should be of type 'list'")
         return AlbaController.nsm_checkup.delay(alba_backend_guid=albabackend.guid, additional_nsms={'amount': amount, 'names': cluster_names})
