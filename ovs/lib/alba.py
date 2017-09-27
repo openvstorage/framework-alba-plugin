@@ -561,7 +561,7 @@ class AlbaController(object):
             Configuration.set(AlbaController.CONFIG_DEFAULT_NSM_HOSTS_KEY, 1)
         nsms = max(1, Configuration.get(AlbaController.CONFIG_DEFAULT_NSM_HOSTS_KEY))
         try:
-            AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, min_nsms=nsms)
+            AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, min_internal_nsms=nsms)
         except Exception as ex:
             AlbaController._logger.exception('Failed NSM checkup during add cluster for Backend {0}. {1}'.format(alba_backend.guid, ex))
             AlbaController.remove_cluster(alba_backend_guid=alba_backend.guid)
@@ -1115,7 +1115,7 @@ class AlbaController(object):
 
     @staticmethod
     @ovs_task(name='alba.nsm_checkup', schedule=Schedule(minute='45', hour='*'), ensure_single_info={'mode': 'CHAINED'})
-    def nsm_checkup(alba_backend_guid=None, min_nsms=1, nsm_cluster_names=list()):
+    def nsm_checkup(alba_backend_guid=None, min_internal_nsms=1, external_nsm_cluster_names=list()):
         """
         Validates the current NSM setup/configuration and takes actions where required.
         Assumptions:
@@ -1124,10 +1124,10 @@ class AlbaController(object):
 
         :param alba_backend_guid: Run for a specific ALBA Backend
         :type alba_backend_guid: str
-        :param min_nsms: Minimum amount of NSM hosts that need to be provided
-        :type min_nsms: int
-        :param nsm_cluster_names: Information about the additional clusters to claim (only for externally managed Arakoon clusters)
-        :type nsm_cluster_names: list
+        :param min_internal_nsms: Minimum amount of NSM hosts that need to be provided
+        :type min_internal_nsms: int
+        :param external_nsm_cluster_names: Information about the additional clusters to claim (only for externally managed Arakoon clusters)
+        :type external_nsm_cluster_names: list
         :return: None
         :rtype: NoneType
         """
@@ -1135,23 +1135,20 @@ class AlbaController(object):
         # Validations #
         ###############
         AlbaController._logger.info('NSM checkup started')
-        if min_nsms < 1:
+        if min_internal_nsms < 1:
             raise ValueError('Minimum amount of NSM clusters must be 1 or more')
 
-        if not isinstance(nsm_cluster_names, list):
-            raise ValueError("'nsm_cluster_names' must be of type 'list'")
+        if not isinstance(external_nsm_cluster_names, list):
+            raise ValueError("'external_nsm_cluster_names' must be of type 'list'")
 
-        if len(nsm_cluster_names) > 0:
+        if len(external_nsm_cluster_names) > 0:
             if alba_backend_guid is None:
                 raise ValueError('Additional NSMs can only be configured for a specific ALBA Backend')
-            if not isinstance(nsm_cluster_names, list):
-                raise ValueError("'nsm_cluster_names' must be of type 'list'")
+            if min_internal_nsms > 1:
+                raise ValueError("'min_internal_nsms' and 'external_nsm_cluster_names' are mutually exclusive")
 
-            if min_nsms > 1:
-                raise ValueError("'min_nsms' and 'nsm_cluster_names' are mutually exclusive")
-
-            nsm_cluster_names = list(set(nsm_cluster_names))  # Remove duplicate cluster names
-            for cluster_name in nsm_cluster_names:
+            external_nsm_cluster_names = list(set(external_nsm_cluster_names))  # Remove duplicate cluster names
+            for cluster_name in external_nsm_cluster_names:
                 try:
                     ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name)
                 except NotFoundException:
@@ -1169,14 +1166,12 @@ class AlbaController(object):
                 raise ValueError('No ABM cluster found for ALBA Backend {0}'.format(alba_backend.name))
             if len(alba_backend.abm_cluster.abm_services) == 0:
                 raise ValueError('ALBA Backend {0} does not have any registered ABM services'.format(alba_backend.name))
-            if len(alba_backend.nsm_clusters) + len(nsm_cluster_names) > 50:
+            if len(alba_backend.nsm_clusters) + len(external_nsm_cluster_names) > 50:
                 raise ValueError('The maximum of 50 NSM Arakoon clusters will be exceeded. Amount of clusters that can be deployed for this ALBA Backend: {0}'.format(50 - len(alba_backend.nsm_clusters)))
             # Validate enough externally managed Arakoon clusters are available
             if alba_backend.abm_cluster.abm_services[0].service.is_internal is False:
                 unused_cluster_names = set([cluster_info['cluster_name'] for cluster_info in ArakoonInstaller.get_unused_arakoon_clusters(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM)])
-                if len(unused_cluster_names) < len(nsm_cluster_names):
-                    raise ValueError('The amount of additional NSM Arakoon clusters to claim ({0}) exceeds the amount of available NSM Arakoon clusters ({1})'.format(len(nsm_cluster_names), len(unused_cluster_names)))
-                if set(nsm_cluster_names).difference(unused_cluster_names):
+                if set(external_nsm_cluster_names).difference(unused_cluster_names):
                     raise ValueError('Some of the provided cluster_names have already been claimed before')
                 storagerouters.update(set(masters))  # For externally managed we need an available master node
             else:
@@ -1226,7 +1221,7 @@ class AlbaController(object):
                         if abm_service.service.storagerouter not in nsm_storagerouters:
                             nsm_storagerouters[abm_service.service.storagerouter] = 0
 
-                elif internal is False and len(nsm_cluster_names) > 0:
+                elif internal is False and len(external_nsm_cluster_names) > 0:
                     for sr, cl in storagerouter_cache.iteritems():
                         if sr.node_type == 'MASTER':
                             master_client = cl
@@ -1299,17 +1294,17 @@ class AlbaController(object):
                 if overloaded is False:  # At least 1 NSM is not overloaded yet
                     AlbaController._logger.debug('ALBA Backend {0} - NSM load OK'.format(alba_backend.name))
                     if internal is True:
-                        nsms_to_add = max(0, min_nsms - len(nsm_loads))  # When load is not OK, deploy at least 1 additional NSM
+                        nsms_to_add = max(0, min_internal_nsms - len(nsm_loads))  # When load is not OK, deploy at least 1 additional NSM
                     else:
-                        nsms_to_add = len(nsm_cluster_names)  # For externally managed clusters we only claim the specified clusters, if none provided, we just log it
+                        nsms_to_add = len(external_nsm_cluster_names)
                     if nsms_to_add == 0:
                         continue
                 else:
                     AlbaController._logger.warning('ALBA Backend {0} - NSM load is NOT OK'.format(alba_backend.name))
                     if internal is True:
-                        nsms_to_add = max(1, min_nsms - len(nsm_loads))  # When load is not OK, deploy at least 1 additional NSM
+                        nsms_to_add = max(1, min_internal_nsms - len(nsm_loads))  # When load is not OK, deploy at least 1 additional NSM
                     else:
-                        nsms_to_add = len(nsm_cluster_names)  # For externally managed clusters we only claim the specified clusters, if none provided, we just log it
+                        nsms_to_add = len(external_nsm_cluster_names)  # For externally managed clusters we only claim the specified clusters, if none provided, we just log it
                         if nsms_to_add == 0:
                             AlbaController._logger.critical('ALBA Backend {0} - All NSM clusters are overloaded'.format(alba_backend.name))
                             continue
@@ -1318,9 +1313,9 @@ class AlbaController(object):
                 AlbaController._logger.debug('ALBA Backend {0} - Currently {1} NSM cluster{2}'.format(alba_backend.name, len(nsm_loads), '' if len(nsm_loads) == 1 else 's'))
                 AlbaController._logger.debug('ALBA Backend {0} - Trying to add {1} NSM cluster{2}'.format(alba_backend.name, nsms_to_add, '' if nsms_to_add == 1 else 's'))
                 base_number = max(nsm_loads.keys()) + 1
-                for count, number in enumerate(xrange(base_number, base_number + nsms_to_add)):
+                for index, number in enumerate(xrange(base_number, base_number + nsms_to_add)):
                     if internal is False:  # External clusters
-                        nsm_cluster_name = nsm_cluster_names[count]
+                        nsm_cluster_name = external_nsm_cluster_names[index]
                         AlbaController._logger.debug('ALBA Backend {0} - Claiming NSM cluster {1}'.format(alba_backend.name, nsm_cluster_name))
                         metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                                                           cluster_name=nsm_cluster_name)
