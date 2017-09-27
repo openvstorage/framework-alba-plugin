@@ -385,14 +385,16 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaBackend, validator=_validate_access)
-    def expand_nsm_clusters(self, albabackend, cluster_names=None, amount=1):
+    def expand_nsm_clusters(self, albabackend, version, cluster_names=None, amount=0):
         """
         Internally managed NSM Arakoon clusters: Deploy and claim additional NSM Arakoon clusters
         Externally managed NSM Arakoon clusters: Claim additional NSM Arakoon clusters (Cluster names to claim can be passed in using the 'cluster_names' keyword)
         :param albabackend: ALBA Backend to expand the amount of NSM Arakoon clusters
         :type albabackend: ovs.dal.hybrids.albabackend.AlbaBackend
+        :param version: Version requested by the client
+        :type version: int
         :param cluster_names: Names of the cluster to claim (Only applicable for externally managed NSM Arakoon clusters)
-        :type cluster_names: list or None
+        :type cluster_names: list
         :param amount: Amount of additional NSM clusters to deploy
         :type amount: int
         :return: Asynchronous result of a CeleryTask
@@ -400,10 +402,10 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         """
         if cluster_names is None:
             cluster_names = []
-        if not isinstance(amount, int) or not 1 <= amount <= 10:
+        if version >= 10 and amount > 0:
             raise HttpNotAcceptableException(error='invalid_data',
-                                             error_description="Amount passed should be of type 'int' and should be between in range 1 - 10")
+                                             error_description="Parameter 'amount' has been deprecated since API version 10")
         if not isinstance(cluster_names, list):
             raise HttpNotAcceptableException(error='invalid_data',
                                              error_description="Cluster names passed should be of type 'list'")
-        return AlbaController.nsm_checkup.delay(alba_backend_guid=albabackend.guid, additional_nsms={'amount': amount, 'names': cluster_names})
+        return AlbaController.nsm_checkup.delay(alba_backend_guid=albabackend.guid, nsm_cluster_names=cluster_names)
