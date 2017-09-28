@@ -420,7 +420,7 @@ class AlbaBackend(DataObject):
                     device_info['orange'] += 1
                 elif devices['green'] > 0:
                     device_info['green'] += 1
-                elif devices['gray'] > 0:
+                elif devices.get('gray', 0) > 0:
                     device_info['gray'] += 1
 
         return return_value
