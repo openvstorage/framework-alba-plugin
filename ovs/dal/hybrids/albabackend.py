@@ -31,6 +31,7 @@ from ovs_extensions.api.exceptions import HttpForbiddenException, HttpNotFoundEx
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.logger import Logger
 from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
+from ovs.extensions.storage.volatilefactory import VolatileFactory
 
 
 class AlbaBackend(DataObject):
@@ -275,6 +276,7 @@ class AlbaBackend(DataObject):
             client = OVSClient(ip=_connection_info['host'],
                                port=_connection_info['port'],
                                credentials=(_connection_info['username'], _connection_info['password']),
+                               cache_store=VolatileFactory.get_client(),
                                version=6)
 
             try:
@@ -322,6 +324,7 @@ class AlbaBackend(DataObject):
             client = OVSClient(ip=_connection_info['host'],
                                port=_connection_info['port'],
                                credentials=(_connection_info['username'], _connection_info['password']),
+                               cache_store=VolatileFactory.get_client(),
                                version=6)
 
             return_value[_alba_backend_guid]['live_status'] = AlbaBackend.STATUSES.UNKNOWN
