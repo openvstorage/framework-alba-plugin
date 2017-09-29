@@ -374,18 +374,19 @@ class AlbaController(object):
         :rtype: tuple
         """
         # Make mapping port <-> ips for each IP:port combination for all OSDs specified
-        port_osd_info_map = {}
+        ip_port_osd_info_map = {}
         for requested_osd_info in osds:
-            # Dict keys 'ips', 'port' have been verified by public method 'add_osds' at this point
-            port = requested_osd_info['port']
-            if port in port_osd_info_map:
-                raise ValueError('Duplicate port requested when trying to add and / or claim OSDs')
-
             # Update osd_info with some additional information
             requested_osd_info['osd_id'] = None
             requested_osd_info['claimed'] = False
             requested_osd_info['available'] = False
-            port_osd_info_map[port] = requested_osd_info
+            requested_osd_info['all_ip_ports'] = ['{0}:{1}'.format(ip, requested_osd_info['port']) for ip in requested_osd_info['ips']]
+
+            # Dict keys 'ips', 'port' have been verified by public method 'add_osds' at this point
+            for ip_port in requested_osd_info['all_ip_ports']:
+                if ip_port in ip_port_osd_info_map:
+                    raise ValueError('Duplicate IP:port combination requested when trying to add and / or claim OSDs: {0}'.format(ip_port))
+                ip_port_osd_info_map[ip_port] = requested_osd_info
 
         # Verify ALBA responsive to make mapping
         alba_backend = AlbaBackend(alba_backend_guid)
@@ -409,18 +410,29 @@ class AlbaController(object):
                 if decommissioned is True:
                     failure_osds.append('{0}:{1}'.format(ips[0], port))
                     continue
-                if port in port_osd_info_map:
-                    requested_osd_info = port_osd_info_map[port]
-                    # Potential candidate, check ips
-                    any_ip_match = not set(ips).isdisjoint(requested_osd_info['ips'])
-                    if any_ip_match is False:
-                        continue
-                    requested_osd_info['osd_id'] = actual_osd_info['long_id']
-                    requested_osd_info[osd_status] = True
+                for ip in ips:
+                    ip_port = '{0}:{1}'.format(ip, port)
+                    if ip_port in ip_port_osd_info_map:
+                        requested_osd_info = ip_port_osd_info_map[ip_port]
+                        # Potential candidate, check ips
+                        any_ip_match = not set(ips).isdisjoint(requested_osd_info['ips'])
+                        if any_ip_match is False:
+                            continue
+                        requested_osd_info['osd_id'] = actual_osd_info['long_id']
+                        requested_osd_info[osd_status] = True
+                        break
 
         alba_node = AlbaNode(alba_node_guid)
-        for port, requested_osd_info in port_osd_info_map.iteritems():
+        handled_ip_ports = []
+        for ip_port, requested_osd_info in ip_port_osd_info_map.iteritems():
+            if ip_port in handled_ip_ports:
+                # The IP port osd info map contains all IP:port combinations for a single OSD. Since we cannot add, nor claim a single OSD multiple times,
+                # we check here if a related IP port combination for the same OSD has already been handled.
+                # Eg: OSD info contains IPs: ['10.100.1.1', '10.100.1.2'] and port 8600, then ip_port_osd_info_map will have 2 keys for this OSD: '10.100.1.1:8600' and '10.100.1.2:8600'
+                continue
+            handled_ip_ports.extend(requested_osd_info['all_ip_ports'])
             ips = requested_osd_info['ips']
+            port = requested_osd_info['port']
             osd_id = requested_osd_info['osd_id']
             is_claimed = requested_osd_info['claimed']
             is_available = requested_osd_info['available']
@@ -436,7 +448,7 @@ class AlbaController(object):
                     osd_id = result['long_id']
                 except AlbaError as ae:
                     if ae.error_code == 7 and ae.exception_type == AlbaError.ALBAMGR_EXCEPTION:
-                        AlbaController._logger.warning('OSD with ID {0}:{1} has already been added'.format(register_ip, port))
+                        AlbaController._logger.warning('OSD {0}:{1} has already been added'.format(register_ip, port))
                         unclaimed_osds.append(osd_id)
                         continue
                     AlbaController._logger.exception('Error adding OSD on IP:port {0}:{1}'.format(register_ip, port))
@@ -1346,12 +1358,12 @@ class AlbaController(object):
                             if len(storagerouters) == safety:
                                 break
                         # Creating a new NSM cluster
-                        for index, storagerouter in enumerate(storagerouters):
+                        for sub_index, storagerouter in enumerate(storagerouters):
                             nsm_storagerouters[storagerouter] += 1
                             storagerouter.invalidate_dynamics('partition_config')
                             partition = DiskPartition(storagerouter.partition_config[DiskPartition.ROLES.DB][0])
                             arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster_name)
-                            if index == 0:
+                            if sub_index == 0:
                                 AlbaController._logger.debug('ALBA Backend {0} - Creating NSM cluster {1}'.format(alba_backend.name, nsm_cluster_name))
                                 arakoon_installer.create_cluster(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                                  ip=storagerouter.ip,
@@ -1374,7 +1386,7 @@ class AlbaController(object):
                                                           ports=arakoon_installer.ports[storagerouter.ip],
                                                           storagerouter=storagerouter,
                                                           number=number)
-                            if index == 0:
+                            if sub_index == 0:
                                 AlbaController._logger.debug('ALBA Backend {0} - Starting cluster'.format(alba_backend.name))
                                 arakoon_installer.start_cluster()
                             else:
