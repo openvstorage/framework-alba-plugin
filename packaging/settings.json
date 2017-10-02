@@ -5,6 +5,6 @@
     "source_contents": "--transform 's,^,{0}-{1}/,' --exclude='*__init__.py' ovs webapps scripts/install scripts/system *.txt",
     "version": {
         "major": 1,
-        "minor": 11
+        "minor": 10
     }
 }
