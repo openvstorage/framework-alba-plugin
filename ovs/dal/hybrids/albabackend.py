@@ -31,6 +31,7 @@ from ovs_extensions.api.exceptions import HttpForbiddenException, HttpNotFoundEx
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.logger import Logger
 from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
+from ovs.extensions.storage.volatilefactory import VolatileFactory
 
 
 class AlbaBackend(DataObject):
@@ -177,7 +178,7 @@ class AlbaBackend(DataObject):
                 osds[node_id] = 0
                 for slot_id, slot_data in slots.iteritems():
                     for osd_id, osd_data in slot_data['osds'].iteritems():
-                        if osd_data['status'] in [AlbaNode.OSD_STATUSES.OK, AlbaNode.OSD_STATUSES.WARNING]:
+                        if osd_data['status'] in [AlbaNode.OSD_STATUSES.OK, AlbaNode.OSD_STATUSES.WARNING] and osd_data.get('claimed_by') == self.guid:
                             osds[node_id] += 1
         config = Configuration.get_configuration_path(self.abm_cluster.config_location)
         presets = AlbaCLI.run(command='list-presets', config=config)
@@ -275,6 +276,7 @@ class AlbaBackend(DataObject):
             client = OVSClient(ip=_connection_info['host'],
                                port=_connection_info['port'],
                                credentials=(_connection_info['username'], _connection_info['password']),
+                               cache_store=VolatileFactory.get_client(),
                                version=6)
 
             try:
@@ -322,6 +324,7 @@ class AlbaBackend(DataObject):
             client = OVSClient(ip=_connection_info['host'],
                                port=_connection_info['port'],
                                credentials=(_connection_info['username'], _connection_info['password']),
+                               cache_store=VolatileFactory.get_client(),
                                version=6)
 
             return_value[_alba_backend_guid]['live_status'] = AlbaBackend.STATUSES.UNKNOWN
@@ -420,7 +423,7 @@ class AlbaBackend(DataObject):
                     device_info['orange'] += 1
                 elif devices['green'] > 0:
                     device_info['green'] += 1
-                elif devices['gray'] > 0:
+                elif devices.get('gray', 0) > 0:
                     device_info['gray'] += 1
 
         return return_value
