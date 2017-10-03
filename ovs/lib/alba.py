@@ -227,22 +227,29 @@ class AlbaController(object):
                 AlbaController._logger.warning('Provided Domain with guid {0} has been deleted in the meantime'.format(domain_guid))
 
         # Register OSDs according to type
-        failed_generic, unclaimed_generic = AlbaController._add_osds(alba_backend_guid=alba_backend_guid,
-                                                                     alba_node_guid=alba_node_guid,
-                                                                     osds=generic_osds,
-                                                                     domain=domain,
-                                                                     metadata=metadata)
-        failed_backend, unclaimed_backend = AlbaController._add_backend_osds(alba_backend_guid=alba_backend_guid,
-                                                                             osds=backend_osds,
-                                                                             domain=domain,
-                                                                             metadata=metadata)
-        failed_to_claim = failed_generic + failed_backend
-        if len(failed_to_claim) > 0:
-            if len(failed_to_claim) == len(osds):
+        failed = []
+        unclaimed = []
+        if len(generic_osds) > 0:
+            failed_generic, unclaimed_generic = AlbaController._add_generic_osds(alba_backend_guid=alba_backend_guid,
+                                                                                 alba_node_guid=alba_node_guid,
+                                                                                 osds=generic_osds,
+                                                                                 domain=domain,
+                                                                                 metadata=metadata)
+            failed.extend(failed_generic)
+            unclaimed.extend(unclaimed_generic)
+        if len(backend_osds) > 0:
+            failed_backend, unclaimed_backend = AlbaController._add_backend_osds(alba_backend_guid=alba_backend_guid,
+                                                                                 osds=backend_osds,
+                                                                                 domain=domain,
+                                                                                 metadata=metadata)
+            failed.extend(failed_backend)
+            unclaimed.extend(unclaimed_backend)
+        if len(failed) > 0:
+            if len(failed) == len(osds):
                 raise RuntimeError('None of the requested OSDs could be claimed')
             else:
-                raise RuntimeError('Some of the requested OSDs could not be claimed: {0}'.format(', '.join(failed_to_claim)))
-        return unclaimed_generic + unclaimed_backend
+                raise RuntimeError('Some of the requested OSDs could not be claimed: {0}'.format(', '.join(failed)))
+        return unclaimed
 
     @staticmethod
     def _add_backend_osds(alba_backend_guid, osds, domain, metadata):
@@ -354,7 +361,7 @@ class AlbaController(object):
         return failure_osds, unclaimed_osds
 
     @staticmethod
-    def _add_osds(alba_backend_guid, alba_node_guid, osds, domain, metadata):
+    def _add_generic_osds(alba_backend_guid, alba_node_guid, osds, domain, metadata):
         """
         Adds and claims an OSD to the Backend
         :param alba_backend_guid: Guid of the ALBA Backend
@@ -409,6 +416,9 @@ class AlbaController(object):
                 decommissioned = actual_osd_info['decommissioned']
                 if decommissioned is True:
                     failure_osds.append('{0}:{1}'.format(ips[0], port))
+                    continue
+                if ips is None:
+                    # IPs can be None for OSDs of type Backend which have been added at this point, but not yet claimed
                     continue
                 for ip in ips:
                     ip_port = '{0}:{1}'.format(ip, port)
