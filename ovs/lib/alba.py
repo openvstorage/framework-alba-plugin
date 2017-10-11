@@ -1231,7 +1231,7 @@ class AlbaController(object):
                 nsm_storagerouters = {}
                 sorted_nsm_clusters = sorted(alba_backend.nsm_clusters, key=lambda k: k.number)
                 for nsm_cluster in sorted_nsm_clusters:
-                    nsm_loads[nsm_cluster.number] = AlbaController._get_load(nsm_cluster)
+                    nsm_loads[nsm_cluster.number] = AlbaController.get_load(nsm_cluster)
                     if internal is True:
                         for nsm_service in nsm_cluster.nsm_services:
                             if nsm_service.service.storagerouter not in nsm_storagerouters:
@@ -1469,7 +1469,7 @@ class AlbaController(object):
         return result
 
     @staticmethod
-    def _get_load(nsm_cluster):
+    def get_load(nsm_cluster):
         """
         Calculates the load of an NSM node, returning a float percentage
         :param nsm_cluster: NSM cluster to retrieve the load for
@@ -1982,7 +1982,7 @@ class AlbaController(object):
                             for nsm_cluster in sorted(nsm_clusters, key=lambda k: k.number):
                                 load = None
                                 try:
-                                    load = AlbaController._get_load(nsm_cluster)
+                                    load = AlbaController.get_load(nsm_cluster)
                                 except:
                                     pass  # Don't print load when Arakoon unreachable
                                 load = 'infinite' if load == float('inf') else '{0}%'.format(round(load, 2)) if load is not None else 'unknown'
