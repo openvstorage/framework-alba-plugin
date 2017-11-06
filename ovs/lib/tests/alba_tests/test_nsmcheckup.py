@@ -67,7 +67,7 @@ class NSMCheckup(unittest.TestCase):
         Configuration.set('/ovs/framework/plugins/alba/config|nsm.maxload', 10)
 
         structure = DalHelper.build_dal_structure(structure={'storagerouters': [1]})
-        alba_structure = AlbaDalHelper.build_dal_structure(structure={'alba_backends': [1]})
+        alba_structure = AlbaDalHelper.build_dal_structure(structure={'alba_backends': [[1, 'LOCAL']]})
 
         alba_backend = alba_structure['alba_backends'][1]
         storagerouter_1 = structure['storagerouters'][1]
@@ -188,7 +188,7 @@ class NSMCheckup(unittest.TestCase):
         Configuration.set('/ovs/framework/plugins/alba/config|nsm.maxload', 10)
 
         structure = DalHelper.build_dal_structure(structure={'storagerouters': [1, 2, 3]})
-        alba_structure = AlbaDalHelper.build_dal_structure(structure={'alba_backends': [1]})
+        alba_structure = AlbaDalHelper.build_dal_structure(structure={'alba_backends': [[1, 'LOCAL']]})
 
         alba_backend = alba_structure['alba_backends'][1]
         storagerouter_1 = structure['storagerouters'][1]

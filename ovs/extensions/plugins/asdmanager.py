@@ -18,7 +18,6 @@
 Generic module for calling the ASD-Manager
 """
 
-import os
 import json
 import time
 import base64
@@ -51,26 +50,14 @@ class ASDManagerClient(object):
     disable_warnings(InsecureRequestWarning)
     disable_warnings(SNIMissingWarning)
 
-    test_results = {}
-    test_exceptions = {}
-
     def __init__(self, node, timeout=20):
         self.node = node
         self.timeout = timeout
 
         self._logger = Logger('extensions-plugins')
-        self._unittest_mode = os.environ.get('RUNNING_UNITTESTS') == 'True'
         self._log_min_duration = 1
 
     def _call(self, method, url, data=None, timeout=None, clean=False):
-        if self._unittest_mode is True:
-            curframe = inspect.currentframe()
-            calframe = inspect.getouterframes(curframe, 2)
-            exception = ASDManagerClient.test_exceptions.get(self.node, {}).get(calframe[1][3])
-            if exception is not None:
-                raise exception
-            return ASDManagerClient.test_results[self.node][calframe[1][3]]
-
         if timeout is None:
             timeout = self.timeout
 
@@ -260,25 +247,37 @@ class ASDManagerClient(object):
         """
         return self._call(requests.post, 'update/restart_services')
 
-    def add_maintenance_service(self, name, alba_backend_guid, abm_name):
+    def add_maintenance_service(self, name, alba_backend_guid, abm_name, read_preferences):
         """
         Add service to asd manager
-        :param name: Name of the service
-        :param alba_backend_guid: The guid of the AlbaBackend
-        :param abm_name: The name of the ABM
+        :param name: Name of the service to add
+        :type name: str
+        :param alba_backend_guid: ALBA Backend GUID for which the maintenance service needs to run
+        :type alba_backend_guid: str
+        :param abm_name: The name of the ABM cluster
+        :type abm_name: str
+        :param read_preferences: List of ALBA Node IDs (LOCAL) or linked ALBA Backend Guids (GLOBAL) for the maintenance services where they should prioritize the READ actions
+        :type read_preferences: list[str]
         :return: result
         """
-        return self._call(requests.post, 'maintenance/{0}/add'.format(name),
-                          data={'alba_backend_guid': alba_backend_guid,
-                                'abm_name': abm_name})
+        return self._call(method=requests.post,
+                          url='maintenance/{0}/add'.format(name),
+                          data={'abm_name': abm_name,
+                                'read_preferences': json.dumps(read_preferences),
+                                'alba_backend_guid': alba_backend_guid})
 
-    def remove_maintenance_service(self, name):
+    def remove_maintenance_service(self, name, alba_backend_guid):
         """
         Remove service from asd manager
-        :param name: name
+        :param name: Name of the maintenance service to remove
+        :type name: str
+        :param alba_backend_guid: Guid of the ALBA Backend to which the maintenance service belongs
+        :type alba_backend_guid: str
         :return: result
         """
-        return self._call(requests.post, 'maintenance/{0}/remove'.format(name))
+        return self._call(method=requests.post,
+                          url='maintenance/{0}/remove'.format(name),
+                          data={'alba_backend_guid': alba_backend_guid})
 
     def list_maintenance_services(self):
         """

@@ -108,9 +108,12 @@ class AlbaNodeController(object):
                     AlbaNodeController.remove_osd(node_guid=node.guid, osd_id=osd_id, expected_safety=None)
                 AlbaNodeController.remove_slot(node_guid=node.guid, slot_id=slot_id)
 
+            name_guid_map = dict((alba_backend.name, alba_backend.guid) for alba_backend in AlbaBackendList.get_albabackends())
             try:
-                for service_name in node.client.list_maintenance_services():
-                    node.client.remove_maintenance_service(service_name)
+                # This loop will delete the services AND their configuration from the configuration management
+                node.invalidate_dynamics('maintenance_services')
+                for alba_backend_name, service_info in node.maintenance_services.iteritems():
+                    node.client.remove_maintenance_service(name=service_info[1], alba_backend_guid=name_guid_map.get(alba_backend_name))
             except (requests.ConnectionError, requests.Timeout):
                 AlbaNodeController._logger.exception('Could not connect to node {0} to retrieve the maintenance services'.format(node.guid))
             except InvalidCredentialsError:
