@@ -42,14 +42,19 @@ class AlbaMigrationController(object):
         AlbaMigrationController._logger.info('Preparing out of band migrations...')
 
         from ovs.dal.lists.albabackendlist import AlbaBackendList
+        from ovs.dal.lists.albanodelist import AlbaNodeList
         from ovs.dal.lists.albaosdlist import AlbaOSDList
         from ovs.extensions.generic.configuration import Configuration
         from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
+        from ovs.lib.alba import AlbaController
 
         AlbaMigrationController._logger.info('Start out of band migrations...')
 
+        #############################################
+        # Introduction of IP:port combination on OSDs
         osd_info_map = {}
-        for alba_backend in AlbaBackendList.get_albabackends():
+        alba_backends = AlbaBackendList.get_albabackends()
+        for alba_backend in alba_backends:
             AlbaMigrationController._logger.info('Verifying ALBA Backend {0}'.format(alba_backend.name))
             if alba_backend.abm_cluster is None:
                 AlbaMigrationController._logger.warning('ALBA Backend {0} does not have an ABM cluster registered'.format(alba_backend.name))
@@ -91,6 +96,44 @@ class AlbaMigrationController(object):
             if changes is True:
                 AlbaMigrationController._logger.info('Updating OSD with ID {0} with IPS {1} and port {2}'.format(osd.osd_id, ips, port))
                 osd.save()
+
+        ###################################################
+        # Read preference for GLOBAL ALBA Backends (1.10.3)  (https://github.com/openvstorage/framework-alba-plugin/issues/452)
+        if Configuration.get(key='/ovs/framework/migration|read_preference', default=False) is False:
+            try:
+                name_backend_map = dict((alba_backend.name, alba_backend) for alba_backend in alba_backends)
+                for alba_node in AlbaNodeList.get_albanodes():
+                    AlbaMigrationController._logger.info('Processing maintenance services running on ALBA Node {0} with ID {1}'.format(alba_node.ip, alba_node.node_id))
+                    alba_node.invalidate_dynamics('maintenance_services')
+                    for alba_backend_name, services in alba_node.maintenance_services.iteritems():
+                        if alba_backend_name not in name_backend_map:
+                            AlbaMigrationController._logger.error('ALBA Node {0} has services for an ALBA Backend {1} which is not modelled'.format(alba_node.ip, alba_backend_name))
+                            continue
+
+                        alba_backend = name_backend_map[alba_backend_name]
+                        AlbaMigrationController._logger.info('Processing {0} ALBA Backend {1} with GUID {2}'.format(alba_backend.scaling, alba_backend.name, alba_backend.guid))
+                        if alba_backend.scaling == alba_backend.SCALINGS.LOCAL:
+                            read_preferences = [alba_node.node_id]
+                        else:
+                            read_preferences = AlbaController.get_read_preferences_for_global_backend(alba_backend=alba_backend,
+                                                                                                      alba_node_id=alba_node.node_id,
+                                                                                                      read_preferences=[])
+
+                        for service_name, _ in services:
+                            AlbaMigrationController._logger.info('Processing service {0}'.format(service_name))
+                            old_config_key = '/ovs/alba/backends/{0}/maintenance/config'.format(alba_backend.guid)
+                            new_config_key = '/ovs/alba/backends/{0}/maintenance/{1}/config'.format(alba_backend.guid, service_name)
+                            if Configuration.exists(key=old_config_key):
+                                new_config = Configuration.get(key=old_config_key)
+                                new_config['read_preference'] = read_preferences
+                                Configuration.set(key=new_config_key, value=new_config)
+                for alba_backend in alba_backends:
+                    Configuration.delete(key='/ovs/alba/backends/{0}/maintenance/config'.format(alba_backend.guid))
+                AlbaController.checkup_maintenance_agents.delay()
+
+                Configuration.set(key='/ovs/framework/migration|read_preference', value=True)
+            except Exception:
+                AlbaMigrationController._logger.exception('Updating read preferences for ALBA Backends failed')
 
         AlbaMigrationController._logger.info('Finished out of band migrations')
 

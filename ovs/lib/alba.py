@@ -1685,6 +1685,38 @@ class AlbaController(object):
         AlbaController.checkup_maintenance_agents.delay()
 
     @staticmethod
+    def get_read_preferences_for_global_backend(alba_backend, alba_node_id, read_preferences):
+        """
+        Retrieve the read preferences for a GLOBAL ALBA Backend and ALBA Node combination
+        WARNING: Max recursion depth exceeded error possible, because when for example:
+            Global1 is linked to global2, which is linked to global3, which is linked to global1
+        :param alba_backend: ALBA Backend for which the read preferences are retrieved
+        :type alba_backend: ovs.dal.hybrids.albabackend.AlbaBackend
+        :param alba_node_id: Node ID for the ALBA Node to which the ALBA Backend is related
+        :type alba_node_id: str
+        :param read_preferences: List of read preferences found (Should be empty list for initial caller)
+        :type read_preferences: list
+        :return: The read preferences found for the combination of ALBA Backend and ALBA Node (See checkup_maintenance_agents for explanation)
+        :rtype: list
+        """
+        for osd in alba_backend.osds:
+            if osd.osd_type == AlbaOSD.OSD_TYPES.ALBA_BACKEND:
+                if osd.metadata is not None:
+                    try:
+                        linked_alba_backend = AlbaBackend(osd.metadata['backend_info']['linked_guid'])
+                    except ObjectNotFoundException:
+                        # Object not found, because the linked ALBA Backend will be a remote 1. Since we don't want to configure this as a 'read_preference' ... continue
+                        continue
+                    # noinspection PyTypeChecker
+                    AlbaController.get_read_preferences_for_global_backend(alba_backend=linked_alba_backend,
+                                                                           alba_node_id=alba_node_id,
+                                                                           read_preferences=read_preferences)
+            elif osd.alba_node.node_id == alba_node_id:  # Current ALBA Backend has ASDs, so add current ALBA Backend GUID as read_preference for the calling ALBA Backend
+                read_preferences.append(alba_backend.alba_id)
+                break
+        return list(set(read_preferences))
+
+    @staticmethod
     @ovs_task(name='alba.checkup_maintenance_agents', schedule=Schedule(minute='0', hour='*'), ensure_single_info={'mode': 'CHAINED'})
     def checkup_maintenance_agents(alba_backend_guid=None):
         """
@@ -1727,24 +1759,6 @@ class AlbaController(object):
         :return: None
         :rtype: NoneType
         """
-        def get_read_preferences_for_global_backend(_alba_backend, _read_preferences, _node_id):
-            # WARNING: Max recursion depth exceeded error possible, because when for example:
-            # Global1 is linked to global2, which is linked to global3, which is linked to global1
-            for osd in _alba_backend.osds:
-                if osd.osd_type == AlbaOSD.OSD_TYPES.ALBA_BACKEND:
-                    if osd.metadata is not None:
-                        try:
-                            linked_alba_backend = AlbaBackend(osd.metadata['backend_info']['linked_guid'])
-                        except ObjectNotFoundException:
-                            # Object not found, because the linked ALBA Backend will be a remote 1. Since we don't want to configure this as a 'read_preference' ... continue
-                            continue
-                        # noinspection PyTypeChecker
-                        get_read_preferences_for_global_backend(_alba_backend=linked_alba_backend, _read_preferences=_read_preferences, _node_id=_node_id)
-                elif osd.alba_node.node_id == _node_id:  # Current ALBA Backend has ASDs, so add current ALBA Backend GUID as read_preference for the calling ALBA Backend
-                    _read_preferences.append(_alba_backend.alba_id)
-                    break
-            return list(set(_read_preferences))
-
         def add_service(_alba_backend, _alba_node, _reason):
             # noinspection PyTypeChecker
             unique_hash = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(16))
@@ -1755,7 +1769,9 @@ class AlbaController(object):
                 _read_preferences = [_alba_node.node_id]
             else:
                 try:
-                    _read_preferences = get_read_preferences_for_global_backend(_alba_backend=_alba_backend, _read_preferences=[], _node_id=_alba_node.node_id)
+                    _read_preferences = AlbaController.get_read_preferences_for_global_backend(alba_backend=_alba_backend,
+                                                                                               alba_node_id=_alba_node.node_id,
+                                                                                               read_preferences=[])
                 except:
                     _read_preferences = []
 
@@ -1966,7 +1982,9 @@ class AlbaController(object):
                         new_read_preferences = []
                         try:
                             # noinspection PyTypeChecker
-                            new_read_preferences = get_read_preferences_for_global_backend(_alba_backend=alba_backend, _read_preferences=[], _node_id=alba_node.node_id)
+                            new_read_preferences = AlbaController.get_read_preferences_for_global_backend(alba_backend=alba_backend,
+                                                                                                          alba_node_id=alba_node.node_id,
+                                                                                                          read_preferences=[])
                         except:
                             AlbaController._logger.exception('Failed to retrieve the read preferences for ALBA Backend {0} on ALBA Node {1}'.format(alba_backend.name, alba_node.node_id))
 
