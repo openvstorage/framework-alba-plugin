@@ -44,10 +44,6 @@ class AlbaOSD(DataObject):
     __dynamics = [Dynamic('statistics', dict, 5, locked=True),
                   Dynamic('stack_info', dict, 5)]
 
-    def __init__(self, guid=None, data=None, datastore_wins=False, volatile=False, _hook=None):
-        super(AlbaOSD, self).__init__(guid=None, data=None, datastore_wins=False, volatile=False, _hook=None)
-        self.slot_id = None
-
     def _statistics(self, dynamic):
         """
         Loads statistics from the ASD
