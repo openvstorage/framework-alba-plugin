@@ -323,9 +323,9 @@ class AlbaNodeController(object):
         except NotFoundError:
             # Can occur when the slot id could not be matched with an existing slot on the alba-asd manager
             # This error can be anticipated when the status of the osd would be 'missing' in the nodes stack but that would be too much overhead
-            message = 'Could not add a new osd. The requested slot: {0} could not be found'.format(osd.slot_id)
+            message = 'Could not add a new OSD. The requested slot {0} could not be found'.format(osd.slot_id)
             AlbaNodeController._logger.warning(message)
-            raise RuntimeError('{0}. Slot might no longer be present on Alba node {2}'.format(message, osd.slot_id, node_guid))
+            raise RuntimeError('{0}. Slot {1} might no longer be present on Alba node {2}'.format(message, osd.slot_id, node_guid))
         node.invalidate_dynamics('stack')
 
     @staticmethod
