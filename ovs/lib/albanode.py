@@ -30,7 +30,7 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.albaosdlist import AlbaOSDList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
-from ovs_extensions.generic.exceptions import InvalidCredentialsError
+from ovs_extensions.generic.exceptions import InvalidCredentialsError, NotFoundError
 from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.lib.alba import AlbaController
@@ -295,7 +295,7 @@ class AlbaNodeController(object):
         return [osd.slot_id]
 
     @staticmethod
-    @ovs_task(name='albanode.reset_asd')
+    @ovs_task(name='albanode.reset_osd')
     def reset_osd(node_guid, osd_id, expected_safety):
         """
         Removes and re-adds an OSD to a Disk
@@ -320,6 +320,12 @@ class AlbaNodeController(object):
             node.client.fill_slot(osd.slot_id, fill_slot_extra)
         except (requests.ConnectionError, requests.Timeout):
             AlbaNodeController._logger.warning('Could not connect to node {0} to (re)configure ASD'.format(node.guid))
+        except NotFoundError:
+            # Can occur when the slot id could not be matched with an existing slot on the alba-asd manager
+            # This error can be anticipated when the status of the osd would be 'missing' in the nodes stack but that would be too much overhead
+            message = 'Could not add a new OSD. The requested slot {0} could not be found'.format(osd.slot_id)
+            AlbaNodeController._logger.warning(message)
+            raise RuntimeError('{0}. Slot {1} might no longer be present on Alba node {2}'.format(message, osd.slot_id, node_guid))
         node.invalidate_dynamics('stack')
 
     @staticmethod

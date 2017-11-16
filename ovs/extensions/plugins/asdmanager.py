@@ -87,7 +87,9 @@ class ASDManagerClient(object):
             kwargs['data'] = data
         response = method(**kwargs)
         if response.status_code == 404:
-            raise NotFoundError('URL not found: {0}'.format(kwargs['url']))
+            msg = 'URL not found: {0}'.format(kwargs['url'])
+            self._logger.error('{0}. Reponse: {1}'.format(msg, response))
+            raise NotFoundError(msg)
         try:
             data = response.json()
         except:
@@ -151,7 +153,11 @@ class ASDManagerClient(object):
     def fill_slot(self, slot_id, extra):
         """
         Fills a slot (disk) with one or more OSDs
+        :param slot_id: Id of the slot to fill
+        :param extra: Extra parameters to supply. Supported extra params: {count: number of asds to add}
+        :type extra: dict
         """
+        # Call can raise a NotFoundException when the slot could no longer be found
         for _ in xrange(extra['count']):
             self._call(requests.post, 'slots/{0}/asds'.format(slot_id))
 
