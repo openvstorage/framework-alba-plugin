@@ -827,7 +827,7 @@ class AlbaController(object):
             except UnableToConnectException:
                 AlbaController._logger.warning('Storage Router with IP {0} is not reachable'.format(storagerouter.ip))
 
-        alba_pkg_name, alba_version_cmd = PackageFactory.get_package_and_version_cmd_for(component='alba')  # Call here, because this potentially raises error, which should happen before actually making changes
+        alba_pkg_name, alba_version_cmd = PackageFactory.get_package_and_version_cmd_for(component=PackageFactory.COMP_ALBA)  # Call here, because this potentially raises error, which should happen before actually making changes
         version_str = '{0}=`{1}`'.format(alba_pkg_name, alba_version_cmd)
 
         # Cluster creation
@@ -1213,7 +1213,7 @@ class AlbaController(object):
             except UnableToConnectException:
                 raise RuntimeError('StorageRouter {0} with IP {1} is not reachable'.format(storagerouter.name, storagerouter.ip))
 
-        alba_pkg_name, alba_version_cmd = PackageFactory.get_package_and_version_cmd_for(component='alba')  # Call here, because this potentially raises error, which should happen before actually making changes
+        alba_pkg_name, alba_version_cmd = PackageFactory.get_package_and_version_cmd_for(component=PackageFactory.COMP_ALBA)  # Call here, because this potentially raises error, which should happen before actually making changes
         version_str = '{0}=`{1}`'.format(alba_pkg_name, alba_version_cmd)
 
         ##################

@@ -26,13 +26,20 @@ class PackageFactory(_PackageFactory):
     """
     Factory class returning specialized classes
     """
-    SUPPORTED_COMPONENTS = {_PackageFactory.COMP_FWK, _PackageFactory.COMP_ALBA}
-
     def __init__(self):
         """
         Initialization method
         """
         super(PackageFactory, self).__init__()
+
+    @classmethod
+    def get_components(cls):
+        """
+        Retrieve the components which relate to this repository
+        :return: A set of components
+        :rtype: set
+        """
+        return {_PackageFactory.COMP_FWK, _PackageFactory.COMP_ALBA}
 
     @classmethod
     def get_package_info(cls):
