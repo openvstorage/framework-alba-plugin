@@ -1440,6 +1440,7 @@ class AlbaController(object):
         for osd in alba_backend.osds:
             if osd.osd_id in removal_osd_ids or osd.osd_id in error_disks:
                 extra_parameters.append('--long-id={0}'.format(osd.osd_id))
+        safety_data = []
         while True:
             try:
                 config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
@@ -1720,7 +1721,7 @@ class AlbaController(object):
     def checkup_maintenance_agents(alba_backend_guid=None):
         """
         Check if requested nr of maintenance agents per ALBA Backend is actually present
-        Add / remove maintenance agents to fulfill the requested layout or the requested amount of services
+        Add / remove maintenance agents to fulfill the requested layout or the requested amount of services (configurable through configuration management)
         Some prerequisites:
             * At least 1 maintenance agent is deployed regardless of amount of linked OSDs (ASDs / Backends / ADs)
             * Max 1 maintenance agent per ALBA Backend per ALBA Node
@@ -1755,6 +1756,7 @@ class AlbaController(object):
                         * For 'global3', Maintenance agents on nodes 1 and (2 or 3)
         :param alba_backend_guid: GUID of the ALBA Backend for which the maintenance agents need to be checked
         :type alba_backend_guid: str
+        :raises Exception: If anything fails adding/removing maintenance agents for any ALBA Backend
         :return: None
         :rtype: NoneType
         """
@@ -1815,6 +1817,7 @@ class AlbaController(object):
                                 pass
             for ab in allowed_nodes_per_backend:
                 sorted(allowed_nodes_per_backend[ab], key=lambda _node: load_per_node[_node])
+            return allowed_nodes_per_backend
 
 
         AlbaController._logger.info('Loading maintenance information')
@@ -1931,7 +1934,7 @@ class AlbaController(object):
                 AlbaController._logger.debug('Requested amount of services: {0}'.format(requested_services))
                 if alba_backend.scaling == AlbaBackend.SCALINGS.LOCAL:
                     if len(allowed_nodes_per_backend) == 0:  # Not initialized yet
-                        get_allowed_nodes_per_backend()
+                        allowed_nodes_per_backend = get_allowed_nodes_per_backend()
 
                     allowed_nodes_for_backend = allowed_nodes_per_backend.get(alba_backend, [])
                     AlbaController._logger.debug('Possible amount of services: {0}'.format(len(allowed_nodes_for_backend)))
