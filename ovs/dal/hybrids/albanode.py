@@ -72,7 +72,7 @@ class AlbaNode(DataObject):
                   Dynamic('node_metadata', dict, 3600),
                   Dynamic('supported_osd_types', list, 3600),
                   Dynamic('read_only_mode', bool, 60),
-                  Dynamic('local_summary', dict, 3600)]
+                  Dynamic('local_summary', dict, 60)]
 
     def __init__(self, *args, **kwargs):
         """

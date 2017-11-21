@@ -1440,7 +1440,6 @@ class AlbaController(object):
         for osd in alba_backend.osds:
             if osd.osd_id in removal_osd_ids or osd.osd_id in error_disks:
                 extra_parameters.append('--long-id={0}'.format(osd.osd_id))
-        safety_data = []
         while True:
             try:
                 config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
