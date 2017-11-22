@@ -50,6 +50,7 @@ from ovs.extensions.generic.configuration import Configuration, NotFoundExceptio
 from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs_extensions.generic.toolbox import ExtensionsToolbox
+from ovs.extensions.packages.albapackagefactory import PackageFactory
 from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 from ovs.extensions.storage.volatilefactory import VolatileFactory
 from ovs.lib.helpers.decorators import add_hooks, ovs_task
@@ -67,7 +68,6 @@ class AlbaController(object):
     """
     ABM_PLUGIN = 'albamgr_plugin'
     NSM_PLUGIN = 'nsm_host_plugin'
-    ALBA_VERSION_GET = 'alba=`alba version --terse`'
 
     ARAKOON_PLUGIN_DIR = '/usr/lib/alba'
     CONFIG_ALBA_BACKEND_KEY = '/ovs/alba/backends/{0}'
@@ -827,6 +827,9 @@ class AlbaController(object):
             except UnableToConnectException:
                 AlbaController._logger.warning('Storage Router with IP {0} is not reachable'.format(storagerouter.ip))
 
+        alba_pkg_name, alba_version_cmd = PackageFactory.get_package_and_version_cmd_for(component=PackageFactory.COMP_ALBA)  # Call here, because this potentially raises error, which should happen before actually making changes
+        version_str = '{0}=`{1}`'.format(alba_pkg_name, alba_version_cmd)
+
         # Cluster creation
         if alba_backend_guid is not None:
             alba_backend = AlbaBackend(alba_backend_guid)
@@ -847,7 +850,7 @@ class AlbaController(object):
                     arakoon_installer.create_cluster(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM,
                                                      ip=storagerouter.ip,
                                                      base_dir=partition.folder,
-                                                     plugins={AlbaController.ABM_PLUGIN: AlbaController.ALBA_VERSION_GET})
+                                                     plugins={AlbaController.ABM_PLUGIN: version_str})
                     AlbaController._link_plugins(client=clients[storagerouter],
                                                  data_dir=partition.folder,
                                                  plugins=[AlbaController.ABM_PLUGIN],
@@ -897,7 +900,7 @@ class AlbaController(object):
                         arakoon_installer.create_cluster(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                          ip=storagerouter.ip,
                                                          base_dir=partition.folder,
-                                                         plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
+                                                         plugins={AlbaController.NSM_PLUGIN: version_str})
                         AlbaController._link_plugins(client=clients[storagerouter],
                                                      data_dir=partition.folder,
                                                      plugins=[AlbaController.NSM_PLUGIN],
@@ -936,7 +939,7 @@ class AlbaController(object):
                     arakoon_installer.load()
                     arakoon_installer.extend_cluster(new_ip=storagerouter.ip,
                                                      base_dir=partition.folder,
-                                                     plugins={AlbaController.ABM_PLUGIN: AlbaController.ALBA_VERSION_GET})
+                                                     plugins={AlbaController.ABM_PLUGIN: version_str})
                     AlbaController._link_plugins(client=clients[storagerouter],
                                                  data_dir=partition.folder,
                                                  plugins=[AlbaController.ABM_PLUGIN],
@@ -1210,6 +1213,9 @@ class AlbaController(object):
             except UnableToConnectException:
                 raise RuntimeError('StorageRouter {0} with IP {1} is not reachable'.format(storagerouter.name, storagerouter.ip))
 
+        alba_pkg_name, alba_version_cmd = PackageFactory.get_package_and_version_cmd_for(component=PackageFactory.COMP_ALBA)  # Call here, because this potentially raises error, which should happen before actually making changes
+        version_str = '{0}=`{1}`'.format(alba_pkg_name, alba_version_cmd)
+
         ##################
         # Check Clusters #
         ##################
@@ -1293,7 +1299,7 @@ class AlbaController(object):
                                 AlbaController._logger.debug('ALBA Backend {0} - Extending cluster {1} on node {2} with IP {3}'.format(alba_backend.name, nsm_cluster.name, candidate_sr.name, candidate_sr.ip))
                                 arakoon_installer.extend_cluster(new_ip=candidate_sr.ip,
                                                                  base_dir=partition.folder,
-                                                                 plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
+                                                                 plugins={AlbaController.NSM_PLUGIN: version_str})
                                 AlbaController._logger.debug('ALBA Backend {0} - Linking plugins'.format(alba_backend.name))
                                 AlbaController._link_plugins(client=storagerouter_cache[candidate_sr],
                                                              data_dir=partition.folder,
@@ -1378,13 +1384,13 @@ class AlbaController(object):
                                 arakoon_installer.create_cluster(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
                                                                  ip=storagerouter.ip,
                                                                  base_dir=partition.folder,
-                                                                 plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
+                                                                 plugins={AlbaController.NSM_PLUGIN: version_str})
                             else:
                                 AlbaController._logger.debug('ALBA Backend {0} - Extending NSM cluster {1}'.format(alba_backend.name, nsm_cluster_name))
                                 arakoon_installer.load()
                                 arakoon_installer.extend_cluster(new_ip=storagerouter.ip,
                                                                  base_dir=partition.folder,
-                                                                 plugins={AlbaController.NSM_PLUGIN: AlbaController.ALBA_VERSION_GET})
+                                                                 plugins={AlbaController.NSM_PLUGIN: version_str})
                             AlbaController._logger.debug('ALBA Backend {0} - Linking plugins'.format(alba_backend.name))
                             AlbaController._link_plugins(client=storagerouter_cache[storagerouter],
                                                          data_dir=partition.folder,

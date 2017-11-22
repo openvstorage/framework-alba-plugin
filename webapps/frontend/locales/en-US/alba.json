@@ -469,7 +469,8 @@
         },
         "update": {
             "downtime": {
-                "backend": "ALBA Backend"
+                "backend": "ALBA Backend",
+                "proxy": "Proxy service for vPool"
             },
             "prerequisites": {
                 "alba_node_unresponsive": "ASD manager client is unresponsive on node",
