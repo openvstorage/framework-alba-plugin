@@ -39,7 +39,7 @@ class PackageFactory(_PackageFactory):
         :return: A set of components
         :rtype: set
         """
-        return {_PackageFactory.COMP_FWK, _PackageFactory.COMP_ALBA}
+        return {cls.COMP_FWK, cls.COMP_ALBA}
 
     @classmethod
     def get_package_info(cls):
