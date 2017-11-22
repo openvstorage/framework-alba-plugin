@@ -17,7 +17,11 @@
 """
 Mocks Alba backends
 """
+
+import json
+import inspect
 from ovs.extensions.db.arakooninstaller import ArakoonClusterConfig
+from ovs.extensions.plugins.asdmanager import ASDManagerClient
 
 
 class VirtualAlbaBackend(object):
@@ -142,10 +146,53 @@ class VirtualAlbaBackend(object):
     def get_osd_claimed_by(*args, **kwargs):
         """
         Check whether an osd is claimed based on ip and port
-        :return: Alba id or None (only None in our mocked case)
+        :return: Alba id or None
         """
-        _ = args, kwargs
-        # Only called when the osd has not been claimed in the unit test
-        return None
+        _ = args
+        ip = kwargs.get('host')
+        port = kwargs.get('port')
+        if ip is None or port is None:
+            return None
+        return VirtualAlbaBackend.data.get('{0}:{1}'.format(ip, port))
 
 
+class ManagerClientMockup(ASDManagerClient):
+    """
+    ASD Manager Client used by the unittests
+    """
+    test_results = {}
+    test_exceptions = {}
+    maintenance_agents = {}
+
+    def __init__(self, node):
+        super(ManagerClientMockup, self).__init__(node=node)
+
+    @staticmethod
+    def _clean():
+        ManagerClientMockup.test_results = {}
+        ManagerClientMockup.test_exceptions = {}
+        ManagerClientMockup.maintenance_agents = {}
+
+    def _call(self, *args, **kwargs):
+        curframe = inspect.currentframe()
+        method_name = inspect.getouterframes(curframe, 2)[1][3]
+        exception = ManagerClientMockup.test_exceptions.get(self.node, {}).get(method_name)
+        if exception is not None:
+            raise exception
+        if method_name == 'add_maintenance_service':
+            service_name = kwargs['url'].split('/')[1]
+            read_preferences = json.loads(kwargs['data']['read_preferences'])
+            if self.node not in ManagerClientMockup.maintenance_agents:
+                ManagerClientMockup.maintenance_agents[self.node] = {}
+            ManagerClientMockup.maintenance_agents[self.node][service_name] = read_preferences
+        elif method_name == 'remove_maintenance_service':
+            service_name = kwargs['url'].split('/')[1]
+            ManagerClientMockup.maintenance_agents[self.node].pop(service_name, None)
+            if len(ManagerClientMockup.maintenance_agents[self.node]) == 0:
+                ManagerClientMockup.maintenance_agents.pop(self.node)
+        elif method_name == 'list_maintenance_services':
+            if self.node in ManagerClientMockup.maintenance_agents:
+                return {'services': ManagerClientMockup.maintenance_agents[self.node].keys()}
+            return {'services': []}
+
+        return ManagerClientMockup.test_results[self.node][method_name]
