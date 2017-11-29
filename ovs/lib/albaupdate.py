@@ -153,7 +153,7 @@ class AlbaUpdateController(object):
                         svc_component_info['services_stop_start'][10].append('ovs-watcher-framework')
                         svc_component_info['services_stop_start'][20].append('memcached')
                         cls._logger.debug('StorageRouter {0}: Added services "ovs-watcher-framework" and "memcached" to stop-start services'.format(client.ip))
-                        cls._logger.debug('StorageRouter {0}: Added GUI and API to down-times'.format(client.ip))
+                        cls._logger.debug('StorageRouter {0}: Added GUI and API to downtime'.format(client.ip))
 
                     elif package_name in [PackageFactory.PKG_ALBA, PackageFactory.PKG_ALBA_EE]:
                         # Retrieve proxy service information
@@ -175,7 +175,7 @@ class AlbaUpdateController(object):
                                 downtime = ['proxy', service.alba_proxy.storagedriver.vpool.name]
                                 if downtime not in svc_component_info['downtime']:
                                     svc_component_info['downtime'].append(downtime)
-                                    cls._logger.debug('StorageRouter {0}: Added ALBA proxy down-time for vPool {1} to down-times'.format(client.ip, service.alba_proxy.storagedriver.vpool.name))
+                                    cls._logger.debug('StorageRouter {0}: Added ALBA proxy downtime for vPool {1} to downtime'.format(client.ip, service.alba_proxy.storagedriver.vpool.name))
 
                     if package_name in [PackageFactory.PKG_ALBA, PackageFactory.PKG_ALBA_EE, PackageFactory.PKG_ARAKOON]:
                         for service_name, downtime in arakoon_info.iteritems():
@@ -189,7 +189,7 @@ class AlbaUpdateController(object):
                                     svc_component_info['packages'][package_name] = service_version
                                 if downtime is not None and downtime not in svc_component_info['downtime']:
                                     svc_component_info['downtime'].append(downtime)
-                                    cls._logger.debug('StorageRouter {0}: Added Arakoon cluster for ALBA Backend {1} to down-times'.format(client.ip, downtime[1]))
+                                    cls._logger.debug('StorageRouter {0}: Added Arakoon cluster for ALBA Backend {1} to downtime'.format(client.ip, downtime[1]))
 
                     # Extend the service information with the package information related to this repository for current StorageRouter
                     if package_name in pkg_component_info and package_name not in svc_component_info['packages']:
@@ -256,129 +256,47 @@ class AlbaUpdateController(object):
 
     @classmethod
     @add_hooks('update', 'merge_package_info')
-    def _merge_package_information_alba_plugin(cls):
+    def _merge_package_information_alba(cls):
         """
-        Retrieve the package information for the ALBA plugin, so the core code can merge it all together
-        :return: Package information for ALBA nodes
+        Retrieve the information stored in the 'package_information' property on the ALBA Node DAL object
+        This actually returns all information stored in the 'package_information' property including downtime info, prerequisites, services, ...
+        The caller of this function will strip out and merge the relevant package information
+        :return: Update information for all ALBA Nodes
         :rtype: dict
         """
-        # Ignore generic nodes
-        return dict((node.ip, node.package_information) for node in AlbaNodeList.get_albanodes() if node.type != AlbaNode.NODE_TYPES.GENERIC)
+        cls._logger.debug('Retrieving package information for ALBA plugin')
+        update_info = {}
+        for alba_node in AlbaNodeList.get_albanodes():
+            if alba_node.type == AlbaNode.NODE_TYPES.GENERIC:
+                continue
+            update_info[alba_node.ip] = alba_node.package_information
+        cls._logger.debug('Retrieved package information for ALBA plugin')
+        return update_info
 
     @classmethod
-    @add_hooks('update', 'information')
-    def _get_update_information_alba_plugin(cls, information):
+    @add_hooks('update', 'merge_downtime_info')
+    def _merge_downtime_information_alba(cls):
         """
         Called when the 'Update' button in the GUI is pressed
-        This call collects additional information about the packages which can be updated
-        Eg:
-            * Downtime for Arakoons
-            * Downtime for StorageDrivers
-            * Prerequisites that haven't been met
-            * Services which will be stopped during update
-            * Services which will be restarted after update
-        :param information: Information about all components for the entire cluster. This is passed in by the calling thread and thus also (pre-)populated by other threads
-        :type information: dict
-        :return: All the information collected
+        This call merges the downtime and prerequisite information present in the 'package_information' property for each ALBA Node DAL object
+        :return: Information about prerequisites not met and downtime issues
         :rtype: dict
         """
-        # Verify ALBA node responsiveness
-        alba_prerequisites = []
+        cls._logger.debug('Retrieving downtime and prerequisite information for ALBA plugin')
+        merged_update_info = {}
         for alba_node in AlbaNodeList.get_albanodes():
-            try:
-                alba_node.client.get_metadata()
-            except Exception:
-                alba_prerequisites.append(['alba_node_unresponsive', alba_node.ip])
-
-        default_entry = {'packages': {},
-                         'downtime': [],
-                         'prerequisites': [],
-                         'services_stop_start': {10: set(), 20: set()},  # Lowest get stopped first and started last
-                         'services_post_update': {10: set(), 20: set()}}  # Lowest get restarted first
-
-        #  Combine all information
-        for storagerouter in StorageRouterList.get_storagerouters():
-            # Retrieve ALBA proxy downtimes
-            alba_proxy_downtime = []
-            for service in storagerouter.services:
-                if service.type.name != ServiceType.SERVICE_TYPES.ALBA_PROXY or service.alba_proxy is None:
-                    continue
-                alba_proxy_downtime.append(['proxy', service.alba_proxy.storagedriver.vpool.name])
-
-            # Retrieve Arakoon downtimes
-            arakoon_downtime = []
-            for service in storagerouter.services:
-                if service.type.name not in [ServiceType.SERVICE_TYPES.ALBA_MGR, ServiceType.SERVICE_TYPES.NS_MGR]:
-                    continue
-
-                if service.type.name == ServiceType.SERVICE_TYPES.ALBA_MGR:
-                    cluster_name = service.abm_service.abm_cluster.name
-                else:
-                    cluster_name = service.nsm_service.nsm_cluster.name
-
-                arakoon_info = ArakoonInstaller.get_arakoon_update_info(cluster_name=cluster_name)
-                if arakoon_info['downtime'] is True and arakoon_info['internal'] is True:
-                    if service.type.name == ServiceType.SERVICE_TYPES.ALBA_MGR:
-                        arakoon_downtime.append(['backend', service.abm_service.abm_cluster.alba_backend.name])
-                    else:
-                        arakoon_downtime.append(['backend', service.nsm_service.nsm_cluster.alba_backend.name])
-
-            for component, package_names in PackageFactory.get_package_info()['names'].iteritems():
-                if component not in storagerouter.package_information:
-                    continue
-
-                if component not in information:
-                    information[component] = copy.deepcopy(default_entry)
-                component_info = information[component]
-
-                # Loop the actual update information
-                for package_name, package_info in storagerouter.package_information[component].iteritems():
-                    if package_name not in package_names:
-                        continue  # Only gather the information for the packages related to the current component
-
-                    # Add the services which require a restart to the post_update services
-                    for importance, services in package_info.pop('services_to_restart', {}).iteritems():
-                        if importance not in component_info['services_post_update']:
-                            component_info['services_post_update'][importance] = set()
-                        component_info['services_post_update'][importance].update(set(services))
-                    # Add the version information for current package
-                    if package_name not in component_info['packages']:
-                        component_info['packages'][package_name] = package_info
-
-                    # Add downtime and additional services for each package
-                    if package_name == PackageFactory.PKG_OVS_BACKEND:
-                        if ['gui', None] not in component_info['downtime']:
-                            component_info['downtime'].append(['gui', None])
-                        if ['api', None] not in component_info['downtime']:
-                            component_info['downtime'].append(['api', None])
-                        component_info['services_stop_start'][10].add('watcher-framework')
-                        component_info['services_stop_start'][20].add('memcached')
-                    elif package_name in [PackageFactory.PKG_ALBA, PackageFactory.PKG_ALBA_EE]:
-                        for downtime in alba_proxy_downtime:
-                            if downtime not in component_info['downtime']:
-                                component_info['downtime'].append(downtime)
-                        for downtime in arakoon_downtime:
-                            if downtime not in component_info['downtime']:
-                                component_info['downtime'].append(downtime)
-                    elif package_name == PackageFactory.PKG_ARAKOON:
-                        if component == PackageFactory.COMP_ALBA:
-                            for downtime in arakoon_downtime:
-                                if downtime not in component_info['downtime']:
-                                    component_info['downtime'].append(downtime)
-
-        for alba_node in AlbaNodeList.get_albanodes():
-            for component, all_package_info in alba_node.package_information.iteritems():
-                if component not in information:
-                    information[component] = copy.deepcopy(default_entry)
-                component_info = information[component]
-                if component == PackageFactory.COMP_ALBA:
-                    component_info['prerequisites'].extend(alba_prerequisites)
-
-                for package_name, package_info in all_package_info.iteritems():
-                    package_info.pop('services_to_restart', {})
-                    if package_name not in component_info['packages']:
-                        component_info['packages'][package_name] = package_info
-        return information
+            for component_name, component_info in alba_node.package_information.iteritems():
+                if component_name not in merged_update_info:
+                    merged_update_info[component_name] = {'downtime': [],
+                                                          'prerequisites': []}
+                for downtime in component_info['downtime']:
+                    if downtime not in merged_update_info[component_name]['downtime']:
+                        merged_update_info[component_name]['downtime'].append(downtime)
+                for prerequisite in component_info['prerequisites']:
+                    if prerequisite not in merged_update_info[component_name]['prerequisites']:
+                        merged_update_info[component_name]['prerequisites'].append(prerequisite)
+        cls._logger.debug('Retrieved downtime and prerequisite information for ALBA plugin: {0}'.format(merged_update_info))
+        return merged_update_info
 
     @classmethod
     @add_hooks('update', 'package_install_multi')
