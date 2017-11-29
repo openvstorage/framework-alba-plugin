@@ -48,80 +48,211 @@ class AlbaUpdateController(object):
     # HOOKS #
     #########
     @classmethod
-    @add_hooks('update', 'get_package_info_multi')
-    def _get_package_information_alba_plugin_storage_routers(cls, client, package_info):
+    @add_hooks('update', 'get_package_info_cluster')
+    def _get_package_information_cluster_alba(cls, client, package_info):
         """
-        Called by GenericController.refresh_package_information() every hour
-
         Retrieve information about the currently installed versions of the core packages
         Retrieve information about the versions to which each package can potentially be updated
-        If installed version is different from candidate version --> store this information in model
-
-        Additionally if installed version is identical to candidate version, check the services with a 'run' file
-        Verify whether the running version is identical to the candidate version
-        If different --> store this information in the model
-
-        Result: Every package with updates or which requires services to be restarted is stored in the model
+        This information is combined for all plugins and further used in the GenericController.refresh_package_information call
 
         :param client: Client on which to collect the version information
-        :type client: ovs_extensions.generic.sshclient.SSHClient
+        :type client: ovs.extensions.generic.sshclient.SSHClient
         :param package_info: Dictionary passed in by the thread calling this function
         :type package_info: dict
-        :return: Package information
-        :rtype: dict
+        :return: None
+        :rtype: NoneType
         """
+        cls._logger.info('StorageRouter {0}: Refreshing ALBA package information'.format(client.ip))
         try:
             if client.username != 'root':
                 raise RuntimeError('Only the "root" user can retrieve the package information')
 
-            binaries = cls._package_manager.get_binary_versions(client=client)
-            service_info = ServiceFactory.get_services_with_version_files(storagerouter=StorageRouterList.get_by_ip(ip=client.ip))
+            # This also validates whether the required packages have been installed and unexpected packages have not been installed
             packages_to_update = PackageFactory.get_packages_to_update(client=client)
-            services_to_update = ServiceFactory.get_services_to_update(client=client,
-                                                                       binaries=binaries,
-                                                                       service_info=service_info)
-
-            # First we merge in the services
-            ExtensionsToolbox.merge_dicts(dict1=package_info[client.ip],
-                                          dict2=services_to_update)
-            # Then the packages merge can potentially overrule the installed/candidate version, because these versions need priority over the service versions
-            ExtensionsToolbox.merge_dicts(dict1=package_info[client.ip],
-                                          dict2=packages_to_update)
+            cls._logger.debug('StorageRouter {0}: ALBA packages with updates: {1}'.format(client.ip, packages_to_update))
+            for component, pkg_info in packages_to_update.iteritems():
+                if component not in package_info[client.ip]:
+                    package_info[client.ip][component] = pkg_info
+                else:
+                    for package_name, package_versions in pkg_info.iteritems():
+                        package_info[client.ip][component][package_name] = package_versions
+            cls._logger.info('StorageRouter {0}: Refreshed ALBA package information'.format(client.ip))
         except Exception as ex:
-            AlbaUpdateController._logger.exception('Could not load update information')
+            cls._logger.exception('StorageRouter {0}: Refreshing ALBA package information failed'.format(client.ip))
             if 'errors' not in package_info[client.ip]:
                 package_info[client.ip]['errors'] = []
             package_info[client.ip]['errors'].append(ex)
-        return package_info
 
     @classmethod
-    @add_hooks('update', 'get_package_info_single')
-    def _get_package_information_alba_plugin_storage_nodes(cls, information):
+    @add_hooks('update', 'get_update_info_cluster')
+    def _get_update_information_cluster_alba(cls, client, update_info, package_info):
         """
-        Called by GenericController.refresh_package_information() every hour
+        In this function the services for each component / package combination are defined
+        This service information consists out of:
+            * Services to stop (before update) and start (after update of packages) -> 'services_stop_start'
+            * Services to restart after update (post-update logic)                  -> 'services_post_update'
+            * Down-times which will be caused due to service restarts               -> 'downtime'
+            * Prerequisites that have not been met                                  -> 'prerequisites'
 
-        Retrieve and store the package information for all AlbaNodes
+        Verify whether all relevant services have the correct binary active
+        Whether a service has the correct binary version in use, we use the ServiceFactory.verify_restart_required functionality
+        When a service has an older binary version running, we add this information to the 'update_info'
+
+        This combined information is then stored in the 'package_information' of the StorageRouter DAL object
+
+        :param client: SSHClient on which to retrieve the service information required for an update
+        :type client: ovs.extensions.generic.sshclient.SSHClient
+        :param update_info: Dictionary passed in by the thread calling this function used to store all update information
+        :type update_info: dict
+        :param package_info: Dictionary containing the components and packages which have an update available for current SSHClient
+        :type package_info: dict
         :return: None
         :rtype: NoneType
         """
+        cls._logger.info('StorageRouter {0}: Refreshing ALBA update information'.format(client.ip))
+        try:
+            binaries = cls._package_manager.get_binary_versions(client=client)
+            storagerouter = StorageRouterList.get_by_ip(ip=client.ip)
+            cls._logger.debug('StorageRouter {0}: Binary versions: {1}'.format(client.ip, binaries))
+
+            # Retrieve Arakoon information
+            arakoon_info = {}
+            for service in storagerouter.services:
+                if service.type.name not in [ServiceType.SERVICE_TYPES.ALBA_MGR, ServiceType.SERVICE_TYPES.NS_MGR]:
+                    continue
+
+                if service.type.name == ServiceType.SERVICE_TYPES.ALBA_MGR:
+                    cluster_name = service.abm_service.abm_cluster.name
+                    alba_backend_name = service.abm_service.abm_cluster.alba_backend.name
+                else:
+                    cluster_name = service.nsm_service.nsm_cluster.name
+                    alba_backend_name = service.nsm_service.nsm_cluster.alba_backend.name
+
+                cls._logger.debug('StorageRouter {0}: Retrieving update information for Arakoon cluster {1}'.format(client.ip, cluster_name))
+                arakoon_update_info = ArakoonInstaller.get_arakoon_update_info(cluster_name=cluster_name)
+                cls._logger.debug('StorageRouter {0}: Arakoon update information for cluster {1}: {2}'.format(client.ip, cluster_name, arakoon_update_info))
+                if arakoon_update_info['internal'] is True:
+                    arakoon_info[arakoon_update_info['service_name']] = ['backend', alba_backend_name] if arakoon_update_info['downtime'] is True else None
+
+            for component, package_names in PackageFactory.get_package_info()['names'].iteritems():
+                package_names = sorted(package_names)
+                cls._logger.debug('StorageRouter {0}: Validating component {1} and related packages: {2}'.format(client.ip, component, package_names))
+
+                if component not in update_info[client.ip]:
+                    update_info[client.ip][component] = copy.deepcopy(ServiceFactory.DEFAULT_UPDATE_ENTRY)
+                svc_component_info = update_info[client.ip][component]
+                pkg_component_info = package_info.get(component, {})
+
+                for package_name in package_names:
+                    cls._logger.debug('StorageRouter {0}: Validating ALBA plugin related package {1}'.format(client.ip, package_name))
+                    if package_name == PackageFactory.PKG_OVS_BACKEND and package_name in pkg_component_info:
+                        if ['gui', None] not in svc_component_info['downtime']:
+                            svc_component_info['downtime'].append(['gui', None])
+                        if ['api', None] not in svc_component_info['downtime']:
+                            svc_component_info['downtime'].append(['api', None])
+                        svc_component_info['services_stop_start'][10].append('ovs-watcher-framework')
+                        svc_component_info['services_stop_start'][20].append('memcached')
+                        cls._logger.debug('StorageRouter {0}: Added services "ovs-watcher-framework" and "memcached" to stop-start services'.format(client.ip))
+                        cls._logger.debug('StorageRouter {0}: Added GUI and API to down-times'.format(client.ip))
+
+                    elif package_name in [PackageFactory.PKG_ALBA, PackageFactory.PKG_ALBA_EE]:
+                        # Retrieve proxy service information
+                        for service in storagerouter.services:
+                            if service.type.name != ServiceType.SERVICE_TYPES.ALBA_PROXY or service.alba_proxy is None:
+                                continue
+
+                            service_version = None
+                            if package_name not in pkg_component_info:
+                                service_version = ServiceFactory.verify_restart_required(client=client, service_name=service.name, binary_versions=binaries)
+
+                            cls._logger.debug('StorageRouter {0}: Service {1} is running version {2}'.format(client.ip, service.name, service_version))
+                            if package_name in pkg_component_info or service_version is not None:
+                                if service_version is not None and package_name not in svc_component_info['packages']:
+                                    svc_component_info['packages'][package_name] = service_version
+                                svc_component_info['services_post_update'][10].append('ovs-{0}'.format(service.name))
+                                cls._logger.debug('StorageRouter {0}: Added service {1} to post-update services'.format(client.ip, 'ovs-{0}'.format(service.name)))
+
+                                downtime = ['proxy', service.alba_proxy.storagedriver.vpool.name]
+                                if downtime not in svc_component_info['downtime']:
+                                    svc_component_info['downtime'].append(downtime)
+                                    cls._logger.debug('StorageRouter {0}: Added ALBA proxy down-time for vPool {1} to down-times'.format(client.ip, service.alba_proxy.storagedriver.vpool.name))
+
+                    if package_name in [PackageFactory.PKG_ALBA, PackageFactory.PKG_ALBA_EE, PackageFactory.PKG_ARAKOON]:
+                        for service_name, downtime in arakoon_info.iteritems():
+                            service_version = ServiceFactory.verify_restart_required(client=client, service_name=service_name, binary_versions=binaries)
+                            cls._logger.debug('StorageRouter {0}: Arakoon service {1} information: {2}'.format(client.ip, service_name, service_version))
+
+                            if package_name in pkg_component_info or service_version is not None:
+                                svc_component_info['services_post_update'][10].append('ovs-{0}'.format(service_name))
+                                cls._logger.debug('StorageRouter {0}: Added service {1} to post-update services'.format(client.ip, 'ovs-{0}'.format(service_name)))
+                                if service_version is not None and package_name not in svc_component_info['packages']:
+                                    svc_component_info['packages'][package_name] = service_version
+                                if downtime is not None and downtime not in svc_component_info['downtime']:
+                                    svc_component_info['downtime'].append(downtime)
+                                    cls._logger.debug('StorageRouter {0}: Added Arakoon cluster for ALBA Backend {1} to down-times'.format(client.ip, downtime[1]))
+
+                    # Extend the service information with the package information related to this repository for current StorageRouter
+                    if package_name in pkg_component_info and package_name not in svc_component_info['packages']:
+                        cls._logger.debug('StorageRouter {0}: Adding package {1} because it has an update available'.format(client.ip, package_name))
+                        svc_component_info['packages'][package_name] = pkg_component_info[package_name]
+
+                if component == PackageFactory.COMP_ALBA:
+                    for alba_node in AlbaNodeList.get_albanodes():
+                        try:
+                            alba_node.client.get_metadata()
+                        except:
+                            svc_component_info['prerequisites'].append(['alba_node_unresponsive', alba_node.ip])
+                            cls._logger.debug('StorageRouter {0}: Added unresponsive ALBA Node {1} to prerequisites'.format(client.ip, alba_node.ip))
+            cls._logger.info('StorageRouter {0}: Refreshed ALBA update information'.format(client.ip))
+        except Exception as ex:
+            cls._logger.exception('StorageRouter {0}: Refreshing ALBA update information failed'.format(client.ip))
+            if 'errors' not in update_info[client.ip]:
+                update_info[client.ip]['errors'] = []
+            update_info[client.ip]['errors'].append(ex)
+
+    @classmethod
+    @add_hooks('update', 'get_update_info_plugin')
+    def _get_update_information_plugin_alba(cls, error_information):
+        """
+        Called by GenericController.refresh_package_information() every hour
+        Retrieve and store the update information for all AlbaNodes
+        :param error_information: Dict passed in by the thread to collect all errors
+        :type error_information: dict
+        :return: None
+        :rtype: NoneType
+        """
+        cls._logger.info('Refreshing ALBA plugin update information')
+
+        error_count = 0
         for alba_node in AlbaNodeList.get_albanodes():
             if alba_node.type == AlbaNode.NODE_TYPES.GENERIC:
                 continue
 
-            if alba_node.ip not in information:
-                information[alba_node.ip] = {'errors': []}
-            elif 'errors' not in information[alba_node.ip]:
-                information[alba_node.ip]['errors'] = []
+            cls._logger.debug('ALBA Node {0}: Refreshing update information'.format(alba_node.ip))
+            if alba_node.ip not in error_information:
+                error_information[alba_node.ip] = []
 
             try:
-                alba_node.package_information = alba_node.client.get_package_information()
+                update_info = alba_node.client.get_package_information()
+                update_info_copy = copy.deepcopy(update_info)
+                cls._logger.debug('ALBA Node {0}: Update information: {1}'.format(alba_node.ip, update_info))
+                for component, info in update_info_copy.iteritems():
+                    if len(info['packages']) == 0:
+                        update_info.pop(component)
+                cls._logger.debug('ALBA Node {0}: Storing update information: {1}'.format(alba_node.ip, update_info))
+                alba_node.package_information = update_info
                 alba_node.save()
+                cls._logger.debug('ALBA Node {0}: Refreshed update information')
             except (requests.ConnectionError, requests.Timeout):
-                cls._logger.warning('Update information for Alba Node with IP {0} could not be updated'.format(alba_node.ip))
-                information[alba_node.ip]['errors'].append('Connection timed out or connection refused on {0}'.format(alba_node.ip))
+                error_count += 1
+                cls._logger.warning('ALBA Node {0}: Update information could not be updated'.format(alba_node.ip))
+                error_information[alba_node.ip].append('Connection timed out or connection refused on {0}'.format(alba_node.ip))
             except Exception as ex:
-                cls._logger.exception('Update information for Alba Node with IP {0} could not be updated'.format(alba_node.ip))
-                information[alba_node.ip]['errors'].append(ex)
+                error_count += 1
+                cls._logger.exception('ALBA Node {0}: Update information could not be updated'.format(alba_node.ip))
+                error_information[alba_node.ip].append(ex)
+        if error_count == 0:
+            cls._logger.info('Refreshed ALBA plugin update information')
 
     @classmethod
     @add_hooks('update', 'merge_package_info')
@@ -185,7 +316,7 @@ class AlbaUpdateController(object):
                 else:
                     cluster_name = service.nsm_service.nsm_cluster.name
 
-                arakoon_info = ArakoonInstaller.get_arakoon_update_info(internal_cluster_name=cluster_name)
+                arakoon_info = ArakoonInstaller.get_arakoon_update_info(cluster_name=cluster_name)
                 if arakoon_info['downtime'] is True and arakoon_info['internal'] is True:
                     if service.type.name == ServiceType.SERVICE_TYPES.ALBA_MGR:
                         arakoon_downtime.append(['backend', service.abm_service.abm_cluster.alba_backend.name])
@@ -357,7 +488,7 @@ class AlbaUpdateController(object):
         for service_name in sorted(arakoon_services):
             try:
                 cluster_name = ArakoonInstaller.get_cluster_name(ExtensionsToolbox.remove_prefix(service_name, 'arakoon-'))
-                arakoon_metadata = ArakoonInstaller.get_arakoon_update_info(actual_cluster_name=cluster_name)
+                arakoon_metadata = ArakoonInstaller.get_arakoon_update_info(cluster_name=cluster_name)
                 if arakoon_metadata['internal'] is True:
                     arakoon_installer = ArakoonInstaller(cluster_name=cluster_name)
                     arakoon_installer.load()
