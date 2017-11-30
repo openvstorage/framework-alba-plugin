@@ -45,7 +45,7 @@ class PackageFactory(_PackageFactory):
     def get_package_info(cls):
         """
         Retrieve the package information related to the framework-alba-plugin
-        This must return a dictionary with keys: 'names', 'edition', 'binaries', 'blocking', 'version_commands' and 'mutually_exclusive'
+        This must return a dictionary with keys: 'names', 'edition', 'binaries', 'version_commands' and 'mutually_exclusive'
             Names: These are the names of the packages split up per component related to this repository (framework-alba-plugin)
                 * Framework
                     * PKG_OVS_BACKEND    --> Code itself for the plugin ... duh
@@ -69,7 +69,6 @@ class PackageFactory(_PackageFactory):
                               cls.COMP_ALBA: {cls.PKG_ALBA, cls.PKG_ARAKOON}},
                     'edition': edition,
                     'binaries': {cls.COMP_ALBA: {cls.PKG_ALBA, cls.PKG_ARAKOON}},
-                    'blocking': {cls.PKG_OVS_BACKEND, cls.PKG_OVS_EXTENSIONS},
                     'version_commands': {cls.PKG_ALBA: cls.VERSION_CMD_ALBA,
                                          cls.PKG_ARAKOON: cls.VERSION_CMD_ARAKOON},
                     'mutually_exclusive': {cls.PKG_ALBA_EE}}
@@ -78,7 +77,6 @@ class PackageFactory(_PackageFactory):
                               cls.COMP_ALBA: {cls.PKG_ALBA_EE, cls.PKG_ARAKOON}},
                     'edition': edition,
                     'binaries': {cls.COMP_ALBA: {cls.PKG_ALBA_EE, cls.PKG_ARAKOON}},
-                    'blocking': {cls.PKG_OVS_BACKEND, cls.PKG_OVS_EXTENSIONS},
                     'version_commands': {cls.PKG_ALBA_EE: cls.VERSION_CMD_ALBA,
                                          cls.PKG_ARAKOON: cls.VERSION_CMD_ARAKOON},
                     'mutually_exclusive': {cls.PKG_ALBA}}

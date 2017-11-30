@@ -246,12 +246,19 @@ class ASDManagerClient(object):
     ############
     # SERVICES #
     ############
-    def restart_services(self):
+    def restart_services(self, service_names=None):
         """
-        Restart the alba-asd-<ID> services
+        Restart the specified services (alba-asd and maintenance services)
+        :param service_names: Names of the services to restart
+        :type service_names: list[str]
         :return: None
+        :rtype: NoneType
         """
-        return self._call(requests.post, 'update/restart_services')
+        if service_names is None:
+            service_names = []
+        return self._call(method=requests.post,
+                          url='update/restart_services',
+                          data={'service_names': json.dumps(service_names)})
 
     def add_maintenance_service(self, name, alba_backend_guid, abm_name, read_preferences):
         """
