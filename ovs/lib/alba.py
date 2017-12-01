@@ -505,12 +505,10 @@ class AlbaController(object):
             osd.osd_id = osd_id
             osd.domain = domain
             osd.slot_id = requested_osd_info['slot_id']
-            AlbaController._logger.debug('_add_generic_osds:  slot_id: {}'.format(osd.slot_id))
+            osd.osd_type = getattr(AlbaOSD.OSD_TYPES, requested_osd_info['osd_type'])
             osd.osd_type = getattr(AlbaOSD.OSD_TYPES, requested_osd_info['osd_type'])
             osd.metadata = metadata
             osd.alba_node = alba_node
-            AlbaController._logger.debug('_add_generic_osds:  albanode id: {}'.format(osd.alba_node.node_id))
-
             osd.alba_backend = alba_backend
             osd.save()
 
