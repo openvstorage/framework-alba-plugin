@@ -75,7 +75,7 @@ class ASDManagerClient(object):
         response = method(**kwargs)
         if response.status_code == 404:
             msg = 'URL not found: {0}'.format(kwargs['url'])
-            self._logger.error('{0}. Reponse: {1}'.format(msg, response))
+            self._logger.error('{0}. Response: {1}'.format(msg, response))
             raise NotFoundError(msg)
         try:
             data = response.json()

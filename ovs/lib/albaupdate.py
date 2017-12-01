@@ -238,14 +238,6 @@ class AlbaUpdateController(object):
                 for component, info in update_info_copy.iteritems():
                     if len(info['packages']) == 0:
                         update_info.pop(component)
-                    else:
-                        # Make sure that the restart order key is an integer (converted by API call)
-                        for restart_order in info['services_stop_start']:
-                            if not isinstance(restart_order, int):
-                                update_info[component]['services_stop_start'][int(restart_order)] = info['services_stop_start'].pop(restart_order)
-                        for restart_order in info['services_post_update']:
-                            if not isinstance(restart_order, int):
-                                update_info[component]['services_post_update'][int(restart_order)] = info['services_post_update'].pop(restart_order)
 
                 cls._logger.debug('ALBA Node {0}: Storing update information: {1}'.format(alba_node.ip, update_info))
                 alba_node.package_information = update_info
@@ -391,8 +383,9 @@ class AlbaUpdateController(object):
                     alba_node.discard()
                     component_info = alba_node.package_information.get(component, {})
 
-                for restart_order in sorted(component_info.get('services_post_update', {})):
-                    for service_name in component_info['services_post_update'][restart_order]:
+                services_post_update = dict((int(key), value) for key, value in component_info.get('services_post_update', {}).iteritems())
+                for restart_order in sorted(services_post_update):
+                    for service_name in sorted(services_post_update[restart_order]):
                         if service_name not in services_to_restart:
                             services_to_restart.append(service_name)
 
