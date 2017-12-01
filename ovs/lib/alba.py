@@ -506,7 +506,6 @@ class AlbaController(object):
             osd.domain = domain
             osd.slot_id = requested_osd_info['slot_id']
             osd.osd_type = getattr(AlbaOSD.OSD_TYPES, requested_osd_info['osd_type'])
-            osd.osd_type = getattr(AlbaOSD.OSD_TYPES, requested_osd_info['osd_type'])
             osd.metadata = metadata
             osd.alba_node = alba_node
             osd.alba_backend = alba_backend
