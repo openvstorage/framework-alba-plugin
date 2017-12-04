@@ -194,7 +194,6 @@ class AlbaController(object):
                 osd_list.append(osd)
             except RuntimeError as ex:
                 validation_reasons.append(str(ex))
-
         # Validate ALBA Backend properly configured
         alba_backend = AlbaBackend(alba_backend_guid)
         if alba_backend.abm_cluster is None:
@@ -383,6 +382,12 @@ class AlbaController(object):
         """
         # Make mapping port <-> ips for each IP:port combination for all OSDs specified
         ip_port_osd_info_map = {}
+        used_ip_ports = []
+
+        for osd in AlbaOSDList.get_albaosds():
+            for ip in osd.ips:
+                used_ip_ports.append('{0}:{1}'.format(ip, osd.port))
+
         for requested_osd_info in osds:
             # Update osd_info with some additional information
             requested_osd_info['osd_id'] = None
@@ -392,7 +397,7 @@ class AlbaController(object):
 
             # Dict keys 'ips', 'port' have been verified by public method 'add_osds' at this point
             for ip_port in requested_osd_info['all_ip_ports']:
-                if ip_port in ip_port_osd_info_map:
+                if ip_port in ip_port_osd_info_map or ip_port in used_ip_ports:
                     raise ValueError('Duplicate IP:port combination requested when trying to add and / or claim OSDs: {0}'.format(ip_port))
                 ip_port_osd_info_map[ip_port] = requested_osd_info
 
@@ -1766,6 +1771,7 @@ class AlbaController(object):
         :return: None
         :rtype: NoneType
         """
+
         def add_service(_alba_backend, _alba_node, _reason):
             # noinspection PyTypeChecker
             unique_hash = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(16))
@@ -1824,7 +1830,6 @@ class AlbaController(object):
             for ab in allowed_nodes_per_backend:
                 sorted(allowed_nodes_per_backend[ab], key=lambda _node: load_per_node[_node])
             return allowed_nodes_per_backend
-
 
         AlbaController._logger.info('Loading maintenance information')
         alba_nodes = sorted(AlbaNodeList.get_albanodes(), key=lambda an: ExtensionsToolbox.advanced_sort(element=an.ip, separator='.'))
