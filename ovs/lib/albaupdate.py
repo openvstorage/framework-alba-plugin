@@ -397,12 +397,14 @@ class AlbaUpdateController(object):
         AlbaController.checkup_maintenance_agents.delay()
 
         # Run post-update migrations
-        try:
-            # noinspection PyUnresolvedReferences
-            from ovs.lib.albamigration import AlbaMigrationController
-            AlbaMigrationController.migrate.delay()
-            AlbaMigrationController.migrate_sdm.delay()
-        except ImportError:
-            cls._logger.error('Could not import AlbaMigrationController')
-
+        for method_name in ['migrate', 'migrate_sdm']:
+            try:
+                # noinspection PyUnresolvedReferences
+                from ovs.lib.albamigration import AlbaMigrationController
+                cls._logger.debug('Executing migration code: AlbaMigrationController.{0}()'.format(method_name))
+                getattr(AlbaMigrationController, method_name)()
+            except ImportError:
+                cls._logger.error('Could not import AlbaMigrationController')
+            except Exception:
+                cls._logger.exception('Migration code for the ALBA plugin failed to be executed')
         cls._logger.info('Executed hook {0}'.format(method_name))

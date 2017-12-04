@@ -56,17 +56,9 @@ class AlbaMigrator(object):
             try:
                 from ovs.dal.lists.albabackendlist import AlbaBackendList
                 from ovs.extensions.generic.configuration import Configuration, NotFoundException
-                from ovs.extensions.generic.sshclient import SSHClient
-                from ovs.extensions.generic.system import System
-                from ovs.extensions.packages.albapackagefactory import PackageFactory
-                from ovs.extensions.services.albaservicefactory import ServiceFactory
                 from ovs.lib.alba import AlbaController
 
                 AlbaMigrator._logger.info('Starting migrations...')
-
-                local_machine_id = System.get_my_machine_id()
-                local_ip = Configuration.get('/ovs/framework/hosts/{0}/ip'.format(local_machine_id))
-                local_client = SSHClient(endpoint=local_ip, username='root')
 
                 # This could be handled by out of band migrations, but since post-update restarts the services,
                 # putting this in the out of band migration code would result in the services being restarted before
@@ -90,17 +82,6 @@ class AlbaMigrator(object):
                         current_logging = {'type': 'console', 'level': 'info'}
 
                     Configuration.set(key='/ovs/alba/logging', value=current_logging)
-
-                # Storing actual package name in version files
-                alba_pkg_name, _ = PackageFactory.get_package_and_version_cmd_for(component=PackageFactory.COMP_ALBA)
-                for file_name in local_client.file_list(directory=ServiceFactory.RUN_FILE_DIR):
-                    if not file_name.endswith('.version'):
-                        continue
-                    file_path = '{0}/{1}'.format(ServiceFactory.RUN_FILE_DIR, file_name)
-                    contents = local_client.file_read(filename=file_path)
-                    if alba_pkg_name == PackageFactory.PKG_ALBA_EE and '{0}='.format(PackageFactory.PKG_ALBA) in contents:
-                        contents = contents.replace(PackageFactory.PKG_ALBA, PackageFactory.PKG_ALBA_EE)
-                        local_client.file_write(filename=file_path, contents=contents)
             except:
                 AlbaMigrator._logger.exception('Error occurred while executing the ALBA migration code')
                 # Don't update migration version with latest version, resulting in next migration trying again to execute this code
