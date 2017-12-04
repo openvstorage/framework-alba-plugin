@@ -30,7 +30,7 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.albaosdlist import AlbaOSDList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
-from ovs_extensions.generic.exceptions import InvalidCredentialsError
+from ovs_extensions.generic.exceptions import InvalidCredentialsError, NotFoundError
 from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.lib.alba import AlbaController
@@ -108,9 +108,12 @@ class AlbaNodeController(object):
                     AlbaNodeController.remove_osd(node_guid=node.guid, osd_id=osd_id, expected_safety=None)
                 AlbaNodeController.remove_slot(node_guid=node.guid, slot_id=slot_id)
 
+            name_guid_map = dict((alba_backend.name, alba_backend.guid) for alba_backend in AlbaBackendList.get_albabackends())
             try:
-                for service_name in node.client.list_maintenance_services():
-                    node.client.remove_maintenance_service(service_name)
+                # This loop will delete the services AND their configuration from the configuration management
+                node.invalidate_dynamics('maintenance_services')
+                for alba_backend_name, service_info in node.maintenance_services.iteritems():
+                    node.client.remove_maintenance_service(name=service_info[1], alba_backend_guid=name_guid_map.get(alba_backend_name))
             except (requests.ConnectionError, requests.Timeout):
                 AlbaNodeController._logger.exception('Could not connect to node {0} to retrieve the maintenance services'.format(node.guid))
             except InvalidCredentialsError:
@@ -149,15 +152,7 @@ class AlbaNodeController(object):
         alba_node = AlbaNode(alba_node_guid)
         if alba_node.type != AlbaNode.NODE_TYPES.GENERIC:
             raise RuntimeError('An empty slot can only be generated for a generic node')
-        # Add prefix of 2 digits based on highest prefix of the osds for sorting purposes
-        highest_prefix_count = 0
-        for osd in alba_node.osds:
-            prefix = osd.slot_id[0:2]
-            if int(prefix) > highest_prefix_count:
-                highest_prefix_count = int(prefix)
-        prefix = '{0:02d}'.format(highest_prefix_count + 1)
-        slot_id = '{0}{1}'.format(prefix, str(uuid.uuid4())[2:])
-        return {slot_id: {'status': alba_node.SLOT_STATUSES.EMPTY}}
+        return {str(uuid.uuid4()): {'status': alba_node.SLOT_STATUSES.EMPTY}}
 
     @staticmethod
     @ovs_task(name='albanode.fill_slots')
@@ -303,7 +298,7 @@ class AlbaNodeController(object):
         return [osd.slot_id]
 
     @staticmethod
-    @ovs_task(name='albanode.reset_asd')
+    @ovs_task(name='albanode.reset_osd')
     def reset_osd(node_guid, osd_id, expected_safety):
         """
         Removes and re-adds an OSD to a Disk
@@ -328,6 +323,12 @@ class AlbaNodeController(object):
             node.client.fill_slot(osd.slot_id, fill_slot_extra)
         except (requests.ConnectionError, requests.Timeout):
             AlbaNodeController._logger.warning('Could not connect to node {0} to (re)configure ASD'.format(node.guid))
+        except NotFoundError:
+            # Can occur when the slot id could not be matched with an existing slot on the alba-asd manager
+            # This error can be anticipated when the status of the osd would be 'missing' in the nodes stack but that would be too much overhead
+            message = 'Could not add a new OSD. The requested slot {0} could not be found'.format(osd.slot_id)
+            AlbaNodeController._logger.warning(message)
+            raise RuntimeError('{0}. Slot {1} might no longer be present on Alba node {2}'.format(message, osd.slot_id, node_guid))
         node.invalidate_dynamics('stack')
 
     @staticmethod

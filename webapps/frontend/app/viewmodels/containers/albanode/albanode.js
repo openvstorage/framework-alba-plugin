@@ -172,7 +172,12 @@ define([
                 self.generateEmptySlot();
             }
             self.slots.sort(function(a, b) {
-                return a.slotID() < b.slotID() ? -1 : 1
+                if ((a.status() === 'empty' && b.status() === 'empty') || (a.status() !== 'empty' && b.status() !== 'empty')) {
+                    return a.slotID() < b.slotID() ? -1 : 1;
+                } else if (a.status() === 'empty') {  // Move empty status last
+                    return 1;
+                }
+                return -1;
             });
             self.slotsLoading(false);
             self.loaded(true);

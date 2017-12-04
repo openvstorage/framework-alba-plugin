@@ -46,9 +46,11 @@ The [OVS commandline](https://openvstorage.gitbooks.io/administration/content/Ad
 
 ##### Specific Backend related keys
 ```
-/ovs/alba/backends/<guid>/maintenance/config = {"albamgr_cfg_url": "<some_path_to>/ovs/arakoon/<backend-name>-abm/config",
-                                                "log_level": "info"}
-/ovs/alba/backends/<guid>/maintenance/nr_of_agents = "$Amount of maintenance agents deployed for this backend"  (Defaults to amount of ALBA nodes)
+/ovs/alba/backends/<guid>/maintenance/<service_name>/config = {"albamgr_cfg_url": "<some_path_to>/ovs/arakoon/<backend-name>-abm/config",
+                                                               "log_level": "info",
+                                                               "multicast_discover_osds": false,
+                                                               "read_preference": ["D1iMWARQNrdqcGqd"]}
+/ovs/alba/backends/<guid>/maintenance/nr_of_agents = "$Amount of maintenance agents deployed for this backend"  (Defaults to amount 3)
 ```
 
 ### Changing the schedule for the ALBA backend verification process

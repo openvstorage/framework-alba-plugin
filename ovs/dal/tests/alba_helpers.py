@@ -30,7 +30,7 @@ from ovs.dal.hybrids.service import Service
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.tests.helpers import DalHelper
-from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
+from ovs.extensions.plugins.tests.alba_mockups import ManagerClientMockup, VirtualAlbaBackend
 from ovs.lib.alba import AlbaController
 
 
@@ -48,6 +48,8 @@ class AlbaDalHelper(object):
         DalHelper.setup(**kwargs)
 
         # noinspection PyProtectedMember
+        ManagerClientMockup._clean()
+        # noinspection PyProtectedMember
         VirtualAlbaBackend._clean()
         # noinspection PyProtectedMember
         AlbaController._add_base_configuration()
@@ -60,6 +62,8 @@ class AlbaDalHelper(object):
         :type kwargs: dict
         """
         DalHelper.teardown(**kwargs)
+        # noinspection PyProtectedMember
+        ManagerClientMockup._clean()
         # noinspection PyProtectedMember
         VirtualAlbaBackend._clean()
 
@@ -104,7 +108,7 @@ class AlbaDalHelper(object):
                 service_type.name = 'NamespaceManager'
                 service_type.save()
             service_types['NamespaceManager'] = service_type
-        for ab_id in structure.get('alba_backends', ()):
+        for ab_id, scaling in structure.get('alba_backends', ()):
             if ab_id not in alba_backends:
                 backend = Backend()
                 backend.name = 'backend_{0}'.format(ab_id)
@@ -112,7 +116,7 @@ class AlbaDalHelper(object):
                 backend.save()
                 alba_backend = AlbaBackend()
                 alba_backend.backend = backend
-                alba_backend.scaling = AlbaBackend.SCALINGS.LOCAL
+                alba_backend.scaling = getattr(AlbaBackend.SCALINGS, scaling)
                 alba_backend.alba_id = str(ab_id)
                 alba_backend.save()
                 alba_backends[ab_id] = alba_backend
@@ -175,6 +179,10 @@ class AlbaDalHelper(object):
                 alba_node.node_id = 'node_{0}'.format(an_id)
                 alba_node.save()
                 alba_nodes[an_id] = alba_node
+                if alba_node in ManagerClientMockup.test_results:
+                    ManagerClientMockup.test_results[alba_node].update({'get_metadata': {'_version': 3}})
+                else:
+                    ManagerClientMockup.test_results[alba_node] = {'get_metadata': {'_version': 3}}
         for ao_id, ab_id, an_id, slot_id in structure.get('alba_osds', ()):
             if ao_id not in alba_osds:
                 osd = AlbaOSD()

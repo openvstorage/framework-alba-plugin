@@ -17,6 +17,8 @@
 """
 AlbaNode module
 """
+
+import os
 import re
 import requests
 from ovs.dal.dataobject import DataObject
@@ -28,6 +30,7 @@ from ovs.extensions.generic.logger import Logger
 from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 from ovs.extensions.plugins.asdmanager import ASDManagerClient
 from ovs.extensions.plugins.genericmanager import GenericManagerClient
+from ovs.extensions.plugins.tests.alba_mockups import ManagerClientMockup
 
 
 class AlbaNode(DataObject):
@@ -69,7 +72,7 @@ class AlbaNode(DataObject):
                   Dynamic('node_metadata', dict, 3600),
                   Dynamic('supported_osd_types', list, 3600),
                   Dynamic('read_only_mode', bool, 60),
-                  Dynamic('local_summary', dict, 3600)]
+                  Dynamic('local_summary', dict, 60)]
 
     def __init__(self, *args, **kwargs):
         """
@@ -78,9 +81,11 @@ class AlbaNode(DataObject):
         DataObject.__init__(self, *args, **kwargs)
         self._frozen = False
         self.client = None
-        if self.type == AlbaNode.NODE_TYPES.ASD:
+        if os.environ.get('RUNNING_UNITTESTS') == 'True':
+            self.client = ManagerClientMockup(self)
+        elif self.type == AlbaNode.NODE_TYPES.ASD:
             self.client = ASDManagerClient(self)
-        if self.type == AlbaNode.NODE_TYPES.GENERIC:
+        elif self.type == AlbaNode.NODE_TYPES.GENERIC:
             self.client = GenericManagerClient(self)
         self._frozen = True
 

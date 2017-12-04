@@ -108,7 +108,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
             if node.node_id not in model_node_ids and node.node_id not in found_node_ids:
                 nodes[node.guid] = node
                 found_node_ids.append(node.node_id)
-        node_list = DataList(AlbaNode, {})
+        node_list = DataList(AlbaNode)
         node_list._executed = True
         node_list._guids = nodes.keys()
         node_list._objects = nodes

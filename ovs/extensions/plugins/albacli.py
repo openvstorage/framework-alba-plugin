@@ -52,7 +52,7 @@ class AlbaCLI(object):
     Wrapper for 'alba' command line interface
     """
     @staticmethod
-    def run(command, config=None, named_params=None, extra_params=None, client=None, debug=False):
+    def run(command, config=None, named_params=None, extra_params=None, client=None, debug=False, to_json=True):
         """
         Executes a command on ALBA
         When --to-json is NOT passed:
@@ -76,6 +76,8 @@ class AlbaCLI(object):
         :type client: ovs_extensions.generic.sshclient.SSHClient
         :param debug: Log additional output
         :type debug: bool
+        :param to_json: Request a JSON response from Alba
+        :type to_json: bool
         :return: The output of the command
         :rtype: dict
         """
@@ -94,7 +96,11 @@ class AlbaCLI(object):
 
         debug_log = []
         try:
-            cmd_list = ['/usr/bin/alba', command, '--to-json']
+            if to_json is True:
+                extra_options = ["--to-json"]
+            else:
+                extra_options = []
+            cmd_list = ['/usr/bin/alba', command] + extra_options
             if config is not None:
                 cmd_list.append('--config={0}'.format(config))
             for key, value in named_params.iteritems():
@@ -129,13 +135,16 @@ class AlbaCLI(object):
                         raise CalledProcessError(exit_code, cmd_string, output)
                 else:
                     if debug is True:
-                        output, stderr = client.run(cmd_list, return_stderr=True)
+                        output, stderr = client.run(cmd_list, debug=True, return_stderr=True)
                         debug_log.append('stderr: {0}'.format(stderr))
                     else:
                         output = client.run(cmd_list).strip()
                     debug_log.append('stdout: {0}'.format(output))
 
-                output = json.loads(output)
+                if to_json is True:
+                    output = json.loads(output)
+                else:
+                    return output
                 duration = time.time() - start
                 if duration > 0.5:
                     logger.warning('AlbaCLI call {0} took {1}s'.format(command, round(duration, 2)))
