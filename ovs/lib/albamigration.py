@@ -44,7 +44,11 @@ class AlbaMigrationController(object):
         from ovs.dal.lists.albabackendlist import AlbaBackendList
         from ovs.dal.lists.albanodelist import AlbaNodeList
         from ovs.dal.lists.albaosdlist import AlbaOSDList
+        from ovs.dal.lists.storagerouterlist import StorageRouterList
         from ovs.extensions.generic.configuration import Configuration
+        from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
+        from ovs.extensions.packages.albapackagefactory import PackageFactory
+        from ovs.extensions.services.albaservicefactory import ServiceFactory
         from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
         from ovs.lib.alba import AlbaController
 
@@ -134,6 +138,29 @@ class AlbaMigrationController(object):
                 Configuration.set(key='/ovs/framework/migration|read_preference', value=True)
             except Exception:
                 AlbaMigrationController._logger.exception('Updating read preferences for ALBA Backends failed')
+
+        #######################################################
+        # Storing actual package name in version files (1.11.0) (https://github.com/openvstorage/framework/issues/1876)
+        if Configuration.get(key='/ovs/framework/migration|actual_package_name_in_version_file_alba', default=False) is False:
+            try:
+                alba_pkg_name, _ = PackageFactory.get_package_and_version_cmd_for(component=PackageFactory.COMP_ALBA)
+                for storagerouter in StorageRouterList.get_storagerouters():
+                    try:
+                        client = SSHClient(endpoint=storagerouter, username='root')
+                    except UnableToConnectException:
+                        continue
+
+                    for file_name in client.file_list(directory=ServiceFactory.RUN_FILE_DIR):
+                        if not file_name.endswith('.version'):
+                            continue
+                        file_path = '{0}/{1}'.format(ServiceFactory.RUN_FILE_DIR, file_name)
+                        contents = client.file_read(filename=file_path)
+                        if alba_pkg_name == PackageFactory.PKG_ALBA_EE and '{0}='.format(PackageFactory.PKG_ALBA) in contents:
+                            contents = contents.replace(PackageFactory.PKG_ALBA, PackageFactory.PKG_ALBA_EE)
+                            client.file_write(filename=file_path, contents=contents)
+                Configuration.set(key='/ovs/framework/migration|actual_package_name_in_version_file_alba', value=True)
+            except Exception:
+                AlbaMigrationController._logger.exception('Updating actual package name for version files failed')
 
         AlbaMigrationController._logger.info('Finished out of band migrations')
 

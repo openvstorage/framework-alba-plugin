@@ -75,7 +75,7 @@ class ASDManagerClient(object):
         response = method(**kwargs)
         if response.status_code == 404:
             msg = 'URL not found: {0}'.format(kwargs['url'])
-            self._logger.error('{0}. Reponse: {1}'.format(msg, response))
+            self._logger.error('{0}. Response: {1}'.format(msg, response))
             raise NotFoundError(msg)
         try:
             data = response.json()
@@ -241,17 +241,24 @@ class ASDManagerClient(object):
         :return: Version of the currently installed package
         :rtype: str
         """
-        return self._call(requests.post, 'update/installed_version_package/{0}'.format(package_name), timeout=60)['version']
+        return self._call(requests.get, 'update/installed_version_package/{0}'.format(package_name), timeout=60)['version']
 
     ############
     # SERVICES #
     ############
-    def restart_services(self):
+    def restart_services(self, service_names=None):
         """
-        Restart the alba-asd-<ID> services
+        Restart the specified services (alba-asd and maintenance services)
+        :param service_names: Names of the services to restart
+        :type service_names: list[str]
         :return: None
+        :rtype: NoneType
         """
-        return self._call(requests.post, 'update/restart_services')
+        if service_names is None:
+            service_names = []
+        return self._call(method=requests.post,
+                          url='update/restart_services',
+                          data={'service_names': json.dumps(service_names)})
 
     def add_maintenance_service(self, name, alba_backend_guid, abm_name, read_preferences):
         """
