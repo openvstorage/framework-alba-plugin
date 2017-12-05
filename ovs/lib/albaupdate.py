@@ -94,7 +94,7 @@ class AlbaUpdateController(object):
             * Prerequisites that have not been met                                  -> 'prerequisites'
 
         Verify whether all relevant services have the correct binary active
-        Whether a service has the correct binary version in use, we use the ServiceFactory.verify_restart_required functionality
+        Whether a service has the correct binary version in use, we use the ServiceFactory.get_service_update_versions functionality
         When a service has an older binary version running, we add this information to the 'update_info'
 
         This combined information is then stored in the 'package_information' of the StorageRouter DAL object
@@ -162,7 +162,7 @@ class AlbaUpdateController(object):
 
                             service_version = None
                             if package_name not in pkg_component_info:
-                                service_version = ServiceFactory.verify_restart_required(client=client, service_name=service.name, binary_versions=binaries)
+                                service_version = ServiceFactory.get_service_update_versions(client=client, service_name=service.name, binary_versions=binaries)
 
                             cls._logger.debug('StorageRouter {0}: Service {1} is running version {2}'.format(client.ip, service.name, service_version))
                             if package_name in pkg_component_info or service_version is not None:
@@ -178,7 +178,7 @@ class AlbaUpdateController(object):
 
                     if package_name in [PackageFactory.PKG_ALBA, PackageFactory.PKG_ALBA_EE, PackageFactory.PKG_ARAKOON]:
                         for service_name, downtime in arakoon_info.iteritems():
-                            service_version = ServiceFactory.verify_restart_required(client=client, service_name=service_name, binary_versions=binaries)
+                            service_version = ServiceFactory.get_service_update_versions(client=client, service_name=service_name, binary_versions=binaries)
                             cls._logger.debug('StorageRouter {0}: Arakoon service {1} information: {2}'.format(client.ip, service_name, service_version))
 
                             if package_name in pkg_component_info or service_version is not None:
