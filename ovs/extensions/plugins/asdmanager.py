@@ -241,7 +241,7 @@ class ASDManagerClient(object):
         :return: Version of the currently installed package
         :rtype: str
         """
-        return self._call(requests.post, 'update/installed_version_package/{0}'.format(package_name), timeout=60)['version']
+        return self._call(requests.get, 'update/installed_version_package/{0}'.format(package_name), timeout=60)['version']
 
     ############
     # SERVICES #
