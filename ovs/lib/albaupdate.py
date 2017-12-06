@@ -242,7 +242,7 @@ class AlbaUpdateController(object):
                 cls._logger.debug('ALBA Node {0}: Storing update information: {1}'.format(alba_node.ip, update_info))
                 alba_node.package_information = update_info
                 alba_node.save()
-                cls._logger.debug('ALBA Node {0}: Refreshed update information')
+                cls._logger.debug('ALBA Node {0}: Refreshed update information'.format(alba_node.ip))
             except (requests.ConnectionError, requests.Timeout):
                 error_count += 1
                 cls._logger.warning('ALBA Node {0}: Update information could not be updated'.format(alba_node.ip))

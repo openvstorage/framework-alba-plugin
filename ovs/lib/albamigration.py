@@ -146,8 +146,9 @@ class AlbaMigrationController(object):
                 alba_pkg_name, _ = PackageFactory.get_package_and_version_cmd_for(component=PackageFactory.COMP_ALBA)
                 for storagerouter in StorageRouterList.get_storagerouters():
                     try:
-                        client = SSHClient(endpoint=storagerouter, username='root')
+                        client = SSHClient(endpoint=storagerouter.ip, username='root')  # Use '.ip' instead of StorageRouter object because this code is executed during post-update at which point the heartbeat has not been updated for some time
                     except UnableToConnectException:
+                        AlbaMigrationController._logger.exception('Updating actual package name for version files failed on StorageRouter {0}'.format(storagerouter.ip))
                         continue
 
                     for file_name in client.file_list(directory=ServiceFactory.RUN_FILE_DIR):
