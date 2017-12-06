@@ -364,6 +364,18 @@ class AlbaUpdateController(object):
         if PackageFactory.COMP_ALBA not in components:
             return
 
+        # First run post-update migrations to update services, config mgmt, ... and restart services afterwards
+        for method_name in ['migrate', 'migrate_sdm']:
+            try:
+                # noinspection PyUnresolvedReferences
+                from ovs.lib.albamigration import AlbaMigrationController
+                cls._logger.debug('Executing migration code: AlbaMigrationController.{0}()'.format(method_name))
+                getattr(AlbaMigrationController, method_name)()
+            except ImportError:
+                cls._logger.error('Could not import AlbaMigrationController')
+            except Exception:
+                cls._logger.exception('Migration code for the ALBA plugin failed to be executed')
+
         # Update ALBA nodes
         method_name = inspect.currentframe().f_code.co_name
         cls._logger.info('Executing hook {0}'.format(method_name))
@@ -379,7 +391,10 @@ class AlbaUpdateController(object):
                 if 'services_post_update' not in component_info:
                     # Package_information still has the old format, so refresh update information
                     # This can occur when updating from earlier than 2.11.0 to 2.11.0 and older
-                    GenericController.refresh_package_information()
+                    try:
+                        GenericController.refresh_package_information()
+                    except:
+                        cls._logger.exception('{0}: Refreshing package information failed'.format(alba_node.ip))
                     alba_node.discard()
                     component_info = alba_node.package_information.get(component, {})
 
@@ -396,15 +411,4 @@ class AlbaUpdateController(object):
         cls._logger.info('Checkup maintenance agents')
         AlbaController.checkup_maintenance_agents.delay()
 
-        # Run post-update migrations
-        for method_name in ['migrate', 'migrate_sdm']:
-            try:
-                # noinspection PyUnresolvedReferences
-                from ovs.lib.albamigration import AlbaMigrationController
-                cls._logger.debug('Executing migration code: AlbaMigrationController.{0}()'.format(method_name))
-                getattr(AlbaMigrationController, method_name)()
-            except ImportError:
-                cls._logger.error('Could not import AlbaMigrationController')
-            except Exception:
-                cls._logger.exception('Migration code for the ALBA plugin failed to be executed')
         cls._logger.info('Executed hook {0}'.format(method_name))
