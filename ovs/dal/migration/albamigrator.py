@@ -20,14 +20,15 @@ ALBA migration module
 
 from ovs.dal.hybrids.backendtype import BackendType
 from ovs.dal.lists.backendtypelist import BackendTypeList
+from ovs_extensions.packages.packagefactory import PackageFactory
 
 
-class ALBAMigrator(object):
+class DALMigrator(object):
     """
     Handles all model related migrations
     """
 
-    identifier = 'alba'
+    identifier = PackageFactory.COMP_MIGRATION_ALBA
     THIS_VERSION = 15
 
     def __init__(self):
@@ -68,7 +69,7 @@ class ALBAMigrator(object):
                 service_type.save()
 
         # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
-        elif working_version < ALBAMigrator.THIS_VERSION:
+        elif working_version < DALMigrator.THIS_VERSION:
             import hashlib
             from ovs.dal.exceptions import ObjectNotFoundException
             from ovs.dal.helpers import HybridRunner, Descriptor
@@ -314,4 +315,4 @@ class ALBAMigrator(object):
                 if '|disks|' in key:
                     client.delete(key=key, must_exist=False)
 
-        return ALBAMigrator.THIS_VERSION
+        return DALMigrator.THIS_VERSION
