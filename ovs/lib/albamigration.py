@@ -47,6 +47,7 @@ class AlbaMigrationController(object):
         from ovs.dal.lists.storagerouterlist import StorageRouterList
         from ovs.extensions.generic.configuration import Configuration
         from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
+        from ovs.extensions.migration.migration.albamigrator import ExtensionMigrator
         from ovs.extensions.packages.albapackagefactory import PackageFactory
         from ovs.extensions.services.albaservicefactory import ServiceFactory
         from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
@@ -141,27 +142,66 @@ class AlbaMigrationController(object):
 
         #######################################################
         # Storing actual package name in version files (1.11.0) (https://github.com/openvstorage/framework/issues/1876)
+        changed_clients = set()
+        storagerouters = StorageRouterList.get_storagerouters()
         if Configuration.get(key='/ovs/framework/migration|actual_package_name_in_version_file_alba', default=False) is False:
             try:
-                alba_pkg_name, _ = PackageFactory.get_package_and_version_cmd_for(component=PackageFactory.COMP_ALBA)
-                for storagerouter in StorageRouterList.get_storagerouters():
+                service_manager = ServiceFactory.get_manager()
+                alba_pkg_name, alba_version_cmd = PackageFactory.get_package_and_version_cmd_for(component=PackageFactory.COMP_ALBA)
+                for storagerouter in storagerouters:
                     try:
-                        client = SSHClient(endpoint=storagerouter.ip, username='root')  # Use '.ip' instead of StorageRouter object because this code is executed during post-update at which point the heartbeat has not been updated for some time
+                        root_client = SSHClient(endpoint=storagerouter.ip, username='root')  # Use '.ip' instead of StorageRouter object because this code is executed during post-update at which point the heartbeat has not been updated for some time
                     except UnableToConnectException:
                         AlbaMigrationController._logger.exception('Updating actual package name for version files failed on StorageRouter {0}'.format(storagerouter.ip))
                         continue
 
-                    for file_name in client.file_list(directory=ServiceFactory.RUN_FILE_DIR):
+                    for file_name in root_client.file_list(directory=ServiceFactory.RUN_FILE_DIR):
                         if not file_name.endswith('.version'):
                             continue
                         file_path = '{0}/{1}'.format(ServiceFactory.RUN_FILE_DIR, file_name)
-                        contents = client.file_read(filename=file_path)
+                        contents = root_client.file_read(filename=file_path)
                         if alba_pkg_name == PackageFactory.PKG_ALBA_EE and '{0}='.format(PackageFactory.PKG_ALBA) in contents:
+                            # Rewrite the version file in the RUN_FILE_DIR
                             contents = contents.replace(PackageFactory.PKG_ALBA, PackageFactory.PKG_ALBA_EE)
-                            client.file_write(filename=file_path, contents=contents)
+                            root_client.file_write(filename=file_path, contents=contents)
+
+                            # Regenerate the service and update the EXTRA_VERSION_CMD in the configuration management
+                            service_name = file_name.split('.')[0]
+                            service_config_key = ServiceFactory.SERVICE_CONFIG_KEY.format(storagerouter.machine_id, service_name)
+                            if Configuration.exists(key=service_config_key):
+                                service_config = Configuration.get(key=service_config_key)
+                                if 'EXTRA_VERSION_CMD' in service_config:
+                                    service_config['EXTRA_VERSION_CMD'] = '{0}=`{1}`'.format(alba_pkg_name, alba_version_cmd)
+                                    Configuration.set(key=service_config_key, value=service_config)
+                                    service_manager.regenerate_service(name='ovs-arakoon',
+                                                                       client=root_client,
+                                                                       target_name='ovs-{0}'.format(service_name))  # Leave out .version
+                                    changed_clients.add(root_client)
                 Configuration.set(key='/ovs/framework/migration|actual_package_name_in_version_file_alba', value=True)
             except Exception:
                 AlbaMigrationController._logger.exception('Updating actual package name for version files failed')
+
+        for root_client in changed_clients:
+            try:
+                root_client.run(['systemctl', 'daemon-reload'])
+            except Exception:
+                AlbaMigrationController._logger.exception('Executing command "systemctl daemon-reload" failed')
+
+        ####################################
+        # Fix for migration version (1.11.0)
+        # Previous code could potentially store a higher version number in the config management than the actual version number
+        if Configuration.get(key='/ovs/framework/migration|alba_migration_version_fix', default=False) is False:
+            try:
+                for storagerouter in storagerouters:
+                    config_key = '/ovs/framework/hosts/{0}/versions'.format(storagerouter.machine_id)
+                    if Configuration.exists(key=config_key):
+                        versions = Configuration.get(key=config_key)
+                        if versions.get(PackageFactory.COMP_MIGRATION_ALBA, 0) > ExtensionMigrator.THIS_VERSION:
+                            versions[PackageFactory.COMP_MIGRATION_ALBA] = ExtensionMigrator.THIS_VERSION
+                            Configuration.set(key=config_key, value=versions)
+                Configuration.set(key='/ovs/framework/migration|alba_migration_version_fix', value=True)
+            except Exception:
+                AlbaMigrationController._logger.exception('Updating migration version failed')
 
         AlbaMigrationController._logger.info('Finished out of band migrations')
 
