@@ -228,8 +228,8 @@ class AlbaUpdateController(object):
 
                     # DAL migration check
                     if migrations_detected is False:
-                        pf_client = PersistentFactory.get_client()
-                        old_version = pf_client.get('ovs_model_version').get(PackageFactory.COMP_MIGRATION_ALBA) if pf_client.exists('ovs_model_version') else None
+                        persistent_client = PersistentFactory.get_client()
+                        old_version = persistent_client.get('ovs_model_version').get(PackageFactory.COMP_MIGRATION_ALBA) if persistent_client.exists('ovs_model_version') else None
                         if old_version is not None:
                             cls._logger.debug('StorageRouter {0}: Current running version for {1} DAL migrations: {2}'.format(client.ip, PackageFactory.COMP_ALBA, old_version))
                             with remote(client.ip, [DALMigrator]) as rem:
