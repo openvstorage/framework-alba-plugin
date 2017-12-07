@@ -50,6 +50,7 @@ from ovs.extensions.generic.configuration import Configuration, NotFoundExceptio
 from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs_extensions.generic.toolbox import ExtensionsToolbox
+from ovs.extensions.migration.migration.albamigrator import ExtensionMigrator
 from ovs.extensions.packages.albapackagefactory import PackageFactory
 from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 from ovs.extensions.storage.volatilefactory import VolatileFactory
@@ -1634,7 +1635,7 @@ class AlbaController(object):
         for storagerouter in StorageRouterList.get_storagerouters():
             machine_id = storagerouter.machine_id
             if not Configuration.exists(key.format(machine_id)):
-                Configuration.set(key.format(machine_id), 9)
+                Configuration.set(key.format(machine_id), ExtensionMigrator.THIS_VERSION)
 
     @staticmethod
     @ovs_task(name='alba.link_alba_backends')

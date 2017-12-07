@@ -25,11 +25,17 @@ from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
+from ovs.dal.migration.albamigrator import DALMigrator
 from ovs.extensions.db.arakooninstaller import ArakoonInstaller
+from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.logger import Logger
+from ovs_extensions.generic.remote import remote
+from ovs.extensions.generic.system import System
 from ovs_extensions.generic.toolbox import ExtensionsToolbox
+from ovs.extensions.migration.migration.albamigrator import ExtensionMigrator
 from ovs.extensions.packages.albapackagefactory import PackageFactory
 from ovs.extensions.services.albaservicefactory import ServiceFactory
+from ovs.extensions.storage.persistentfactory import PersistentFactory
 from ovs.lib.alba import AlbaController
 from ovs.lib.generic import GenericController
 from ovs.lib.helpers.decorators import add_hooks
@@ -202,6 +208,36 @@ class AlbaUpdateController(object):
                         except:
                             svc_component_info['prerequisites'].append(['alba_node_unresponsive', alba_node.ip])
                             cls._logger.debug('StorageRouter {0}: Added unresponsive ALBA Node {1} to prerequisites'.format(client.ip, alba_node.ip))
+
+                # Verify whether migration (DAL and extension) code needs to be executed (only if no packages have an update available so far)
+                elif component == PackageFactory.COMP_FWK and PackageFactory.PKG_OVS_BACKEND not in svc_component_info['packages']:
+                    cls._logger.debug('StorageRouter {0}: No updates detected, checking for required migrations'.format(client.ip))
+                    # Extension migration check
+                    key = '/ovs/framework/hosts/{0}/versions'.format(System.get_my_machine_id(client=client))
+                    old_version = Configuration.get(key, default={}).get(PackageFactory.COMP_MIGRATION_ALBA)
+                    installed_version = str(cls._package_manager.get_installed_versions(client=client, package_names=[PackageFactory.PKG_OVS_BACKEND])[PackageFactory.PKG_OVS_BACKEND])
+                    migrations_detected = False
+                    if old_version is not None:
+                        cls._logger.debug('StorageRouter {0}: Current running version for {1} extension migrations: {2}'.format(client.ip, PackageFactory.COMP_ALBA, old_version))
+                        with remote(client.ip, [ExtensionMigrator]) as rem:
+                            cls._logger.debug('StorageRouter {0}: Available version for {1} extension migrations: {2}'.format(client.ip, PackageFactory.COMP_ALBA, rem.ExtensionMigrator.THIS_VERSION))
+                            if rem.ExtensionMigrator.THIS_VERSION > old_version:
+                                migrations_detected = True
+                                svc_component_info['packages'][PackageFactory.PKG_OVS_BACKEND] = {'installed': 'migrations',
+                                                                                                  'candidate': installed_version}
+
+                    # DAL migration check
+                    if migrations_detected is False:
+                        pf_client = PersistentFactory.get_client()
+                        old_version = pf_client.get('ovs_model_version').get(PackageFactory.COMP_MIGRATION_ALBA) if pf_client.exists('ovs_model_version') else None
+                        if old_version is not None:
+                            cls._logger.debug('StorageRouter {0}: Current running version for {1} DAL migrations: {2}'.format(client.ip, PackageFactory.COMP_ALBA, old_version))
+                            with remote(client.ip, [DALMigrator]) as rem:
+                                cls._logger.debug('StorageRouter {0}: Available version for {1} DAL migrations: {2}'.format(client.ip, PackageFactory.COMP_ALBA, rem.DALMigrator.THIS_VERSION))
+                                if rem.DALMigrator.THIS_VERSION > old_version:
+                                    svc_component_info['packages'][PackageFactory.PKG_OVS_BACKEND] = {'installed': 'migrations',
+                                                                                                      'candidate': installed_version}
+
             cls._logger.info('StorageRouter {0}: Refreshed ALBA update information'.format(client.ip))
         except Exception as ex:
             cls._logger.exception('StorageRouter {0}: Refreshing ALBA update information failed'.format(client.ip))

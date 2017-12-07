@@ -19,14 +19,15 @@ Alba migration module
 """
 
 from ovs.extensions.generic.logger import Logger
+from ovs_extensions.packages.packagefactory import PackageFactory
 
 
-class AlbaMigrator(object):
+class ExtensionMigrator(object):
     """
     Handles all model related migrations
     """
 
-    identifier = 'alba'  # Used by migrator.py, so don't remove
+    identifier = PackageFactory.COMP_MIGRATION_ALBA
     THIS_VERSION = 12
 
     _logger = Logger('extensions')
@@ -52,13 +53,13 @@ class AlbaMigrator(object):
         working_version = previous_version
 
         # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
-        if working_version < AlbaMigrator.THIS_VERSION:
+        if working_version < ExtensionMigrator.THIS_VERSION:
             try:
                 from ovs.dal.lists.albabackendlist import AlbaBackendList
                 from ovs.extensions.generic.configuration import Configuration, NotFoundException
                 from ovs.lib.alba import AlbaController
 
-                AlbaMigrator._logger.info('Starting migrations...')
+                ExtensionMigrator._logger.info('Starting migrations...')
 
                 # This could be handled by out of band migrations, but since post-update restarts the services,
                 # putting this in the out of band migration code would result in the services being restarted before
@@ -72,8 +73,8 @@ class AlbaMigrator(object):
                         if 'multicast_discover_osds' not in config:
                             config['multicast_discover_osds'] = False
                             Configuration.set(key=config_key, value=config)
-                            AlbaMigrator._logger.info('Updated multi-cast setting for ALBA Backend {0}'.format(alba_backend.name))
-                AlbaMigrator._logger.info('Finished migrations')
+                            ExtensionMigrator._logger.info('Updated multi-cast setting for ALBA Backend {0}'.format(alba_backend.name))
+                ExtensionMigrator._logger.info('Finished migrations')
 
                 if not Configuration.exists(key='/ovs/alba/logging'):
                     try:
@@ -83,8 +84,8 @@ class AlbaMigrator(object):
 
                     Configuration.set(key='/ovs/alba/logging', value=current_logging)
             except:
-                AlbaMigrator._logger.exception('Error occurred while executing the ALBA migration code')
+                ExtensionMigrator._logger.exception('Error occurred while executing the ALBA migration code')
                 # Don't update migration version with latest version, resulting in next migration trying again to execute this code
-                return AlbaMigrator.THIS_VERSION - 1
+                return ExtensionMigrator.THIS_VERSION - 1
 
-        return AlbaMigrator.THIS_VERSION
+        return ExtensionMigrator.THIS_VERSION
