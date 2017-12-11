@@ -184,7 +184,7 @@ class AlbaUpdateController(object):
 
                     if package_name in [PackageFactory.PKG_ALBA, PackageFactory.PKG_ALBA_EE, PackageFactory.PKG_ARAKOON]:
                         for service_name, downtime in arakoon_info.iteritems():
-                            service_version = ServiceFactory.get_service_update_versions(client=client, service_name=service_name, binary_versions=binaries)
+                            service_version = ServiceFactory.get_service_update_versions(client=client, service_name=service_name, binary_versions=binaries, package_name=package_name)
                             cls._logger.debug('StorageRouter {0}: Arakoon service {1} information: {2}'.format(client.ip, service_name, service_version))
 
                             if package_name in pkg_component_info or service_version is not None:
