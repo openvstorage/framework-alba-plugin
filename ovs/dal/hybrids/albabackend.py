@@ -273,12 +273,7 @@ class AlbaBackend(DataObject):
 
         def _load_backend_info(_connection_info, _alba_backend_guid, _exceptions):
             # '_exceptions' must be an immutable object to be usable outside the Thread functionality
-            client = OVSClient(ip=_connection_info['host'],
-                               port=_connection_info['port'],
-                               credentials=(_connection_info['username'], _connection_info['password']),
-                               cache_store=VolatileFactory.get_client(),
-                               version=6)
-
+            client = OVSClient.get_instance(connection_info=_connection_info, cache_store=VolatileFactory.get_client())
             try:
                 new_guids = client.get('/alba/backends/{0}/'.format(_alba_backend_guid),
                                        params={'contents': 'linked_backend_guids'})['linked_backend_guids']
@@ -321,12 +316,7 @@ class AlbaBackend(DataObject):
         from ovs.dal.hybrids.albaosd import AlbaOSD
 
         def _load_backend_info(_connection_info, _alba_backend_guid):
-            client = OVSClient(ip=_connection_info['host'],
-                               port=_connection_info['port'],
-                               credentials=(_connection_info['username'], _connection_info['password']),
-                               cache_store=VolatileFactory.get_client(),
-                               version=6)
-
+            client = OVSClient.get_instance(connection_info=_connection_info, cache_store=VolatileFactory.get_client())
             return_value[_alba_backend_guid]['live_status'] = AlbaBackend.STATUSES.UNKNOWN
             try:
                 info = client.get('/alba/backends/{0}/'.format(_alba_backend_guid),
