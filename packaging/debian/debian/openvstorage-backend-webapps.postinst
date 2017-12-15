@@ -1,3 +1,5 @@
 #!/bin/bash
 
 python /opt/OpenvStorage/scripts/install/openvstorage-backend-webapps.postinst.py "__NEW_VERSION__" "$@"
+
+echo "/opt/OpenvStorage/" > "/usr/lib/python2.7/dist-packages/openvstorage.pth"
