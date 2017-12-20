@@ -1146,7 +1146,7 @@ class AlbaController(object):
 
     @staticmethod
     @ovs_task(name='alba.nsm_checkup', schedule=Schedule(minute='45', hour='*'), ensure_single_info={'mode': 'CHAINED'})
-    def nsm_checkup(alba_backend_guid=None, min_internal_nsms=1, external_nsm_cluster_names=list()):
+    def nsm_checkup(alba_backend_guid=None, min_internal_nsms=1, external_nsm_cluster_names=None):
         """
         Validates the current NSM setup/configuration and takes actions where required.
         Assumptions:
@@ -1165,6 +1165,8 @@ class AlbaController(object):
         ###############
         # Validations #
         ###############
+        if external_nsm_cluster_names is None:
+            external_nsm_cluster_names = []
         AlbaController._logger.info('NSM checkup started')
         if min_internal_nsms < 1:
             raise ValueError('Minimum amount of NSM clusters must be 1 or more')
