@@ -130,6 +130,7 @@
                 "node": {
                     "claimed": "The OSDs from this node are fully functional",
                     "error": "The OSDs are in error state. Action is required",
+                    "unavailable": "The OSDs from this node are claimed/in use by another backend",
                     "unknown": "The status about the OSD is uknown. Action may be needed",
                     "warning": "The OSDs are in warning state. Action may be needed"
                 }

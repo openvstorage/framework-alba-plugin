@@ -48,7 +48,7 @@ define([
         self.ip                = ko.observable();
         self.ips               = ko.observableArray([]);
         self.loaded            = ko.observable(false);
-        self.localSummary      = ko.observable();
+        self._localSummary      = ko.observable();
         self.metadata          = ko.observable();
         self.name              = ko.observable();
         self.nodeID            = ko.observable(nodeID);
@@ -105,8 +105,36 @@ define([
             });
             return deletePossible;
         });
+        self.localSummary = ko.pureComputed(function() {
+            // Return the localSummary in numbers instead of arrays
+            var summary = {};
+            $.each(self._localSummary(), function(colorKey, osdInfo) {
+                summary[colorKey] = osdInfo.length;
+            });
+            return summary;
+        });
 
         // Functions
+        self.localSummaryByBackend = function(albaBackendGuid){
+          // Returns a computed to get notified about all changes to the localSummary here
+          return ko.computed(function() {
+              var summary = {};
+              // Match the color to the 'unavailable' one on the overview
+              var unavailableColor = 'lightgray';
+              summary[unavailableColor] = 0;
+              $.each(self._localSummary().devices, function(colorKey, osdInfo){
+                  var unavailable = [];
+                  var available = [];
+                  $.each(osdInfo, function(index, osd) {
+                      if (osd.claimed_by === albaBackendGuid) {available.push(osd)}
+                      else {unavailable.push(osd)}
+                  });
+                  summary[colorKey] = available.length;
+                  summary[unavailableColor] += unavailable.length;
+              });
+              return summary;
+          })
+        };
         self.downloadLogfiles = function () {
             if (self.downLoadingLogs() === true) {
                 return;
@@ -135,7 +163,7 @@ define([
             generic.trySet(self.ips, data, 'ips');
             generic.trySet(self.metadata, data, 'node_metadata');
             generic.trySet(self.readOnlyMode, data, 'read_only_mode');
-            generic.trySet(self.localSummary, data, 'local_summary');
+            generic.trySet(self._localSummary, data, 'local_summary');
             generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
 
             // Add slots
