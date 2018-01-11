@@ -48,7 +48,7 @@ define([
         self.ip                = ko.observable();
         self.ips               = ko.observableArray([]);
         self.loaded            = ko.observable(false);
-        self._localSummary      = ko.observable();
+        self._localSummary     = ko.observable();
         self.metadata          = ko.observable();
         self.name              = ko.observable();
         self.nodeID            = ko.observable(nodeID);
