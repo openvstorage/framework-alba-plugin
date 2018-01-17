@@ -273,23 +273,32 @@ class AlbaNode(DataObject):
 
     def _local_summary(self):
         """
-        Return a summary of the osds
-        :return:
+        Return a summary of the OSDs based on their state
+        * Ok -> green
+        * WARNING -> orange
+        * ERROR -> red
+        * UNKNOWN -> gray
+        The summary will contain a list of dicts with guid, osd_id and claimed_by
+        eg:
+        {'red': [{osd_id: 1, claimed_by: alba_backend_guid1}],
+         'green': [{osd_id: 2, claimed_by: None}],
+          ...}
+        :return: Summary of the OSDs filtered by status (which are represented by color)
         """
-        device_info = {'red': 0,
-                       'green': 0,
-                       'orange': 0,
-                       'gray': 0}
+        device_info = {'red': [],
+                       'green': [],
+                       'orange': [],
+                       'gray': []}
         local_summary = {'devices': device_info}  # For future additions?
+        state_map = {self.OSD_STATUSES.OK: 'green',
+                     self.OSD_STATUSES.WARNING: 'orange',
+                     self.OSD_STATUSES.ERROR: 'red',
+                     self.OSD_STATUSES.UNKNOWN: 'gray'}
         for slot_id, slot_data in self.stack.iteritems():
-            for osd_id, osd_data in slot_data['osds'].iteritems():
+            for osd_id, osd_data in slot_data.get('osds', {}).iteritems():
                 status = osd_data.get('status', self.OSD_STATUSES.UNKNOWN)
-                if status == self.OSD_STATUSES.OK:
-                    device_info['green'] += 1
-                elif status == self.OSD_STATUSES.WARNING:
-                    device_info['orange'] += 1
-                elif status == self.OSD_STATUSES.ERROR:
-                    device_info['red'] += 1
-                elif status == self.OSD_STATUSES.UNKNOWN:
-                    device_info['gray'] += 1
+                osd_info = {'claimed_by': osd_data.get('claimed_by'),
+                            'osd_id': osd_data.get('osd_id')}
+                if status in state_map:  # Can never be too sure
+                    device_info[state_map[status]].append(osd_info)
         return local_summary
