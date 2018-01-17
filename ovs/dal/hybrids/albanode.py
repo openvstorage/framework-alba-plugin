@@ -290,17 +290,15 @@ class AlbaNode(DataObject):
                        'orange': [],
                        'gray': []}
         local_summary = {'devices': device_info}  # For future additions?
+        state_map = {self.OSD_STATUSES.OK: 'green',
+                     self.OSD_STATUSES.WARNING: 'orange',
+                     self.OSD_STATUSES.ERROR: 'red',
+                     self.OSD_STATUSES.UNKNOWN: 'gray'}
         for slot_id, slot_data in self.stack.iteritems():
             for osd_id, osd_data in slot_data.get('osds', {}).iteritems():
                 status = osd_data.get('status', self.OSD_STATUSES.UNKNOWN)
                 osd_info = {'claimed_by': osd_data.get('claimed_by'),
                             'osd_id': osd_data.get('osd_id')}
-                if status == self.OSD_STATUSES.OK:
-                    device_info['green'].append(osd_info)
-                elif status == self.OSD_STATUSES.WARNING:
-                    device_info['orange'].append(osd_info)
-                elif status == self.OSD_STATUSES.ERROR:
-                    device_info['red'].append(osd_info)
-                elif status == self.OSD_STATUSES.UNKNOWN:
-                    device_info['gray'].append(osd_info)
+                if status in state_map:  # Can never be too sure
+                    device_info[state_map[status]].append(osd_info)
         return local_summary
