@@ -136,14 +136,14 @@ define([
                     {
                         name: $.t('alba:generic.stats.used'),
                         value: stats.used,
-                        percentage: stats.size > 0 ? 0.1 : 0,
+                        percentage: stats.size > 0 ? stats.used / stats.size : 0,
                         // Use custom colors for the pie chart
                         color: '#377ca8'
                     },
                     {
                         name: $.t('alba:generic.stats.freespace'),
                         value: stats.size > 0 ? stats.free : 0.000001,
-                        percentage: stats.size > 0 ? 0.9 : 1
+                        percentage: stats.size > 0 ? stats.free / stats.size : 1
                     }
                 ]);
             }
