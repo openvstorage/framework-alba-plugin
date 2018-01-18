@@ -487,7 +487,7 @@ class AlbaBackend(DataObject):
                         if _node.node_id not in services_per_node:
                             services_per_node[_node.node_id] = 0
                         services_per_node[_node.node_id] += 1
-            except:
+            except Exception:
                 pass
 
         services_for_this_backend = {}
@@ -517,7 +517,7 @@ class AlbaBackend(DataObject):
                 if service_status is None or service_status != 'active':
                     AlbaBackend._logger.error('AlbaBackend {0} STATUS set to FAILURE due to non-running maintenance service(s): {1}'.format(self.name, service_name))
                     return AlbaBackend.STATUSES.FAILURE
-            except:
+            except Exception:
                 pass
 
         # Verify maintenance agents presence
