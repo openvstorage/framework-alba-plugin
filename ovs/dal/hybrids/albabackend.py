@@ -334,8 +334,9 @@ class AlbaBackend(DataObject):
                 with lock:
                     return_value[_alba_backend_guid].update(info['local_summary'])
                     return_value[_alba_backend_guid]['live_status'] = info['live_status']
-            except HttpNotFoundException:
+            except HttpNotFoundException as ex:
                 return_value[_alba_backend_guid]['error'] = 'backend_deleted'
+                self._logger.warning('AlbaBackend {0} STATUS set as FAILURE due to HttpNotFoundException: {1}'.format(self.name, ex))
                 return_value[_alba_backend_guid]['live_status'] = AlbaBackend.STATUSES.FAILURE
             except HttpForbiddenException:
                 return_value[_alba_backend_guid]['error'] = 'not_allowed'
@@ -446,6 +447,7 @@ class AlbaBackend(DataObject):
         # Verify failed disks
         devices = self.local_summary['devices']
         if devices['red'] > 0:
+            self._logger.warning('AlbaBackend {0} STATUS set to FAILURE due to {1} failed disks'.format(self.name, devices['red']))
             return AlbaBackend.STATUSES.FAILURE
 
         # Verify remote OSDs
@@ -453,6 +455,12 @@ class AlbaBackend(DataObject):
         linked_backend_warning = False
         for remote_info in self.remote_stack.itervalues():
             if remote_info['error'] == 'unknown' or remote_info['live_status'] == AlbaBackend.STATUSES.FAILURE:
+                message = None
+                if remote_info['error'] == 'unknown':
+                    message = 'unknown remote error info'
+                elif remote_info['live_status'] == AlbaBackend.STATUSES.FAILURE:
+                    message = 'FAILURE in live_status'
+                self._logger.warning('AlbaBackend {0} STATUS set to FAILURE due to OSD {1}: {2} '.format(self.name,remote_info['name'], message))
                 return AlbaBackend.STATUSES.FAILURE
             if remote_info['error'] == 'not_allowed':
                 remote_errors = True
@@ -498,7 +506,7 @@ class AlbaBackend(DataObject):
         zero_services = False
         if len(services_for_this_backend) == 0:
             if len(all_nodes) > 0:
-                AlbaBackend._logger.error('Live status for backend {0} is "failure": no maintenance services'.format(self.name))
+                AlbaBackend._logger.error('AlbaBackend {0} STATUS set to FAILURE due to no maintenance services'.format(self.name))
                 return AlbaBackend.STATUSES.FAILURE
             zero_services = True
 
@@ -507,7 +515,7 @@ class AlbaBackend(DataObject):
             try:
                 service_status = service_states.get(service_name)
                 if service_status is None or service_status != 'active':
-                    AlbaBackend._logger.error('Live status for backend {0} is "failure": non-running maintenance service(s)'.format(self.name))
+                    AlbaBackend._logger.error('AlbaBackend {0} STATUS set to FAILURE due to non-running maintenance service(s): {1}'.format(self.name, service_name))
                     return AlbaBackend.STATUSES.FAILURE
             except:
                 pass
