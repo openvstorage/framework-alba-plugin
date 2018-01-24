@@ -23,8 +23,7 @@ import requests
 import unittest
 from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.tests.alba_helpers import AlbaDalHelper
-from ovs.extensions.plugins.asdmanager import ASDManagerClient
-from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
+from ovs.extensions.plugins.tests.alba_mockups import ManagerClientMockup, VirtualAlbaBackend
 
 
 class Alba(unittest.TestCase):
@@ -55,7 +54,7 @@ class Alba(unittest.TestCase):
         * Calculate correct per-second, average, total, min and max values
         """
         structure = AlbaDalHelper.build_dal_structure({
-            'alba_backends': [1],
+            'alba_backends': [[1, 'LOCAL']],
             'alba_abm_clusters': [1],
             'alba_nsm_clusters': [(1, 1)],  # (<abackend_id>, <amount_of_nsm_clusters>)
             'alba_nodes': [1],
@@ -97,7 +96,7 @@ class Alba(unittest.TestCase):
         # alba backend local stack is derived from the node stack. Testing this one instead
         self.maxDiff = None
         structure = AlbaDalHelper.build_dal_structure({
-            'alba_backends': [1],
+            'alba_backends': [[1, 'LOCAL']],
             'alba_abm_clusters': [1],
             'alba_nsm_clusters': [(1, 1)],  # (<abackend_id>, <amount_of_nsm_clusters>)
             'alba_nodes': [1],
@@ -108,18 +107,18 @@ class Alba(unittest.TestCase):
         VirtualAlbaBackend.data['backend_1-abm']['osds'] = []
 
         # Validate local_stack when the node is alive, but not returning any data
-        ASDManagerClient.test_exceptions[node] = {}
-        ASDManagerClient.test_results[node] = {'get_stack': {},
-                                               'get_metadata': {'_version': 3}}
+        ManagerClientMockup.test_exceptions[node] = {}
+        ManagerClientMockup.test_results[node].update({'get_stack': {}})
+
         expected = {}
         node.invalidate_dynamics()
         self.assertDictEqual(node._stack(), expected)
 
         # Validate local_stack when the node is offline
-        ASDManagerClient.test_exceptions[node] = {'get_stack': requests.ConnectionError('test'),
-                                                  'get_metadata': requests.ConnectionError('test')}
-        ASDManagerClient.test_results[node] = {'get_stack': {},
-                                               'get_metadata': {}}
+        ManagerClientMockup.test_exceptions[node] = {'get_stack': requests.ConnectionError('test'),
+                                                     'get_metadata': requests.ConnectionError('test')}
+        ManagerClientMockup.test_results[node] = {'get_stack': {},
+                                                  'get_metadata': {}}
         expected = {}
         node.invalidate_dynamics()
         self.assertDictEqual(node._stack(), expected)
@@ -130,7 +129,7 @@ class Alba(unittest.TestCase):
                          ('state_detail', 'status_detail')]:
                 if move[0] in info:
                     info[move[1]] = info.pop(move[0])
-        ASDManagerClient.test_exceptions[node] = {}
+        ManagerClientMockup.test_exceptions[node] = {}
         # Asd manager return value
         asd_manager_stack = {'get_stack': {'alba_slot_1': {'aliases': ['/dev/disk/by-path/pci-0000:00:01.0-ata-1'],
                                                            'available': True,
@@ -145,7 +144,7 @@ class Alba(unittest.TestCase):
                                                            'state_detail': '',
                                                            'usage': {}}},
                              'get_metadata': {'_version': 3}}
-        ASDManagerClient.test_results[node] = asd_manager_stack
+        ManagerClientMockup.test_results[node] = asd_manager_stack
         # Create a copy of the asd-manager return value to mutate it into the expected values for the node.stack
         expected_stack = copy.deepcopy(asd_manager_stack)['get_stack']['alba_slot_1']
         _move(expected_stack)  # Change state -> status and state_detail -> status_detail as this is what the node.stack will return
@@ -180,7 +179,7 @@ class Alba(unittest.TestCase):
                                      'usage': {'available': 1024 ** 3 - 1024,
                                                'size': 1024 ** 3,
                                                'used': 1024}}
-        ASDManagerClient.test_results[node]['get_stack']['alba_slot_1'].update(asd_manager_stack_changes)
+        ManagerClientMockup.test_results[node]['get_stack']['alba_slot_1'].update(asd_manager_stack_changes)
 
         # Change the asd-manager stack to what we expect in the node.stack
         expected_updated_osds = copy.deepcopy(asd_manager_osd_stack)
@@ -198,13 +197,13 @@ class Alba(unittest.TestCase):
 
         # Validate initialized disk but node is offline
         # The asd manager is not returning any information and nothing about the initialized disk is stored in the DAL so nothing will be returned
-        ASDManagerClient.test_exceptions[node] = {'get_stack': requests.ConnectionError('test'),
-                                                  'get_metadata': requests.ConnectionError('test')}
+        ManagerClientMockup.test_exceptions[node] = {'get_stack': requests.ConnectionError('test'),
+                                                     'get_metadata': requests.ConnectionError('test')}
         node.invalidate_dynamics()
         self.assertDictEqual(node._stack(), {})  # Nothing will be returned so expecting nothing
 
         # Validate claimed ASD
-        ASDManagerClient.test_exceptions[node] = {}
+        ManagerClientMockup.test_exceptions[node] = {}
         # Nothing changes for the client getting the stack
         AlbaDalHelper.build_dal_structure(structure={'alba_osds': [(1, 1, 1, 1)]}, previous_structure=structure)  # Osd enters the model
 
@@ -218,8 +217,8 @@ class Alba(unittest.TestCase):
         self.assertDictEqual(node._stack(), expected)
 
         # Validate claimed osds but node is offline
-        ASDManagerClient.test_exceptions[node] = {'get_stack': requests.ConnectionError('test'),
-                                                  'get_metadata': requests.ConnectionError('test')}
+        ManagerClientMockup.test_exceptions[node] = {'get_stack': requests.ConnectionError('test'),
+                                                     'get_metadata': requests.ConnectionError('test')}
         # Osds are known in model but the state or other stats cannot be fetch
         expected_updated_osds.update({'claimed_by': alba_backend.guid,  # Osd not in model and is not claimed no None
                                       'status': 'unknown',  # State cannot be queried and will be set to unknown

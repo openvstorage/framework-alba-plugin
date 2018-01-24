@@ -130,7 +130,8 @@
                 "node": {
                     "claimed": "The OSDs from this node are fully functional",
                     "error": "The OSDs are in error state. Action is required",
-                    "unknown": "The status about the OSD is uknown. Action may be needed",
+                    "unavailable": "The OSDs from this node are claimed/in use by another backend",
+                    "unknown": "The state of the OSD is unknown. Action may be needed",
                     "warning": "The OSDs are in warning state. Action may be needed"
                 }
             },
@@ -469,7 +470,8 @@
         },
         "update": {
             "downtime": {
-                "backend": "ALBA Backend"
+                "backend": "ALBA Backend",
+                "proxy": "Proxy service for vPool"
             },
             "prerequisites": {
                 "alba_node_unresponsive": "ASD manager client is unresponsive on node",
