@@ -386,8 +386,9 @@ class AlbaController(object):
         used_ip_ports = []
 
         for osd in AlbaOSDList.get_albaosds():
-            for ip in osd.ips:
-                used_ip_ports.append('{0}:{1}'.format(ip, osd.port))
+            if osd.osd_type != AlbaOSD.OSD_TYPES.ALBA_BACKEND:  # Only iterate over non-backend osds
+                for ip in osd.ips:
+                    used_ip_ports.append('{0}:{1}'.format(ip, osd.port))
 
         for requested_osd_info in osds:
             # Update osd_info with some additional information
