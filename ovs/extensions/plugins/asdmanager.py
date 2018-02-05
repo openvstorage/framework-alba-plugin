@@ -24,6 +24,7 @@ import base64
 import inspect
 import logging
 import requests
+from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.generic.exceptions import InvalidCredentialsError, NotFoundError
 from ovs.extensions.generic.logger import Logger
 try:
@@ -50,9 +51,13 @@ class ASDManagerClient(object):
     disable_warnings(InsecureRequestWarning)
     disable_warnings(SNIMissingWarning)
 
-    def __init__(self, node, timeout=300):
+    def __init__(self, node, timeout=None):
         self.node = node
         self.timeout = timeout
+        if self.timeout is None:
+            node_id = self.node.node_id
+            config = Configuration.get('/ovs/alba/asdnodes/{0}/config/main'.format(node_id))
+            self.timeout = config.get('timeout')
 
         self._logger = Logger('extensions-plugins')
         self._log_min_duration = 1
