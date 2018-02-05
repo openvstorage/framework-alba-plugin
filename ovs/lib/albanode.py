@@ -49,7 +49,7 @@ class AlbaNodeController(object):
 
     @staticmethod
     @ovs_task(name='albanode.register')
-    def register(node_id=None, node_type=None, name=None, timeout=300):
+    def register(node_id=None, node_type=None, name=None):
         """
         Adds a Node with a given node_id to the model
         :param node_id: ID of the ALBA node
@@ -58,8 +58,6 @@ class AlbaNodeController(object):
         :type node_type: str
         :param name: Optional name of the node
         :type name: str
-        :param timeout: Time before registration of the ASD manager will timeout
-        :type timeout: int
         :return: None
         :rtype: NoneType
         """
@@ -82,7 +80,6 @@ class AlbaNodeController(object):
                 node.username = main_config['username']
                 node.password = main_config['password']
                 node.storagerouter = StorageRouterList.get_by_ip(main_config['ip'])
-                main_config['timeout'] = timeout
             data = node.client.get_metadata()
             if data['_success'] is False and data['_error'] == 'Invalid credentials':
                 raise RuntimeError('Invalid credentials')
