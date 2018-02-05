@@ -50,7 +50,7 @@ class ASDManagerClient(object):
     disable_warnings(InsecureRequestWarning)
     disable_warnings(SNIMissingWarning)
 
-    def __init__(self, node, timeout=20):
+    def __init__(self, node, timeout=300):
         self.node = node
         self.timeout = timeout
 
@@ -79,7 +79,7 @@ class ASDManagerClient(object):
             raise NotFoundError(msg)
         try:
             data = response.json()
-        except:
+        except Exception:
             raise RuntimeError(response.content)
         internal_duration = data['_duration']
         if data.get('_success', True) is False:
@@ -182,6 +182,9 @@ class ASDManagerClient(object):
         return self._call(requests.delete, 'slots/{0}'.format(slot_id))
 
     def restart_slot(self, slot_id):
+        """
+        Restart the slot with given slot id
+        """
         return self._call(requests.post, 'slots/{0}/restart'.format(slot_id))
 
     ##########
