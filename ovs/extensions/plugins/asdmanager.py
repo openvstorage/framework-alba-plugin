@@ -53,11 +53,8 @@ class ASDManagerClient(object):
 
     def __init__(self, node, timeout=None):
         self.node = node
-        Configuration.set('/ovs/alba/asdnodes/main|client_timeout', 300)
-
         if timeout is None:
             self.timeout = Configuration.get('/ovs/alba/asdnodes/main|client_timeout', default=20)
-            print self.timeout
 
         self._logger = Logger('extensions-plugins')
         self._log_min_duration = 1
