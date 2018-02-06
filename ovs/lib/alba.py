@@ -381,8 +381,9 @@ class AlbaController(object):
         used_ip_ports = []
 
         for osd in AlbaOSDList.get_albaosds():
-            for ip in osd.ips:
-                used_ip_ports.append('{0}:{1}'.format(ip, osd.port))
+            if osd.osd_type != AlbaOSD.OSD_TYPES.ALBA_BACKEND:  # Only iterate over non-backend osds
+                for ip in osd.ips:
+                    used_ip_ports.append('{0}:{1}'.format(ip, osd.port))
 
         for requested_osd_info in osds:
             # Update osd_info with some additional information
@@ -1141,7 +1142,7 @@ class AlbaController(object):
 
     @staticmethod
     @ovs_task(name='alba.nsm_checkup', schedule=Schedule(minute='45', hour='*'), ensure_single_info={'mode': 'CHAINED'})
-    def nsm_checkup(alba_backend_guid=None, min_internal_nsms=1, external_nsm_cluster_names=list()):
+    def nsm_checkup(alba_backend_guid=None, min_internal_nsms=1, external_nsm_cluster_names=None):
         """
         Validates the current NSM setup/configuration and takes actions where required.
         Assumptions:
@@ -1160,6 +1161,8 @@ class AlbaController(object):
         ###############
         # Validations #
         ###############
+        if external_nsm_cluster_names is None:
+            external_nsm_cluster_names = []
         AlbaController._logger.info('NSM checkup started')
         if min_internal_nsms < 1:
             raise ValueError('Minimum amount of NSM clusters must be 1 or more')

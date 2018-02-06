@@ -348,9 +348,11 @@ but WITHOUT ANY WARRANTY of any kind.
                     <span class="pull-right">
                         <span class="fa" data-i18n="[html]ovs:icons.archive"></span>
                         <span data-i18n="alba:generic.asd_legend" style="margin-right: 10px;"></span>
-                        <span class="label pointer" data-i18n="alba:generic.states.osd.unavailable"
+                        <span class="label label-missing pointer" data-i18n="alba:generic.states.osd.unknown"
+                              data-bind="tooltip: 'alba:generic.states.osdinfo.local.missing'"></span>
+                        <span class="label label-unavailable pointer" data-i18n="alba:generic.states.osd.unavailable"
                               data-bind="tooltip: 'alba:generic.states.osdinfo.local.unavailable'"
-                              style="background-color: #DDD; color: #333; opacity: .65;"></span>
+                              style="color: #333; opacity: .65;"></span>
                         <span class="label label-primary pointer" data-i18n="alba:generic.states.osd.available"
                               data-bind="tooltip: 'alba:generic.states.osdinfo.local.available'"></span>
                         <span class="label label-success pointer" data-i18n="alba:generic.states.osd.claimed"
@@ -366,7 +368,7 @@ but WITHOUT ANY WARRANTY of any kind.
                     <span class="pull-right">
                         <span data-i18n="alba:generic.inuselegend" style="margin-right: 10px;"></span>
                         <!-- ko foreach: otherAlbaBackends() -->
-                            <span class="label pointer" style="background-color: #DDD; color: #333; opacity: .65;"
+                            <span class="label label-unavailable pointer" style="color: #333; opacity: .65;"
                                   data-bind="style: { border: '1px solid ' + color() }">
                                 <span data-bind="lazyloader: { item: backend, loadedObservable: 'loaded', undefinedLoading: true }">
                                     <a data-part="lazy-entry" style="color: #333"
@@ -375,7 +377,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                 </span>
                             </span>&nbsp;
                         <!-- /ko -->
-                        <span class="label pointer" style="background-color: #DDD; color: #333; opacity: .65;"
+                        <span class="label label-unavailable pointer" style="color: #333; opacity: .65;"
                               data-i18n="alba:generic.unknown"></span>
                     </span>
                 </div>
