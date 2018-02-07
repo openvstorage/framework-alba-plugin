@@ -55,7 +55,7 @@ from ovs.extensions.packages.albapackagefactory import PackageFactory
 from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 from ovs.extensions.storage.volatilefactory import VolatileFactory
 from ovs.lib.helpers.decorators import add_hooks, ovs_task
-from ovs.lib.helpers.toolbox import Schedule, Toolbox
+from ovs.lib.helpers.toolbox import Schedule
 
 
 class DecommissionedException(Exception):
@@ -97,8 +97,7 @@ class AlbaController(object):
         for osd_id, osd_data in osds:
             AlbaController._logger.debug('OSD with ID {0}: Verifying information'.format(osd_id))
             try:
-                Toolbox.verify_required_params(required_params={'ips': (list, Toolbox.regex_ip)},
-                                               actual_params=osd_data)
+                ExtensionsToolbox.verify_required_params(required_params={'ips': (list, ExtensionsToolbox.regex_ip)}, actual_params=osd_data)
             except RuntimeError as ex:
                 validation_reasons.append(str(ex))
                 continue
@@ -188,10 +187,10 @@ class AlbaController(object):
                 required = {'osd_type': (str, AlbaOSD.OSD_TYPES.keys())}
                 if osd.get('osd_type') != AlbaOSD.OSD_TYPES.ALBA_BACKEND:
                     osd_list = generic_osds
-                    required.update({'ips': (list, Toolbox.regex_ip),
+                    required.update({'ips': (list, ExtensionsToolbox.regex_ip),
                                      'port': (int, {'min': 1, 'max': 65535}),
                                      'slot_id': (str, None)})
-                Toolbox.verify_required_params(required_params=required, actual_params=osd)
+                ExtensionsToolbox.verify_required_params(required_params=required, actual_params=osd)
                 osd_list.append(osd)
             except RuntimeError as ex:
                 validation_reasons.append(str(ex))
@@ -292,11 +291,7 @@ class AlbaController(object):
                 # Retrieve remote Arakoon configuration
                 preset_name = str(metadata['backend_info']['linked_preset'])
                 connection_info = metadata['backend_connection_info']
-                ovs_client = OVSClient(ip=connection_info['host'],
-                                       port=connection_info['port'],
-                                       credentials=(connection_info['username'], connection_info['password']),
-                                       cache_store=VolatileFactory.get_client(),
-                                       version=6)
+                ovs_client = OVSClient.get_instance(connection_info=connection_info, cache_store=VolatileFactory.get_client())
                 backend_info = ovs_client.get('/alba/backends/{0}'.format(metadata['backend_info']['linked_guid']),
                                               params={'contents': 'presets'})
                 presets = [preset for preset in backend_info['presets'] if preset['name'] == preset_name]
@@ -1653,16 +1648,16 @@ class AlbaController(object):
                  False if the ALBA Backend to link is in 'decommissioned' state
         :rtype: bool
         """
-        Toolbox.verify_required_params(required_params={'backend_connection_info': (dict, {'host': (str, Toolbox.regex_ip),
-                                                                                           'port': (int, {'min': 1, 'max': 65535}),
-                                                                                           'username': (str, None),
-                                                                                           'password': (str, None)}),
-                                                        'backend_info': (dict, {'domain_guid': (str, Toolbox.regex_guid, False),
-                                                                                'linked_guid': (str, Toolbox.regex_guid),
-                                                                                'linked_name': (str, Toolbox.regex_vpool),
-                                                                                'linked_preset': (str, Toolbox.regex_preset),
-                                                                                'linked_alba_id': (str, Toolbox.regex_guid)})},
-                                       actual_params=metadata)
+        ExtensionsToolbox.verify_required_params(required_params={'backend_connection_info': (dict, {'host': (str, ExtensionsToolbox.regex_ip),
+                                                                                                     'port': (int, {'min': 1, 'max': 65535}),
+                                                                                                     'username': (str, None),
+                                                                                                     'password': (str, None)}),
+                                                                  'backend_info': (dict, {'domain_guid': (str, ExtensionsToolbox.regex_guid, False),
+                                                                                          'linked_guid': (str, ExtensionsToolbox.regex_guid),
+                                                                                          'linked_name': (str, ExtensionsToolbox.regex_vpool),
+                                                                                          'linked_preset': (str, ExtensionsToolbox.regex_preset),
+                                                                                          'linked_alba_id': (str, ExtensionsToolbox.regex_guid)})},
+                                                 actual_params=metadata)
 
         linked_alba_id = metadata['backend_info']['linked_alba_id']
         try:
