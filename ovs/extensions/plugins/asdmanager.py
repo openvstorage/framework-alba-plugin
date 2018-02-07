@@ -24,6 +24,7 @@ import base64
 import inspect
 import logging
 import requests
+from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.generic.exceptions import InvalidCredentialsError, NotFoundError
 from ovs.extensions.generic.logger import Logger
 try:
@@ -50,9 +51,10 @@ class ASDManagerClient(object):
     disable_warnings(InsecureRequestWarning)
     disable_warnings(SNIMissingWarning)
 
-    def __init__(self, node, timeout=20):
+    def __init__(self, node, timeout=None):
         self.node = node
-        self.timeout = timeout
+        if timeout is None:
+            self.timeout = Configuration.get('/ovs/alba/asdnodes/main|client_timeout', default=20)
 
         self._logger = Logger('extensions-plugins')
         self._log_min_duration = 1
@@ -79,7 +81,7 @@ class ASDManagerClient(object):
             raise NotFoundError(msg)
         try:
             data = response.json()
-        except:
+        except Exception:
             raise RuntimeError(response.content)
         internal_duration = data['_duration']
         if data.get('_success', True) is False:
@@ -182,6 +184,9 @@ class ASDManagerClient(object):
         return self._call(requests.delete, 'slots/{0}'.format(slot_id))
 
     def restart_slot(self, slot_id):
+        """
+        Restart the slot with given slot id
+        """
         return self._call(requests.post, 'slots/{0}/restart'.format(slot_id))
 
     ##########
