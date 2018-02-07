@@ -355,8 +355,8 @@ class AlbaBackendViewSet(viewsets.ViewSet):
             if client is None:
                 raise HttpNotAcceptableException(error='invalid_data',
                                                  error_description='Invalid metadata passed')
-            connection_info['username'] = client.client_id
-            connection_info['password'] = client.client_secret
+            connection_info['client_id'] = client.client_id
+            connection_info['client_secret'] = client.client_secret
             connection_info['host'] = local_storagerouter.ip
             connection_info['port'] = 443
         return AlbaController.link_alba_backends.s(alba_backend_guid=albabackend.guid,
