@@ -167,7 +167,7 @@ define([
             generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
 
             // Add slots
-            var slotIDs = Object.keys(data.stack);
+            var slotIDs = Object.keys(generic.tryGet(data, 'stack', {}));
             var emptySlotID = undefined;
             if (self.type() === 'GENERIC') {
                 if (self.slots().length > 0){
