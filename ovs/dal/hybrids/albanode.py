@@ -202,7 +202,6 @@ class AlbaNode(DataObject):
                     try:
                         ips = osd['hosts'] if 'hosts' in osd and len(osd['hosts']) > 0 else osd.get('ips', [])
                         port = osd['port']
-                        # TODO: Function call below should be executed only once when https://github.com/openvstorage/alba/issues/783 is solved
                         claimed_by = 'unknown'
                         for ip in ips:
                             try:
