@@ -230,7 +230,7 @@ but WITHOUT ANY WARRANTY of any kind.
                             <li style="width: 300px;">
                                 <a style="position: relative;">
                                     <span data-i18n="ovs:generic.status"></span>: <span data-bind="translate: 'alba:generic.states.osd.' + status()"></span>
-                                    <!-- ko if: albaBackendGuid() === undefined -->
+                                    <!-- ko if: [null, undefined].contains(albaBackendGuid()) -->
                                         <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                             <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
                                                     data-bind="click: claim, css: { disabled: processing() || !loaded() || locked() || $parents[1].readOnlyMode() }
