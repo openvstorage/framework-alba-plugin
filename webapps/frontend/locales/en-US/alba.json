@@ -162,7 +162,9 @@
                 "decommissioned": "Decommissioned",
                 "nodedown": "Node is unreachable",
                 "recenterrors": "Recent errors",
-                "unreachable": "OSD is unreachable"
+                "unreachable": "OSD is unreachable",
+                "service_activating": "Service still activating",
+                "service_failure": "Service failure"
             },
             "slots": {
                 "corruption": "Data corruption",
