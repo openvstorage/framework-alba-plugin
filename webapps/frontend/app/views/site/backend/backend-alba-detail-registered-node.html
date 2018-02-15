@@ -200,7 +200,6 @@ but WITHOUT ANY WARRANTY of any kind.
                         </ul>
                     </div>
                     <!-- ko foreach: osds -->
-                    <pre data-bind="text: 'ID: ' + osdID() + ' isLOCAL: ' + isLocal() + 'status: '+status() + ' bGuid: ' + albaBackendGuid()"></pre>
                     <div class="btn-group" role="group"
                          data-bind="attr: { 'data-status': status(), 'id': osdID(), 'data-local': isLocal(), 'data-statusdetail': statusDetail() }">
                         <button type="button" class="btn btn-small dropdown-toggle" data-toggle="dropdown"
