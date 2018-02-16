@@ -44,7 +44,8 @@ class AlbaNode(DataObject):
                                                        'UNAVAILABLE': 'unavailable',
                                                        'UNKNOWN': 'unknown',
                                                        'WARNING': 'warning'})
-    OSD_STATUS_DETAILS = DataObject.enumerator('OSDStatusDetail', {'ALBAERROR': 'albaerror',
+    OSD_STATUS_DETAILS = DataObject.enumerator('OSDStatusDetail', {'ACTIVATING': 'service_activating',
+                                                                   'ALBAERROR': 'albaerror',
                                                                    'DECOMMISSIONED': 'decommissioned',
                                                                    'ERROR': 'recenterrors',
                                                                    'NODEDOWN': 'nodedown',
@@ -196,13 +197,15 @@ class AlbaNode(DataObject):
 
         for slot_info in stack.itervalues():
             for osd_id, osd in slot_info['osds'].iteritems():
+                if osd.get('status_detail') == self.OSD_STATUS_DETAILS.ACTIVATING:
+                    osd['claimed_by'] = 'unknown'  # We won't be able to connect to it just yet
+                    continue
                 if osd_id not in model_osds:
                     # The osd is known by the remote node but not in the model
                     # In that case, let's connect to the OSD to see whether we get some info from it
                     try:
                         ips = osd['hosts'] if 'hosts' in osd and len(osd['hosts']) > 0 else osd.get('ips', [])
                         port = osd['port']
-                        # TODO: Function call below should be executed only once when https://github.com/openvstorage/alba/issues/783 is solved
                         claimed_by = 'unknown'
                         for ip in ips:
                             try:

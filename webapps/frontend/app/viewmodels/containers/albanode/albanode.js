@@ -78,7 +78,7 @@ define([
             var hasUnclaimed = false;
             $.each(self.slots(), function(_, slot) {
                 $.each(slot.osds(), function(_, osd) {
-                    if (osd.albaBackendGuid() === undefined && osd.processing() === false && slot.processing() === false) {
+                    if ([null, undefined].contains(osd.albaBackendGuid()) && osd.processing() === false && slot.processing() === false) {
                         hasUnclaimed = true;
                         return false;
                     }
@@ -167,7 +167,7 @@ define([
             generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
 
             // Add slots
-            var slotIDs = Object.keys(data.stack);
+            var slotIDs = Object.keys(generic.tryGet(data, 'stack', {}));
             var emptySlotID = undefined;
             if (self.type() === 'GENERIC') {
                 if (self.slots().length > 0){
@@ -235,7 +235,7 @@ define([
                         return true;
                     }
                     $.each(slot.osds(), function (jndex, osd) {
-                        if (osd.albaBackendGuid() !== undefined || osd.processing()) {
+                        if (![null, undefined].contains(osd.albaBackendGuid()) || osd.processing()) {
                             return true;
                         }
                         if (!osds.hasOwnProperty(slot.slotID())) {

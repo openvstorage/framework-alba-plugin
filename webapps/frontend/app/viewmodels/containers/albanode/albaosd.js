@@ -56,13 +56,13 @@ define([
             if (self.errorStatuses.contains(self._status())) {
                 return self._status();
             }
-            if (self.albaBackendGuid() === undefined) {
+            if ([null, undefined].contains(self.albaBackendGuid())) {
                 return 'available';
             }
             return self.albaBackendGuid() === self.parentABGuid() ? 'claimed' : 'unavailable';
         });
         self.isLocal = ko.computed(function() {
-            return self.albaBackendGuid() === undefined || self.parentABGuid() === self.albaBackendGuid();
+            return [null, undefined].contains(self.albaBackendGuid()) || self.parentABGuid() === self.albaBackendGuid();
         });
         self.locked = ko.computed(function() {
             return ['nodedown', 'unknown'].contains(self.statusDetail()) || !self.isLocal();
@@ -97,12 +97,8 @@ define([
                 generic.trySet(self.port, data, 'port');
                 generic.trySet(self.ips, data, 'ips');
                 generic.trySet(self.type, data, 'type');
-                if (data.hasOwnProperty('claimed_by') && data.claimed_by !== null) {
-                    self.albaBackendGuid(data.claimed_by);
-                } else {
-                    self.albaBackendGuid(undefined);
-                }
-                if (['unavailable', 'error', 'warning'].contains(self.status())) {
+                generic.trySet(self.albaBackendGuid, data, 'claimed_by');
+            if (['unavailable', 'error', 'warning'].contains(self.status())) {
                     self.loadAlbaBackend();
                 }
             }
