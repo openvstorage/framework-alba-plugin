@@ -19,8 +19,8 @@
  */
 define([
     'jquery', 'knockout',
-    'ovs/api', 'ovs/generic'
-], function ($, ko, api, generic) {
+    'ovs/api'
+], function ($, ko, api) {
 
     function AlbaNodeService() {
         var self = this;
@@ -28,7 +28,7 @@ define([
          * Loads in all backends for the current supplied data
          * @param queryParams: Additional query params. Defaults to no params
          * @param relayParams: Relay to use (Optional, defaults to no relay)
-         * @returns {Deferred}
+         * @returns {Promise}
          */
         self.loadAlbaNodes = function(queryParams, relayParams) {
             return api.get('alba/nodes', { queryparams: queryParams, relayParams: relayParams })
@@ -38,10 +38,34 @@ define([
          * @param guid: Guid of the Alba Backend
          * @param queryParams: Additional query params. Defaults to no params
          * @param relayParams: Relay to use (Optional, defaults to no relay)
-         * @returns {Deferred}
+         * @returns {Promise}
          */
-        self.loadAlbaBackend = function(guid, queryParams, relayParams) {
-            return api.get('alba/backends/' + guid + '/', { queryparams: queryParams, relayParams: relayParams });
+        self.loadAlbaNode = function(guid, queryParams, relayParams) {
+            return api.get('alba/nodes/' + guid + '/', { queryparams: queryParams, relayParams: relayParams });
+        };
+        /**
+         * Registers a new AlbaNode to the cluster
+         * @param data: Data about the new node. This data contains the type, name and id of the new node
+         * Example: data: {
+                        node_id: self.data.newNode().nodeID(), -> can be undefined, a new ID is generated then
+                        node_type: self.data.newNode().type(), -> can be undefined, defaults to ASD then
+                        name: self.data.name() -> Can be undefined (in case of ASD type)
+                    }
+         * @returns: Returns a Promise which resolves in a task ID
+         * @return {Promise}
+         */
+        self.addAlbaNode = function(data) {
+            return api.post('alba/nodes', {data: data})
+        };
+        /**
+         * Replaces an existing Alba Node with a new one
+         * @param oldNodeGuid: Guid of the node to replace
+         * @param newNodeID: ID of the node to replace the old node
+         * @returns: Returns a Promise which resolves in a task ID
+         * @return {Promise}
+         */
+        self.replaceAlbaNode = function(oldNodeGuid, newNodeID) {
+            return api.post('alba/nodes/' + oldNodeGuid + '/replace_node', {data: {new_node_id: newNodeID}})
         };
     }
     return new AlbaNodeService();

@@ -14,17 +14,32 @@
 // Open vStorage is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
-define(['knockout'], function(ko){
+define(['knockout',
+        'ovs/generic'],
+    function(ko, generic){
     "use strict";
-    var nameRegex = /^[0-9a-zA-Z][\-_a-zA-Z0-9]{1,18}[a-zA-Z0-9]$/;
-    var singleton = function() {
-        return {
-            confirmOnly: ko.observable(false),
-            name: ko.observable('').extend({regex: nameRegex}),
-            newNode: ko.observable(),
-            nodeTypes: ko.observableArray(['GENERIC']),
-            oldNode: ko.observable()
-        };
-    };
-    return singleton();
+    function viewModel(newNode, oldNode, confirmOnly) {
+        var self = this;
+        var typeEnum = Object.freeze({generic: 'GENERIC', cluster: 'ALBANODECLUSTER'});
+        // Observables
+        self.name = ko.observable('').extend({regex: generic.nameRegex});
+        self.newNode = ko.observable(newNode);
+        self.oldNode = ko.observable(oldNode);
+        self.nodeTypes = ko.observableArray(Object.values(typeEnum));
+        self.confirmOnly = ko.observable(confirmOnly || false);
+
+        // Computed
+        self.willIDBeGenerated = ko.pureComputed(function() {
+            // The item is a always an empty AlbaNode when adding it. The type of it can be changed at will but when it is
+            // 'ASDNODECLUSTER' we need to make sure the right api is called and the ID won't be generated
+            return self.newNode().nodeID() === undefined && !self.workingWithCluster()
+        });
+        self.workingWithCluster = ko.pureComputed(function() {
+            return self.newNode().type() === typeEnum.cluster
+        });
+        self.displayConnectionDetail = ko.pureComputed(function(){
+           return !Object.values(typeEnum).contains(self.newNode().type())
+        })
+    }
+    return viewModel;
 });

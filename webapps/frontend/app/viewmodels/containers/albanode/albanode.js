@@ -17,15 +17,38 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
     'ovs/generic', 'ovs/api', 'ovs/shared',
-    'viewmodels/containers/albanode/albaslot',
+    'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albaslot',
+    'viewmodels/containers/storagerouter/storagerouter',
     'viewmodels/wizards/addosd/index', 'viewmodels/wizards/removeosd/index'
 ], function($, app, ko, dialog,
             generic, api, shared,
-            Slot,
+            BaseContainer, Slot, StorageRouter,
             AddOSDWizard, RemoveOSDWizard) {
     "use strict";
-    return function(nodeID, albaBackend, parentVM) {
+    var viewModelMapping = {
+        'storagerouter': {
+            key: function(data) {  // For relation updates: check if the GUID has changed before discarding a model
+                return ko.utils.unwrapObservable(data.guid)
+            },
+            create: function(options) {  // This object has not yet been converted to work with ko.mapping thus manually overriden the create
+                var storagerouter;
+                if (options.data === null){
+                    storagerouter = new StorageRouter(null);
+                    storagerouter.loaded(true);
+                    return storagerouter
+                }
+                storagerouter = new StorageRouter(ko.utils.unwrapObservable(options.data.guid));
+                storagerouter.fillData((ko.utils.unwrapObservable(options.data)));
+                storagerouter.loaded(true);
+                return storagerouter
+            }
+        }
+    };
+
+    function viewModel(nodeID, albaBackend, parentVM, data) {
         var self = this;
+
+        BaseContainer.call(this);  // Inherit from Base
 
         // Variables
         self.shared      = shared;
@@ -34,9 +57,6 @@ define([
 
         // Handles
         self.loadLogFilesHandle = undefined;
-
-        // External dependencies
-        self.storageRouter = ko.observable();
 
         // Observables
         self.diskNames         = ko.observableArray([]);
@@ -59,6 +79,28 @@ define([
         self.storageRouterGuid = ko.observable();
         self.type              = ko.observable();
         self.username          = ko.observable();
+
+        var vmData = $.extend({
+            alba_node_cluster: undefined,  // Setting these to undefined as we need to check if a relation was defined
+            alba_node_cluster_guid: undefined,
+            ip: null,
+            ips: [],
+            guid: null,
+            local_summary: {},
+            name: null,
+            node_id: null,
+            node_metadata: {},
+            osd_guids: [],
+            package_information: {},
+            port: null,
+            stack: null,
+            storagerouter: null,
+            storagerouter_guid: null,
+            username: null,
+            read_only_mode: false
+        }, data);
+
+        ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
 
         // Computed
         self.canInitializeAll = ko.computed(function() {
@@ -112,6 +154,10 @@ define([
                 summary[colorKey] = osdInfo.length;
             });
             return summary;
+        });
+        self.hasStorageRouter = ko.pureComputed(function() {
+            var storagerouter_guid = ko.utils.unwrapObservable(self.storagerouter.guid);  // Guid attached to the ViewModel
+            return ![null, undefined].contains(self.storagerouter_guid()) && ![null, undefined].contains(storagerouter_guid)
         });
 
         // Functions
@@ -596,5 +642,6 @@ define([
                 }
             });
         };
-    };
+    }
+    return viewModel
 });
