@@ -75,6 +75,7 @@
         "nodes": "ASD Nodes",
         "nodetype": "Type",
         "nodetypes": {
+            "albanodecluster": "Alba Node Cluster",
             "asd": "ASD",
             "generic": "Generic"
         },
@@ -328,6 +329,14 @@
                 "type": "Type:"
             },
             "title": "Add Node"
+        },
+        "add_nodecluster": {
+            "complete": "Completed",
+            "failed": "Adding node cluster failed: __why__",
+            "in_progress": "Node cluster is being created",
+            "started": "Started",
+            "success": "Node cluster has been created",
+            "title": "Add Alba Node Cluster"
         },
         "add_osd": {
             "confirm": {

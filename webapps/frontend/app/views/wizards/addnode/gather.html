@@ -17,10 +17,10 @@ but WITHOUT ANY WARRANTY of any kind.
 -->
 <div>
     <p data-i18n="alba:wizards.add_node.gather.basicinfo"></p>
-    <div class="form-group">
+    <div class="form-group" data-bind="visible: !data.workingWithCluster()">
         <label class="col-lg-3 control-label" for="node_id" data-i18n="alba:wizards.add_node.gather.id"></label>
         <div class="col-lg-7" style="margin-top: 7px;" id="node_id">
-            <i data-i18n="alba:generic.generated" data-bind="visible: data.newNode().nodeID() === undefined"></i>
+            <i data-i18n="alba:generic.generated" data-bind="visible: data.willIDBeGenerated"></i>
             <span data-bind="text: data.newNode().nodeID, visible: data.newNode().nodeID() !== undefined"></span>
         </div>
     </div>

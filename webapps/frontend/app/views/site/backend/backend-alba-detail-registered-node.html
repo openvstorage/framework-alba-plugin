@@ -15,6 +15,7 @@ in the LICENSE.txt file of the Open vStorage OSE distribution.
 Open vStorage is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY of any kind.
 -->
+<!--The parent is the AlbaBackendViewModel as is the root. The current context is an AlbaNode -->
 <tbody>
     <tr>
         <td style="width: 40px; border-top: 0;">
@@ -27,14 +28,14 @@ but WITHOUT ANY WARRANTY of any kind.
         <td style="border-top: 0;">
             <div>
                 <!-- ko if: type() !== 'GENERIC' -->
-                    <!-- ko if: storageRouterGuid() === undefined || storageRouter() === undefined -->
+                    <!-- ko ifnot: hasStorageRouter()-->
                         <span data-bind="text: ip"></span>:<span data-bind="text: port"></span>
                     <!-- /ko -->
-                    <!-- ko if: storageRouterGuid() !== undefined && storageRouter() !== undefined -->
-                        <span data-bind="lazyloader: { item: storageRouter, loadedObservable: 'loaded', undefinedLoading: true }">
+                    <!-- ko if: hasStorageRouter() -->
+                        <span data-bind="lazyloader: { item: storagerouter, loadedObservable: 'loaded', undefinedLoading: true }">
                             <a data-part="lazy-entry"
                                data-bind="text: item().name,
-                                          attr: { href: $root.shared.routing.loadHash('storagerouter-detail', { guid: item().guid }) }"></a>
+                                          attr: { href: item().pageHash }"></a>
                         </span>
                     <!-- /ko -->
                 <!-- /ko -->

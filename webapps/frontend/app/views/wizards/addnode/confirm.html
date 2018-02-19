@@ -27,8 +27,10 @@ but WITHOUT ANY WARRANTY of any kind.
             <!-- ko if: data.name.valid() -->
                 <li><b data-i18n="alba:wizards.add_node.confirm.name"></b> <span data-bind="text: data.name()"></span></li>
             <!-- /ko -->
+            <!-- ko ifnot: data.workingWithCluster -->
             <li><b data-i18n="alba:wizards.add_node.confirm.type"></b> <span data-bind="text: data.newNode().type()"></span></li>
-            <!-- ko if: data.newNode().type() !== 'GENERIC' -->
+            <!-- /ko -->
+            <!-- ko if: data.displayConnectionDetail -->
                 <li><b data-i18n="alba:wizards.add_node.confirm.ip"></b> <span data-bind="text: data.newNode().ip()"></span></li>
                 <li><b data-i18n="alba:wizards.add_node.confirm.port"></b> <span data-bind="text: data.newNode().port()"></span></li>
                 <li><b data-i18n="alba:wizards.add_node.confirm.username"></b> <span data-bind="text: data.newNode().username()"></span></li>

@@ -54,6 +54,7 @@ class AlbaNodeClusterController(object):
         an_cluster = AlbaNodeCluster()
         an_cluster.name = name
         an_cluster.save()
+        return an_cluster
 
     @staticmethod
     @ovs_task(name='albanodecluster.register_node')
@@ -117,11 +118,11 @@ class AlbaNodeClusterController(object):
 
     @staticmethod
     @ovs_task(name='albanodecluster.fill_slots')
-    def fill_slots(node_guid, slot_information, metadata=None):
+    def fill_slots(node_cluster_guid, slot_information, metadata=None):
         """
         Creates 1 or more new OSDs
-        :param node_guid: Guid of the node to which the disks belong
-        :type node_guid: str
+        :param node_cluster_guid: Guid of the node cluster to which the disks belong
+        :type node_cluster_guid: basestring
         :param slot_information: Information about the amount of OSDs to add to each Slot
         :type slot_information: list
         :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
@@ -179,11 +180,11 @@ class AlbaNodeClusterController(object):
 
     @staticmethod
     @ovs_task(name='albanodecluster.remove_slot', ensure_single_info={'mode': 'CHAINED'})
-    def remove_slot(node_guid, slot_id):
+    def remove_slot(node_cluster_guid, slot_id):
         """
         Removes a disk
-        :param node_guid: Guid of the node to remove a disk from
-        :type node_guid: str
+        :param node_cluster_guid: Guid of the node cluster to remove a disk from
+        :type node_cluster_guid: str
         :param slot_id: Slot ID
         :type slot_id: str
         :return: None
