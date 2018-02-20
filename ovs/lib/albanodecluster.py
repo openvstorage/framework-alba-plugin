@@ -48,13 +48,13 @@ class AlbaNodeClusterController(object):
         """
         Creates a new AlbaNodeCluster
         :param name: Name of the AlbaNodeCluster
-        :return: Newly created instance
-        :rtype: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
+        :return: Newly created instance guid
+        :rtype: basestring
         """
         an_cluster = AlbaNodeCluster()
         an_cluster.name = name
         an_cluster.save()
-        return an_cluster
+        return an_cluster.guid
 
     @staticmethod
     @ovs_task(name='albanodecluster.register_node')
