@@ -54,16 +54,41 @@ define([
         // Variables
         self.shared      = shared;
 
+        // Observables
+        self.expanded          = ko.observable(false);
+
         // Default data - replaces fillData - this always creates observables for the passed keys
         // Most of these properties are given by the API but setting them explicitly to have a view of how this model looks
         var vmData = $.extend({
             guid: null,
             name: null,
+            ips: [],
+            cluster_metadata: null,
+            local_summary: null,
+            stack: null,
+            maintenance_services: [],
+            supported_osd_types: [],
+            read_only_mode: true,
             alba_nodes: [],
             alba_node_guids: []
         }, data);
 
         ko.mapping.fromJS(vmData, albaNodeClusterMapping, self);  // Bind the data into this
+
+
+        // Computed
+        self.canInitializeAll = ko.computed(function() {
+            // @Todo implement
+            return true;
+        });
+        self.canClaimAll = ko.computed(function() {
+            // @Todo implement
+            return true;
+        });
+        self.canDelete = ko.computed(function() {
+            // @Todo implement
+            return true;
+        });
 
         // Functions
         /**
@@ -81,7 +106,16 @@ define([
                     // @TODO remove
                     console.log('Failed to update current object: {0}'.format([data]))
                 })
-        }
+        };
+        // Functions
+        self.localSummaryByBackend = function(albaBackendGuid){
+          // Returns a computed to get notified about all changes to the localSummary here
+          return ko.computed(function() {
+              // @Todo implement
+              return {};
+          })
+        };
+
     }
     return AlbaNodeClusterModel
 });

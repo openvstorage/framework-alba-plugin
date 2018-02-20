@@ -39,7 +39,7 @@ define([
                 if (options.parent.albaBackend() === undefined) {
                     return null
                 }
-                return new NodeCluster(options.data.guid);
+                return new NodeCluster(options.data);
             }
         },
         'alba_nodes_discovered': {
@@ -101,6 +101,7 @@ define([
         self.rNodesLoading          = ko.observable(true);
 
         var vmData = {
+            'alba_node_clusters': [],
             'alba_nodes_discovered': [],
             'alba_nodes_registered': []
         };
@@ -236,7 +237,7 @@ define([
                     if (!generic.xhrCompleted(self.nodeClustersHandle)) {
                         return
                     }
-                    var options = {contents: '_relations,_relation_contents_alba_nodes=""'};
+                    var options = {contents: 'stack,node_metadata,local_summary,read_only_mode,_relations,_relation_contents_alba_nodes=""'};
                     return self.nodeClustersHandle = albaNodeClusterService.loadAlbaNodeClusters(options)
                         .then(function(data) {
                             return data.data

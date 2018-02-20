@@ -75,7 +75,7 @@
         "nodes": "ASD Nodes",
         "nodetype": "Type",
         "nodetypes": {
-            "albanodecluster": "Alba Node Cluster",
+            "albanodecluster": "NODE CLUSTER",
             "asd": "ASD",
             "generic": "Generic"
         },

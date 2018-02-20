@@ -293,8 +293,12 @@ but WITHOUT ANY WARRANTY of any kind.
                             <th data-i18n="ovs:generic.actions" style="width: 80px;"></th>
                         </tr>
                     </thead>
+                    <!-- ko foreach: alba_node_clusters -->
+                        <!-- ko compose: { model: $data, view: 'backend-alba-detail-node-cluster.html', area: 'site/backend', preserveContext:true, cacheViews:true}-->
+                        <!--/ko-->
+                    <!-- /ko -->
                     <!-- ko foreach: alba_nodes_registered -->
-                        <!-- ko compose: { view: 'backend-alba-detail-registered-node.html', area: 'site/backend'}-->
+                        <!-- ko compose: { model: $data, view: 'backend-alba-detail-registered-node.html', area: 'site/backend', preserveContext:true, cacheViews:true}-->
                         <!--/ko-->
                     <!-- /ko -->
                     <!-- ko foreach: filteredDiscoveredNodes -->

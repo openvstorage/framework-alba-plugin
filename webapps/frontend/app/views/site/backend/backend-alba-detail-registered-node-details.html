@@ -1,0 +1,96 @@
+<!--
+Copyright (C) 2016 iNuron NV
+
+This file is part of Open vStorage Open Source Edition (OSE),
+as available from
+
+      http://www.openvstorage.org and
+      http://www.openvstorage.com.
+
+This file is free software; you can redistribute it and/or modify it
+under the terms of the GNU Affero General Public License v3 (GNU AGPLv3)
+as published by the Free Software Foundation, in version 3 as it comes
+in the LICENSE.txt file of the Open vStorage OSE distribution.
+
+Open vStorage is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY of any kind.
+-->
+<!--The parent is the AlbaBackendViewModel as is the root. The current context is an AlbaNode -->
+<tr>
+    <td style="width: 40px; border-top: 0;">
+        <span class="hand fa" data-i18n="[html]alba:icons.collapse"
+              data-bind="visible: expanded(), click: function() { expanded(!expanded()); }"></span>
+        <span class="hand fa" data-i18n="[html]alba:icons.expand"
+              data-bind="visible: !expanded(), click: function() { expanded(!expanded()); }"></span>
+    </td>
+    <td style="width: 400px; border-top: 0;" data-bind="text: nodeID"></td>
+    <td style="border-top: 0;">
+        <div>
+            <!-- ko if: type() !== 'GENERIC' -->
+                <!-- ko ifnot: hasStorageRouter()-->
+                    <span data-bind="text: ip"></span>:<span data-bind="text: port"></span>
+                <!-- /ko -->
+                <!-- ko if: hasStorageRouter() -->
+                    <span data-bind="lazyloader: { item: storagerouter, loadedObservable: 'loaded', undefinedLoading: true }">
+                        <a data-part="lazy-entry"
+                           data-bind="text: item().name,
+                                      attr: { href: item().pageHash }"></a>
+                    </span>
+                <!-- /ko -->
+            <!-- /ko -->
+            <!-- ko if: type() === 'GENERIC' -->
+                <!-- ko if: name() !== undefined -->
+                    <span data-bind="text: name()"></span>
+                <!-- /ko -->
+                <!-- ko if: name() === undefined -->
+                    <span data-i18n="ovs:generic.null"></span>
+                <!-- /ko -->
+            <!-- /ko -->
+        </div>
+        <div class="notification-message" data-bind="visible: readOnlyMode()">
+            <a data-i18n="alba:detail.update" data-bind="attr: { href: $root.shared.routing.loadHash('updates') }"></a>
+            <span data-i18n="alba:detail.update_required"></span>
+        </div>
+    </td>
+    <td data-bind="if: !expanded()" style="border-top: 0; width: 10em;">
+        <span class="label label-success pointer"
+              data-bind="tooltip: localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.node.claimed'),
+                         text: (localSummary() === undefined ? 0 : localSummaryByBackend($root.albaBackend().guid())().green)"></span>&nbsp;
+        <span class="label label-warning pointer"
+              data-bind="tooltip: localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.node.warning'),
+                         text: (localSummary() === undefined ? 0 : localSummaryByBackend($root.albaBackend().guid())().orange)"></span>&nbsp;
+        <span class="label label-danger pointer"
+              data-bind="tooltip: localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.node.error'),
+                         text: (localSummary() === undefined ? 0 : localSummaryByBackend($root.albaBackend().guid())().red)"></span>&nbsp;
+        <span class="label label-unavailable pointer"
+              data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.node.unavailable'),
+                         text: (localSummary() === undefined ? 0 : localSummaryByBackend($root.albaBackend().guid())().lightgray)"></span>
+        <span class="label label-missing pointer"
+              data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.node.unknown'),
+                         text: (localSummary() === undefined ? 0 : localSummaryByBackend($root.albaBackend().guid())().gray)"></span>
+    </td>
+    <td style="border-top: 0;" data-bind="text: type"></td>
+    <td style="width: 80px; border-top: 0;">
+        <span class="hand fa fa-fw"
+              data-i18n="[html]alba:icons.initialize"
+              data-bind="attr: { id: 'initialize_all_' + nodeID() },
+                         click: function() { addOSDs(); },
+                         tooltip: 'alba:generic.initialize_all',
+                         style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !readOnlyMode() ? 'black': 'lightgrey' }">
+        </span>
+        <span class="hand fa fa-fw"
+              data-i18n="[html]alba:icons.claim"
+              data-bind="attr: { id: 'claim_all_' + nodeID() },
+                         click: function() { claimAll(); },
+                         tooltip: 'alba:generic.claim_all',
+                         style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() && !readOnlyMode() ? 'black' : 'lightgrey' }">
+        </span>
+        <span class="hand fa fa-fw"
+              data-i18n="[html]alba:icons.delete"
+              data-bind="attr: { id: 'delete_' + nodeID() },
+                         click: function() { deleteNode(); },
+                         tooltip: 'alba:generic.remove',
+                         style: { color: $root.shared.user.roles().contains('manage') && canDelete() ? 'black' : 'lightgrey' }">
+        </span>
+    </td>
+</tr>
