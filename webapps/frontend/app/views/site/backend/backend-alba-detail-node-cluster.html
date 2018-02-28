@@ -19,16 +19,17 @@ but WITHOUT ANY WARRANTY of any kind.
 <!--Complete view of the node wrapped in a tbody for table display-->
 <tbody>
     <tr>
-        <td style="width: 40px; border-top: 0;">
+        <td style="border-top: 0;">
             <span class="hand fa" data-i18n="[html]alba:icons.collapse"
                   data-bind="visible: expanded(), click: function() { expanded(!expanded()); }"></span>
             <span class="hand fa" data-i18n="[html]alba:icons.expand"
                   data-bind="visible: !expanded(), click: function() { expanded(!expanded()); }"></span>
         </td>
-        <td style="width: 400px; border-top: 0;" data-bind="text: name"></td>
+        <td style="border-top: 0;" data-bind="style: { fontWeight: expanded() ? 'bold' : '' },
+                                              text: name"></td>
         <td></td>
         <!--@Todo insert local summary-->
-        <td data-bind="if: !expanded()" style="border-top: 0; width: 10em;">
+        <td data-bind="if: !expanded()" style="border-top: 0;">
             <!-- ko let: { summary: local_summary } -->
                 <!-- ko foreach: { data: summary.listView, as: 'item' } -->
                 <span class="label label-success pointer"
@@ -54,27 +55,13 @@ but WITHOUT ANY WARRANTY of any kind.
             <!-- /ko -->
         </td>
         <td style="border-top: 0;" data-i18n="alba:generic.nodetypes.albanodecluster"></td>
-        <td style="width: 80px; border-top: 0;">
+        <td style="border-top: 0;" align="right">
             <span class="hand fa fa-fw"
                   data-i18n="[html]ovs:icons.add"
                   data-bind="attr: { id: 'initialize_all_' + name() },
                              click: registerAlbaNode,
                              tooltip: 'alba:generic.register_node',
                              style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !read_only_mode() ? 'black': 'lightgrey' }">
-            </span>
-            <span class="hand fa fa-fw"
-                  data-i18n="[html]alba:icons.initialize"
-                  data-bind="attr: { id: 'initialize_all_' + name() },
-                             click: function() { addOSDs(); },
-                             tooltip: 'alba:generic.initialize_all',
-                             style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !read_only_mode() ? 'black': 'lightgrey' }">
-            </span>
-            <span class="hand fa fa-fw"
-                  data-i18n="[html]alba:icons.claim"
-                  data-bind="attr: { id: 'claim_all_' + name() },
-                             click: function() { claimAll(); },
-                             tooltip: 'alba:generic.claim_all',
-                             style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() && !read_only_mode() ? 'black' : 'lightgrey' }">
             </span>
             <span class="hand fa fa-fw"
                   data-i18n="[html]alba:icons.delete"
@@ -85,11 +72,40 @@ but WITHOUT ANY WARRANTY of any kind.
             </span>
         </td>
     </tr>
-    <!-- ko foreach: alba_nodes -->
-        <!-- ko compose: { model: $data, view: 'backend-alba-detail-registered-node-details.html', area: 'site/backend', preserveContext:true, cacheViews:true}-->
-        <!--/ko-->
-        <!-- ko if: expanded -->
-            <!-- ko compose: { model: $data, view: 'backend-alba-detail-registered-node-slots.html', area: 'site/backend', preserveContext:true, cacheViews:true}-->
+    <!-- ko if: expanded -->
+    <!-- ko compose: { model: $data, view: 'backend-alba-detail-registered-node-slots.html', area: 'site/backend', preserveContext:true, cacheViews:true, mode: 'templated'}-->
+    <!--/ko-->
+        <!-- ko foreach: alba_nodes -->
+            <!-- ko compose: { model: $data, view: 'backend-alba-detail-registered-node-details.html', area: 'site/backend', preserveContext:true, cacheViews:true, mode: 'templated'}-->
+                <tr>
+                    <td data-part="expand" style="border-top: 0;"></td>
+                    <td data-part="local_summary" style="border-top: 0;"></td>
+                    <td data-part="actions" style="border-top: 0;" align="right">
+                        <span class="hand fa fa-fw"
+                              data-i18n="[html]alba:icons.initialize"
+                              data-bind="attr: { id: 'initialize_all_' + nodeID() },
+                                         click: function() { addOSDs(); },
+                                         tooltip: 'alba:generic.initialize_all',
+                                         style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !readOnlyMode() ? 'black': 'lightgrey' }">
+                        </span>
+                        <span class="hand fa fa-fw"
+                              data-i18n="[html]alba:icons.claim"
+                              data-bind="attr: { id: 'claim_all_' + nodeID() },
+                                         click: function() { claimAll(); },
+                                         tooltip: 'alba:generic.claim_all',
+                                         style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() && !readOnlyMode() ? 'black' : 'lightgrey' }">
+                        </span>
+                        <span class="hand fa fa-fw"
+                              data-i18n="[html]alba:icons.delete"
+                              data-bind="attr: { id: 'delete_' + nodeID() },
+                                         click: function() { deleteNode(); },
+                                         tooltip: 'alba:generic.remove',
+                                         style: { color: $root.shared.user.roles().contains('manage') && canDelete() ? 'black' : 'lightgrey' }">
+                        </span>
+                    </td>
+                </tr>
+            <!--/ko-->
+            <!-- ko compose: { model: $data, view: 'backend-alba-detail-registered-node-slots.html', area: 'site/backend', preserveContext:true, cacheViews:true, mode: 'templated'}-->
             <!--/ko-->
         <!--/ko-->
     <!--/ko-->

@@ -280,17 +280,17 @@ but WITHOUT ANY WARRANTY of any kind.
                 <table class="table table-striped-tbodies table-hover-tbodies" style="clear: both;">
                     <thead>
                         <tr>
-                            <th style="width: 40px;">
+                            <th style="width: 3em">
                                 <span class="hand fa" data-i18n="[html]alba:icons.collapse"
                                       data-bind="visible: $root.expanded(), click: function() { $root.expanded(!$root.expanded()); }"></span>
                                 <span class="hand fa" data-i18n="[html]alba:icons.expand"
                                       data-bind="visible: !$root.expanded(), click: function() { $root.expanded(!$root.expanded()); }"></span>
                             </th>
-                            <th data-i18n="alba:generic.nodeid" style="width: 400px;"></th>
-                            <th data-i18n="alba:generic.node"></th>
-                            <th data-bind="if: $root.anyCollapsed()" data-i18n="alba:generic.node_summary" style="width: 10em;"></th>
-                            <th data-i18n="alba:generic.nodetype"></th>
-                            <th data-i18n="ovs:generic.actions" style="width: 80px;"></th>
+                            <th data-i18n="alba:generic.nodeid" style="width: 35%;"></th>
+                            <th data-i18n="alba:generic.node" style="width: 25%;"></th>
+                            <th data-bind="if: $root.anyCollapsed()" data-i18n="alba:generic.node_summary" style="width: 15%;"></th>
+                            <th data-i18n="alba:generic.nodetype" style="width: 15%"></th>
+                            <th data-i18n="ovs:generic.actions" style="width: 10%; text-align: center"></th>
                         </tr>
                     </thead>
                     <!-- ko foreach: alba_node_clusters -->

@@ -17,13 +17,13 @@ but WITHOUT ANY WARRANTY of any kind.
 -->
 <!--The parent is the AlbaBackendViewModel as is the root. The current context is an AlbaNode -->
 <tr>
-    <td style="width: 40px; border-top: 0;">
+    <td data-part="expand" style="border-top: 0;">
         <span class="hand fa" data-i18n="[html]alba:icons.collapse"
               data-bind="visible: expanded(), click: function() { expanded(!expanded()); }"></span>
         <span class="hand fa" data-i18n="[html]alba:icons.expand"
               data-bind="visible: !expanded(), click: function() { expanded(!expanded()); }"></span>
     </td>
-    <td style="width: 400px; border-top: 0;" data-bind="text: nodeID"></td>
+    <td data-part="node_id" style="border-top: 0;" data-bind="text: node_id"></td>
     <td style="border-top: 0;">
         <div>
             <!-- ko if: type() !== 'GENERIC' -->
@@ -52,7 +52,7 @@ but WITHOUT ANY WARRANTY of any kind.
             <span data-i18n="alba:detail.update_required"></span>
         </div>
     </td>
-    <td data-bind="if: !expanded()" style="border-top: 0; width: 10em;">
+    <td data-part="local_summary" data-bind="if: !expanded()" style="border-top: 0;">
         <span class="label label-success pointer"
               data-bind="tooltip: localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.node.claimed'),
                          text: (localSummary() === undefined ? 0 : localSummaryByBackend($root.albaBackend().guid())().green)"></span>&nbsp;
@@ -70,7 +70,7 @@ but WITHOUT ANY WARRANTY of any kind.
                          text: (localSummary() === undefined ? 0 : localSummaryByBackend($root.albaBackend().guid())().gray)"></span>
     </td>
     <td style="border-top: 0;" data-bind="text: type"></td>
-    <td style="width: 80px; border-top: 0;">
+    <td data-part="actions" style="border-top: 0;" align="right">
         <span class="hand fa fa-fw"
               data-i18n="[html]alba:icons.initialize"
               data-bind="attr: { id: 'initialize_all_' + nodeID() },
