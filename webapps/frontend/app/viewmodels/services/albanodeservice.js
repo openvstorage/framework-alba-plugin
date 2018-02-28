@@ -19,8 +19,8 @@
  */
 define([
     'jquery', 'knockout',
-    'ovs/api'
-], function ($, ko, api) {
+    'ovs/api', 'ovs/generic'
+], function ($, ko, api, generic) {
 
     function AlbaNodeService() {
         var self = this;
@@ -28,10 +28,30 @@ define([
          * Loads in all backends for the current supplied data
          * @param queryParams: Additional query params. Defaults to no params
          * @param relayParams: Relay to use (Optional, defaults to no relay)
+         * @param applyDefaultSorting: Apply the default sorting (storagerouter.name, storagerouter.ip, ip)
          * @returns {Promise}
          */
-        self.loadAlbaNodes = function(queryParams, relayParams) {
+        self.loadAlbaNodes = function(queryParams, relayParams, applyDefaultSorting) {
             return api.get('alba/nodes', { queryparams: queryParams, relayParams: relayParams })
+                .then(function(data){
+                    if (applyDefaultSorting){
+                        var apiData = data.data;
+                        apiData.sort(function(a, b){
+                            if (a.storagerouter !== null && b.storagerouter !== null) {
+                                return a.storagerouter.name < b.storagerouter.name ? -1 : 1;
+                            } else if (a.storagerouter === null && b.storagerouter === null) {
+                                if (![undefined, null].contains(a.ip) && ![undefined, null].contains(b.ip)){
+                                    return generic.ipSort(a.ip, b.ip);
+                                } else {
+                                    return a.node_id < b.node_id ? -1 : 1;
+                                }
+                            }
+                            return a.storagerouter !== null ? -1 : 1;
+                        });
+                        return data;
+                    }
+                    return data
+                })
         };
         /**
          * Loads in a backend for the current supplied data

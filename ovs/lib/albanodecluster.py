@@ -58,28 +58,47 @@ class AlbaNodeClusterController(object):
 
     @staticmethod
     @ovs_task(name='albanodecluster.register_node')
-    def register_node(node_cluster_guid, node_id):
+    def register_node(node_cluster_guid, node_id=None, node_ids=None):
         """
         Register a AlbaNode to the AlbaNodeCluster
         :param node_cluster_guid: Guid of the AlbaNodeCluster to add the node to
         :type node_cluster_guid: basestring
         :param node_id: ID of the ALBA node to register
         :type node_id: basestring
+        :param node_ids: List of IDs of AlbaNodes to register
+        :type node_ids: list[str]
         :return: None
         :rtype: NoneType
         """
+        if all(x is None for x in [node_id, node_ids]):
+            raise ValueError('Either node_id or node_ids must be given')
+        if node_ids is None:
+            node_ids = [node_id]
         an_cluster = AlbaNodeCluster(node_cluster_guid)
-        an_node = AlbaNodeList.get_albanode_by_node_id(node_id)
-        # Validation
-        for slot_id, slot_info in an_node.stack.iteritems():
-            for osd_id, osd_info in slot_info.iteritems():
-                claimed_by = osd_info.get('claimed_by')
-                if claimed_by is not None:  # Either UNKNOWN or a GUID:
-                    if claimed_by == AlbaNode.OSD_STATUSES.UNKNOWN:
-                        raise RuntimeError('Unable to link AlbaNode {0}. No information could be retrieved about OSD {1}'.format(node_id, osd_id))
-                    raise RuntimeError('Unable to link AlbaNode {0} because it already has OSDs which are claimed'.format(node_id))
-        an_node.alba_node_cluster = an_cluster
-        an_node.save()
+        messages = []
+        for node_id in node_ids:
+            try:
+                an_node = AlbaNodeList.get_albanode_by_node_id(node_id)
+                if an_node is None:
+                    messages.append('No AlbaNode found with ID {0}'.format(node_id))
+                    continue
+                # Validation
+                for slot_id, slot_info in an_node.stack.iteritems():
+                    for osd_id, osd_info in slot_info['osds'].iteritems():
+                        claimed_by = osd_info.get('claimed_by')
+                        if claimed_by is not None:  # Either UNKNOWN or a GUID:
+                            if claimed_by == AlbaNode.OSD_STATUSES.UNKNOWN:
+                                raise RuntimeError('Unable to link AlbaNode {0}. No information could be retrieved about OSD {1}'.format(node_id, osd_id))
+                            raise RuntimeError('Unable to link AlbaNode {0} because it already has OSDs which are claimed'.format(node_id))
+                an_node.alba_node_cluster = an_cluster
+                an_node.save()
+            except Exception:
+                message = 'Unhandled Exception occurred during the registering of AlbaNode with id {0} under AlbaNodeCluster {1}'.format(node_id, node_cluster_guid)
+                messages.append(message)
+                AlbaNodeClusterController._logger.exception(message)
+        if len(messages) > 0:
+            raise ValueError('Errors occurred while registering AlbaNodes with IDs {0}:\n - {1}'.format(node_ids, '\n - '.join(messages)))
+
 
     @staticmethod
     @ovs_task(name='albanodecluster.unregister_node')

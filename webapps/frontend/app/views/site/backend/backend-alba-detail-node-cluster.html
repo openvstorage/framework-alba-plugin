@@ -56,6 +56,13 @@ but WITHOUT ANY WARRANTY of any kind.
         <td style="border-top: 0;" data-i18n="alba:generic.nodetypes.albanodecluster"></td>
         <td style="width: 80px; border-top: 0;">
             <span class="hand fa fa-fw"
+                  data-i18n="[html]ovs:icons.add"
+                  data-bind="attr: { id: 'initialize_all_' + name() },
+                             click: registerAlbaNode,
+                             tooltip: 'alba:generic.register_node',
+                             style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !read_only_mode() ? 'black': 'lightgrey' }">
+            </span>
+            <span class="hand fa fa-fw"
                   data-i18n="[html]alba:icons.initialize"
                   data-bind="attr: { id: 'initialize_all_' + name() },
                              click: function() { addOSDs(); },

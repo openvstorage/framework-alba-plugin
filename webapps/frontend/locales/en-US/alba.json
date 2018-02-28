@@ -435,6 +435,21 @@
             "title": "Link Backend",
             "use_local": "Link Local Backend:"
         },
+        "register_node_under_cluster": {
+            "confirm": {
+                "basic_info": "Following Alba Nodes will be added to cluster:",
+                "complete": "Completed",
+                "failed": "Adding node cluster failed: __why__",
+                "in_progress": "Node is being registered un the cluster",
+                "ip": "IP Address",
+                "started": "Started",
+                "success": "Node cluster has been created"
+            },
+            "gather": {
+                "alba_node": "Alba Node"
+            },
+            "title": "Register Alba Node under a cluster"
+        },
         "remove_osd": {
             "complete": "Removed",
             "failed": "Failed removing ASD __what__: __why__",
