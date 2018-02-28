@@ -44,44 +44,28 @@ define([
     };
 
     /**
-     * AlbaNodeClusterModel class
-     * @param data: Data to bind into the model. This data maps with model in the Framework
-     * @param albaBackend: Possible AlbaBackend viewmodel when this model has to operate in a backend-bound context
+     * AlbaNodeBase class
+     * Acts as a parent class for albanode and albanodecluster as they share some methods
      * @constructor
      */
-    function AlbaNodeClusterModel(data, albaBackend){
+    function AlbaNodeClusterModel(){
         var self = this;
-
         // Inherit from base
         BaseContainer.call(self);
 
         // Variables
         self.shared      = shared;
-        self.albaBackend = albaBackend;  // Attached albaBackendModel from the parent view
 
         // Observables
         self.expanded          = ko.observable(false);
         self.slotsLoading      = ko.observable(false);
         self.emptySlotMessage  = ko.observable();  // When the type would be generic
 
-        // Default data - replaces fillData - this always creates observables for the passed keys
-        // Most of these properties are given by the API but setting them explicitly to have a view of how this model looks
-        var vmData = $.extend({
-            guid: null,
-            name: null,
-            ips: [],
-            cluster_metadata: null,
-            local_summary: null,
-            stack: null,
-            maintenance_services: [],
-            supported_osd_types: [],
-            read_only_mode: true,
-            alba_nodes: [],
-            alba_node_guids: [],
-            slots: []
-        }, data);
+        // Will be overriden by inheritance
+        self.slots = ko.observableArray([]);
+        self.stack = ko.observable({});
 
-        ko.mapping.fromJS(vmData, albaNodeClusterMapping, self);  // Bind the data into this
+        ko.mapping.fromJS({}, {}, self);  // Bind the data into this
 
 
         // Computed
@@ -100,38 +84,59 @@ define([
 
         // Functions
         /**
-         * Refresh the current object instance by updating it with API data
-         * @param queryParams: Additional query params. Defaults to no params
-         * @param relayParams: Relay to use (Optional, defaults to no relay)
-         * @returns {Deferred}
+         * Generate the slot relations based on the stack property
          */
-        self.refresh = function(queryParams, relayParams){
-            return albaNodeClusterService.loadAlbaNodeCluster(self.guid(), queryParams, relayParams)
-                .done(function(data) {
-                    self.update(data.data)
-                })
-                .fail(function(data) {
-                    // @TODO remove
-                    console.log('Failed to update current object: {0}'.format([data]))
-                })
-        };
-        // Functions
-        self.localSummaryByBackend = function(albaBackendGuid){
-          // Returns a computed to get notified about all changes to the localSummary here
-          return ko.computed(function() {
-              // @Todo implement
-              return {};
-          })
-        };
+        self.generateSlotsByStack = function() {
+            if (!ko.utils.unwrapObservable(self.stack)) {
+                throw new Error('No stack information available')
+            }
+            var slots = [];
+            $.each(ko.utils.unwrapObservable(self.stack), function(key, value) {
 
-        // Wizards
-        self.registerAlbaNode = function(){
-            dialog.show(new RegisterNodeWizard({
-                modal: true,
-                albaNodeCluster: self
-            }));
+            });
+                        // Add slots
+            var slotIDs = Object.keys(generic.tryGet(data, 'stack', {}));
+            var emptySlotID = undefined;
+            if (self.type() === 'GENERIC') {
+                if (self.slots().length > 0){
+                    $.each(self.slots().slice(), function(index, slot) {
+                       if (slot.status() === 'empty' && !slotIDs.contains(slot.slotID())){
+                           // Empty slot found in the model of the GUI, let's add it to the stack output
+                           // This way the crossfiller won't remove it
+                           emptySlotID = slot.slotID();
+                           slotIDs.push(emptySlotID);
+                           return false;  // Break
+                       }
+                    });
+                }
+            }
+            generic.crossFiller(
+                slotIDs, self.slots,
+                function(slotID) {
+                    return new Slot(slotID, self, self.albaBackend);
+                }, 'slotID'
+            );
+            $.each(self.slots(), function (index, slot) {
+                if (slot.slotID() === emptySlotID) {
+                    // Skip filling the data for the new slot. There is no stack data for it
+                    return true;
+                }
+                slot.fillData(data.stack[slot.slotID()])
+            });
+            // No empty slot found, generate one for the future refresh runs
+            if (emptySlotID === undefined && self.type() === 'GENERIC') {
+                self.generateEmptySlot();
+            }
+            self.slots.sort(function(a, b) {
+                if ((a.status() === 'empty' && b.status() === 'empty') || (a.status() !== 'empty' && b.status() !== 'empty')) {
+                    return a.slotID() < b.slotID() ? -1 : 1;
+                } else if (a.status() === 'empty') {  // Move empty status last
+                    return 1;
+                }
+                return -1;
+            });
+            self.slotsLoading(false);
         }
-
 
     }
     return AlbaNodeClusterModel

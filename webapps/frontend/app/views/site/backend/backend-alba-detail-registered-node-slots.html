@@ -15,14 +15,16 @@ in the LICENSE.txt file of the Open vStorage OSE distribution.
 Open vStorage is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY of any kind.
 -->
-<!--The parent is the AlbaBackendViewModel as is the root. The current context is an AlbaNode -->
+<!--The parent is either AlbaNodeCluster or AlbaNode and AlbaBackendViewModel is the root-->
 <tr data-bind="visible: expanded()">
+    <!-- ko let: { node_or_cluster: $parent } -->
     <td colspan="6" style="border-top: 0; padding-left: 35px;">
         <!-- ko if: slots().length === 0 -->
             <i style="padding-left: 12px;" data-bind="visible: !slotsLoading()" data-i18n="alba:generic.slots.notfound"></i>
             <i style="padding-left: 12px;" data-bind="visible: slotsLoading()" data-i18n="alba:generic.slots.loading"></i>
         <!-- /ko -->
         <div>
+        <!-- ko ifnot: slots().length === 0 -->
             <!-- ko foreach: slots -->
             <div class="btn-group" role="group" style="margin-bottom: 10px; margin-left: 10px;"
                  data-bind="attr: { 'data-status': status(), 'id': slotID(), 'data-statusdetail': statusDetail() }">
@@ -56,11 +58,11 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                     <!-- ko if: canClaim() -->
                                         <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
-                                                data-bind="click: claimOSDs, css: { disabled: processing() || $parent.readOnlyMode() }"></button>
+                                                data-bind="click: claimOSDs, css: { disabled: processing() || node_or_cluster.readOnlyMode() }"></button>
                                     <!-- /ko -->
                                     <!-- ko if: canClear() -->
                                         <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.clear"
-                                                data-bind="click: clear, css: { disabled: processing() || $parent.readOnlyMode() }"></button>
+                                                data-bind="click: clear, css: { disabled: processing() || node_or_cluster.readOnlyMode() }"></button>
                                     <!-- /ko -->
                                 </span>
                             </a>
@@ -152,35 +154,35 @@ but WITHOUT ANY WARRANTY of any kind.
                         <li style="width: 300px;">
                             <a style="position: relative;">
                                 <span data-i18n="ovs:generic.status"></span>: <span data-bind="translate: 'alba:generic.states.osd.' + status()"></span>
-                                <!-- ko if: albaBackendGuid() === undefined -->
+                                <!-- ko if: [null, undefined].contains(albaBackendGuid()) -->
                                     <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                         <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
-                                                data-bind="click: claim, css: { disabled: processing() || !loaded() || locked() || $parents[1].readOnlyMode() }
+                                                data-bind="click: claim, css: { disabled: processing() || !loaded() || locked() || node_or_cluster.readOnlyMode() }
                                                            placement: 'bottom'"></button>
                                     </span>
                                 <!-- /ko -->
                                 <!-- ko if: albaBackendGuid() === $root.albaBackend().guid() -->
                                     <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                         <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
-                                                data-bind="click: remove, css: { disabled: processing() || !loaded() || locked() || $parents[1].readOnlyMode() }"></button>
+                                                data-bind="click: remove, css: { disabled: processing() || !loaded() || locked() || node_or_cluster.readOnlyMode() }"></button>
                                     </span>
                                 <!-- /ko -->
                                 <!-- ko if: status() === 'warning' && isLocal() -->
                                     <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                         <button type="button" class="btn btn-warning btn-xs" data-i18n="alba:generic.restart"
-                                                data-bind="click: restart, css: { disabled: processing() || !loaded() || locked() || $parents[1].readOnlyMode() }"></button>
+                                                data-bind="click: restart, css: { disabled: processing() || !loaded() || locked() || node_or_cluster.readOnlyMode() }"></button>
                                         <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
-                                                data-bind="click: remove, css: { disabled: processing() || !loaded() || locked() || $parents[1].readOnlyMode() }"></button>
+                                                data-bind="click: remove, css: { disabled: processing() || !loaded() || locked() || node_or_cluster.readOnlyMode() }"></button>
                                     </span>
                                 <!-- /ko -->
                                 <!-- ko if: status() === 'error' && isLocal() -->
                                     <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                         <!-- ko if: statusDetail() !== 'nodedown' -->
                                             <button type="button" class="btn btn-warning btn-xs" data-i18n="alba:generic.restart"
-                                                    data-bind="click: restart, css: { disabled: processing() || !loaded() || $parents[1].readOnlyMode() }"></button>
+                                                    data-bind="click: restart, css: { disabled: processing() || !loaded() || node_or_cluster.readOnlyMode() }"></button>
                                         <!-- /ko -->
                                         <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
-                                                data-bind="click: remove, css: { disabled: processing() || !loaded() || $parents[1].readOnlyMode() }"></button>
+                                                data-bind="click: remove, css: { disabled: processing() || !loaded() || node_or_cluster.readOnlyMode() }"></button>
                                     </span>
                                 <!-- /ko -->
                             </a>
@@ -222,13 +224,14 @@ but WITHOUT ANY WARRANTY of any kind.
                 <!-- /ko -->
                 <!-- ko if: (canFill() === true || canFillAdd() === true) && osds().length === 0 -->
                 <div class="btn-group" role="group">
-                    <button class="btn btn-default" id="buttonAddOsd" data-bind="click: function() { $parent.addOSDs($data)}, enable: !$data.processing() && !$parent.readOnlyMode()">
+                    <button class="btn btn-default" id="buttonAddOsd" data-bind="click: function() { node_or_cluster.addOSDs($data)}, enable: !$data.processing() && !node_or_cluster.readOnlyMode()">
                         <span class="fa" data-i18n="[html]ovs:icons.add"></span>
                     </button>
                 </div>
                 <!-- /ko -->
             </div>
             <!-- /ko -->
+        <!-- /ko -->
         <!-- ko if: !['', null, undefined].contains(emptySlotMessage()) -->
         <div class="notification-message">
             <span data-bind="text: emptySlotMessage()"></span>
@@ -236,4 +239,5 @@ but WITHOUT ANY WARRANTY of any kind.
         <!-- /ko -->
         </div>
     </td>
+    <!-- /ko -->
 </tr>

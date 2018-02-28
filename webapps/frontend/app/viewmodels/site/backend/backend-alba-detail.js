@@ -39,7 +39,7 @@ define([
                 if (options.parent.albaBackend() === undefined) {
                     return null
                 }
-                return new NodeCluster(options.data);
+                return new NodeCluster(options.data, options.parent.albaBackend());
             }
         },
         'alba_nodes_discovered': {
@@ -51,7 +51,7 @@ define([
                     return null
                 }
                 // This object has not yet been converted to work with ko.mapping thus manually overriden the create
-                var storage_node = new AlbaNode(options.data.nodeID);
+                var storage_node = new AlbaNode(options.data.nodeID, options.parent.albaBackend());
                 storage_node.fillData(options.data);
                 return storage_node
             }
@@ -100,6 +100,22 @@ define([
         self.remoteStack            = ko.observableArray([]);
         self.rNodesLoading          = ko.observable(true);
 
+        // Subscriptions
+        var subscriptions = [
+            app.on('alba_backend:load').then(function(albaBackendGuid){
+                var cache = otherAlbaBackendsCache(), ab;
+                if (!cache.hasOwnProperty(self.albaBackendGuid())) {
+                    ab = new AlbaBackend(self.albaBackendGuid());
+                    ab.load('backend')
+                        .then(function () {
+                            ab.backend().load();
+                        });
+                    cache[self.albaBackendGuid()] = ab;
+                    otherAlbaBackendsCache(cache);
+                }
+                self.albaBackend(cache[self.albaBackendGuid()]);
+            })
+        ];
         var vmData = {
             'alba_node_clusters': [],
             'alba_nodes_discovered': [],
@@ -237,7 +253,7 @@ define([
                     if (!generic.xhrCompleted(self.nodeClustersHandle)) {
                         return
                     }
-                    var options = {contents: 'stack,node_metadata,local_summary,read_only_mode,_relations,_relation_contents_alba_nodes=""'};
+                    var options = {contents: 'stack,node_metadata,local_summary,read_only_mode,_relations,_relation_contents_alba_nodes=local_summary'};
                     return self.nodeClustersHandle = albaNodeClusterService.loadAlbaNodeClusters(options)
                         .then(function(data) {
                             return data.data

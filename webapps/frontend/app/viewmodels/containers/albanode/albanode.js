@@ -59,6 +59,7 @@ define([
         self.loadLogFilesHandle = undefined;
 
         // Observables
+        // @Todo cleanup
         self.diskNames         = ko.observableArray([]);
         self.downLoadingLogs   = ko.observable(false);
         self.downloadLogState  = ko.observable($.t('alba:support.download_logs'));
@@ -91,6 +92,7 @@ define([
             node_id: null,
             node_metadata: {},
             osd_guids: [],
+            osds: [],
             package_information: {},
             port: null,
             stack: null,
@@ -103,6 +105,12 @@ define([
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
 
         // Computed
+        self.isPartOfCluster = ko.pureComputed(function() {
+           if (self.alba_node_cluster_guid === undefined) {
+               throw new Error('Unable to determine if this node is part of a cluster because the information has not been retrieved')
+           }
+           return self.alba_node_cluster_guid !== null
+        });
         self.canInitializeAll = ko.computed(function() {
             var hasUninitialized = false;
             $.each(self.slots(), function(index, slot) {
@@ -160,6 +168,20 @@ define([
             return ![null, undefined].contains(self.storagerouter_guid()) && ![null, undefined].contains(storagerouter_guid)
         });
 
+        // Computed factories
+        self.canFill = function(slot) {
+            return ko.computed(function() {
+              // @Todo implement
+              return {};
+          })
+        };
+        self.canFillAdd = function(slot) {
+            return ko.computed(function() {
+              // @Todo implement
+              return {};
+          })
+        };
+        self
         // Functions
         self.localSummaryByBackend = function(albaBackendGuid){
           // Returns a computed to get notified about all changes to the localSummary here

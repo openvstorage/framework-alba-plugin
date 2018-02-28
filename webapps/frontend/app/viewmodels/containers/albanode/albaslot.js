@@ -17,17 +17,26 @@
 define([
     'jquery', 'knockout',
     'ovs/generic',
-    'viewmodels/containers/albanode/albaosd'
-], function($, ko, generic, Osd) {
+    'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albaosd'
+], function($, ko, generic, BaseContainer, Osd) {
     "use strict";
-    return function(id, node, albaBackend) {
+    var viewModelMapping = {
+
+    };
+
+    /**
+     * AlbaSlot viewModel
+     * @param id: ID of the slot
+     * @param nodeOrCluster: AlbaNodeCluster or AlbaNode viewmodel where this model is attached too
+     * @param albaBackend: albaBackend that this model is attached too
+     */
+    function viewModel(id, data, nodeOrCluster, albaBackend) {
         var self = this;
-        // Variables
-        self.errorStatuses = ['warning', 'error', 'unavailable', 'unknown'];
+        BaseContainer.call(self);
 
         // Externally added
-        self.node        = node;
-        self.albaBackend = albaBackend;
+        self.nodeOrCluster = nodeOrCluster;
+        self.albaBackend   = albaBackend;
 
         // Observables
         self.loaded       = ko.observable(false);
@@ -42,9 +51,15 @@ define([
         self.mountpoint   = ko.observable();
         self.usage        = ko.observable();
 
+        var vmData = $.extend({
+            osds: []
+        }, data);
+
+        ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
+
         // Computed
         self.canClear = ko.computed(function() {
-            if (self.node !== undefined && self.node.metadata() !== undefined && self.node.metadata().clear === false) {
+            if (self.nodeOrCluster !== undefined && self.nodeOrCluster.metadata() !== undefined && self.nodeOrCluster.metadata().clear === false) {
                 return false;
             }
             if (self.osds().length === 0) {
@@ -58,13 +73,13 @@ define([
             });
             return canClear;
         });
-        self.canFill = ko.computed(function() {
-           return self.node.metadata().fill
+        self.canFill = ko.pureComputed(function() {
+           return self.nodeOrCluster.metadata().fill
         });
-        self.canFillAdd = ko.computed(function() {
-            return self.node.metadata().fill_add
+        self.canFillAdd = ko.pureComputed(function() {
+            return self.nodeOrCluster.metadata().fill_add
         });
-        self.canClaim = ko.computed(function() {
+        self.canClaim = ko.pureComputed(function() {
             var claimable = false;
             $.each(self.osds(), function(index, osd) {
                 if (osd.status() === 'available') {
@@ -73,7 +88,7 @@ define([
             });
             return claimable;
         });
-        self.locked = ko.computed(function() {
+        self.locked = ko.pureComputed(function() {
             var locked = false;
             $.each(self.osds(), function(index, osd) {
                 if (osd.locked()) {
@@ -85,7 +100,7 @@ define([
 
         // Functions
         self.clear = function() {
-            self.node.removeSlot(self);
+            self.nodeOrCluster.removeSlot(self);
         };
         self.fillData = function(data) {
             self.status(data.status);
@@ -100,7 +115,7 @@ define([
             generic.crossFiller(
                 osdIds, self.osds,
                 function(osdId) {
-                    return new Osd(osdId, self, self.node, self.albaBackend);
+                    return new Osd(osdId, self, self.nodeOrCluster, self.albaBackend);
                 }, 'osdID'
             );
             $.each(self.osds(), function (index, osd) {
@@ -119,7 +134,7 @@ define([
                 }
             });
             data[self.slotID()] = {slot: self, osds: osds};
-            self.node.claimOSDs(data);
+            self.nodeOrCluster.claimOSDs(data);
         };
     };
 });
