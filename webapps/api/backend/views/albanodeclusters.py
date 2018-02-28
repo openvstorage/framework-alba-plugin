@@ -54,15 +54,15 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read'])
     @return_object(AlbaNodeCluster)
     @load(AlbaNodeCluster)
-    def retrieve(self, node_cluster):
+    def retrieve(self, albanodecluster):
         """
         Load information about a given AlbaBackend
-        :param node_cluster: AlbaNodeCluster to retrieve
-        :type node_cluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
+        :param albanodecluster: AlbaNodeCluster to retrieve
+        :type albanodecluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
         :return: The requested AlbaNodeCluster object
         :rtype: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
         """
-        return node_cluster
+        return albanodecluster
 
     @log()
     @required_roles(['read', 'write', 'manage'])
@@ -82,25 +82,25 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['manage'])
     @return_task()
     @load(AlbaNodeCluster)
-    def destroy(self, node_cluster):
+    def destroy(self, albanodecluster):
         """
         Deletes an ALBA node
-        :param node_cluster: The AlbaNodeCluster to be removed
-        :type node_cluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
+        :param albanodecluster: The AlbaNodeCluster to be removed
+        :type albanodecluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
         :return: Celery async task result
         :rtype: CeleryTask
         """
-        return AlbaNodeClusterController.remove_cluster.delay(node_cluster_guid=node_cluster.guid)
+        return AlbaNodeClusterController.remove_cluster.delay(node_cluster_guid=albanodecluster.guid)
 
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaNodeCluster)
-    def fill_slots(self, node_cluster, slot_information, metadata=None):
+    def fill_slots(self, albanodecluster, slot_information, metadata=None):
         """
         Fills 1 or more Slots
-        :param node_cluster: The AlbaNode on which the Slots will be filled
-        :type node_cluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
+        :param albanodecluster: The AlbaNode on which the Slots will be filled
+        :type albanodecluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
         :param slot_information: A list of Slot information
         :type slot_information: list
         :param metadata: Extra metadata if required
@@ -108,7 +108,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :return: Celery async task result
         :rtype: CeleryTask
         """
-        return AlbaNodeClusterController.fill_slots.delay(node_cluster_guid=node_cluster.guid,
+        return AlbaNodeClusterController.fill_slots.delay(node_cluster_guid=albanodecluster.guid,
                                                           slot_information=slot_information,
                                                           metadata=metadata)
 
@@ -116,27 +116,27 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaNodeCluster)
-    def remove_slot(self, node_cluster, slot):
+    def remove_slot(self, albanodecluster, slot):
         """
         Removes a disk
-        :param node_cluster: AlbaNodeCluster to remove a disk from
-        :type node_cluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
+        :param albanodecluster: AlbaNodeCluster to remove a disk from
+        :type albanodecluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
         :param slot: Slot to remove
         :type slot: str
         :return: Celery async task result
         :rtype: CeleryTask
         """
-        return AlbaNodeClusterController.remove_slot.delay(node_cluster.guid, slot)
+        return AlbaNodeClusterController.remove_slot.delay(albanodecluster.guid, slot)
 
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaNodeCluster)
-    def reset_osd(self, node_cluster, osd_id, safety):
+    def reset_osd(self, albanodecluster, osd_id, safety):
         """
         Removes and re-add an OSD
-        :param node_cluster: AlbaNodeCluster to remove a disk from
-        :type node_cluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
+        :param albanodecluster: AlbaNodeCluster to remove a disk from
+        :type albanodecluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
         :param osd_id: OSD ID to reset
         :type osd_id: str
         :param safety: Safety to maintain
@@ -147,7 +147,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         if safety is None:
             raise HttpNotAcceptableException(error='invalid_data',
                                              error_description='Safety must be passed')
-        return AlbaNodeClusterController.reset_osd.delay(node_cluster.guid, osd_id, safety)
+        return AlbaNodeClusterController.reset_osd.delay(albanodecluster.guid, osd_id, safety)
 
     @action()
     @required_roles(['read', 'write', 'manage'])
@@ -164,3 +164,36 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :rtype: CeleryTask
         """
         return AlbaNodeClusterController.restart_osd.delay(node_cluster.guid, osd_id)
+
+    @action()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaNodeCluster)
+    def register_node(self, albanodecluster, node_id=None):
+        """
+        Registers an AlbaNode under a AlbaNodeCluster
+        :param albanodecluster: The AlbaNodeCluster to which the AlbaNode will be registered
+        :type albanodecluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
+        :param node_id: ID of the AlbaNode to register
+        :type node_id: str
+        :return: Celery async task result
+        :rtype: CeleryTask
+        """
+        return AlbaNodeClusterController.register_node.delay(albanodecluster.guid, node_id=node_id)
+
+    @action()
+    @required_roles(['read', 'write', 'manage'])
+    @return_task()
+    @load(AlbaNodeCluster)
+    def register_nodes(self, albanodecluster, node_ids):
+        """
+        Registers AlbaNodes under a AlbaNodeCluster
+        The AlbaNodeCluster to which the AlbaNode will be registered
+        :type albanodecluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
+        :type albanodecluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
+        :param node_ids: List of IDs of AlbaNodes to register
+        :type node_ids: list[str]
+        :return: Celery async task result
+        :rtype: CeleryTask
+        """
+        return AlbaNodeClusterController.register_node.delay(albanodecluster.guid, node_ids=node_ids)

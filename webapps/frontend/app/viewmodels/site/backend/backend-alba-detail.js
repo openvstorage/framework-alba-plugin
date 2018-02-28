@@ -270,22 +270,9 @@ define([
                             items: [['alba_node_cluster', 'EQUALS', null]]
                         })
                     };
-                    return self.nodesHandle[discover] = albaNodeService.loadAlbaNodes(options)
+                    return self.nodesHandle[discover] = albaNodeService.loadAlbaNodes(options, undefined, true)
                         .then(function (data) {
-                            var apiData = data.data;
-                            apiData.sort(function(a, b){
-                                if (a.storagerouter !== null && b.storagerouter !== null) {
-                                    return a.storagerouter.name < b.storagerouter.name ? -1 : 1;
-                                } else if (a.storagerouter === null && b.storagerouter === null) {
-                                    if (![undefined, null].contains(a.ip) && ![undefined, null].contains(b.ip)){
-                                        return generic.ipSort(a.ip, b.ip);
-                                    } else {
-                                        return a.node_id < b.node_id ? -1 : 1;
-                                    }
-                                }
-                                return a.storagerouter !== null ? -1 : 1;
-                            });
-                            return apiData;
+                            return data.data;  // Unwrap
                         })
                 })
         };

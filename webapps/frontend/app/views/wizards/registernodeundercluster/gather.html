@@ -1,0 +1,38 @@
+<!--
+Copyright (C) 2017 iNuron NV
+
+This file is part of Open vStorage Open Source Edition (OSE),
+as available from
+
+      http://www.openvstorage.org and
+      http://www.openvstorage.com.
+
+This file is free software; you can redistribute it and/or modify it
+under the terms of the GNU Affero General Public License v3 (GNU AGPLv3)
+as published by the Free Software Foundation, in version 3 as it comes
+in the LICENSE.txt file of the Open vStorage OSE distribution.
+
+Open vStorage is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY of any kind.
+-->
+<div>
+    <p data-i18n="alba:wizards.register_node_under_cluster.gather.basicinfo"></p>
+    <div class="form-group" data-bind="css: { 'has-error': canContinue().fields.contains('nodes') }">
+        <label class="col-lg-3 control-label" data-i18n="alba:wizards.register_node_under_cluster.gather.alba_node"></label>
+        <div class="col-lg-7">
+            <span data-bind="dropdown: {
+                                 items: data.registerableAlbaNodes, target: data.selectedAlbaNodes,
+                                 text: function(item) {
+                                    return item.ip()
+                                 }
+                             }"></span>
+        </div>
+    </div>
+    <div class="alert alert-danger" data-bind="visible: !canContinue().value" style="margin-bottom: -10px;">
+        <p data-bind="visible: canContinue().reasons.length === 0"><span data-i18n="ovs:generic.errorsfound"></span></p>
+        <p data-bind="visible: canContinue().reasons.length > 0"><span data-i18n="ovs:generic.followingerrorsfound"></span></p>
+        <ul data-bind="visible: canContinue().reasons.length > 0, foreach: canContinue().reasons">
+            <li data-bind="text: $data"></li>
+        </ul>
+    </div>
+</div>

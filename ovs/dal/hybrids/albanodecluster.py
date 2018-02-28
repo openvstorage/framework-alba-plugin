@@ -105,10 +105,9 @@ class AlbaNodeCluster(DataObject):
         """
         stack = {}
         for alba_node in self.alba_nodes:
-            stack[alba_node] = alba_node.stack
+            stack[alba_node.node_id] = alba_node.stack
         # @Todo collapse information together based on active/passive
         # @todo Do not collapse on device both rother on slot id (which is an alias that should match)
-
         return stack
 
     def _supported_osd_types(self):

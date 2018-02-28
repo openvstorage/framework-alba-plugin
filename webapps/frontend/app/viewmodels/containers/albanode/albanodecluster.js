@@ -17,13 +17,13 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
     'ovs/generic', 'ovs/api', 'ovs/shared',
-    'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albaslot',
-    'viewmodels/wizards/addosd/index', 'viewmodels/wizards/removeosd/index',
+    'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albanode',
+    'viewmodels/wizards/addosd/index', 'viewmodels/wizards/removeosd/index', 'viewmodels/wizards/registernodeundercluster/index',
     'viewmodels/services/albanodeclusterservice'
 ], function($, app, ko, dialog,
             generic, api, shared,
-            BaseContainer, Slot,
-            AddOSDWizard, RemoveOSDWizard,
+            BaseContainer, AlbaNode,
+            AddOSDWizard, RemoveOSDWizard, RegisterNodeWizard,
             albaNodeClusterService) {
     "use strict";
     var albaNodeClusterMapping = {
@@ -115,6 +115,15 @@ define([
               return {};
           })
         };
+
+        // Wizards
+        self.registerAlbaNode = function(){
+            dialog.show(new RegisterNodeWizard({
+                modal: true,
+                albaNodeCluster: self
+            }));
+        }
+
 
     }
     return AlbaNodeClusterModel

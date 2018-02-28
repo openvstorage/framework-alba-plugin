@@ -25,7 +25,7 @@ define([
     function AlbaNodeClusterService() {
         var self = this;
         /**
-         * Loads in all backends for the current supplied data
+         * Loads in all AlbaNodeClusters for the current supplied data
          * @param queryParams: Additional query params. Defaults to no params
          * @param relayParams: Relay to use (Optional, defaults to no relay)
          * @returns {Promise}
@@ -35,7 +35,7 @@ define([
         };
         /**
          * Loads in a backend for the current supplied data
-         * @param guid: Guid of the Alba Backend
+         * @param guid: Guid of the AlbaNodeCluster
          * @param queryParams: Additional query params. Defaults to no params
          * @param relayParams: Relay to use (Optional, defaults to no relay)
          * @returns {Promise}
@@ -46,10 +46,36 @@ define([
         /**
          * Adds a new AlbaNodeCluster to the cluster
          * @param data: data about the cluster
-         * @returns {Promise}
+         * @returns {Promise} which resolves into a task ID
          */
         self.addAlbaNodeCluster = function(data) {
             return api.post('alba/nodeclusters', { data:data })
+        };
+        /**
+         * Registers an AlbaNode under an AlbaNodeCluster
+         * @param guid: Guid of the AlbaNodeCluster
+         * @param albaNodeID: ID of the AlbaNode to register under this cluster
+         * @returns {Promise} which resolves into a task ID
+         */
+        self.registerAlbaNode = function(guid, albaNodeID) {
+            return api.post('alba/nodeclusters/' + guid + '/register_node', {
+                data: {
+                    node_id: albaNodeID || null
+                }
+            })
+        };
+        /**
+         * Registers AlbaNodes under an AlbaNodeCluster
+         * @param guid: Guid of the AlbaNodeCluster
+         * @param albaNodeIDs: List of IDs of the AlbaNodes to register under this cluster
+         * @returns {Promise} which resolves into a task ID
+         */
+        self.registerAlbaNodes = function(guid, albaNodeIDs) {
+            return api.post('alba/nodeclusters/' + guid + '/register_nodes', {
+                data: {
+                    node_ids: albaNodeIDs
+                }
+            })
         }
     }
     return new AlbaNodeClusterService();
