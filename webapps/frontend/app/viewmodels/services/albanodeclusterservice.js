@@ -20,10 +20,12 @@
 define([
     'jquery', 'knockout',
     'ovs/api'
-], function ($, ko, api) {
+], function ($, ko,
+             api) {
 
     function AlbaNodeClusterService() {
         var self = this;
+
         /**
          * Loads in all AlbaNodeClusters for the current supplied data
          * @param queryParams: Additional query params. Defaults to no params

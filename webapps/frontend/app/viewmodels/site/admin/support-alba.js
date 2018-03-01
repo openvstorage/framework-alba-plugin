@@ -17,14 +17,30 @@
 define([
     'jquery', 'durandal/app', 'knockout',
     'ovs/generic', 'ovs/refresher', 'ovs/api', 'ovs/shared',
-    'viewmodels/containers/albanode/albanode'
+    'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albanode',
+    'viewmodels/services/albanodeservice'
 ], function($, app, ko,
             generic, Refresher, api, shared,
-            AlbaNode) {
+            BaseContainer, AlbaNode,
+            albaNodeService) {
     "use strict";
-    return function() {
-        var self = this;
+    var viewModelMapping = {
+        storageNodes: {
+            key: function(data) {  // For relation updates: check if the GUID has changed before discarding a model
+                return ko.utils.unwrapObservable(data.node_id)
+            },
+            create: function(options) {
+                return new AlbaNode(options.data);
+            }
+        }
+    };
 
+    /**
+     * SupportAlba viewModel
+     */
+    function viewModel() {
+        var self = this;
+        BaseContainer.call(self);
         // Variables
         self.generic   = generic;
         self.guard     = { authenticated: true };
@@ -34,44 +50,35 @@ define([
         // Handles
         self.loadStorageNodesHandle = undefined;
 
-        // Observables
-        self.storageNodes = ko.observableArray([]);
+        var vmData = {
+            storageNodes: []
+        };
+        ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
 
         // Functions
-        self.loadStorageNodes = function() {
-            return $.Deferred(function(deferred) {
-                if (generic.xhrCompleted(self.loadStorageNodesHandle)) {
-                    self.loadStorageNodesHandle = api.get('/alba/nodes', {queryparams: {contents: '_relations'}})
-                        .done(function(data) {
-                            var nodeIDs = [], nodes = {};
-                            $.each(data.data, function (index, item) {
-                                if (item.storagerouter_guid === null) {
-                                    nodeIDs.push(item.node_id);
-                                    nodes[item.node_id] = item;
-                                }
-                            });
-                            generic.crossFiller(
-                                nodeIDs, self.storageNodes,
-                                function(nodeID) {
-                                    return new AlbaNode(nodeID);
-                                }, 'nodeID'
-                            );
-                            $.each(self.storageNodes(), function(index, storageNode) {
-                                storageNode.fillData(nodes[storageNode.nodeID()]);
-                            });
-                            self.storageNodes.sort(function(node1, node2) {
-                                return generic.ipSort(node1.ip(), node2.ip());
-                            })
+        self.loadAlbaNodes = function() {
+                var contents = '_relations';
+                var options = {
+                    sort: 'ip',
+                    contents: contents,
+                    query: JSON.stringify({  // Only fetch non-clustered nodes
+                        type: 'AND',
+                        items: [['storagerouter', 'EQUALS', null]]
+                    })
+                };
+                return albaNodeService.loadAlbaNodes(options, undefined, true)
+                    .then(function (data) {
+                        self.update({storageNodes: data.data});
+                        self.storageNodes.sort(function (node1, node2) {
+                            return generic.ipSort(node1.ip(), node2.ip());
                         })
-                        .fail(deferred.reject);
-                }
-            }).promise();
+                    })
         };
 
         // Durandal
         self.activate = function() {
             self.refresher.init(function() {
-                self.loadStorageNodes();
+                self.loadAlbaNodes();
             }, 5000);
             self.refresher.start();
             self.refresher.run();
@@ -79,5 +86,6 @@ define([
         self.deactivate = function() {
             self.refresher.stop();
         };
-    };
+    }
+    return viewModel
 });

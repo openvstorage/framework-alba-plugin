@@ -16,57 +16,87 @@
 /*global define */
 define([
     'durandal/app', 'knockout', 'jquery',
-    'ovs/generic'
-], function(app, ko, $, generic) {
+    'ovs/generic',
+    'viewmodels/containers/shared/base_container'
+], function(app, ko, $,
+            generic,
+            BaseContainer) {
     "use strict";
-    return function(id, slot, nodeOrCluster, parentAlbaBackend) {
+
+    var viewModelMapping = {
+
+    };
+
+    /**
+     * AlbaOSD viewModel
+     * @param data: Data about the model (see vmData for layout). Similar to the data retrieved from the API
+     */
+    function viewModel(data) {
         var self = this;
+        BaseContainer.call(self);
 
-        // variables
-        self.errorStatuses = ['warning', 'error', 'unavailable', 'unknown'];
-
-        // External injected
-        self.nodeOrCluster = nodeOrCluster;
-        self.slot = slot;
-        self.disk = undefined;
+        // Enums
+        self.errorStatuses = Object.freeze({
+            warning: 'warning',
+            error: 'error',
+            unavailable: 'unavailable',
+            unknown: 'unknown'
+        });
+        self.statusses = Object.freeze($.extend({
+            available: 'available',
+            claimed: 'claimed',
+            nodedown: 'nodedown',
+            unknown: 'unknown'
+        }, self.errorStatuses));
 
         // Observables
-        self.albaBackendGuid = ko.observable();
-        self.device          = ko.observable();
-        self.guid            = ko.observable();
-        self.ignoreNext      = ko.observable(false);
-        self.ips             = ko.observableArray([]);
-        self.loaded          = ko.observable(false);
-        self.mountpoint      = ko.observable();
-        self.nodeID          = ko.observable();
-        self.osdID           = ko.observable(id);
-        self.parentABGuid    = ko.observable(parentAlbaBackend.guid());
-        self.port            = ko.observable().extend({numeric: {min: 1, max: 65535}});
-        self.processing      = ko.observable(false);
-        self.slotID          = ko.observable();
-        self._status         = ko.observable();  // can be ok, warning, error, unavailable, unknown
-        self.statusDetail    = ko.observable();
-        self.type            = ko.observable();
-        self.usage           = ko.observable();
+        self._status = ko.observable();
+        self.loaded = ko.observable(false);
+
+        var vmData = $.extend({
+            alba_backend_guid: null,  // Guid of the viewModel of the detail page (if any),
+            claimed_by: null,
+            slot_id: null,
+            guid: null,
+            status_detail: null,
+            osd_id: null,
+            usage: null,
+            device: null,
+            mountpount: null,
+            port: null,
+            ips: [],
+            type: null,
+            status: null,  // One of the self.statusses options
+            node_id: null
+        }, data);
+
+        ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
+        self.loaded(true);
 
         // Computed
-        self.status = ko.pureComputed(function() {
-            if (self.errorStatuses.contains(self._status())) {
-                return self._status();
+        self.status = ko.computed({
+            deferEvaluation: true,  // Wait with computing for an actual subscription
+            read: function() {
+                if (Object.values(self.errorStatuses).contains(self.status())) {
+                    return self._status();
+                }
+                if ([null, undefined].contains(self.claimed_by())) {
+                    return self.statusses.available;
+                }
+                return self.claimed_by() === self.alba_backend_guid() ? self.statusses.claimed : self.errorStatuses.unavailable;
+            },
+            write: function(status) {
+                self._status(status)
             }
-            if ([null, undefined].contains(self.albaBackendGuid())) {
-                return 'available';
-            }
-            return self.albaBackendGuid() === self.parentABGuid() ? 'claimed' : 'unavailable';
         });
         self.isLocal = ko.pureComputed(function() {
-            return [null, undefined].contains(self.albaBackendGuid()) || self.parentABGuid() === self.albaBackendGuid();
+            return [null, undefined].contains(self.claimed_by()) || self.alba_backend_guid() === self.claimed_by();
         });
         self.locked = ko.pureComputed(function() {
-            return ['nodedown', 'unknown'].contains(self.statusDetail()) || !self.isLocal();
+            return [self.statusses.nodedown, self.statusses.unknown].contains(self.statusDetail()) || !self.isLocal();
         });
         self.marked = ko.pureComputed(function() {
-            return (self.status() === 'unavailable' || (!self.isLocal() && (self.status() === 'warning' || self.status() === 'error'))) && self.albaBackend() !== undefined;
+            return (self.status() === self.errorStatuses.unavailable || (!self.isLocal() && (self.status() === self.errorStatuses.warning || self.status() === self.errorStatuses.error))) && self.albaBackend() !== undefined;
         });
         self.sockets = ko.pureComputed(function() {
             var sockets = [];
@@ -76,47 +106,23 @@ define([
             return sockets
         });
 
-        // Functions
-        self.fillData = function(data) {
-            if (self.ignoreNext() === true) {
-                self.ignoreNext(false);
-            } else {
-                self._status(data.status);
-                self.nodeID(data.node_id);
-                if (self.slot !== undefined) {
-                    self.slotID(self.slot.slotID());
-                }
-                generic.trySet(self.guid, data, 'guid');
-                generic.trySet(self.statusDetail, data, 'status_detail');
-                generic.trySet(self.osdID, data, 'asd_id');
-                generic.trySet(self.usage, data, 'usage');
-                generic.trySet(self.device, data, 'device');
-                generic.trySet(self.mountpoint, data, 'mountpoint');
-                generic.trySet(self.port, data, 'port');
-                generic.trySet(self.ips, data, 'ips');
-                generic.trySet(self.type, data, 'type');
-                generic.trySet(self.albaBackendGuid, data, 'claimed_by');
-                if (['unavailable', 'error', 'warning'].contains(self.status())) {
-                    if (self.albaBackendGuid() !== undefined && self.albaBackendGuid() !== 'unknown') {
-                        // Fire an event so the backend page would load the AlbaBackend associated with this osd
-                        app.trigger('alba_backend:load', self.albaBackendGuid())
-                    }
-                }
-            }
-            self.loaded(true);
-        };
-
+        // Event
+        // @todo replace these functions with events (if possible because its wizards)
         // Functions
         self.claim = function() {
+            throw new Error('To be done')
             var data = {};
             data[self.slotID()] = {slot: self.slot, osds: [self]};
             self.nodeOrCluster.claimOSDs(data);
         };
         self.remove = function() {
+            throw new Error('To be done')
             self.nodeOrCluster.removeOSD(self);
         };
         self.restart = function() {
+            throw new Error('To be done')
             self.nodeOrCluster.restartOSD(self);
         };
-    };
+    }
+    return viewModel
 });

@@ -17,12 +17,12 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
     'ovs/generic', 'ovs/api', 'ovs/shared',
-    'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albanode',
+    'viewmodels/containers/albanode/albanodebase', 'viewmodels/containers/albanode/albanode',
     'viewmodels/wizards/addosd/index', 'viewmodels/wizards/removeosd/index', 'viewmodels/wizards/registernodeundercluster/index',
     'viewmodels/services/albanodeclusterservice'
 ], function($, app, ko, dialog,
             generic, api, shared,
-            BaseContainer, AlbaNode,
+            AlbaNodeBase, AlbaNode,
             AddOSDWizard, RemoveOSDWizard, RegisterNodeWizard,
             albaNodeClusterService) {
     "use strict";
@@ -35,7 +35,7 @@ define([
                 var data = options.data;
                 var parent = options.parent;
                 if (ko.utils.unwrapObservable(parent.stack) !== null) {data.stack = generic.tryGet(parent.stack, data.node_id, {})}
-                var storage_node = new AlbaNode(data.node_id, parent.albaBackend);
+                var storage_node = new AlbaNode(data, parent.albaBackend);
                 storage_node.fillData(data);
                 // @todo generate osds based on stack data to fill in
                 return storage_node
@@ -53,7 +53,7 @@ define([
         var self = this;
 
         // Inherit from base
-        BaseContainer.call(self);
+        AlbaNodeBase.call(self);
 
         // Variables
         self.shared      = shared;
@@ -132,7 +132,8 @@ define([
             }));
         }
 
-
     }
+    // Prototypical inheritance
+    AlbaNodeClusterModel.prototype = $.extend({}, AlbaNodeBase.prototype);
     return AlbaNodeClusterModel
 });

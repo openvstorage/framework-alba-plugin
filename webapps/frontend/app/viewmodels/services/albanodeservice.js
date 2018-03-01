@@ -20,10 +20,12 @@
 define([
     'jquery', 'knockout',
     'ovs/api', 'ovs/generic'
-], function ($, ko, api, generic) {
+], function ($, ko,
+             api, generic) {
 
     function AlbaNodeService() {
         var self = this;
+
         /**
          * Loads in all backends for the current supplied data
          * @param queryParams: Additional query params. Defaults to no params

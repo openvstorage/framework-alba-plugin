@@ -51,7 +51,7 @@ define([
                     return null
                 }
                 // This object has not yet been converted to work with ko.mapping thus manually overriden the create
-                var storage_node = new AlbaNode(options.data.nodeID, options.parent.albaBackend());
+                var storage_node = new AlbaNode(null, options.parent.albaBackend());
                 storage_node.fillData(options.data);
                 return storage_node
             }
@@ -65,8 +65,7 @@ define([
                     return null
                 }
                 // This object has not yet been converted to work with ko.mapping thus manually overriden the create
-                var storage_node = new AlbaNode(options.data.node_id, options.parent.albaBackend(), options.parent);
-                storage_node.fillData(options.data);
+                var storage_node = new AlbaNode(options.data, options.parent.albaBackend(), options.parent);
                 return storage_node
             }
         }
