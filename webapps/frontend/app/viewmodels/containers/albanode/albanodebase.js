@@ -15,40 +15,20 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
-    'ovs/generic', 'ovs/api', 'ovs/shared',
-    'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albanode',
-    'viewmodels/wizards/addosd/index', 'viewmodels/wizards/removeosd/index', 'viewmodels/wizards/registernodeundercluster/index',
-    'viewmodels/services/albanodeclusterservice'
-], function($, app, ko, dialog,
-            generic, api, shared,
-            BaseContainer, AlbaNode,
-            AddOSDWizard, RemoveOSDWizard, RegisterNodeWizard,
-            albaNodeClusterService) {
+    'jquery', 'knockout',
+    'ovs/shared',
+    'viewmodels/containers/shared/base_container'
+], function($, ko,
+            shared,
+            BaseContainer) {
     "use strict";
-    var albaNodeClusterMapping = {
-        'alba_nodes': {
-            key: function(data) {  // For relation updates: check if the GUID has changed before discarding a model
-                return ko.utils.unwrapObservable(data.guid)
-            },
-            create: function(options) {  // This object has not yet been converted to work with ko.mapping thus manually overriden the create
-                var data = options.data;
-                var parent = options.parent;
-                if (ko.utils.unwrapObservable(parent.stack) !== null) {data.stack = generic.tryGet(parent.stack, data.node_id, {})}
-                var storage_node = new AlbaNode(data.node_id, parent.albaBackend);
-                storage_node.fillData(data);
-                // @todo generate osds based on stack data to fill in
-                return storage_node
-            }
-        }
-    };
 
     /**
      * AlbaNodeBase class
      * Acts as a parent class for albanode and albanodecluster as they share some methods
      * @constructor
      */
-    function AlbaNodeClusterModel(){
+    function viewModel(){
         var self = this;
         // Inherit from base
         BaseContainer.call(self);
@@ -81,63 +61,42 @@ define([
             // @Todo implement
             return true;
         });
-
-        // Functions
+    }
+    viewModel.prototype = $.extend({  // Prototypical inheritance
         /**
          * Generate the slot relations based on the stack property
          */
-        self.generateSlotsByStack = function() {
-            if (!ko.utils.unwrapObservable(self.stack)) {
+        generateSlotsByStack: function(stack) {
+            if (typeof stack === 'undefined') { stack = this.stack }  // No need to copy as we won't change the observable value
+            else { stack = $.extend({}, stack) }  // Copy before we mutate
+            if (!ko.utils.unwrapObservable(stack)) {
                 throw new Error('No stack information available')
             }
-            var slots = [];
-            $.each(ko.utils.unwrapObservable(self.stack), function(key, value) {
-
+            $.each(ko.utils.unwrapObservable(stack) || {}, function(slotID, slotInfo) {
+                // Inject the slot_id back into the the slotInfo so the mapping plugin can do it's work
+                slotInfo.slot_id = slotID;
+                // Change the osds item to an Array so we can observe it
+                slotInfo.osds = Object.keys(slotInfo.osds).map(function(osdID) {
+                    return slotInfo.osds[osdID]  // osd_id is already included by the API
+                });
             });
-                        // Add slots
-            var slotIDs = Object.keys(generic.tryGet(data, 'stack', {}));
-            var emptySlotID = undefined;
-            if (self.type() === 'GENERIC') {
-                if (self.slots().length > 0){
-                    $.each(self.slots().slice(), function(index, slot) {
-                       if (slot.status() === 'empty' && !slotIDs.contains(slot.slotID())){
-                           // Empty slot found in the model of the GUI, let's add it to the stack output
-                           // This way the crossfiller won't remove it
-                           emptySlotID = slot.slotID();
-                           slotIDs.push(emptySlotID);
-                           return false;  // Break
-                       }
-                    });
-                }
-            }
-            generic.crossFiller(
-                slotIDs, self.slots,
-                function(slotID) {
-                    return new Slot(slotID, self, self.albaBackend);
-                }, 'slotID'
-            );
-            $.each(self.slots(), function (index, slot) {
-                if (slot.slotID() === emptySlotID) {
-                    // Skip filling the data for the new slot. There is no stack data for it
-                    return true;
-                }
-                slot.fillData(data.stack[slot.slotID()])
-            });
-            // No empty slot found, generate one for the future refresh runs
-            if (emptySlotID === undefined && self.type() === 'GENERIC') {
-                self.generateEmptySlot();
-            }
-            self.slots.sort(function(a, b) {
-                if ((a.status() === 'empty' && b.status() === 'empty') || (a.status() !== 'empty' && b.status() !== 'empty')) {
-                    return a.slotID() < b.slotID() ? -1 : 1;
-                } else if (a.status() === 'empty') {  // Move empty status last
+            var slots = Object.values(ko.utils.unwrapObservable(stack));
+            slots.sort(self.sortSlotsFunction);
+            return slots;
+        },
+        /**
+         * Sorts the internally stored slots. To be used as callback in sort functions
+         * @param slot1: First slot to compare
+         * @param slot2: Next slot to compare
+         */
+        sortSlotsFunction: function(slot1, slot2) {
+            if ((slot1.status() === 'empty' && slot2.status() === 'empty') || (slot1.status() !== 'empty' && slot2.status() !== 'empty')) {
+                    return slot1.node_id() < slot2.slot_id() ? -1 : 1;
+                } else if (slot1.status() === 'empty') {  // Move empty status last
                     return 1;
                 }
                 return -1;
-            });
-            self.slotsLoading(false);
         }
-
-    }
-    return AlbaNodeClusterModel
+    }, BaseContainer.prototype);
+    return viewModel
 });

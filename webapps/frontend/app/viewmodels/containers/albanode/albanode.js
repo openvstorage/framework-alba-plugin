@@ -17,16 +17,16 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
     'ovs/generic', 'ovs/api', 'ovs/shared',
-    'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albaslot',
+    'viewmodels/containers/albanode/albanodebase', 'viewmodels/containers/albanode/albaslot', 'viewmodels/containers/albanode/localsummary',
     'viewmodels/containers/storagerouter/storagerouter',
     'viewmodels/wizards/addosd/index', 'viewmodels/wizards/removeosd/index'
 ], function($, app, ko, dialog,
             generic, api, shared,
-            BaseContainer, Slot, StorageRouter,
+            AlbaNodeBase, Slot, LocalSummary, StorageRouter,
             AddOSDWizard, RemoveOSDWizard) {
     "use strict";
     var viewModelMapping = {
-        'storagerouter': {
+        storagerouter: {
             key: function(data) {  // For relation updates: check if the GUID has changed before discarding a model
                 return ko.utils.unwrapObservable(data.guid)
             },
@@ -42,13 +42,34 @@ define([
                 storagerouter.loaded(true);
                 return storagerouter
             }
+        },
+        local_summary: {
+            create: function(options) {
+                return new LocalSummary(options.data)
+            }
+        },
+        slots: {
+            key: function(data) {  // For relation updates: check if the GUID has changed before discarding a model
+                return ko.utils.unwrapObservable(data.slot_id)
+            },
+            create: function(options) {
+                return new Slot(options.data);
+            }
         }
     };
 
-    function viewModel(nodeID, albaBackend, parentVM, data) {
+    /**
+     * AlbaNode class
+     * @param albaBackend: Linked Albackend mode
+     * @param parentVM: ParentVM that should be linked
+     * @param data: Data that represents this AlbaNode
+     * Note: the osds have to be explicitely set to allow the knockout mapping plugin to update them.
+     * They can be generated out of the stack property but must be fed in into the data explicitly
+     */
+    function AlbaNode(data, albaBackend, parentVM) {
         var self = this;
 
-        BaseContainer.call(this);  // Inherit from Base
+        AlbaNodeBase.call(this);  // Inherit from Base
 
         // Variables
         self.shared      = shared;
@@ -59,27 +80,13 @@ define([
         self.loadLogFilesHandle = undefined;
 
         // Observables
-        // @Todo cleanup
-        self.diskNames         = ko.observableArray([]);
         self.downLoadingLogs   = ko.observable(false);
         self.downloadLogState  = ko.observable($.t('alba:support.download_logs'));
         self.emptySlotMessage  = ko.observable();
         self.expanded          = ko.observable(false);
-        self.guid              = ko.observable();
-        self.ip                = ko.observable();
-        self.ips               = ko.observableArray([]);
         self.loaded            = ko.observable(false);
         self._localSummary     = ko.observable();
-        self.metadata          = ko.observable();
-        self.name              = ko.observable();
-        self.nodeID            = ko.observable(nodeID);
-        self.port              = ko.observable();
-        self.readOnlyMode      = ko.observable(false);
-        self.slots             = ko.observableArray([]);
         self.slotsLoading      = ko.observable(true);
-        self.storageRouterGuid = ko.observable();
-        self.type              = ko.observable();
-        self.username          = ko.observable();
 
         var vmData = $.extend({
             alba_node_cluster: undefined,  // Setting these to undefined as we need to check if a relation was defined
@@ -87,21 +94,22 @@ define([
             ip: null,
             ips: [],
             guid: null,
-            local_summary: {},
+            local_summary: null,  // @todo Make this a model
             name: null,
             node_id: null,
-            node_metadata: {},
+            node_metadata: null,
             osd_guids: [],
-            osds: [],
-            package_information: {},
+            slots: [],
+            package_information: null,
             port: null,
             stack: null,
             storagerouter: null,
             storagerouter_guid: null,
             username: null,
-            read_only_mode: false
-        }, data);
-
+            read_only_mode: false,
+            type: null
+        }, data || {});
+        vmData = $.extend(vmData, {'slots': self.generateSlotsByStack(vmData.stack || {})});  // Add slot info
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
 
         // Computed
@@ -111,7 +119,7 @@ define([
            }
            return self.alba_node_cluster_guid !== null
         });
-        self.canInitializeAll = ko.computed(function() {
+        self.canInitializeAll = ko.pureComputed(function() {
             var hasUninitialized = false;
             $.each(self.slots(), function(index, slot) {
                 if (slot.osds().length === 0 && slot.processing() === false) {
@@ -121,7 +129,7 @@ define([
             });
             return hasUninitialized;
         });
-        self.canClaimAll = ko.computed(function() {
+        self.canClaimAll = ko.pureComputed(function() {
             if (self.albaBackend === undefined) {
                 return false;
             }
@@ -139,7 +147,7 @@ define([
             });
             return hasUnclaimed;
         });
-        self.canDelete = ko.computed(function() {
+        self.canDelete = ko.pureComputed(function() {
             var deletePossible = true;
             $.each(self.slots(), function(_, slot) {
                 if (slot.processing() === true) {
@@ -181,8 +189,20 @@ define([
               return {};
           })
         };
-        self
+
         // Functions
+        /**
+         * Update the current view model with the supplied data
+         * Overrules the default update to pull apart stack
+         * @param data: Data to update on this view model (keys map with the observables)
+         * @type data: Object
+         */
+        self.update = function(data) {
+            if ('stack' in data) {
+                data = $.extend(data, {'osds': self.generateSlotsByStack()});
+            }
+            return AlbaNodeBase.prototype.update.call(this, data)
+        };
         self.localSummaryByBackend = function(albaBackendGuid){
           // Returns a computed to get notified about all changes to the localSummary here
           return ko.computed(function() {
@@ -221,61 +241,52 @@ define([
                     });
             }
         };
-        self.fillData = function(data) {
-            self.ip(data.ip);
-            self.guid(data.guid);
-            self.name(data.name);
-            self.port(data.port);
-            self.type(data.type);
-            self.username(data.username);
-            generic.trySet(self.ips, data, 'ips');
-            generic.trySet(self.metadata, data, 'node_metadata');
-            generic.trySet(self.readOnlyMode, data, 'read_only_mode');
-            generic.trySet(self._localSummary, data, 'local_summary');
-            generic.trySet(self.storageRouterGuid, data, 'storagerouter_guid');
+        // @Todo fill empty slot again
 
-            // Add slots
-            var slotIDs = Object.keys(generic.tryGet(data, 'stack', {}));
-            var emptySlotID = undefined;
-            if (self.type() === 'GENERIC') {
-                if (self.slots().length > 0){
-                    $.each(self.slots().slice(), function(index, slot) {
-                       if (slot.status() === 'empty' && !slotIDs.contains(slot.slotID())){
-                           // Empty slot found in the model of the GUI, let's add it to the stack output
-                           // This way the crossfiller won't remove it
-                           emptySlotID = slot.slotID();
-                           slotIDs.push(emptySlotID);
-                           return false;  // Break
-                       }
-                    });
-                }
-            }
-            generic.crossFiller(
-                slotIDs, self.slots,
-                function(slotID) {
-                    return new Slot(slotID, self, self.albaBackend);
-                }, 'slotID'
-            );
-            $.each(self.slots(), function (index, slot) {
-                if (slot.slotID() === emptySlotID) {
-                    // Skip filling the data for the new slot. There is no stack data for it
-                    return true;
-                }
-                slot.fillData(data.stack[slot.slotID()])
-            });
-            // No empty slot found, generate one for the future refresh runs
-            if (emptySlotID === undefined && self.type() === 'GENERIC') {
-                self.generateEmptySlot();
-            }
-            self.slots.sort(function(a, b) {
-                if ((a.status() === 'empty' && b.status() === 'empty') || (a.status() !== 'empty' && b.status() !== 'empty')) {
-                    return a.slotID() < b.slotID() ? -1 : 1;
-                } else if (a.status() === 'empty') {  // Move empty status last
-                    return 1;
-                }
-                return -1;
-            });
-            self.slotsLoading(false);
+        self.fillData = function(data) {
+            // generic.trySet(self._localSummary, data, 'local_summary');
+            // // Add slots
+            // var slotIDs = Object.keys(generic.tryGet(data, 'stack', {}));
+            // var emptySlotID = undefined;
+            // if (self.type() === 'GENERIC') {
+            //     if (self.slots().length > 0){
+            //         $.each(self.slots().slice(), function(index, slot) {
+            //            if (slot.status() === 'empty' && !slotIDs.contains(slot.slotID())){
+            //                // Empty slot found in the model of the GUI, let's add it to the stack output
+            //                // This way the crossfiller won't remove it
+            //                emptySlotID = slot.slotID();
+            //                slotIDs.push(emptySlotID);
+            //                return false;  // Break
+            //            }
+            //         });
+            //     }
+            // }
+            // generic.crossFiller(
+            //     slotIDs, self.slots,
+            //     function(slotID) {
+            //         return new Slot(slotID, self, self.albaBackend);
+            //     }, 'slotID'
+            // );
+            // $.each(self.slots(), function (index, slot) {
+            //     if (slot.slotID() === emptySlotID) {
+            //         // Skip filling the data for the new slot. There is no stack data for it
+            //         return true;
+            //     }
+            //     slot.fillData(data.stack[slot.slotID()])
+            // });
+            // // No empty slot found, generate one for the future refresh runs
+            // if (emptySlotID === undefined && self.type() === 'GENERIC') {
+            //     self.generateEmptySlot();
+            // }
+            // self.slots.sort(function(a, b) {
+            //     if ((a.status() === 'empty' && b.status() === 'empty') || (a.status() !== 'empty' && b.status() !== 'empty')) {
+            //         return a.slotID() < b.slotID() ? -1 : 1;
+            //     } else if (a.status() === 'empty') {  // Move empty status last
+            //         return 1;
+            //     }
+            //     return -1;
+            // });
+            // self.slotsLoading(false);
             self.loaded(true);
         };
 
@@ -293,7 +304,7 @@ define([
                 });
         };
         self.claimAll = function() {
-            if (!self.canClaimAll() || self.readOnlyMode() || !self.shared.user.roles().contains('manage')) {
+            if (!self.canClaimAll() || self.read_only_mode() || !self.shared.user.roles().contains('manage')) {
                 return;
             }
             var osds = {};
@@ -319,7 +330,7 @@ define([
             return self.claimOSDs(osds);
         };
         self.addOSDs = function(slot) {  // Fill the slot specified or all empty Slots if 'slot' is undefined
-            if (!self.canInitializeAll() || self.readOnlyMode() || !self.shared.user.roles().contains('manage')) {
+            if (!self.canInitializeAll() || self.read_only_mode() || !self.shared.user.roles().contains('manage')) {
                 return;
             }
             var slots = [];
@@ -632,14 +643,14 @@ define([
                     return $.Deferred(function(deferred) {
                         generic.alertInfo(
                             $.t('alba:node.remove.started'),
-                            $.t('alba:node.remove.started_msg', {what: self.nodeID()})
+                            $.t('alba:node.remove.started_msg', {what: self.node_id()})
                         );
                         api.del('alba/nodes/' + self.guid())
                             .then(self.shared.tasks.wait)
                             .done(function() {
                                 generic.alertSuccess(
                                     $.t('alba:node.remove.complete'),
-                                    $.t('alba:node.remove.success', {what: self.nodeID()})
+                                    $.t('alba:node.remove.success', {what: self.node_id()})
                                 );
                                 deferred.resolve();
 
@@ -648,7 +659,7 @@ define([
                                 error = generic.extractErrorMessage(error);
                                 generic.alertError(
                                     $.t('ovs:generic.error'),
-                                    $.t('alba:node.remove.failed', {what: self.nodeID(), why: error})
+                                    $.t('alba:node.remove.failed', {what: self.node_id(), why: error})
                                 );
                                 deferred.reject();
                             })
@@ -665,5 +676,7 @@ define([
             });
         };
     }
-    return viewModel
+    // Prototypical inheritance
+    AlbaNode.prototype = $.extend({}, AlbaNodeBase.prototype);
+    return AlbaNode
 });

@@ -47,7 +47,7 @@ but WITHOUT ANY WARRANTY of any kind.
                 <!-- /ko -->
             <!-- /ko -->
         </div>
-        <div class="notification-message" data-bind="visible: readOnlyMode()">
+        <div class="notification-message" data-bind="visible: read_only_mode()">
             <a data-i18n="alba:detail.update" data-bind="attr: { href: $root.shared.routing.loadHash('updates') }"></a>
             <span data-i18n="alba:detail.update_required"></span>
         </div>
@@ -73,21 +73,21 @@ but WITHOUT ANY WARRANTY of any kind.
     <td data-part="actions" style="border-top: 0;" align="right">
         <span class="hand fa fa-fw"
               data-i18n="[html]alba:icons.initialize"
-              data-bind="attr: { id: 'initialize_all_' + nodeID() },
+              data-bind="attr: { id: 'initialize_all_' + node_id() },
                          click: function() { addOSDs(); },
                          tooltip: 'alba:generic.initialize_all',
-                         style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !readOnlyMode() ? 'black': 'lightgrey' }">
+                         style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !read_only_mode() ? 'black': 'lightgrey' }">
         </span>
         <span class="hand fa fa-fw"
               data-i18n="[html]alba:icons.claim"
-              data-bind="attr: { id: 'claim_all_' + nodeID() },
+              data-bind="attr: { id: 'claim_all_' + node_id() },
                          click: function() { claimAll(); },
                          tooltip: 'alba:generic.claim_all',
-                         style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() && !readOnlyMode() ? 'black' : 'lightgrey' }">
+                         style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() && !read_only_mode() ? 'black' : 'lightgrey' }">
         </span>
         <span class="hand fa fa-fw"
               data-i18n="[html]alba:icons.delete"
-              data-bind="attr: { id: 'delete_' + nodeID() },
+              data-bind="attr: { id: 'delete_' + node_id() },
                          click: function() { deleteNode(); },
                          tooltip: 'alba:generic.remove',
                          style: { color: $root.shared.user.roles().contains('manage') && canDelete() ? 'black' : 'lightgrey' }">

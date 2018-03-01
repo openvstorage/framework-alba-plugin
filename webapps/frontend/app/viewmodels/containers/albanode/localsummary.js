@@ -15,16 +15,10 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
-    'ovs/generic', 'ovs/api', 'ovs/shared',
-    'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albaslot',
-    'viewmodels/wizards/addosd/index', 'viewmodels/wizards/removeosd/index',
-    'viewmodels/services/albanodeclusterservice'
-], function($, app, ko, dialog,
-            generic, api, shared,
-            BaseContainer, Slot,
-            AddOSDWizard, RemoveOSDWizard,
-            albaNodeClusterService) {
+    'jquery', 'knockout',
+    'viewmodels/containers/shared/base_container'
+], function($, ko,
+            BaseContainer) {
     "use strict";
     var viewModelMapping = {};
 
@@ -64,7 +58,7 @@ define([
         };
 
         // Observables
-        self.expanded          = ko.observable(false);
+        self.expanded = ko.observable(false);
 
         // Default data - replaces fillData - this always creates observables for the passed keys
         // Most of these properties are given by the API but setting them explicitly to have a view of how this model looks
@@ -75,7 +69,7 @@ define([
             'gray': 0,
             'alba_node_guid': null,  // Keep track of parent state for translations
             'alba_node_cluster_guid': null
-        }, data);
+        }, data || {});
 
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
 

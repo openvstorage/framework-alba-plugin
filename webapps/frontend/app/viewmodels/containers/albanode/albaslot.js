@@ -21,16 +21,26 @@ define([
 ], function($, ko, generic, BaseContainer, Osd) {
     "use strict";
     var viewModelMapping = {
-
+        'osds': {
+            key: function(data) {  // For relation updates: check if the osd_id has changed before discarding a model
+                return ko.utils.unwrapObservable(data.osd_id)
+            },
+            create: function(options) {
+                var data = $.extend(options.data || {}, {
+                    alba_backend_guid: ko.utils.unwrapObservable(options.parent.alba_backend_guid)
+                });
+                return new Osd(data);
+            }
+        }
     };
 
     /**
      * AlbaSlot viewModel
-     * @param id: ID of the slot
+     * @param data: Data to include in the model
      * @param nodeOrCluster: AlbaNodeCluster or AlbaNode viewmodel where this model is attached too
      * @param albaBackend: albaBackend that this model is attached too
      */
-    function viewModel(id, data, nodeOrCluster, albaBackend) {
+    function viewModel(data, nodeOrCluster, albaBackend) {
         var self = this;
         BaseContainer.call(self);
 
@@ -40,22 +50,35 @@ define([
 
         // Observables
         self.loaded       = ko.observable(false);
-        self.osds         = ko.observableArray([]);
         self.processing   = ko.observable(false);
         self.size         = ko.observable();
-        self.slotID       = ko.observable(id);
-        self.status       = ko.observable();  // Can be empty, ok, warning, error
-        self.statusDetail = ko.observable();
         // ASD slot properties
         self.device       = ko.observable();
         self.mountpoint   = ko.observable();
         self.usage        = ko.observable();
 
         var vmData = $.extend({
-            osds: []
+            // Displaying props
+            alba_backend_guids: null,
+            // ASD slot props
+            usage: null,
+            device: null,
+            mountpoint: null,
+            aliases: null,
+            available: null,
+            node_id: null,
+            partition_aliases: null,
+            partition_amount: null,
+            // OSD slot props
+            status: null,
+            status_detail: '',
+            size: null,
+            osds: [],
+            metadata: {} // @Todo should this be a viewModel with observables?
         }, data);
 
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
+        self.loaded(true);
 
         // Computed
         self.canClear = ko.computed(function() {
@@ -102,30 +125,6 @@ define([
         self.clear = function() {
             self.nodeOrCluster.removeSlot(self);
         };
-        self.fillData = function(data) {
-            self.status(data.status);
-            self.statusDetail(data.status_detail || '');
-            self.size(data.size);
-            // ASD slot
-            generic.trySet(self.usage, data, 'usage');
-            generic.trySet(self.device, data, 'device');
-            generic.trySet(self.mountpoint, data, 'mountpoint');
-            // Add OSDs
-            var osdIds = Object.keys(data.osds || {});
-            generic.crossFiller(
-                osdIds, self.osds,
-                function(osdId) {
-                    return new Osd(osdId, self, self.nodeOrCluster, self.albaBackend);
-                }, 'osdID'
-            );
-            $.each(self.osds(), function (index, osd) {
-                osd.fillData(data.osds[osd.osdID()])
-            });
-            self.osds.sort(function(a, b) {
-                return a.osdID() < b.osdID() ? -1 : 1;
-            });
-            self.loaded(true);
-        };
         self.claimOSDs = function() {
             var data = {}, osds = [];
             $.each(self.osds(), function(index, osd) {
@@ -136,5 +135,6 @@ define([
             data[self.slotID()] = {slot: self, osds: osds};
             self.nodeOrCluster.claimOSDs(data);
         };
-    };
+    }
+    return viewModel
 });
