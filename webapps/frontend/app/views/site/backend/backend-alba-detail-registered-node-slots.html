@@ -67,7 +67,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                 </span>
                             </a>
                         </li>
-                        <!-- ko if: errorStatuses.contains(status()) && status_detail() !== undefined && status_detail() !== '' -->
+                        <!-- ko if: hasErrorStatus -->
                         <li>
                             <a>
                                 <span data-i18n="alba:generic.statusdetail"></span>:
@@ -187,7 +187,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <!-- /ko -->
                             </a>
                         </li>
-                        <!-- ko if: errorStatuses.contains(status()) && status_detail() !== undefined && status_detail() !== '' -->
+                        <!-- ko if: hasErrorStatus -->
                             <li>
                                 <a>
                                     <span data-i18n="alba:generic.statusdetail"></span>:
@@ -224,7 +224,7 @@ but WITHOUT ANY WARRANTY of any kind.
                 <!-- /ko -->
                 <!-- ko if: (canFill() === true || canFillAdd() === true) && osds().length === 0 -->
                 <div class="btn-group" role="group">
-                    <button class="btn btn-default" id="buttonAddOsd" data-bind="click: function() { node_or_cluster.addOSDs($data)}, enable: !$data.processing() && !node_or_cluster.readOnlyMode()">
+                    <button class="btn btn-default" id="buttonAddOsd" data-bind="click: addOSDs, enable: !$data.processing() && !node_or_cluster.read_only_mode()">
                         <span class="fa" data-i18n="[html]ovs:icons.add"></span>
                     </button>
                 </div>
