@@ -23,15 +23,13 @@ define([
             BaseContainer) {
     "use strict";
 
-    var viewModelMapping = {
-
-    };
+    var viewModelMapping = {};
 
     /**
      * AlbaOSD viewModel
      * @param data: Data about the model (see vmData for layout). Similar to the data retrieved from the API
      */
-    function viewModel(data) {
+    function AlbaOSD(data) {
         var self = this;
         BaseContainer.call(self);
 
@@ -67,7 +65,8 @@ define([
             ips: [],
             type: null,
             status: null,  // One of the self.statusses options
-            node_id: null
+            node_id: null,
+            node_metadata: {} // Can be both an object with properties or a viewModel with observable
         }, data);
 
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
@@ -89,6 +88,9 @@ define([
                 self._status(status)
             }
         });
+        self.hasErrorStatus = ko.pureComputed(function() {
+            return Object.values(self.errorStatuses).contains(self.status()) && self.status_detail() !== undefined && self.status_detail() !== ''
+        });
         self.isLocal = ko.pureComputed(function() {
             return [null, undefined].contains(self.claimed_by()) || self.alba_backend_guid() === self.claimed_by();
         });
@@ -109,6 +111,9 @@ define([
         // Event
         // @todo replace these functions with events (if possible because its wizards)
         // Functions
+        self.addOSDs = function() {
+            app.trigger('albanode_{0}:add_osds'.format(self.node_id), self)
+        };
         self.claim = function() {
             throw new Error('To be done')
             var data = {};
@@ -124,5 +129,7 @@ define([
             self.nodeOrCluster.restartOSD(self);
         };
     }
-    return viewModel
+    // Prototypical inheritance
+    AlbaOSD.prototype = $.extend({}, BaseContainer.prototype);
+    return AlbaOSD
 });

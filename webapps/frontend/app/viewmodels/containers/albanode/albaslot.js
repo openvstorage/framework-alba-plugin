@@ -15,10 +15,12 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'knockout',
+    'jquery', 'knockout', 'durandal/app',
     'ovs/generic',
     'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albaosd'
-], function($, ko, generic, BaseContainer, Osd) {
+], function($, ko, app,
+            generic,
+            BaseContainer, OSD) {
     "use strict";
     var viewModelMapping = {
         'osds': {
@@ -27,9 +29,10 @@ define([
             },
             create: function(options) {
                 var data = $.extend(options.data || {}, {
-                    alba_backend_guid: ko.utils.unwrapObservable(options.parent.alba_backend_guid)
+                    alba_backend_guid: ko.utils.unwrapObservable(options.parent.alba_backend_guid),
+                    node_metadata: ko.utils.unwrapObservable(options.parent.node_metadata)
                 });
-                return new Osd(data);
+                return new OSD(data);
             }
         }
     };
@@ -40,10 +43,17 @@ define([
      * @param nodeOrCluster: AlbaNodeCluster or AlbaNode viewmodel where this model is attached too
      * @param albaBackend: albaBackend that this model is attached too
      */
-    function viewModel(data, nodeOrCluster, albaBackend) {
+    function AlbaSlot(data, nodeOrCluster, albaBackend) {
         var self = this;
         BaseContainer.call(self);
 
+        // Constants
+        self.errorStatuses = Object.freeze({
+            warning: 'warning',
+            error: 'error',
+            unavailable: 'unavailable',
+            unknown: 'unknown'
+        });
         // Externally added
         self.nodeOrCluster = nodeOrCluster;
         self.albaBackend   = albaBackend;
@@ -74,15 +84,18 @@ define([
             status_detail: '',
             size: null,
             osds: [],
-            metadata: {} // @Todo should this be a viewModel with observables?
+            node_metadata: {} // Can be both an object with properties or a viewModel with observable
         }, data);
 
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
         self.loaded(true);
 
         // Computed
-        self.canClear = ko.computed(function() {
-            if (self.nodeOrCluster !== undefined && self.nodeOrCluster.metadata() !== undefined && self.nodeOrCluster.metadata().clear === false) {
+        self.hasErrorStatus = ko.pureComputed(function() {
+            return Object.values(self.errorStatuses).contains(self.status()) && self.status_detail() !== undefined && self.status_detail() !== ''
+        });
+        self.canClear = ko.pureComputed(function() {
+            if (!!ko.utils.unwrapObservable(self.node_metadata.clear) === false) {
                 return false;
             }
             if (self.osds().length === 0) {
@@ -97,10 +110,10 @@ define([
             return canClear;
         });
         self.canFill = ko.pureComputed(function() {
-           return self.nodeOrCluster.metadata().fill
+           return !!ko.utils.unwrapObservable(self.node_metadata.fill)
         });
         self.canFillAdd = ko.pureComputed(function() {
-            return self.nodeOrCluster.metadata().fill_add
+            return !!ko.utils.unwrapObservable(self.node_metadata.fill_add)
         });
         self.canClaim = ko.pureComputed(function() {
             var claimable = false;
@@ -121,6 +134,11 @@ define([
             return locked;
         });
 
+        // Event Functions
+        self.addOSDs = function() {
+            app.trigger('albanode_{0}:add_osds'.format([self.node_id]), self)
+        };
+        // @todo replace these functions with events (if possible because its wizards)
         // Functions
         self.clear = function() {
             self.nodeOrCluster.removeSlot(self);
@@ -136,5 +154,7 @@ define([
             self.nodeOrCluster.claimOSDs(data);
         };
     }
-    return viewModel
+    // Prototypical inheritance
+    AlbaSlot.prototype = $.extend({}, BaseContainer.prototype);
+    return AlbaSlot
 });

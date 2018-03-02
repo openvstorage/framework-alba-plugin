@@ -27,14 +27,15 @@ define([
      * @param data: Data to bind into the model. This data maps with model in the Framework
      * @constructor
      */
-    function ViewModel(data){
+    function LocalSummary(data){
         var self = this;
 
         // Inherit from base
         BaseContainer.call(self);
 
-        // Variables
-        var colourInfoMap = {
+        // Constants
+        var unavailableColor = 'lightgray';
+        var colourInfoMap = Object.freeze({  // Order matters for display in the GUI
             green: {
                 tooltip: $.t('alba:generic.states.osdinfo.node.claimed'),
                 css: "label label-success pointer"
@@ -55,18 +56,18 @@ define([
                 tooltip: $.t('alba:generic.states.osdinfo.node.unknown'),
                 css: "label label-missing pointer"
             }
-        };
+        });
 
         // Observables
         self.expanded = ko.observable(false);
 
         // Default data - replaces fillData - this always creates observables for the passed keys
         // Most of these properties are given by the API but setting them explicitly to have a view of how this model looks
-        var vmData = $.extend({
-            'red': 0,
-            'green': 0,
-            'orange': 0,
-            'gray': 0,
+        var vmData = Object.keys(colourInfoMap).reduce(function(acc, cur) {  // Creates an object with the keys of colourInfoMap and empty arrays as values
+            acc[cur] = [];
+            return acc;
+        }, {});
+        vmData = $.extend(vmData, {
             'alba_node_guid': null,  // Keep track of parent state for translations
             'alba_node_cluster_guid': null
         }, data || {});
@@ -79,13 +80,35 @@ define([
          * Retrieve this object as list of individual objects with styling (used in the GUI)
          */
         self.listView = ko.computed(function(){
-            var items = [];
-            $.each(Object.keys(colourInfoMap), function(index, item) {
-                items.push($.extend({
-                    text: self[item]
-                }, colourInfoMap[item]))
+            return $.map(colourInfoMap, function(value, key) {
+                return $.extend({
+                    text: self[key].length
+                }, colourInfoMap[key])
             })
         });
+
+        // Function
+        /**
+         * Retrieve this object as list of individual objects with styling (used in the GUI) but fitlered the GUID
+         */
+        self.listViewByBackend = function(albaBackendGuid){
+            return ko.computed(function() {
+                var unavailableIndex = Object.keys(colourInfoMap).indexOf(unavailableColor);  // Index of the unavailableArray
+                var unavailable = [];
+                var listView = $.map(colourInfoMap, function(value, key) {
+                    return $.extend({
+                        text: ko.utils.unwrapObservable(self[key]).filter(function(osd) {
+                            if (osd.claimed_by === albaBackendGuid) { return osd }
+                            else { unavailable.push(osd) }
+                        }).length
+                    }, colourInfoMap[key])
+                });
+                listView[unavailableIndex].text = listView[unavailableIndex].text + unavailable.length;
+                return listView;
+            })
+        }
     }
-    return ViewModel
+    // Prototypical inheritance
+    LocalSummary.prototype = $.extend({}, BaseContainer.prototype);
+    return LocalSummary
 });

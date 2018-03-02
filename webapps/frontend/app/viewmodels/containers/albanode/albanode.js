@@ -45,7 +45,8 @@ define([
         },
         local_summary: {
             create: function(options) {
-                return new LocalSummary(options.data)
+                var data = generic.tryGet(options.data, 'devices', {});
+                return new LocalSummary(data)
             }
         },
         slots: {
@@ -53,7 +54,10 @@ define([
                 return ko.utils.unwrapObservable(data.slot_id)
             },
             create: function(options) {
-                return new Slot(options.data);
+                // Attach metadata of this model. Metadata is dependant on the node type and won't change so no need to make it a model
+                var data = $.extend({}, options.data);
+                data.node_metadata = options.parent.node_metadata;
+                return new Slot(data);
             }
         }
     };
@@ -94,16 +98,16 @@ define([
             ip: null,
             ips: [],
             guid: null,
-            local_summary: null,  // @todo Make this a model
+            local_summary: {},
             name: null,
             node_id: null,
-            node_metadata: null,
+            node_metadata: {},
             osd_guids: [],
             slots: [],
-            package_information: null,
+            package_information: {},
             port: null,
             stack: null,
-            storagerouter: null,
+            storagerouter: null,  // Substituted for a viewmodel by the mapping
             storagerouter_guid: null,
             username: null,
             read_only_mode: false,
@@ -111,6 +115,13 @@ define([
         }, data || {});
         vmData = $.extend(vmData, {'slots': self.generateSlotsByStack(vmData.stack || {})});  // Add slot info
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
+
+        // Events
+        self.disposables.push(app.on('albanode_{0}:add_osds'.format([self.node_id])).then(function(osd) {
+            console.log('Received add osds event')
+            console.log('I am {0}'.format[self.node_id])
+            console.log(osd)
+        }));
 
         // Computed
         self.isPartOfCluster = ko.pureComputed(function() {
@@ -163,14 +174,6 @@ define([
             });
             return deletePossible;
         });
-        self.localSummary = ko.pureComputed(function() {
-            // Return the localSummary in numbers instead of arrays
-            var summary = {};
-            $.each(self._localSummary(), function(colorKey, osdInfo) {
-                summary[colorKey] = osdInfo.length;
-            });
-            return summary;
-        });
         self.hasStorageRouter = ko.pureComputed(function() {
             var storagerouter_guid = ko.utils.unwrapObservable(self.storagerouter.guid);  // Guid attached to the ViewModel
             return ![null, undefined].contains(self.storagerouter_guid()) && ![null, undefined].contains(storagerouter_guid)
@@ -202,26 +205,6 @@ define([
                 data = $.extend(data, {'osds': self.generateSlotsByStack()});
             }
             return AlbaNodeBase.prototype.update.call(this, data)
-        };
-        self.localSummaryByBackend = function(albaBackendGuid){
-          // Returns a computed to get notified about all changes to the localSummary here
-          return ko.computed(function() {
-              var summary = {};
-              // Match the color to the 'unavailable' one on the overview
-              var unavailableColor = 'lightgray';
-              summary[unavailableColor] = 0;
-              $.each(self._localSummary().devices, function(colorKey, osdInfo){
-                  var unavailable = [];
-                  var available = [];
-                  $.each(osdInfo, function(index, osd) {
-                      if (osd.claimed_by === albaBackendGuid) {available.push(osd)}
-                      else {unavailable.push(osd)}
-                  });
-                  summary[colorKey] = available.length;
-                  summary[unavailableColor] += unavailable.length;
-              });
-              return summary;
-          })
         };
         self.downloadLogfiles = function () {
             if (self.downLoadingLogs() === true) {
