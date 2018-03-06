@@ -15,7 +15,7 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define(['knockout', 'jquery',
-        'viewmodels/containers/shared/base_container', 'viewmodels/services/albanodeservice'],
+        'viewmodels/containers/shared/base_container', 'viewmodels/services/albanode'],
     function(ko, $,
              BaseContainer, albaNodeService){
         "use strict";

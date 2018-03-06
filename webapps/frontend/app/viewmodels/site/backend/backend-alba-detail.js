@@ -23,54 +23,82 @@ define([
     'viewmodels/containers/albanode/albanodecluster',
     'viewmodels/wizards/addnode/index', 'viewmodels/wizards/addpreset/index', 'viewmodels/wizards/linkbackend/index',
     'viewmodels/wizards/unlinkbackend/index',
-    'viewmodels/services/albanodeservice', 'viewmodels/services/albanodeclusterservice'
+    'viewmodels/services/albanode', 'viewmodels/services/albanodecluster', 'viewmodels/services/subscriber'
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
             BaseContainer, AlbaBackend, AlbaNode, Backend, BackendType, Domain, StorageRouter, AlbaOSD, NodeCluster,
             AddNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard,
-            albaNodeService, albaNodeClusterService) {
+            albaNodeService, albaNodeClusterService, subscriberService) {
     "use strict";
     var viewModelMapping = {
-        'alba_node_clusters': {
+        backend: {
             key: function(data) {  // For relation updates: check if the GUID has changed before discarding a model
                 return ko.utils.unwrapObservable(data.guid)
             },
             create: function(options) {
-                if (options.parent.albaBackend() === undefined) {
-                    return null
-                }
-                return new NodeCluster(options.data, options.parent.albaBackend());
+                return new Backend(null);
             }
         },
-        'alba_nodes_discovered': {
+        alba_backend: {
             key: function(data) {  // For relation updates: check if the GUID has changed before discarding a model
                 return ko.utils.unwrapObservable(data.guid)
             },
             create: function(options) {
-                if (options.parent.albaBackend() === undefined) {
+                return new AlbaBackend(null);
+            }
+        },
+        alba_node_clusters: {
+            key: function(data) {  // For relation updates: check if the GUID has changed before discarding a model
+                return ko.utils.unwrapObservable(data.guid)
+            },
+            create: function(options) {
+                if (options.parent.alba_backend === undefined) {
+                    return null
+                }
+                return new NodeCluster(options.data, options.parent.alba_backend);
+            }
+        },
+        alba_nodes_discovered: {
+            key: function(data) {  // For relation updates: check if the GUID has changed before discarding a model
+                return ko.utils.unwrapObservable(data.guid)
+            },
+            create: function(options) {
+                if (options.parent.alba_backend === undefined) {
                     return null
                 }
                 // This object has not yet been converted to work with ko.mapping thus manually overriden the create
-                var storage_node = new AlbaNode(null, options.parent.albaBackend());
-                storage_node.fillData(options.data);
-                return storage_node
+                return new AlbaNode(null, options.parent.alba_backend);
             }
         },
-        'alba_nodes_registered': {
+        alba_nodes_registered: {
             key: function(data) {  // For relation updates: check if the GUID has changed before discarding a model
                 return ko.utils.unwrapObservable(data.guid)
             },
             create: function(options) {
-                if (options.parent.albaBackend() === undefined) {
+                if (options.parent.alba_backend === undefined) {
                     return null
                 }
                 // This object has not yet been converted to work with ko.mapping thus manually overriden the create
-                var storage_node = new AlbaNode(options.data, options.parent.albaBackend(), options.parent);
-                return storage_node
+                var storageNode = new AlbaNode(options.data, options.parent.alba_backend, options.parent);
+                storageNode.subscribeToSlotEvents();
+                return storageNode
+            },
+            arrayChanged: function(event, item) {
+                // Undocumented callback in the plugin. This function notifies what 'event' of what 'item' happened in the array
+                // The possible events are:
+                // - 'retained': item is kept, callback hooking can be done through the 'update' callback
+                // - 'added': item is created, callback hooking can be done through the through the 'create' callback
+                // - 'deleted': 'item' was removed from the array
+                // Hooking in the delete to unsubscribe from our events
+                if (event === 'deleted' && item && item.unsubscribeToSlotEvents && typeof item.unsubscribeToSlotEvents === 'function') {
+                    item.unsubscribeToSlotEvents()
+                }
             }
         }
     };
-    function viewModel() {
+    var viewModelContext = 'albaBackendDetail';
+
+    function AlbaBackendDetail() {
         var self = this;
         BaseContainer.call(self);
         // Variables
@@ -86,8 +114,6 @@ define([
         self.loadDomainsHandle  = undefined;
 
         // Observables
-        self.albaBackend            = ko.observable();
-        self.backend                = ko.observable();
         self.discoveredNodes        = ko.observableArray([]);
         self.dNodesLoading          = ko.observable(false);
         self.domains                = ko.observableArray([]);
@@ -100,32 +126,44 @@ define([
         self.rNodesLoading          = ko.observable(true);
 
         // Subscriptions
-        var subscriptions = [
-            app.on('alba_backend:load').then(function(albaBackendGuid){
-                var cache = otherAlbaBackendsCache(), ab;
-                if (!cache.hasOwnProperty(self.albaBackendGuid())) {
-                    ab = new AlbaBackend(self.albaBackendGuid());
-                    ab.load('backend')
-                        .then(function () {
-                            ab.backend().load();
-                        });
-                    cache[self.albaBackendGuid()] = ab;
-                    otherAlbaBackendsCache(cache);
-                }
-                self.albaBackend(cache[self.albaBackendGuid()]);
-            })
-        ];
+        self.disposables.push(subscriberService.on('alba_backend:load', viewModelContext).then(function(data){
+            var albaBackendGuid, responseEvent;
+            if (typeof data === 'object') {
+                albaBackendGuid = data.albaBackendGuid;
+                responseEvent = data.response;
+            } else {
+                albaBackendGuid = data;
+            }
+            var cache = otherAlbaBackendsCache(), ab;
+            if (!cache.hasOwnProperty(albaBackendGuid)) {
+                ab = new AlbaBackend(albaBackendGuid);
+                ab.load('backend')
+                    .then(function () {
+                        ab.backend().load();
+                        if (responseEvent) {
+                            subscriberService.trigger(responseEvent, ab)
+                        }
+                    });
+                cache[albaBackendGuid] = ab;
+                otherAlbaBackendsCache(cache);
+            }
+            if (responseEvent) {
+                subscriberService.trigger(responseEvent, cache[albaBackendGuid])
+            }
+        }));
         var vmData = {
-            'alba_node_clusters': [],
-            'alba_nodes_discovered': [],
-            'alba_nodes_registered': []
+            backend: {},
+            alba_backend: {},
+            alba_node_clusters: [],
+            alba_nodes_discovered: [],
+            alba_nodes_registered: []
         };
 
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
 
         // Computed
         self.domainGuids = ko.pureComputed(function() {
-            if (self.backend() === undefined) { return []; }
+            if (!self.backend.guid()) { return []; }
             return self.domains().map(function(domain){ return domain.guid() })
         });
         self.filteredDiscoveredNodes = ko.pureComputed(function() {
@@ -165,10 +203,18 @@ define([
             });
             return collapsed;
         });
-        self.otherAlbaBackends = ko.pureComputed(function() {
+        self.showDetails = ko.pureComputed(function() {
+            return self.alba_backend.initialized() && self.backend.guid();
+        });
+        self.showActions = ko.pureComputed(function() {
+            return self.showDetails() && !['installing', 'new'].contains(self.backend.status()) && self.alba_backend.scaling() !== undefined;
+        });
+
+        // Subscriptions
+        self.otherAlbaBackends = ko.computed(function() {  // Give color to all cached backends
             var albaBackends = [], cache = self.otherAlbaBackendsCache(), counter = 0;
             $.each(cache, function(index, albaBackend) {
-                if (albaBackend.guid() !== self.albaBackend().guid()) {
+                if (albaBackend.guid() !== self.albaBackend.guid()) {
                     albaBackend.color(generic.getColor(counter));
                     albaBackends.push(albaBackend);
                     counter += 1;
@@ -176,60 +222,52 @@ define([
             });
             return albaBackends;
         });
-        self.showDetails = ko.pureComputed(function() {
-            return self.albaBackend() !== undefined && self.backend() !== undefined;
-        });
-        self.showActions = ko.pureComputed(function() {
-            return self.showDetails() && !['installing', 'new'].contains(self.backend().status()) && self.albaBackend().scaling() !== undefined;
-        });
+    }
 
-        // Functions
-        self.refresh = function() {
+    var functions = {
+        refresh: function() {
+            var self = this;
             self.dNodesLoading(true);
             self.fetchNodes(true);
-        };
-        self.load = function() {
-            return $.Deferred(function (deferred) {
-                var backend = self.backend(), backendType;
-                backend.load('live_status')
-                    .then(function(backendData) {
-                        if (backend.backendType() === undefined) {
-                            backendType = new BackendType(backend.backendTypeGuid());
-                            backendType.load();
-                            backend.backendType(backendType);
+        },
+        load: function() {
+            var self = this;
+            var backend = self.backend, backendType;
+            return backend.load('live_status')
+                .then(function(backendData) {
+                    if (backend.backendType() === undefined) {
+                        backendType = new BackendType(backend.backendTypeGuid());
+                        backendType.load();
+                        backend.backendType(backendType);
+                    }
+                    if (backendData.hasOwnProperty('alba_backend_guid') && backendData.alba_backend_guid !== null) {
+                        if (!self.alba_backend.initialized()) {
+                            self.alba_backend.guid(backendData.alba_backend_guid);
                         }
-                        if (backendData.hasOwnProperty('alba_backend_guid') && backendData.alba_backend_guid !== null) {
-                            if (self.albaBackend() === undefined) {
-                                self.albaBackend(new AlbaBackend(backendData.alba_backend_guid));
-                            }
-                            return self.albaBackend().load()
-                                .then(self.albaBackend().getAvailableActions);
-                        }
-                        deferred.reject();
-                    })
-                    .done(deferred.resolve)
-                    .fail(deferred.reject);
-            }).promise();
-        };
-        self.formatBytes = function(value) {
+                        return self.alba_backend.load()
+                            .then(self.alba_backend.getAvailableActions());
+                    }
+                })
+        },
+        formatBytes: function(value) {
             return generic.formatBytes(value);
-        };
-        self.formatPercentage = function(value) {
+        },
+        formatPercentage: function(value) {
             if (isNaN(value)) {
                 return "0 %";
             } else {
                 return generic.formatPercentage(value);
             }
-        };
-
+        },
         /**
          * Fetches all relevant data for this page
          * @param discover: Discover new nodes
          * @return {Deferred}
          */
-        self.loadData = function(discover) {
+        loadData: function(discover) {
+            var self = this;
             discover = !!discover;
-            if (self.albaBackend() === undefined || self.albaBackend().scaling() === 'GLOBAL') {
+            if (!self.alba_backend.initialized() || self.alba_backend.scaling() === 'GLOBAL') {
                 return $.when()
             }
             // Re-use alba nodes model and afterwards we can update those models themselves. The same reference is then passed to every item
@@ -242,9 +280,10 @@ define([
                     })
                 })
 
-        };
-        self.fetchNodeClusters = function() {
-            if (self.albaBackend() === undefined || self.albaBackend().scaling() === 'GLOBAL') {
+        },
+        fetchNodeClusters: function() {
+            var self = this;
+            if (!self.alba_backend.initialized() || self.alba_backend.scaling() === 'GLOBAL') {
                 return $.when()
             }
             return $.when()
@@ -258,10 +297,11 @@ define([
                             return data.data
                         })
                 })
-        };
-        self.fetchNodes = function(discover) {
+        },
+        fetchNodes: function(discover) {
+            var self = this;
             discover = !!discover;
-            if (self.albaBackend() === undefined || self.albaBackend().scaling() === 'GLOBAL') {
+            if (!self.alba_backend.initialized() || self.alba_backend.scaling() === 'GLOBAL') {
                 return;
             }
             return $.when()
@@ -290,9 +330,10 @@ define([
                             return data.data;  // Unwrap
                         })
                 })
-        };
-        self.loadBackendOSDs = function() {
-            var data = self.albaBackend().rawData;
+        },
+        loadBackendOSDs: function() {
+            var self = this;
+            var data = self.alba_backend.rawData;
             if (data === undefined || !data.hasOwnProperty('remote_stack') || !data.hasOwnProperty('local_summary')) {
                 return;
             }
@@ -306,8 +347,9 @@ define([
             self.remoteStack.sort(function(stack1, stack2) {
                 return stack1.name < stack2.name ? -1 : 1;
             });
-        };
-        self.loadDomains = function() {
+        },
+        loadDomains: function() {
+            var self = this;
             return $.Deferred(function(deferred) {
                 if (generic.xhrCompleted(self.loadDomainsHandle)) {
                     self.loadDomainsHandle = api.get('domains', {
@@ -341,8 +383,9 @@ define([
                     deferred.reject();
                 }
             }).promise();
-        };
-        self.getNodeById = function(nodeID){
+        },
+        getNodeById: function(nodeID){
+            var self = this;
             var node_to_return = undefined;
             $.each(self.registeredNodes(), function(index, node) {
               if (node.nodeID() === nodeID) {
@@ -351,35 +394,40 @@ define([
               }
             });
             return node_to_return
-        };
+        }
+    };
 
-        // Wizards
-        self.linkBackend = function() {
-            if (self.albaBackend().linkedBackendGuids() === undefined || self.albaBackend().linkedBackendGuids() === null) {
-                return;
+    var wizards = {
+        linkBackend: function() {
+            var self = this;
+            if (!self.alba_backend.initialized() || self.alba_backend.scaling() !== 'GLOBAL') {
+                return
             }
             dialog.show(new LinkBackendWizard ({
                 modal: true,
-                target: self.albaBackend()
+                target: self.alba_backend
             }));
-        };
-        self.editPreset = function(data) {
+        },
+        editPreset: function(data) {
+            var self = this;
             dialog.show(new AddPresetWizard({
                 modal: true,
                 currentPreset: data,
-                backend: self.albaBackend(),
-                currentPresets: self.albaBackend().enhancedPresets(),
+                backend: self.alba_backend,
+                currentPresets: self.alba_backend.enhancedPresets(),
                 editPreset: true
             }));
-        };
-        self.unlinkBackend = function(info) {
+        },
+        unlinkBackend: function(info) {
+            var self = this;
             dialog.show(new UnlinkBackendWizard ({
                 modal: true,
-                target: self.albaBackend(),
+                target: self.alba_backend,
                 linkedOSDInfo: info
             }));
-        };
-        self.register = function(node) {
+        },
+        register: function(node) {
+            var self = this;
             var oldNode = undefined;
             $.each(self.registeredNodes(), function(index, registeredNode) {
                 if (registeredNode.ip() === node.ip()) {
@@ -393,16 +441,18 @@ define([
                 oldNode: oldNode,
                 confirmOnly: true
             }));
-        };
-        self.addPreset = function() {
+        },
+        addPreset: function() {
+            var self = this;
             dialog.show(new AddPresetWizard({
                 modal: true,
-                backend: self.albaBackend(),
-                currentPresets: self.albaBackend().enhancedPresets(),
+                backend: self.alba_backend,
+                currentPresets: self.alba_backend.enhancedPresets(),
                 editPreset: false
             }));
-        };
-        self.addNode = function() {
+        },
+        addNode: function() {
+            var self = this;
             var node = new AlbaNode();
             dialog.show(new AddNodeWizard({
                 modal: true,
@@ -410,10 +460,11 @@ define([
                 oldNode: undefined,
                 confirmOnly: false
             }));
-        };
-        self.removeBackend = function() {
+        },
+        removeBackend: function() {
+            var self = this;
             return $.Deferred(function(deferred) {
-                if (self.albaBackend() === undefined || !self.albaBackend().availableActions().contains('REMOVE')) {
+                if (!self.alba_backend.initialized() || !self.alba_backend.availableActions().contains('REMOVE')) {
                     deferred.reject();
                     return;
                 }
@@ -426,15 +477,15 @@ define([
                         if (answer === $.t('ovs:generic.yes')) {
                             generic.alertInfo(
                                 $.t('alba:detail.delete.started'),
-                                $.t('alba:detail.delete.started_msg', {what: self.albaBackend().name()})
+                                $.t('alba:detail.delete.started_msg', {what: self.alba_backend.name()})
                             );
                             router.navigateBack();
-                            api.del('alba/backends/' + self.albaBackend().guid())
+                            api.del('alba/backends/' + self.alba_backend.guid())
                                 .then(self.shared.tasks.wait)
                                 .done(function() {
                                     generic.alertSuccess(
                                         $.t('alba:detail.delete.success'),
-                                        $.t('alba:detail.delete.success_msg', {what: self.albaBackend().name()})
+                                        $.t('alba:detail.delete.success_msg', {what: self.alba_backend.name()})
                                     );
                                     deferred.resolve();
                                 })
@@ -451,8 +502,9 @@ define([
                         }
                     });
             }).promise();
-        };
-        self.removePreset = function(name) {
+        },
+        removePreset: function(name) {
+            var self = this;
             return $.Deferred(function(deferred) {
                 app.showMessage(
                     $.t('alba:presets.delete.warning', { what: name }),
@@ -465,7 +517,7 @@ define([
                                 $.t('alba:presets.delete.started'),
                                 $.t('alba:presets.delete.started_msg')
                             );
-                            api.post('alba/backends/' + self.albaBackend().guid() + '/delete_preset', { data: { name: name } })
+                            api.post('alba/backends/' + self.alba_backend.guid() + '/delete_preset', { data: { name: name } })
                                 .then(self.shared.tasks.wait)
                                 .done(function() {
                                     generic.alertSuccess(
@@ -487,34 +539,47 @@ define([
                         }
                     });
             }).promise();
-        };
+        }
+    };
 
-        // Durandal
-        self.activate = function(mode, guid) {
-            self.backend(new Backend(guid));
+    var durandalFunctions = {
+        activate: function(mode, guid) {
+            var self = this;
+            self.backend.guid(guid);
             self.refresher.init(function() {
                 self.loadDomains();
                 return self.load()
-                    .then(self.fetchNodes)  // Fetch all known nodes
-                    .then(function() { self.fetchNodes(true); })  // Discover new ones
-                    .then(self.loadBackendOSDs)
+                    .then(self.fetchNodes.bind(self))  // Fetch all known nodes
+                    .then(function() { self.fetchNodes.bind(self, true); })  // Discover new ones
+                    .then(self.loadBackendOSDs.bind(self))
                     .then(function() {
                         if (self.initialRun() === true) {
                             self.initialRun(false);
                             self.refresher.skipPause = true;
                         }
                     })
-                    .then(self.loadData)
+                    .then(self.loadData.bind(self))
             }, 5000);
             self.refresher.run();
             self.refresher.start();
-        };
-        self.deactivate = function() {
+        },
+        deactivate: function() {
+            var self = this;
             $.each(self.widgets, function(index, item) {
                 item.deactivate();
             });
             self.refresher.stop();
-        };
-    }
-    return viewModel
+            // Remove all event listeners of the underlying nodes
+            $.each([].concat(self.alba_nodes_discovered(), self.alba_nodes_registered()), function(index, node) {
+                node.unsubscribeToSlotEvents()
+            });
+            // Remove our own disposables
+            self.disposeAll();
+            // Remove all associated events related to this viewModelcontext
+            subscriberService.dispose(viewModelContext);
+        }
+    };
+
+    AlbaBackendDetail.prototype = $.extend({}, BaseContainer.prototype, functions, wizards, durandalFunctions);
+    return AlbaBackendDetail
 });

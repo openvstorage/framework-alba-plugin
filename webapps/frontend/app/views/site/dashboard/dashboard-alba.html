@@ -52,23 +52,24 @@ but WITHOUT ANY WARRANTY of any kind.
                 <tbody data-dummy="dummy">
                     <tr data-part="table-entry">
                         <td>
-                            <a data-bind="text: name(), maxLength: 20, attr: { href: $root.shared.routing.loadHash('backend-alba-detail', { guid: backendGuid() }) }"></a>
+                            <a data-bind="text: name, maxLength: 20, attr: { href: $root.shared.routing.loadHash('backend-alba-detail', { guid: backend_guid() }) }"></a>
                         </td>
-                        <!-- ko if: localSummary() === undefined -->
+                        <!-- ko with: local_summary -->
+                        <!-- ko if: local_summary.devices === undefined -->
                         <td colspan="3" style="width: 100px;">
                             <i class="fa fa-spin" data-i18n="[html]ovs:icons.loading"></i>
                         </td>
                         <!-- /ko -->
-                        <!-- ko if: localSummary() !== undefined -->
+                        <!-- ko if: local_summary.devices !== undefined -->
                             <td style="padding-left: 0; padding-right: 0; width: 35px;">
                                 <span class="label label-success pointer"
-                                      data-bind="tooltip: localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + localSummary().scaling.toLowerCase() + '.claimed'),
-                                                 text: localSummary() === undefined ? '' : localSummary().devices.green">
+                                      data-bind="tooltip: localSummary === undefined ? '' : $.t('alba:generic.states.osdinfo.' + localSummary.scaling.toLowerCase() + '.claimed'),
+                                                 text: localSummary === undefined ? '' : localSummary().devices.green">
                                 </span>
                             </td>
                             <td style="padding-left: 0; padding-right: 0; width: 35px;">
                                 <span class="label label-warning pointer"
-                                      data-bind="tooltip: localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + localSummary().scaling.toLowerCase() + '.warning'),
+                                      data-bind="tooltip: localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + localSummary.scaling.toLowerCase() + '.warning'),
                                                  text: localSummary() === undefined ? '' : localSummary().devices.orange">
                                 </span>
                             </td>

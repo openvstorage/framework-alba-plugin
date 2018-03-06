@@ -210,7 +210,7 @@ define([
                                                 $.extend(self.albaBackendDomainMap(), albaBackendDomainMap);
                                             }
                                             $.each(data.linked_backend_guids, function(index, guid) {
-                                                if (self.data.target().linkedBackendGuids().contains(guid)) {
+                                                if (self.data.target().linked_backend_guids().contains(guid)) {
                                                     alreadyLinked = true;
                                                     return false;
                                                 }

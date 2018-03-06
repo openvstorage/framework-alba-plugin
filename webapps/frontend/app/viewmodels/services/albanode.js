@@ -39,16 +39,16 @@ define([
                     if (applyDefaultSorting){
                         var apiData = data.data;
                         apiData.sort(function(a, b){
-                            if (a.storagerouter !== null && b.storagerouter !== null) {
+                            if (![null, undefined].contains(a.storagerouter) && ![null, undefined].contains(b.storagerouter)) {
                                 return a.storagerouter.name < b.storagerouter.name ? -1 : 1;
-                            } else if (a.storagerouter === null && b.storagerouter === null) {
+                            } else if ([null, undefined].contains(a.storagerouter) && [null, undefined].contains(b.storagerouter)) {
                                 if (![undefined, null].contains(a.ip) && ![undefined, null].contains(b.ip)){
                                     return generic.ipSort(a.ip, b.ip);
                                 } else {
                                     return a.node_id < b.node_id ? -1 : 1;
                                 }
                             }
-                            return a.storagerouter !== null ? -1 : 1;
+                            return a.storagerouter_guid !== null ? -1 : 1;
                         });
                         return data;
                     }

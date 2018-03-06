@@ -18,7 +18,7 @@ define([
     'jquery', 'durandal/app', 'knockout',
     'ovs/generic', 'ovs/refresher', 'ovs/api', 'ovs/shared',
     'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albanode',
-    'viewmodels/services/albanodeservice'
+    'viewmodels/services/albanode'
 ], function($, app, ko,
             generic, Refresher, api, shared,
             BaseContainer, AlbaNode,

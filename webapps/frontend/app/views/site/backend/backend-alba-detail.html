@@ -20,31 +20,31 @@ but WITHOUT ANY WARRANTY of any kind.
         <li>
             <a data-bind="attr: { href: $root.shared.routing.loadHash('backends') }" data-i18n="ovs:backends.title"></a>
         </li>
-        <li class="active" data-bind="text: backend().name"></li>
+        <li class="active" data-bind="text: backend.name"></li>
     </ol>
     <div>
         <ul class="nav nav-tabs">
             <li class="active">
                 <a href="#information" data-toggle="tab" >
                     <span class="fa" data-i18n="[html]ovs:icons.information"></span>
-                    <span style="padding-left: 5px;" data-bind="text: backend().name, visible: backend().name() !== undefined"></span>
+                    <span style="padding-left: 5px;" data-bind="text: backend.name, visible: backend.name() !== undefined"></span>
                 </a>
             </li>
             <li class="actions">
                 <span data-i18n="ovs:generic.actions"></span>:
                 <button type="button" class="btn btn-mini btn-default hand" style="color: #428bca;" id="buttonEdit"
-                        data-bind="click: function() { if (backend().edit()) { backend().save(); } else { backend().edit(true); } },
-                                   enable: backend().loaded() && $root.shared.user.roles().contains('manage'),
+                        data-bind="click: function() { if (backend.edit()) { backend.save(); } else { backend.edit(true); } },
+                                   enable: backend.loaded() && $root.shared.user.roles().contains('manage'),
                                    tooltip: 'ovs:backends.edit.edit'">
-                    <span class="hand fa" data-bind="visible: backend().edit() && !backend().saving()" data-i18n="[html]ovs:icons.save"></span>
-                    <span class="hand fa fa-spin" data-bind="visible: backend().edit() && backend().saving()" data-i18n="[html]ovs:icons.loading"></span>
-                    <span class="hand fa" data-bind="visible: !backend().edit()" data-i18n="[html]ovs:icons.edit"></span>
+                    <span class="hand fa" data-bind="visible: backend.edit() && !backend.saving()" data-i18n="[html]ovs:icons.save"></span>
+                    <span class="hand fa fa-spin" data-bind="visible: backend.edit() && backend.saving()" data-i18n="[html]ovs:icons.loading"></span>
+                    <span class="hand fa" data-bind="visible: !backend.edit()" data-i18n="[html]ovs:icons.edit"></span>
                 </button>
                 <button type="button" class="btn btn-mini btn-default" id="removeBackend"
                         data-bind="click: $root.removeBackend,
-                                   style: { color: albaBackend() === undefined || !albaBackend().availableActions().contains('REMOVE') ? 'lightgrey' : '#428bca' },
-                                   tooltip: albaBackend() === undefined || !albaBackend().availableActions().contains('REMOVE') ? 'alba:generic.asds_remaining' : 'alba:generic.delete_backend',
-                                   enable: $root.shared.user.roles().contains('manage') && backend() !== undefined && backend().status() === 'running'">
+                                   style: { color: !alba_backend.initialized() || !alba_backend.availableActions().contains('REMOVE') ? 'lightgrey' : '#428bca' },
+                                   tooltip: !alba_backend.initialized() || !alba_backend.availableActions().contains('REMOVE') ? 'alba:generic.asds_remaining' : 'alba:generic.delete_backend',
+                                   enable: $root.shared.user.roles().contains('manage') && backend !== undefined && backend.status() === 'running'">
                     <span class="fa" data-i18n="[html]ovs:icons.delete"></span>
                 </button>
                 <button type="button" class="btn btn-mini btn-default" id="editMaintenance" style="color: #428bca;"
@@ -57,7 +57,7 @@ but WITHOUT ANY WARRANTY of any kind.
         </ul>
         <div class="tab-content">
             <!-- ko if: showDetails() -->
-                <div class="tab-pane active" id="information" style="padding: 15px;" data-bind="with: albaBackend()">
+                <div class="tab-pane active" id="information" style="padding: 15px;" data-bind="with: alba_backend">
                     <table style="width: 100%;">
                         <thead>
                             <tr>
@@ -69,13 +69,13 @@ but WITHOUT ANY WARRANTY of any kind.
                             <tr style="height: 1px;">
                                 <td style="width: 15%;" data-i18n="ovs:generic.backend_type"></td>
                                 <td style="width: 50%;">
-                                    <span data-bind="lazyloader: { item: $root.backend().backendType, loadedObservable: 'loaded', undefinedLoading: false }">
+                                    <span data-bind="lazyloader: { item: $root.backend.backendType, loadedObservable: 'loaded', undefinedLoading: false }">
                                         <span data-part="lazy-entry"
                                               data-bind="translate: 'ovs:generic.backendtypes.' + item().code()"></span>
                                     </span>
                                 </td>
                                 <td rowspan="5">
-                                    <div data-bind="if: $root.showActions() && $root.albaBackend().scaling() !== 'GLOBAL'">
+                                    <div data-bind="if: $root.showActions() && $data.scaling() !== 'GLOBAL'">
                                         <div data-bind="pie: usage()"></div>
                                     </div>
                                 </td>
@@ -90,13 +90,13 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <td style="width: 50%;">
                                     <div data-bind="status: {
                                                         colors: {
-                                                            red: $root.backend().liveStatus() === 'failure',
-                                                            blue: $root.backend().liveStatus() === 'installing',
-                                                            green: $root.backend().liveStatus() === 'running',
-                                                            orange: $root.backend().liveStatus() === 'warning'
+                                                            red: $root.backend.liveStatus() === 'failure',
+                                                            blue: $root.backend.liveStatus() === 'installing',
+                                                            green: $root.backend.liveStatus() === 'running',
+                                                            orange: $root.backend.liveStatus() === 'warning'
                                                         },
                                                         defaultColor: 'lightgrey'
-                                                    }, tooltip: 'ovs:generic.states.backend.' + $root.backend().liveStatus()"
+                                                    }, tooltip: 'ovs:generic.states.backend.' + $root.backend.liveStatus()"
                                          style="width: 14px; height: 14px;"></div>
                                 </td>
                                 <td>&nbsp;</td>
@@ -123,10 +123,10 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <td style="width: 15%; padding-top: 7px; vertical-align: top;" data-i18n="ovs:generic.domains"></td>
                                 <td style="width: 50%; padding-top: 7px; padding-bottom: 2px; vertical-align: top;" colspan="3">
                                     <span data-bind="dropdown: {
-                                                         items: $root.domainGuids, target: $root.backend().domainGuids,
+                                                         items: $root.domainGuids, target: $root.backend.domainGuids,
                                                          text: function(guid) {
                                                              return $root.domainCache[guid].name();
-                                                         }, enabled: $root.backend().edit, small: true, emptyisloading: false
+                                                         }, enabled: $root.backend.edit, small: true, emptyisloading: false
                                                      }"></span>
                                 </td>
                                 <td>&nbsp;</td>
@@ -148,13 +148,13 @@ but WITHOUT ANY WARRANTY of any kind.
     <div data-bind="if: showActions()">
         <ul class="nav nav-tabs">
             <li data-bind="tooltip: 'alba:generic.nodes',
-                           visible: $root.shared.user.roles().contains('manage') && albaBackend().scaling() !== 'GLOBAL',
-                           css: { active: albaBackend().scaling() !== 'GLOBAL' }">
+                           visible: $root.shared.user.roles().contains('manage') && alba_backend.scaling() !== 'GLOBAL',
+                           css: { active: alba_backend.scaling() !== 'GLOBAL' }">
                 <a href="#nodes" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>
             </li>
             <li data-bind="tooltip: 'alba:generic.backends',
-                           visible: $root.shared.user.roles().contains('manage') && albaBackend().scaling() !== 'LOCAL',
-                           css: { active: albaBackend().scaling() === 'GLOBAL' }">
+                           visible: $root.shared.user.roles().contains('manage') && alba_backend.scaling() !== 'LOCAL',
+                           css: { active: alba_backend.scaling() === 'GLOBAL' }">
                 <a href="#backends" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>
             </li>
             <li data-bind="tooltip: 'alba:generic.presets',
@@ -173,12 +173,12 @@ but WITHOUT ANY WARRANTY of any kind.
         <div class="tab-content">
             <div class="tab-pane" id="backends" style="padding: 15px;"
                  data-bind="visible: $root.shared.user.roles().contains('manage'),
-                            css: { active: albaBackend().scaling() === 'GLOBAL' }">
+                            css: { active: alba_backend.scaling() === 'GLOBAL' }">
                 <h4 class="pull-left" data-i18n="alba:generic.backends"></h4>
                 <button class="btn btn-default pull-right" id="buttonLinkBackend"
                         data-bind="click: linkBackend,
-                                   style: { color: albaBackend().linkedBackendGuids() !== undefined && albaBackend().linkedBackendGuids() !== null ? 'black' : 'lightgrey' },
-                                   tooltip: albaBackend().linkedBackendGuids() !== undefined && albaBackend().linkedBackendGuids() !== null ? '' : 'alba:wizards.link_backend.linked_backend_guids_failure'"
+                                   style: { color: alba_backend.linked_backend_guids() !== undefined && alba_backend.linked_backend_guids() !== null ? 'black' : 'lightgrey' },
+                                   tooltip: alba_backend.linked_backend_guids() !== undefined && alba_backend.linked_backend_guids() !== null ? '' : 'alba:wizards.link_backend.linked_backend_guids_failure'"
                         style="margin-top: 5px; margin-bottom: 10px;">
                     <span class="fa" data-i18n="[html]ovs:icons.link"></span>&nbsp;
                     <span data-i18n="alba:detail.link_backend"></span>
@@ -269,7 +269,7 @@ but WITHOUT ANY WARRANTY of any kind.
             </div>
             <div class="tab-pane" id="nodes" style="padding: 15px;"
                  data-bind="visible: $root.shared.user.roles().contains('manage'),
-                            css: { active: albaBackend().scaling() !== 'GLOBAL' }">
+                            css: { active: alba_backend.scaling() !== 'GLOBAL' }">
                 <h4 class="pull-left" data-i18n="alba:generic.nodes"></h4>
                 <button class="btn btn-default pull-right" id="buttonRefresh"
                         data-bind="click: refresh"
@@ -420,7 +420,7 @@ but WITHOUT ANY WARRANTY of any kind.
                             <th style="width: 30px;">&nbsp;</th>
                         </tr>
                     </thead>
-                    <tbody data-bind="with: albaBackend()">
+                    <tbody data-bind="with: alba_backend">
                         <!-- ko if: loaded() != true -->
                             <tr>
                                 <td colspan="7">
@@ -490,7 +490,7 @@ but WITHOUT ANY WARRANTY of any kind.
                  data-bind="css: { active: !$root.shared.user.roles().contains('manage') }">
                 <h4 data-i18n="ovs:generic.access_rights"></h4>
                 <div data-bind="accessrights: {
-                                    rights: backend().accessRights(), save: backend().saveAccessRights
+                                    rights: backend.accessRights(), save: backend.saveAccessRights
                                 }">
                 </div>
             </div>

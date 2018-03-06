@@ -17,7 +17,7 @@
 define([
     'jquery', 'knockout',
     'ovs/api', 'ovs/shared', 'ovs/generic',
-    'viewmodels/services/albanodeservice', 'viewmodels/services/albanodeclusterservice'
+    'viewmodels/services/albanode', 'viewmodels/services/albanodecluster'
 ], function($, ko, api, shared, generic, albaNodeService, albaNodeClusterService) {
     "use strict";
     return function(stepOptions) {

@@ -17,14 +17,28 @@
 define([
     'durandal/app', 'knockout', 'jquery',
     'ovs/generic',
-    'viewmodels/containers/shared/base_container'
+    'viewmodels/containers/shared/base_container', 'viewmodels/containers/backend/albabackend',
+    'viewmodels/services/subscriber'
 ], function(app, ko, $,
             generic,
-            BaseContainer) {
+            BaseContainer, AlbaBackend,
+            subscriberService) {
     "use strict";
 
-    var viewModelMapping = {};
-
+    var viewModelMapping = {
+        alba_backend: {
+            key: function (data) {  // For relation updates: check if the GUID has changed before discarding a model
+                return ko.utils.unwrapObservable(data.guid)
+            },
+            create: function (options) {
+                if (ko.utils.unwrapObservable(options.parent.alba_backend_guid)) {
+                    return new AlbaBackend(options.parent.alba_backend_guid());
+                }
+                return {}
+            }
+        }
+    };
+    var albaBackendDetailContext = 'albaBackendDetail';
     /**
      * AlbaOSD viewModel
      * @param data: Data about the model (see vmData for layout). Similar to the data retrieved from the API
@@ -44,14 +58,17 @@ define([
             available: 'available',
             claimed: 'claimed',
             nodedown: 'nodedown',
-            unknown: 'unknown'
+            unknown: 'unknown',
+            uninitialized: 'uninitialized'
         }, self.errorStatuses));
 
         // Observables
-        self._status = ko.observable();
-        self.loaded = ko.observable(false);
+        self._status =      ko.observable();
+        self.loaded =       ko.observable(false);
+        self.processing =   ko.observable(false);
 
         var vmData = $.extend({
+            alba_backend: {},
             alba_backend_guid: null,  // Guid of the viewModel of the detail page (if any),
             claimed_by: null,
             slot_id: null,
@@ -95,10 +112,10 @@ define([
             return [null, undefined].contains(self.claimed_by()) || self.alba_backend_guid() === self.claimed_by();
         });
         self.locked = ko.pureComputed(function() {
-            return [self.statusses.nodedown, self.statusses.unknown].contains(self.statusDetail()) || !self.isLocal();
+            return [self.statusses.nodedown, self.statusses.unknown].contains(self.status_detail()) || !self.isLocal();
         });
         self.marked = ko.pureComputed(function() {
-            return (self.status() === self.errorStatuses.unavailable || (!self.isLocal() && (self.status() === self.errorStatuses.warning || self.status() === self.errorStatuses.error))) && self.albaBackend() !== undefined;
+            return (self.status() === self.errorStatuses.unavailable || (!self.isLocal() && (self.status() === self.errorStatuses.warning || self.status() === self.errorStatuses.error))) && self.alba_backend_guid() !== undefined;
         });
         self.sockets = ko.pureComputed(function() {
             var sockets = [];
@@ -107,27 +124,44 @@ define([
             });
             return sockets
         });
+        self.displayUsage = ko.pureComputed(function() {
+            return self.status() !== self.statusses.unavailable && self.status() !== self.statusses.uninitialized
+                && ko.utils.unwrapObservable(self.usage) && ko.utils.unwrapObservable(self.usage.used)
+        });
 
-        // Event
-        // @todo replace these functions with events (if possible because its wizards)
-        // Functions
+        // Events - albaBackendDetail
         self.addOSDs = function() {
-            app.trigger('albanode_{0}:add_osds'.format(self.node_id), self)
+            subscriberService.trigger('albanode_{0}:add_osds'.format([self.node_id()]), self)
         };
         self.claim = function() {
-            throw new Error('To be done')
             var data = {};
-            data[self.slotID()] = {slot: self.slot, osds: [self]};
-            self.nodeOrCluster.claimOSDs(data);
+            data[self.slot_id()] = {osds: [self]};
+            subscriberService.trigger('albanode_{0}:claim_osds'.format([self.node_id()]), data);
         };
         self.remove = function() {
-            throw new Error('To be done')
-            self.nodeOrCluster.removeOSD(self);
+            subscriberService.trigger('albanode_{0}:remove_osd'.format([self.node_id()]), self);
         };
         self.restart = function() {
-            throw new Error('To be done')
-            self.nodeOrCluster.restartOSD(self);
+            subscriberService.trigger('albanode_{0}:restart_osd'.format([self.node_id()]), self);
         };
+        self.load = function() {
+            if (!self.alba_backend_guid()) {
+                return
+            }
+            var responseEvent = 'osd_{0}:load_alba_backend'.format([self.osd_id()]);
+            var data = {
+                reponse: responseEvent,
+                albaBackendGuid: self.alba_backend_guid()
+            };
+            self.disposables.push(
+                subscriberService.on(responseEvent).then(function(){
+
+                })
+
+            );
+            subscriberService.trigger('alba_backend:load', data)
+
+        }
     }
     // Prototypical inheritance
     AlbaOSD.prototype = $.extend({}, BaseContainer.prototype);

@@ -19,7 +19,7 @@ define([
     'ovs/generic', 'ovs/api', 'ovs/shared',
     'viewmodels/containers/albanode/albanodebase', 'viewmodels/containers/albanode/albanode',
     'viewmodels/wizards/addosd/index', 'viewmodels/wizards/removeosd/index', 'viewmodels/wizards/registernodeundercluster/index',
-    'viewmodels/services/albanodeclusterservice'
+    'viewmodels/services/albanodecluster'
 ], function($, app, ko, dialog,
             generic, api, shared,
             AlbaNodeBase, AlbaNode,
@@ -98,6 +98,8 @@ define([
             return true;
         });
 
+    }
+    var functions = {
         // Functions
         /**
          * Refresh the current object instance by updating it with API data
@@ -105,7 +107,8 @@ define([
          * @param relayParams: Relay to use (Optional, defaults to no relay)
          * @returns {Deferred}
          */
-        self.refresh = function(queryParams, relayParams){
+        refresh: function(queryParams, relayParams){
+            var self = this;
             return albaNodeClusterService.loadAlbaNodeCluster(self.guid(), queryParams, relayParams)
                 .done(function(data) {
                     self.update(data.data)
@@ -114,26 +117,18 @@ define([
                     // @TODO remove
                     console.log('Failed to update current object: {0}'.format([data]))
                 })
-        };
-        // Functions
-        self.localSummaryByBackend = function(albaBackendGuid){
-          // Returns a computed to get notified about all changes to the localSummary here
-          return ko.computed(function() {
-              // @Todo implement
-              return {};
-          })
-        };
-
-        // Wizards
-        self.registerAlbaNode = function(){
+        }
+    };
+    var wizards = {
+        registerAlbaNode: function(){
+            var self = this;
             dialog.show(new RegisterNodeWizard({
                 modal: true,
                 albaNodeCluster: self
             }));
         }
-
-    }
+    };
     // Prototypical inheritance
-    AlbaNodeClusterModel.prototype = $.extend({}, AlbaNodeBase.prototype);
+    AlbaNodeClusterModel.prototype = $.extend(AlbaNodeBase.prototype, functions, wizards);
     return AlbaNodeClusterModel
 });
