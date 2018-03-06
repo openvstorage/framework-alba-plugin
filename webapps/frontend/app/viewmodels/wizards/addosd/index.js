@@ -59,7 +59,7 @@ define([
                 'displayOn': ['confirm']
             }
         };
-        var metadata = options.node.metadata();
+        var metadata = ko.toJS(options.node.node_metadata);
         var formData = formBuilder.generateFormData(metadata, formMapping);
         var formQuestions = formData.questions;
         var fieldMapping = formData.fieldMapping;

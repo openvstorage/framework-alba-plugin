@@ -38,7 +38,7 @@ define([
             var slotData = [];
             $.each(self.data.slots(), function(_, slot) {
                 var osdData = {
-                    slot_id: slot.slotID(),
+                    slot_id: slot.slot_id(),
                     alba_backend_guid: self.data.node().albaBackend.guid()
                 };
                 $.extend(osdData, formBuilder.gatherData(self.data.formFieldMapping));

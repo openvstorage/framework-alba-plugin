@@ -53,7 +53,7 @@ but WITHOUT ANY WARRANTY of any kind.
         </div>
     </td>
     <td data-part="local_summary" data-bind="if: !expanded()" style="border-top: 0;">
-        <!-- ko foreach: local_summary.listViewByBackend($root.albaBackend().guid()) -->
+        <!-- ko foreach: local_summary.listViewByBackend($root.alba_backend.guid()) -->
             <span data-bind="css: css,
                              text: text,
                              tooltip: tooltip"></span>

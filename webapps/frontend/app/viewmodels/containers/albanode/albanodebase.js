@@ -62,7 +62,7 @@ define([
             return true;
         });
     }
-    viewModel.prototype = $.extend({  // Prototypical inheritance
+    viewModel.prototype = $.extend(BaseContainer.prototype, {  // Prototypical inheritance
         /**
          * Generate the slot relations based on the stack property
          */
@@ -77,7 +77,8 @@ define([
                 slotInfo.slot_id = slotID;
                 // Change the osds item to an Array so we can observe it
                 slotInfo.osds = Object.keys(slotInfo.osds).map(function(osdID) {
-                    return slotInfo.osds[osdID]  // osd_id is already included by the API
+                    slotInfo.osds[osdID].osd_id = osdID;
+                    return slotInfo.osds[osdID]
                 });
             });
             var slots = Object.values(ko.utils.unwrapObservable(stack));
@@ -96,7 +97,10 @@ define([
                     return 1;
                 }
                 return -1;
+        },
+        subscribeToSlotEvents: function() {
+            throw new Error('Needs to be implemented')
         }
-    }, BaseContainer.prototype);
+    });
     return viewModel
 });

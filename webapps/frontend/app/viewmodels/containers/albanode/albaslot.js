@@ -30,7 +30,8 @@ define([
             create: function(options) {
                 var data = $.extend(options.data || {}, {
                     alba_backend_guid: ko.utils.unwrapObservable(options.parent.alba_backend_guid),
-                    node_metadata: ko.utils.unwrapObservable(options.parent.node_metadata)
+                    node_metadata: ko.utils.unwrapObservable(options.parent.node_metadata),
+                    slot_id: ko.utils.unwrapObservable(options.parent.slot_id)
                 });
                 return new OSD(data);
             }
@@ -67,7 +68,7 @@ define([
         self.mountpoint   = ko.observable();
         self.usage        = ko.observable();
 
-        var vmData = $.extend({
+        var vmData = $.extend({  // Order matters
             // Displaying props
             alba_backend_guids: null,
             // ASD slot props
@@ -83,8 +84,9 @@ define([
             status: null,
             status_detail: '',
             size: null,
-            osds: [],
-            node_metadata: {} // Can be both an object with properties or a viewModel with observable
+            node_metadata: {}, // Can be both an object with properties or a viewModel with observable
+            slot_id: null,
+            osds: []
         }, data);
 
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
@@ -135,13 +137,14 @@ define([
         });
 
         // Event Functions
+        // @Todo use a unique identifier to indicate both clusters/nodes as it is not clear at the moment
         self.addOSDs = function() {
-            app.trigger('albanode_{0}:add_osds'.format([self.node_id]), self)
+            app.trigger('albanode_{0}:add_osds'.format([self.node_id()]), self)
         };
         // @todo replace these functions with events (if possible because its wizards)
         // Functions
         self.clear = function() {
-            self.nodeOrCluster.removeSlot(self);
+            app.trigger('albanode_{0}:clear_slot'.format([self.node_id()]), self);
         };
         self.claimOSDs = function() {
             var data = {}, osds = [];
@@ -150,8 +153,8 @@ define([
                     osds.push(osd);
                 }
             });
-            data[self.slotID()] = {slot: self, osds: osds};
-            self.nodeOrCluster.claimOSDs(data);
+            data[self.slot_id()] = {osds: osds};
+            app.trigger('albanode_{0}:claim_osds'.format([self.node_id()]), data);
         };
     }
     // Prototypical inheritance
