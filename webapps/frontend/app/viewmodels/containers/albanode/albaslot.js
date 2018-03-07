@@ -15,12 +15,14 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'knockout', 'durandal/app',
+    'jquery', 'knockout',
     'ovs/generic',
-    'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albaosd'
-], function($, ko, app,
+    'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albaosd',
+    'viewmodels/services/subscriber'
+], function($, ko,
             generic,
-            BaseContainer, OSD) {
+            BaseContainer, OSD,
+            subscriberService) {
     "use strict";
     var viewModelMapping = {
         'osds': {
@@ -41,10 +43,8 @@ define([
     /**
      * AlbaSlot viewModel
      * @param data: Data to include in the model
-     * @param nodeOrCluster: AlbaNodeCluster or AlbaNode viewmodel where this model is attached too
-     * @param albaBackend: albaBackend that this model is attached too
      */
-    function AlbaSlot(data, nodeOrCluster, albaBackend) {
+    function AlbaSlot(data) {
         var self = this;
         BaseContainer.call(self);
 
@@ -55,9 +55,6 @@ define([
             unavailable: 'unavailable',
             unknown: 'unknown'
         });
-        // Externally added
-        self.nodeOrCluster = nodeOrCluster;
-        self.albaBackend   = albaBackend;
 
         // Observables
         self.loaded       = ko.observable(false);
@@ -69,6 +66,7 @@ define([
         self.usage        = ko.observable();
 
         var vmData = $.extend({  // Order matters
+            alba_backend_guid: null, // Guid of the AlbaBackend of the AlbaDetailView
             // Displaying props
             alba_backend_guids: null,
             // ASD slot props
@@ -139,12 +137,12 @@ define([
         // Event Functions
         // @Todo use a unique identifier to indicate both clusters/nodes as it is not clear at the moment
         self.addOSDs = function() {
-            app.trigger('albanode_{0}:add_osds'.format([self.node_id()]), self)
+            subscriberService.trigger('albanode_{0}:add_osds'.format([self.node_id()]), self)
         };
         // @todo replace these functions with events (if possible because its wizards)
         // Functions
         self.clear = function() {
-            app.trigger('albanode_{0}:clear_slot'.format([self.node_id()]), self);
+            subscriberService.trigger('albanode_{0}:clear_slot'.format([self.node_id()]), self);
         };
         self.claimOSDs = function() {
             var data = {}, osds = [];
@@ -154,7 +152,7 @@ define([
                 }
             });
             data[self.slot_id()] = {osds: osds};
-            app.trigger('albanode_{0}:claim_osds'.format([self.node_id()]), data);
+            subscriberService.trigger('albanode_{0}:claim_osds'.format([self.node_id()]), data);
         };
     }
     // Prototypical inheritance
