@@ -38,7 +38,7 @@ define([
     /**
      * SupportAlba viewModel
      */
-    function viewModel() {
+    function SupportAlba() {
         var self = this;
         BaseContainer.call(self);
         // Variables
@@ -87,5 +87,6 @@ define([
             self.refresher.stop();
         };
     }
-    return viewModel
+    SupportAlba.prototype = $.extend({}, BaseContainer.prototype)
+    return SupportAlba
 });

@@ -101,24 +101,24 @@ but WITHOUT ANY WARRANTY of any kind.
                                 </td>
                                 <td>&nbsp;</td>
                             </tr>
+                            <!-- ko with: local_summary -->
                             <tr>
                                 <td style="width: 15%; padding-top: 2px; height: 1px;" data-i18n="alba:generic.health"></td>
-                                <td style="width: 50%; padding-top: 2px;">
-                                    <span class="label label-success pointer"
-                                          data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + $root.localSummary().scaling.toLowerCase() + '.claimed'),
-                                                     text: ($root.localSummary() === undefined ? 0 : $root.localSummary().devices.green)"></span>&nbsp;
-                                    <span class="label label-warning pointer"
-                                          data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + $root.localSummary().scaling.toLowerCase() + '.warning'),
-                                                     text: ($root.localSummary() === undefined ? 0 : $root.localSummary().devices.orange)"></span>&nbsp;
-                                    <span class="label label-danger pointer"
-                                          data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + $root.localSummary().scaling.toLowerCase() + '.error'),
-                                                     text: ($root.localSummary() === undefined ? 0 : $root.localSummary().devices.red)"></span>&nbsp;
-                                    <span class="label label-missing pointer"
-                                          data-bind="tooltip: $root.localSummary() === undefined ? '' : $.t('alba:generic.states.osdinfo.' + $root.localSummary().scaling.toLowerCase() + '.unknown'),
-                                                     text: ($root.localSummary() === undefined ? 0 : $root.localSummary().devices.gray)"></span>
+                                <!-- ko ifnot: canDisplay -->
+                                <td style="width: 100px;">
+                                    <i class="fa fa-spin" data-i18n="[html]ovs:icons.loading"></i>
                                 </td>
+                                <!-- /ko -->
+                                <!-- ko if: canDisplay -->
+                                <td style="width: 50%; padding-top: 2px;">
+                                    <!-- ko foreach: listView -->
+                                        <span data-bind="css: css, text: text, tooltip: tooltip"></span>
+                                    <!-- /ko -->
+                                </td>
+                                <!-- /ko -->
                                 <td>&nbsp;</td>
                             </tr>
+                            <!-- /ko -->
                             <tr>
                                 <td style="width: 15%; padding-top: 7px; vertical-align: top;" data-i18n="ovs:generic.domains"></td>
                                 <td style="width: 50%; padding-top: 7px; padding-bottom: 2px; vertical-align: top;" colspan="3">
@@ -198,7 +198,7 @@ but WITHOUT ANY WARRANTY of any kind.
                     </thead>
                     <tbody>
                         <tr>
-                            <td colspan="7" data-bind="visible: remoteStack().length === 0 && localSummary() === undefined">
+                            <td colspan="7" data-bind="visible: remoteStack().length === 0">
                                 <i class="fa fa-spin" data-i18n="[html]ovs:icons.loading"></i>
                             </td>
                         </tr>
@@ -412,7 +412,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <span data-i18n="alba:presets.policies.title"></span>
                                 <a data-bind="popover: {
                                                   title: 'alba:presets.policies.helptitle',
-                                                  content: $root.localSummary() === undefined || $root.localSummary().scaling === 'LOCAL' ? 'alba:presets.policies.helpcontent_storage' : 'alba:presets.policies.helpcontent_backend'
+                                                  content: !$root.alba_backend.scaling() || $root.alba_backend.scaling === 'LOCAL' ? 'alba:presets.policies.helpcontent_storage' : 'alba:presets.policies.helpcontent_backend'
                                               }" class="hand fa noline" data-i18n="[html]ovs:icons.help" role="button" tabindex="-1">
                                 </a>
                             </th>

@@ -17,14 +17,37 @@
 define([
     'jquery', 'knockout', 'durandal/app',
     'ovs/generic', 'ovs/api', 'ovs/shared',
-    'viewmodels/containers/shared/base_container', 'viewmodels/containers/backend/backend',
+    'viewmodels/containers/shared/base_container', 'viewmodels/containers/backend/backend', 'viewmodels/containers/backend/localsummary',
     'viewmodels/services/backend', 'viewmodels/services/albabackend'
 ], function($, ko, app, generic, api, shared,
-            BaseContainer, Backend,
+            BaseContainer, Backend, LocalSummary,
             backendService, albaBackendService) {
     "use strict";
 
     var viewModelMapping = {
+        backend_guid: {
+            update: function(options) {
+                if (options.parent.backend) {
+                    options.parent.backend.guid(options.data)
+                }
+                return options.data
+            }
+        },
+        backend: {
+            key: function(data) {  // For relation updates: check if the GUID has changed before discarding a model
+                return ko.utils.unwrapObservable(data.guid)
+            },
+            create: function(options) {
+                // The Backend model is never to be filled yet in this model (yet?)
+                return new Backend(ko.utils.unwrapObservable(options.data.guid));
+            }
+        },
+        local_summary: {
+            create: function(options) {
+                return new LocalSummary(options.data)
+            }
+        },
+        include: ['color']
     };
     /**
      * AlbaBackend class
@@ -49,7 +72,7 @@ define([
 
         var vmData = $.extend({
             alba_id: null,
-            backend: null,
+            backend: {},
             backend_guid: null,
             color: null,
             guid: guid,
@@ -58,7 +81,7 @@ define([
             name: null,
             scaling: null,
             local_summary: {},
-            usages: {}  // Converted into a viewModel with observables
+            usages: {size: null, used: null, free: null}  // Converted into a viewModel with observables
         }, data || {});
 
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
@@ -70,10 +93,11 @@ define([
             }));
         });
         self.usage = ko.pureComputed(function() {
-            if (!(self.usages.size && self.usages.used && self.usages.free)) {
+            var usageKeys = ['size', 'used', 'free'];
+            if (!usageKeys.every(function(key) { return ko.utils.unwrapObservable(self.usages[key]) !== null })) {
                 return []
             }
-            var stats = ko.mapping.toJSON(self.usages);
+            var stats = ko.mapping.toJS(self.usages);
             return [
                 {
                     name: $.t('alba:generic.stats.used'),
@@ -125,12 +149,23 @@ define([
                     return self.loadHandle = albaBackendService.loadAlbaBackend(self.guid(), { contents: contents })
                         .then(function(data) {
                             self.update(data);
-                            return self
+                            self.loaded(true);
+                            return data
                         })
                         .always(function() {
                             self.loading(false);
                         });
                 });
+        },
+        /**
+         * Loads the associated backend model
+         */
+        loadBackend: function() {
+            if (!ko.utils.unwrapObservable(self.backend_guid)) {
+                throw new Error('No backend information')
+            }
+            var backend = new Backend(self.backend_guid());
+            return backend.load()
         }
     };
     AlbaBackend.prototype = $.extend({}, BaseContainer.prototype, functions);

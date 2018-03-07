@@ -57,8 +57,10 @@ define([
             },
             create: function(options) {
                 // Attach metadata of this model. Metadata is dependant on the node type and won't change so no need to make it a model
-                var data = $.extend({}, options.data);
-                data.node_metadata = options.parent.node_metadata;
+                var data = $.extend(options.data, {
+                    node_metadata: options.parent.node_metadata,
+                    alba_backend_guid: !!options.parent.albaBackend? ko.utils.unwrapObservable(options.parent.albaBackend.guid) : null
+                });
                 return new Slot(data);
             }
         }
@@ -315,19 +317,19 @@ define([
         subscribeToSlotEvents: function() {
             var self = this;
             self.disposables.push(  // @Todo for all these events check for possbile relations to throw them to the albanodecluster
-                subscriberService.on('albanode_{0}:add_osds'.format([self.node_id()])).then(function (slot) {
+                subscriberService.onEvents('albanode_{0}:add_osds'.format([self.node_id()])).then(function (slot) {
                     self.addOSDs(slot);
                 }),
-                subscriberService.on('albanode_{0}:clear_slot'.format([self.node_id()])).then(function (slot) {
+                subscriberService.onEvents('albanode_{0}:clear_slot'.format([self.node_id()])).then(function (slot) {
                     self.removeSlot(slot);
                 }),
-                subscriberService.on('albanode_{0}:claim_osds'.format([self.node_id()])).then(function (data) {
+                subscriberService.onEvents('albanode_{0}:claim_osds'.format([self.node_id()])).then(function (data) {
                     self.claimOSDs(data);
                 }),
-                subscriberService.on('albanode_{0}:restart_osd'.format([self.node_id()])).then(function (osd) {
+                subscriberService.onEvents('albanode_{0}:restart_osd'.format([self.node_id()])).then(function (osd) {
                     self.restartOSD(osd);
                 }),
-                subscriberService.on('albanode_{0}:remove_osd'.format([self.node_id()])).then(function (osd) {
+                subscriberService.onEvents('albanode_{0}:remove_osd'.format([self.node_id()])).then(function (osd) {
                     self.removeOSD(osd);
                 }))
         },

@@ -15,7 +15,7 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
+    'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog', 'd3',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
     'viewmodels/containers/shared/base_container', 'viewmodels/containers/backend/albabackend', 'viewmodels/containers/albanode/albanode',
     'viewmodels/containers/backend/backend', 'viewmodels/containers/backend/backendtype', 'viewmodels/containers/domain/domain',
@@ -24,7 +24,7 @@ define([
     'viewmodels/wizards/addnode/index', 'viewmodels/wizards/addpreset/index', 'viewmodels/wizards/linkbackend/index',
     'viewmodels/wizards/unlinkbackend/index',
     'viewmodels/services/albanode', 'viewmodels/services/albanodecluster', 'viewmodels/services/subscriber'
-], function($, app, ko, router, dialog,
+], function($, app, ko, router, dialog, d3,
             shared, generic, Refresher, api,
             BaseContainer, AlbaBackend, AlbaNode, Backend, BackendType, Domain, StorageRouter, AlbaOSD, NodeCluster,
             AddNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard,
@@ -68,6 +68,10 @@ define([
                 }
                 // This object has not yet been converted to work with ko.mapping thus manually overriden the create
                 return new AlbaNode(null, options.parent.alba_backend);
+            },
+            update: function (options){
+                options.target.update(options.data);
+                return options.target
             }
         },
         alba_nodes_registered: {
@@ -82,6 +86,10 @@ define([
                 var storageNode = new AlbaNode(options.data, options.parent.alba_backend, options.parent);
                 storageNode.subscribeToSlotEvents();
                 return storageNode
+            },
+            update: function (options){
+                options.target.update(options.data);
+                return options.target
             },
             arrayChanged: function(event, item) {
                 // Undocumented callback in the plugin. This function notifies what 'event' of what 'item' happened in the array
@@ -101,6 +109,9 @@ define([
     function AlbaBackendDetail() {
         var self = this;
         BaseContainer.call(self);
+        // Constants
+        var colorRange = d3.scale.ordinal().range(['#e6e6e6', '#b2b2b2', '#808080','#377eb8', '#4daf4a', '#984ea3',
+            '#ff7f00', '#ffff33', '#a65628', '#f781bf', '#999999']);
         // Variables
         self.domainCache        = {};
         self.shared             = shared;
@@ -118,7 +129,6 @@ define([
         self.dNodesLoading          = ko.observable(false);
         self.domains                = ko.observableArray([]);
         self.initialRun             = ko.observable(true);
-        self.localSummary           = ko.observable();
         self.otherAlbaBackendsCache = ko.observable({});
         self.registeredNodes        = ko.observableArray([]);
         self.registeredNodesNodeIDs = ko.observableArray([]);
@@ -126,7 +136,7 @@ define([
         self.rNodesLoading          = ko.observable(true);
 
         // Subscriptions
-        self.disposables.push(subscriberService.on('alba_backend:load', viewModelContext).then(function(data){
+        self.disposables.push(subscriberService.onEvents('alba_backend:load', viewModelContext).then(function(data){
             var albaBackendGuid, responseEvent;
             if (typeof data === 'object') {
                 albaBackendGuid = data.albaBackendGuid;
@@ -134,22 +144,26 @@ define([
             } else {
                 albaBackendGuid = data;
             }
-            var cache = otherAlbaBackendsCache(), ab;
-            if (!cache.hasOwnProperty(albaBackendGuid)) {
-                ab = new AlbaBackend(albaBackendGuid);
-                ab.load('backend')
-                    .then(function () {
-                        ab.backend().load();
-                        if (responseEvent) {
-                            subscriberService.trigger(responseEvent, ab)
-                        }
-                    });
-                cache[albaBackendGuid] = ab;
-                otherAlbaBackendsCache(cache);
-            }
-            if (responseEvent) {
-                subscriberService.trigger(responseEvent, cache[albaBackendGuid])
-            }
+            var cache = self.otherAlbaBackendsCache(), ab;
+            return $.when()
+                .then(function() {
+                    if (!cache.hasOwnProperty(albaBackendGuid)) {
+                        ab = new AlbaBackend(albaBackendGuid);
+                        return ab.load('backend')
+                            .then(function () {
+                                ab.backend.load();  // Don't care about this item so not waiting until it is loaded
+                                cache[albaBackendGuid] = ab;
+                                self.otherAlbaBackendsCache(cache);
+                                return ab.toJS()
+                            });
+                    }
+                    return cache[albaBackendGuid].toJS();
+                })
+                .then(function(data){
+                    if (responseEvent) {
+                        subscriberService.trigger(responseEvent, data)
+                    }
+                });
         }));
         var vmData = {
             backend: {},
@@ -212,12 +226,11 @@ define([
 
         // Subscriptions
         self.otherAlbaBackends = ko.computed(function() {  // Give color to all cached backends
-            var albaBackends = [], cache = self.otherAlbaBackendsCache(), counter = 0;
+            var albaBackends = [], cache = self.otherAlbaBackendsCache();
             $.each(cache, function(index, albaBackend) {
-                if (albaBackend.guid() !== self.albaBackend.guid()) {
-                    albaBackend.color(generic.getColor(counter));
+                if (albaBackend.guid() !== self.alba_backend.guid()) {
+                    albaBackend.color(colorRange(albaBackend.guid()));
                     albaBackends.push(albaBackend);
-                    counter += 1;
                 }
             });
             return albaBackends;
@@ -261,22 +274,21 @@ define([
         },
         /**
          * Fetches all relevant data for this page
-         * @param discover: Discover new nodes
          * @return {Deferred}
          */
-        loadData: function(discover) {
+        loadData: function() {
             var self = this;
-            discover = !!discover;
             if (!self.alba_backend.initialized() || self.alba_backend.scaling() === 'GLOBAL') {
                 return $.when()
             }
             // Re-use alba nodes model and afterwards we can update those models themselves. The same reference is then passed to every item
-            $.when(self.fetchNodeClusters(), self.fetchNodes(discover))
-                .then(function(nodeClustersData, nodesData){
+            $.when(self.fetchNodeClusters(), self.fetchNodes(), self.fetchNodes(true))
+                .then(function(nodeClustersData, nodesData, discoveredNodesData){
                     // Serialize the cluster and attach the alba node data to it
                     self.update({
                         alba_nodes_registered: nodesData,
-                        alba_node_clusters: nodeClustersData
+                        alba_node_clusters: nodeClustersData,
+                        alba_nodes_discovered: discoveredNodesData
                     })
                 })
 
@@ -337,7 +349,6 @@ define([
             if (data === undefined || !data.hasOwnProperty('remote_stack') || !data.hasOwnProperty('local_summary')) {
                 return;
             }
-            self.localSummary(data.local_summary);
             var remoteStacks = [];
             $.each(data.remote_stack, function(alba_backend_guid, stack_data) {
                 stack_data.alba_backend_guid = alba_backend_guid;
@@ -549,8 +560,7 @@ define([
             self.refresher.init(function() {
                 self.loadDomains();
                 return self.load()
-                    .then(self.fetchNodes.bind(self))  // Fetch all known nodes
-                    .then(function() { self.fetchNodes.bind(self, true); })  // Discover new ones
+                    .then(self.loadData.bind(self))
                     .then(self.loadBackendOSDs.bind(self))
                     .then(function() {
                         if (self.initialRun() === true) {
@@ -558,7 +568,6 @@ define([
                             self.refresher.skipPause = true;
                         }
                     })
-                    .then(self.loadData.bind(self))
             }, 5000);
             self.refresher.run();
             self.refresher.start();
