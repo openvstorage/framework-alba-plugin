@@ -27,7 +27,18 @@ define([
             AddOSDWizard, RemoveOSDWizard,
             subscriberService) {
     "use strict";
+    var nodeTypes = {
+        generic: 'GENERIC',
+        asd: 'ASD'
+    };
     var viewModelMapping = {
+        // Avoid caching the same data twice in the mapping plugin. Stack is not required to be observable as we used the slot models instead
+        // If stack had to be a viewmodel with observable properties: the slots would need to be created out of a copy of the stack as they now share the same instance
+        // If the stack would not just be copied: the plugin would update either the stack or the slots first.
+        // Since the slots is derived from the stack data (extracted data using Object.keys), the plugin will have cached the data object
+        // (it pumps the full data object into the cache as a key and does a keylookup)
+        // When it would update the next property, the plugin would detect that data object to apply was already applied and it won't update the object
+        copy: ['stack'],
         storagerouter: {
             key: function(data) {  // For relation updates: check if the GUID has changed before discarding a model
                 return ko.utils.unwrapObservable(data.guid)
@@ -95,6 +106,7 @@ define([
         self.loaded            = ko.observable(false);
         self._localSummary     = ko.observable();
         self.slotsLoading      = ko.observable(true);
+        self.emptySlots        = ko.observableArray([]);
 
         var vmData = $.extend({
             alba_node_cluster: undefined,  // Setting these to undefined as we need to check if a relation was defined
@@ -110,7 +122,7 @@ define([
             slots: [],
             package_information: {},
             port: null,
-            stack: null,
+            stack: {},
             storagerouter: null,  // Substituted for a viewmodel by the mapping
             storagerouter_guid: null,
             username: null,
@@ -120,9 +132,19 @@ define([
 
         vmData = $.extend(vmData, {'slots': self.generateSlotsByStack(vmData.stack || {})});  // Add slot info
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
+
+        if (self.emptySlots().length === 0 && self.type() === nodeTypes.generic) {
+            self.generateEmptySlot();
+        }
+
         self.loaded(true);
 
         // Computed
+        self.emptySlotMapping = ko.pureComputed(function() {
+            return self.emptySlots().reduce(function(acc, cur) {
+                acc[cur.osd_id] = cur
+            }, {});
+        });
         self.isPartOfCluster = ko.pureComputed(function() {
            if (self.alba_node_cluster_guid === undefined) {
                throw new Error('Unable to determine if this node is part of a cluster because the information has not been retrieved')
@@ -202,7 +224,7 @@ define([
         update: function(data) {
             var self = this;
             if ('stack' in data) {
-                data = $.extend(data, {'osds': self.generateSlotsByStack()});
+                data = $.extend(data, {'slots': self.generateSlotsByStack(data.stack)});
             }
             return AlbaNodeBase.prototype.update.call(this, data)
         },
@@ -258,7 +280,7 @@ define([
             //     }
             //     slot.fillData(data.stack[slot.slotID()])
             // });
-            // // No empty slot found, generate one for the future refresh runs
+            // No empty slot found, generate one for the future refresh runs
             // if (emptySlotID === undefined && self.type() === 'GENERIC') {
             //     self.generateEmptySlot();
             // }
@@ -275,13 +297,15 @@ define([
         },
         generateEmptySlot: function() {
             var self = this;
-            api.post('alba/nodes/' + self.guid() + '/generate_empty_slot')
+            return api.post('alba/nodes/' + self.guid() + '/generate_empty_slot')
                 .done(function (data) {
                     self.emptySlotMessage(undefined);
-                    var slotID = Object.keys(data)[0];
-                    var slot = new Slot(slotID, self, self.albaBackend);
-                    slot.fillData(data[slotID]);
-                    self.slots.push(slot);
+                    var slotsData = [];
+                    $.each(data, function(key, value){
+                        value.slot_id = key;
+                        slotsData.push(value)
+                    });
+                    self.emptySlots.push(new Slot(slotsData[0]));
                 })
                 .fail(function() {
                     self.emptySlotMessage($.t('alba:slots.error_codes.cannot_get_empty'));
@@ -368,46 +392,38 @@ define([
                     slots.push(currentSlot);
                 }
             });
-            var deferred = $.Deferred(),
-                wizardCancelled = false,
-                wizard = new AddOSDWizard({
+            var wizard = new AddOSDWizard({
                     node: self,
                     slots: slots,
-                    modal: true,
-                    completed: deferred
-                });
-            wizard.closing.always(function() {
-                wizardCancelled = true;
-                deferred.resolve();
+                    modal: true
             });
-
+            // Set all slots to processing
             $.each(slots, function(index, slot) {
                 slot.processing(true);
                 $.each(slot.osds(), function(_, osd) {
                     osd.processing(true);
                 });
             });
-            dialog.show(wizard);
-            deferred.always(function() {
-                if (wizardCancelled) {
-                    $.each(slots, function(index, slot) {
-                        slot.processing(false);
-                        $.each(slot.osds(), function(_, osd) {
-                            osd.processing(false);
-                        });
+            wizard.closing.always(function() {
+                $.each(slots, function(index, slot) {
+                    slot.processing(false);
+                    $.each(slot.osds(), function(_, osd) {
+                        osd.processing(false);
                     });
-                } else {
-                    self.parentVM.fetchNodes(false)
-                        .then(function() {
-                            $.each(slots, function(index, slot) {
-                                slot.processing(false);
-                                $.each(slot.osds(), function(_, osd) {
-                                    osd.processing(false);
-                                });
+                });
+            });
+            wizard.completed.always(function() {
+                self.parentVM.updateNodes(false)
+                    .then(function() {
+                        $.each(slots, function(index, slot) {
+                            slot.processing(false);
+                            $.each(slot.osds(), function(_, osd) {
+                                osd.processing(false);
                             });
                         });
-                }
+                    });
             });
+            dialog.show(wizard);
         },
         claimOSDs: function(osdsToClaim) {
             var self = this;
@@ -418,17 +434,17 @@ define([
             var osdData = [];
             var osds = [];
             var resetProcessingState = function() {
-                $.each(osds, function(osd) {
+                $.each(osds, function(index, osd) {
                     osd.processing(false);
                 });
-                $.each(slots, function(slot) {
+                $.each(slots, function(index, slot) {
                     slot.processing(false);
                 });
             };
             $.each(osdsToClaim, function(slotID, slotInfo) {
                 var slot = self.findSlotBySlotID(slotID);
                 slot.processing(true);
-                slots.push(slots);
+                slots.push(slot);
                 $.each(slotInfo.osds, function(index, osd) {
                     osdData.push({
                         osd_type: osd.type(),
@@ -494,23 +510,17 @@ define([
                                         );
                                     }
                                 }
-                                self.parentVM.fetchNodes(false)
+                                self.parentVM.updateNodes()
                                     .then(function() {
                                         resetProcessingState();
                                     });
-                                deferred.resolve();
                             }, function(error) {
                                 error = generic.extractErrorMessage(error);
                                 generic.alertError(
                                     $.t('ovs:generic.error'),
                                     $.t('alba:osds.claim.failed', { multi: osdIDs.length === 1 ? '' : 's', why: error })
                                 );
-                                $.each(osdsToClaim, function(_, slotInfo) {
-                                    slotInfo.slot.processing(false);
-                                    $.each(slotInfo.osds, function(index, osd) {
-                                        osd.processing(false);
-                                    });
-                                });
+                                resetProcessingState();
                             });
                     } else {
                         resetProcessingState();
@@ -525,37 +535,28 @@ define([
             if (matchingSlot === undefined) {
                 return;
             }
-            var deferred = $.Deferred(),
-                wizardCancelled = false,
-                wizard = new RemoveOSDWizard({
+            var wizard = new RemoveOSDWizard({
                     modal: true,
                     albaOSD: osd,
                     albaNode: self,
                     albaSlot: matchingSlot,
-                    completed: deferred,
                     albaBackend: self.albaBackend
                 });
             wizard.closing.always(function() {
-                wizardCancelled = true;
-                deferred.resolve();
+                // Indicates that it was canceled
+                osd.processing(false);
+                matchingSlot.processing(false);
             });
-
+            wizard.completed.always(function() {
+                self.parentVM.updateNodes()
+                    .then(function() {
+                        osd.processing(false);
+                        matchingSlot.processing(false);
+                    });
+            });
             osd.processing(true);
             matchingSlot.processing(true);
-
             dialog.show(wizard);
-            deferred.always(function() {
-                if (wizardCancelled) {
-                    osd.processing(false);
-                    matchingSlot.processing(false);
-                } else {
-                    self.parentVM.fetchNodes(false)
-                        .then(function() {
-                            osd.processing(false);
-                            matchingSlot.processing(false);
-                        });
-                }
-            });
         },
         restartOSD: function(osd) {
             var self = this;
@@ -608,7 +609,7 @@ define([
                         );
                     })
                     .always(function() {
-                        self.parentVM.fetchNodes(false)
+                        self.parentVM.updateNodes(false)
                             .then(function() {
                                 currentSlot.processing(false);
                                 $.each(currentSlot.osds(), function(_, osd) {
@@ -621,55 +622,51 @@ define([
         deleteNode: function() {
             var self = this;
             if (!self.canDelete() || !self.shared.user.roles().contains('manage')) {
-                return;
+                return $.when();
             }
-            app.showMessage(
+            return app.showMessage(
                 $.t('alba:node.remove.warning'),
                 $.t('alba:node.remove.title'),
                 [$.t('alba:generic.no'), $.t('alba:generic.yes')]
             )
-            .done(function(answer) {
-                if (answer === $.t('alba:generic.yes')) {
+                .then(function(answer) {
+                    if (answer !== $.t('alba:generic.yes')) {
+                        return null
+                    }
                     $.each(self.slots(), function(index, slot) {
                         slot.processing(true);
                         $.each(slot.osds(), function(jndex, osd) {
                             osd.processing(true);
                         });
                     });
-                    return $.Deferred(function(deferred) {
-                        generic.alertInfo(
-                            $.t('alba:node.remove.started'),
-                            $.t('alba:node.remove.started_msg', {what: self.node_id()})
-                        );
-                        api.del('alba/nodes/' + self.guid())
-                            .then(self.shared.tasks.wait)
-                            .done(function() {
-                                generic.alertSuccess(
-                                    $.t('alba:node.remove.complete'),
-                                    $.t('alba:node.remove.success', {what: self.node_id()})
-                                );
-                                deferred.resolve();
+                    generic.alertInfo(
+                        $.t('alba:node.remove.started'),
+                        $.t('alba:node.remove.started_msg', {what: self.node_id()})
+                    );
+                    return api.del('alba/nodes/' + self.guid())
+                        .then(self.shared.tasks.wait)
+                        .then(function() {
+                            generic.alertSuccess(
+                                $.t('alba:node.remove.complete'),
+                                $.t('alba:node.remove.success', {what: self.node_id()})
+                            );
 
-                            })
-                            .fail(function(error) {
-                                error = generic.extractErrorMessage(error);
-                                generic.alertError(
-                                    $.t('ovs:generic.error'),
-                                    $.t('alba:node.remove.failed', {what: self.node_id(), why: error})
-                                );
-                                deferred.reject();
-                            })
-                            .always(function() {
-                                $.each(self.slots(), function(index, slot) {
-                                    slot.processing(false);
-                                    $.each(slot.osds(), function(jndex, osd) {
-                                        osd.processing(false);
-                                    });
+                        }, function(error) {
+                            error = generic.extractErrorMessage(error);
+                            generic.alertError(
+                                $.t('ovs:generic.error'),
+                                $.t('alba:node.remove.failed', {what: self.node_id(), why: error})
+                            );
+                        })
+                        .always(function() {
+                            $.each(self.slots(), function(index, slot) {
+                                slot.processing(false);
+                                $.each(slot.osds(), function(jndex, osd) {
+                                    osd.processing(false);
                                 });
                             });
-                    }).promise();
-                }
-            });
+                        });
+                });
         }
     };
     // Prototypical inheritance

@@ -16,14 +16,14 @@
 /*global define */
 define([
     'jquery', 'knockout',
-    'ovs/api', 'ovs/generic', 'ovs/shared', 'ovs/refresher', './data'
-], function($, ko, api, generic, shared, Refresher, data) {
+    'ovs/api', 'ovs/generic', 'ovs/shared', 'ovs/refresher'
+], function($, ko, api, generic, shared, Refresher) {
     "use strict";
-    return function(parent) {
+    return function(stepOptions) {
         var self = this;
-
+        var parent = stepOptions.parent;
         // Variables
-        self.data      = data;
+        self.data      = stepOptions.data;
         self.shared    = shared;
         self.refresher = new Refresher();
 
@@ -41,37 +41,31 @@ define([
 
         // Functions
         self.finish = function() {
-            return $.Deferred(function(deferred) {
-                (function(albaOSD, albaNode, completed, dfd) {
-                    generic.alertInfo(
-                        $.t('alba:wizards.remove_osd.started'),
-                        $.t('alba:wizards.remove_osd.started_msg', {what: albaOSD.osdID()})
+            var albaOSD = self.data.albaOSD();
+            var albaNode = self.data.albaNode();
+            generic.alertInfo(
+                $.t('alba:wizards.remove_osd.started'),
+                $.t('alba:wizards.remove_osd.started_msg', {what: albaOSD.osd_id()})
+            );
+            return api.post('alba/nodes/' + albaNode.guid() + '/reset_osd', {
+                data: {
+                    osd_id: albaOSD.osd_id(),
+                    safety: self.data.safety()
+                }
+            })
+                .then(self.shared.tasks.wait)
+                .then(function() {
+                    generic.alertSuccess(
+                        $.t('alba:wizards.remove_osd.complete'),
+                        $.t('alba:wizards.remove_osd.success', {what: albaOSD.osd_id()})
                     );
-                    api.post('alba/nodes/' + albaNode.guid() + '/reset_osd', {
-                        data: {
-                            osd_id: albaOSD.osdID(),
-                            safety: self.data.safety()
-                        }
-                    })
-                        .then(self.shared.tasks.wait)
-                        .done(function() {
-                            generic.alertSuccess(
-                                $.t('alba:wizards.remove_osd.complete'),
-                                $.t('alba:wizards.remove_osd.success', {what: albaOSD.osdID()})
-                            );
-                            completed.resolve(true);
-                        })
-                        .fail(function(error) {
-                            error = generic.extractErrorMessage(error);
-                            generic.alertError(
-                                $.t('ovs:generic.error'),
-                                $.t('alba:wizards.remove_osd.failed', {what: albaOSD.osdID(), why: error})
-                            );
-                            completed.resolve(false);
-                        });
-                    dfd.resolve();
-                })(self.data.albaOSD(), self.data.albaNode(), self.data.completed(), deferred);
-            }).promise();
+                }, function(error) {
+                    error = generic.extractErrorMessage(error);
+                    generic.alertError(
+                        $.t('ovs:generic.error'),
+                        $.t('alba:wizards.remove_osd.failed', {what: albaOSD.osd_id(), why: error})
+                    );
+                });
         };
 
         // Durandal
@@ -79,7 +73,7 @@ define([
             self.refresher.init(function() {
                 if (generic.xhrCompleted(self.loadSafetyHandle)) {
                     self.loadSafetyHandle = api.get('alba/backends/' + self.data.albaBackend().guid() + '/calculate_safety', {
-                        queryparams: { osd_id: self.data.albaOSD().osdID() }
+                        queryparams: { osd_id: self.data.albaOSD().osd_id() }
                     })
                         .then(self.shared.tasks.wait)
                         .done(function(safety) {

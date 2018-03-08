@@ -154,14 +154,14 @@ but WITHOUT ANY WARRANTY of any kind.
                         <li style="width: 300px;">
                             <a style="position: relative;">
                                 <span data-i18n="ovs:generic.status"></span>: <span data-bind="translate: 'alba:generic.states.osd.' + status()"></span>
-                                <!-- ko if: [null, undefined].contains(alba_backend_guid()) -->
+                                <!-- ko ifnot: claimed_by -->
                                     <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                         <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
                                                 data-bind="click: claim, css: { disabled: processing() || !loaded() || locked() || node_or_cluster.read_only_mode() }
                                                            placement: 'bottom'"></button>
                                     </span>
                                 <!-- /ko -->
-                                <!-- ko if: alba_backend_guid() === $root.alba_backend.guid() -->
+                                <!-- ko if: claimed_by() === $root.alba_backend.guid() -->
                                     <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
                                         <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
                                                 data-bind="click: remove, css: { disabled: processing() || !loaded() || locked() || node_or_cluster.read_only_mode() }"></button>
@@ -232,7 +232,7 @@ but WITHOUT ANY WARRANTY of any kind.
             </div>
             <!-- /ko -->
         <!-- /ko -->
-        <!-- ko if: !['', null, undefined].contains(emptySlotMessage()) -->
+        <!-- ko if: emptySlotMessage -->
         <div class="notification-message">
             <span data-bind="text: emptySlotMessage()"></span>
         </div>

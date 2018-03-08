@@ -129,9 +129,6 @@ define([
         });
 
         // Events - albaBackendDetail
-        self.addOSDs = function() {
-            subscriberService.trigger('albanode_{0}:add_osds'.format([self.node_id()]), self)
-        };
         self.claim = function() {
             var data = {};
             data[self.slot_id()] = {osds: [self]};

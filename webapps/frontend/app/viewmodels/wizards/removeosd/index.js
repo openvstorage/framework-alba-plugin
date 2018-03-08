@@ -17,7 +17,7 @@
 define([
     'jquery', 'ovs/generic',
     '../build', './gather', './data'
-], function($, generic, Build, Gather, data) {
+], function($, generic, Build, Gather, Data) {
     "use strict";
     return function(options) {
         var self = this;
@@ -25,21 +25,16 @@ define([
         Build.call(self);
 
         // Variables
-        self.data = data;
+        var data = new Data(options.albaOSD, options.albaNode, options.albaBackend);
 
         // Setup
         self.title(generic.tryGet(options, 'title', $.t('alba:wizards.remove_osd.title')));
         self.modal(generic.tryGet(options, 'modal', false));
-        self.data.albaOSD(options.albaOSD);
-        self.data.albaNode(options.albaNode);
-        self.data.completed(options.completed);
-        self.data.albaBackend(options.albaBackend);
-        self.steps([new Gather(self)]);
+        var stepOptions = {
+            data: data,
+            parent: self
+        };
+        self.steps([new Gather(stepOptions)]);
         self.activateStep();
-
-        // Cleaning data
-        data.safety({});
-        data.confirmed(false);
-        data.loaded(false);
     };
 });

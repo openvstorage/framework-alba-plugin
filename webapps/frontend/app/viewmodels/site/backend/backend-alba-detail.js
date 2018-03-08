@@ -241,7 +241,7 @@ define([
         refresh: function() {
             var self = this;
             self.dNodesLoading(true);
-            self.fetchNodes(true);
+            self.updateNodes(true);
         },
         load: function() {
             var self = this;
@@ -273,27 +273,27 @@ define([
             }
         },
         /**
-         * Fetches all relevant data for this page
-         * @return {Deferred}
+         * Updates all relevant data for this page
+         * @return {Promise}
          */
-        loadData: function() {
+        updateData: function() {
             var self = this;
             if (!self.alba_backend.initialized() || self.alba_backend.scaling() === 'GLOBAL') {
                 return $.when()
             }
             // Re-use alba nodes model and afterwards we can update those models themselves. The same reference is then passed to every item
-            $.when(self.fetchNodeClusters(), self.fetchNodes(), self.fetchNodes(true))
+            return $.when(self.updateNodeClusters(), self.updateNodes(), self.updateNodes(true))
                 .then(function(nodeClustersData, nodesData, discoveredNodesData){
                     // Serialize the cluster and attach the alba node data to it
-                    self.update({
+                    return {
                         alba_nodes_registered: nodesData,
                         alba_node_clusters: nodeClustersData,
                         alba_nodes_discovered: discoveredNodesData
-                    })
+                    }
                 })
 
         },
-        fetchNodeClusters: function() {
+        updateNodeClusters: function() {
             var self = this;
             if (!self.alba_backend.initialized() || self.alba_backend.scaling() === 'GLOBAL') {
                 return $.when()
@@ -306,13 +306,16 @@ define([
                     var options = {contents: 'stack,node_metadata,local_summary,read_only_mode,_relations,_relation_contents_alba_nodes=local_summary'};
                     return self.nodeClustersHandle = albaNodeClusterService.loadAlbaNodeClusters(options)
                         .then(function(data) {
+                            var updateData = {alba_node_clusters: data.data};
+                            self.update(updateData);
                             return data.data
                         })
                 })
         },
-        fetchNodes: function(discover) {
+        updateNodes: function(discover) {
             var self = this;
             discover = !!discover;
+            var key = discover? 'alba_nodes_discovered': 'alba_nodes_registered';
             if (!self.alba_backend.initialized() || self.alba_backend.scaling() === 'GLOBAL') {
                 return;
             }
@@ -339,14 +342,18 @@ define([
                     };
                     return self.nodesHandle[discover] = albaNodeService.loadAlbaNodes(options, undefined, true)
                         .then(function (data) {
+                            // var updateData = {[key]: data.data};  in ES6 <<
+                            var updateData = {};
+                            updateData[key] = data.data;
+                            self.update(updateData);
                             return data.data;  // Unwrap
                         })
                 })
         },
         loadBackendOSDs: function() {
             var self = this;
-            var data = self.alba_backend.rawData;
-            if (data === undefined || !data.hasOwnProperty('remote_stack') || !data.hasOwnProperty('local_summary')) {
+            var data = self.alba_backend.toJS();
+            if (data === undefined || !data.hasOwnProperty('remote_stack')) {
                 return;
             }
             var remoteStacks = [];
@@ -560,7 +567,7 @@ define([
             self.refresher.init(function() {
                 self.loadDomains();
                 return self.load()
-                    .then(self.loadData.bind(self))
+                    .then(self.updateData.bind(self))
                     .then(self.loadBackendOSDs.bind(self))
                     .then(function() {
                         if (self.initialRun() === true) {
