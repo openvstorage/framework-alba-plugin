@@ -17,37 +17,32 @@
 define(['knockout', 'jquery', 'ovs/formBuilder'], function(ko, $, formBuilder){
     "use strict";
 
-    var singleton = function() {
-        var data = {
-            node: ko.observable(),
-            slots: ko.observableArray([]),
-            formQuestions: ko.observableArray([]),
-            formFieldMapping: ko.observable(),
-            formMapping: ko.observable(),
-            formMetadata: ko.observable(),
-            completed: ko.observable(),
-            confirmOnly: ko.observable()
-        };
+    function Data(node, slots, confirmOnly, formQuestions, fieldMapping, formMetadata, formMapping) {
+        var self = this;
+        self.node               = ko.observable(node);
+        self.slots              = ko.observable(slots);
+        self.formQuestions      = ko.observable(formQuestions);
+        self.formFieldMapping   = ko.observable(fieldMapping);
+        self.formMetadata       = ko.observable(formMetadata);
+        self.formMapping        = ko.observable(formMapping);
+        self.confirmOnly        = ko.observable(confirmOnly);
 
-        // Computed
-        data.hasHelpText = ko.computed(function() {
+        self.hasHelpText = ko.pureComputed(function() {
             var hasText = {};
-            $.each(data.formQuestions(), function(index, item) {
+            $.each(self.formQuestions(), function(index, item) {
                 var key = 'alba:wizards.add_osd.gather.' + item().field() + '_help';
                 hasText[item().field()] = key !== $.t(key);
             });
             return hasText;
-        });
-
-        // Functions
-        data.insertItem = function(field){
-            // Generates an item to be added to the form
-            return formBuilder.insertGeneratedFormItem(field, data.formMetadata(), data.formMapping(), data.formQuestions, data.formFieldMapping);
-        };
-        data.removeItem = function(index){
-            return formBuilder.removeFormItem(index, data.formQuestions, data.formFieldMapping)
-        };
-        return data;
+        })
+    }
+    Data.prototype = {
+        insertItem: function(field) {
+            return formBuilder.insertGeneratedFormItem(field, this.formMetadata(), this.formMapping(), this.formQuestions, this.formFieldMapping);
+        },
+        removeItem: function(index) {
+            return formBuilder.removeFormItem(index, this.formQuestions, this.formFieldMapping)
+        }
     };
-    return singleton();
+    return Data;
 });
