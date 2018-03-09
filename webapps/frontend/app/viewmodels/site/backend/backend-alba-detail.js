@@ -126,14 +126,13 @@ define([
 
         // Observables
         self.discoveredNodes        = ko.observableArray([]);
-        self.dNodesLoading          = ko.observable(false);
+        self.loadingNodes           = ko.observable(true);
         self.domains                = ko.observableArray([]);
         self.initialRun             = ko.observable(true);
         self.otherAlbaBackendsCache = ko.observable({});
         self.registeredNodes        = ko.observableArray([]);
         self.registeredNodesNodeIDs = ko.observableArray([]);
         self.remoteStack            = ko.observableArray([]);
-        self.rNodesLoading          = ko.observable(true);
 
         // Subscriptions
         self.disposables.push(subscriberService.onEvents('alba_backend:load', viewModelContext).then(function(data){
@@ -179,15 +178,6 @@ define([
         self.domainGuids = ko.pureComputed(function() {
             if (!self.backend.guid()) { return []; }
             return self.domains().map(function(domain){ return domain.guid() })
-        });
-        self.filteredDiscoveredNodes = ko.pureComputed(function() {
-            var nodes = [];
-            $.each(self.discoveredNodes(), function(index, node) {
-                if (!self.registeredNodesNodeIDs().contains(node.nodeID())) {
-                    nodes.push(node);
-                }
-            });
-            return nodes;
         });
         self.expanded = ko.computed({
             write: function(value) {
@@ -240,7 +230,6 @@ define([
     var functions = {
         refresh: function() {
             var self = this;
-            self.dNodesLoading(true);
             self.updateNodes(true);
         },
         load: function() {
@@ -291,6 +280,9 @@ define([
                         alba_nodes_discovered: discoveredNodesData
                     }
                 })
+                .always(function() {
+                    self.loadingNodes(false)
+                })
 
         },
         updateNodeClusters: function() {
@@ -335,9 +327,12 @@ define([
                         sort: 'storagerouter.name,storagerouter.ip,ip',
                         contents: contents,
                         discover: discover,
-                        query: JSON.stringify({  // Only fetch non-clustered nodes
+                        // Reason to making it conditional: discovered nodes are generated in the API and the decorator uses
+                        // the results of the previous DataList. These items don't exist in reality for the discovered nodes so nothing
+                        // is returned
+                        query: discover? null : JSON.stringify({  // Only fetch non-clustered nodes
                             type: 'AND',
-                            items: [['alba_node_cluster', 'EQUALS', null]]
+                            items: [['alba_node_cluster_guid', 'EQUALS', null]]
                         })
                     };
                     return self.nodesHandle[discover] = albaNodeService.loadAlbaNodes(options, undefined, true)
@@ -406,7 +401,7 @@ define([
             var self = this;
             var node_to_return = undefined;
             $.each(self.registeredNodes(), function(index, node) {
-              if (node.nodeID() === nodeID) {
+              if (node.node_id() === nodeID) {
                   node_to_return = node;
                   return false
               }

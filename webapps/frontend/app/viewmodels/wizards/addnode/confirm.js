@@ -57,9 +57,9 @@ define([
         }
         function addNode() {
             var data = {
-                node_id: self.data.newNode().nodeID(),
+                node_id: self.data.newNode().node_id(),
                 node_type: self.data.newNode().type(),
-                name: self.data.name()
+                name: self.data.name() ? self.data.name(): null
             };
             return _handleMessaging('alba:wizards.add_node.confirm', albaNodeService.addAlbaNode, data)
         }
@@ -70,7 +70,7 @@ define([
                     osd.processing(true);
                 })
             });
-            return _handleMessaging('alba:wizards.replace_node', albaNodeService.replaceAlbaNode, self.data.oldNode().guid(), self.data.newNode().nodeID())
+            return _handleMessaging('alba:wizards.replace_node', albaNodeService.replaceAlbaNode, self.data.oldNode().guid(), self.data.newNode().node_id())
                 .always(function() {
                     $.each(self.data.oldNode().slots(), function(index, slot) {
                         slot.processing(false);

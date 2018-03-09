@@ -35,10 +35,8 @@ define([
                 var data = options.data;
                 var parent = options.parent;
                 if (ko.utils.unwrapObservable(parent.stack) !== null) {data.stack = generic.tryGet(parent.stack, data.node_id, {})}
-                var storage_node = new AlbaNode(data, parent.albaBackend);
-                storage_node.fillData(data);
+                return new AlbaNode(data, parent.albaBackend);
                 // @todo generate osds based on stack data to fill in
-                return storage_node
             }
         }
     };
@@ -63,6 +61,7 @@ define([
         self.expanded          = ko.observable(false);
         self.slotsLoading      = ko.observable(false);
         self.emptySlotMessage  = ko.observable();  // When the type would be generic
+        self.emptySlots        = ko.observableArray([]);
 
         // Default data - replaces fillData - this always creates observables for the passed keys
         // Most of these properties are given by the API but setting them explicitly to have a view of how this model looks
@@ -83,8 +82,10 @@ define([
 
         ko.mapping.fromJS(vmData, albaNodeClusterMapping, self);  // Bind the data into this
 
-
         // Computed
+        self.allSlots = ko.pureComputed(function() {  // Include the possible generated empty ones
+            return [].concat(self.slots(), self.emptySlots())
+        });
         self.canInitializeAll = ko.computed(function() {
             // @Todo implement
             return true;
@@ -97,7 +98,6 @@ define([
             // @Todo implement
             return true;
         });
-
     }
     var functions = {
         // Functions
@@ -117,6 +117,9 @@ define([
                     // @TODO remove
                     console.log('Failed to update current object: {0}'.format([data]))
                 })
+        },
+        // @Todo implement
+        deleteNode: function() {
         }
     };
     var wizards = {
