@@ -133,13 +133,16 @@ define([
         vmData = $.extend(vmData, {'slots': self.generateSlotsByStack(vmData.stack || {})});  // Add slot info
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
 
-        if (self.emptySlots().length === 0 && self.type() === nodeTypes.generic) {
+        if (self.slots().length === 0 && self.type() === nodeTypes.generic) {
             self.generateEmptySlot();
         }
 
         self.loaded(true);
 
         // Computed
+        self.allSlots = ko.pureComputed(function() {  // Include the possible generated empty ones
+            return [].concat(self.slots(), self.emptySlots())
+        });
         self.emptySlotMapping = ko.pureComputed(function() {
             return self.emptySlots().reduce(function(acc, cur) {
                 acc[cur.osd_id] = cur
@@ -152,36 +155,23 @@ define([
            return self.alba_node_cluster_guid !== null
         });
         self.canInitializeAll = ko.pureComputed(function() {
-            var hasUninitialized = false;
-            $.each(self.slots(), function(index, slot) {
-                if (slot.osds().length === 0 && slot.processing() === false) {
-                    hasUninitialized = true;
-                    return false;
-                }
+            return self.allSlots().some(function(slot) {
+                return slot.osds().length === 0 && slot.processing() === false
             });
-            return hasUninitialized;
         });
         self.canClaimAll = ko.pureComputed(function() {
             if (self.albaBackend === undefined) {
                 return false;
             }
-            var hasUnclaimed = false;
-            $.each(self.slots(), function(_, slot) {
-                $.each(slot.osds(), function(_, osd) {
-                    if ([null, undefined].contains(osd.alba_backend_guid()) && osd.processing() === false && slot.processing() === false) {
-                        hasUnclaimed = true;
-                        return false;
-                    }
-                });
-                if (hasUnclaimed) {
-                    return false;
-                }
+            return self.allSlots().some(function(slot) {
+                return slot.osds().some(function(osd) {
+                    return !osd.claimed_by() && !osd.processing() && !slot.processing()
+                })
             });
-            return hasUnclaimed;
         });
         self.canDelete = ko.pureComputed(function() {
             var deletePossible = true;
-            $.each(self.slots(), function(_, slot) {
+            $.each(self.allSlots(), function(_, slot) {
                 if (slot.processing() === true) {
                     deletePossible = false;
                     return false;
@@ -247,54 +237,6 @@ define([
                     });
             }
         },
-        // @Todo fill empty slot again
-        fillData: function() {
-            var self = this;
-            // generic.trySet(self._localSummary, data, 'local_summary');
-            // // Add slots
-            // var slotIDs = Object.keys(generic.tryGet(data, 'stack', {}));
-            // var emptySlotID = undefined;
-            // if (self.type() === 'GENERIC') {
-            //     if (self.slots().length > 0){
-            //         $.each(self.slots().slice(), function(index, slot) {
-            //            if (slot.status() === 'empty' && !slotIDs.contains(slot.slotID())){
-            //                // Empty slot found in the model of the GUI, let's add it to the stack output
-            //                // This way the crossfiller won't remove it
-            //                emptySlotID = slot.slotID();
-            //                slotIDs.push(emptySlotID);
-            //                return false;  // Break
-            //            }
-            //         });
-            //     }
-            // }
-            // generic.crossFiller(
-            //     slotIDs, self.slots,
-            //     function(slotID) {
-            //         return new Slot(slotID, self, self.albaBackend);
-            //     }, 'slotID'
-            // );
-            // $.each(self.slots(), function (index, slot) {
-            //     if (slot.slotID() === emptySlotID) {
-            //         // Skip filling the data for the new slot. There is no stack data for it
-            //         return true;
-            //     }
-            //     slot.fillData(data.stack[slot.slotID()])
-            // });
-            // No empty slot found, generate one for the future refresh runs
-            // if (emptySlotID === undefined && self.type() === 'GENERIC') {
-            //     self.generateEmptySlot();
-            // }
-            // self.slots.sort(function(a, b) {
-            //     if ((a.status() === 'empty' && b.status() === 'empty') || (a.status() !== 'empty' && b.status() !== 'empty')) {
-            //         return a.slotID() < b.slotID() ? -1 : 1;
-            //     } else if (a.status() === 'empty') {  // Move empty status last
-            //         return 1;
-            //     }
-            //     return -1;
-            // });
-            // self.slotsLoading(false);
-            self.loaded(true);
-        },
         generateEmptySlot: function() {
             var self = this;
             return api.post('alba/nodes/' + self.guid() + '/generate_empty_slot')
@@ -303,6 +245,9 @@ define([
                     var slotsData = [];
                     $.each(data, function(key, value){
                         value.slot_id = key;
+                        value.node_id = self.node_id();
+                        value.node_metadata = self.node_metadata;
+                        value.alba_backend_guid = !!self.albaBackend? ko.utils.unwrapObservable(self.albaBackend.guid) : null;
                         slotsData.push(value)
                     });
                     self.emptySlots.push(new Slot(slotsData[0]));
@@ -316,26 +261,18 @@ define([
             if (!self.canClaimAll() || self.read_only_mode() || !self.shared.user.roles().contains('manage')) {
                 return;
             }
-            var osds = {};
-            if (self.albaBackend !== undefined) {
-                $.each(self.slots(), function (index, slot) {
-                    if (slot.processing()) {
-                        return true;
-                    }
-                    $.each(slot.osds(), function (jndex, osd) {
-                        if (![null, undefined].contains(osd.alba_backend_guid()) || osd.processing()) {
-                            return true;
-                        }
-                        if (!osds.hasOwnProperty(slot.slot_id)) {
-                            osds[slot.slot_id] = {osds: []};
-                        }
-                        osds[slot.slot_id].osds.push(osd);
-                        if (!osds[slot.slot_id].hasOwnProperty('slot')) {
-                            osds[slot.slot_id].slot = slot;
-                        }
-                    });
+            var osds = self.allSlots().reduce(function(result, slot) {
+                if (slot.processing()) {
+                    return result
+                }
+                var claimAbleOSDS = slot.osds().filter(function(osd){
+                   return (!osd.claimed_by() && !osd.processing())
                 });
-            }
+                if (claimAbleOSDS.length > 0){
+                    result[slot.slot_id()] = {osds: claimAbleOSDS};
+                }
+                return result;
+            }, {});
             return self.claimOSDs(osds);
         },
         subscribeToSlotEvents: function() {
@@ -363,7 +300,7 @@ define([
         },
         findSlotByOSDID: function(osdID) {
             var self = this;
-            return self.slots().find(function(slot){
+            return self.allSlots().find(function(slot){
                 return slot.osds().some(function(osd) {
                     return ko.utils.unwrapObservable(osd.osd_id) === osdID
                 })
@@ -371,7 +308,7 @@ define([
         },
         findSlotBySlotID: function(slotID){
             var self = this;
-            return self.slots().find(function(slot){
+            return self.allSlots().find(function(slot){
                 return ko.utils.unwrapObservable(slot.slot_id) === slotID
             });
         }
@@ -383,7 +320,7 @@ define([
                 return;
             }
             var slots = [];
-            $.each(self.slots(), function(index, currentSlot) {
+            $.each(self.allSlots(), function(index, currentSlot) {
                 if (slot === undefined) {
                     if (currentSlot.osds().length === 0 && currentSlot.processing() === false) {
                         slots.push(currentSlot);
@@ -633,7 +570,7 @@ define([
                     if (answer !== $.t('alba:generic.yes')) {
                         return null
                     }
-                    $.each(self.slots(), function(index, slot) {
+                    $.each(self.allSlots(), function(index, slot) {
                         slot.processing(true);
                         $.each(slot.osds(), function(jndex, osd) {
                             osd.processing(true);
@@ -659,7 +596,7 @@ define([
                             );
                         })
                         .always(function() {
-                            $.each(self.slots(), function(index, slot) {
+                            $.each(self.allSlots(), function(index, slot) {
                                 slot.processing(false);
                                 $.each(slot.osds(), function(jndex, osd) {
                                     osd.processing(false);

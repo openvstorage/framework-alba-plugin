@@ -80,7 +80,7 @@
         "nodes": "ASD Nodes",
         "nodetype": "Type",
         "nodetypes": {
-            "albanodecluster": "NODE CLUSTER",
+            "albanodecluster": "Node Cluster",
             "asd": "ASD",
             "generic": "Generic"
         },

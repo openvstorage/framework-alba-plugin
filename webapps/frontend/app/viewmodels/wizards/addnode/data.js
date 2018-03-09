@@ -24,6 +24,9 @@ define(['knockout',
         // Observables
         self.name = ko.observable('').extend({regex: generic.nameRegex});
         self.newNode = ko.observable(newNode);
+        if (!self.newNode().type()){
+            self.newNode().type(typeEnum.generic)
+        }
         self.oldNode = ko.observable(oldNode);
         self.nodeTypes = ko.observableArray(Object.values(typeEnum));
         self.confirmOnly = ko.observable(confirmOnly || false);
@@ -32,7 +35,7 @@ define(['knockout',
         self.willIDBeGenerated = ko.pureComputed(function() {
             // The item is a always an empty AlbaNode when adding it. The type of it can be changed at will but when it is
             // 'ASDNODECLUSTER' we need to make sure the right api is called and the ID won't be generated
-            return self.newNode().nodeID() === undefined && !self.workingWithCluster()
+            return !self.newNode().node_id() && !self.workingWithCluster()
         });
         self.workingWithCluster = ko.pureComputed(function() {
             return self.newNode().type() === typeEnum.cluster
