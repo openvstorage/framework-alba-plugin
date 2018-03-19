@@ -130,8 +130,6 @@ define([
         self.domains                = ko.observableArray([]);
         self.initialRun             = ko.observable(true);
         self.otherAlbaBackendsCache = ko.observable({});
-        self.registeredNodes        = ko.observableArray([]);
-        self.registeredNodesNodeIDs = ko.observableArray([]);
         self.remoteStack            = ko.observableArray([]);
 
         // Subscriptions
@@ -175,37 +173,33 @@ define([
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
 
         // Computed
+        self.nodesAndCluster = ko.pureComputed(function() {
+            return [].concat(self.alba_node_clusters(), self.alba_nodes_registered());
+        });
         self.domainGuids = ko.pureComputed(function() {
             if (!self.backend.guid()) { return []; }
             return self.domains().map(function(domain){ return domain.guid() })
         });
         self.expanded = ko.computed({
             write: function(value) {
-                $.each(self.registeredNodes(), function(index, node) {
-                    node.expanded(value);
+                $.each(self.nodesAndCluster(), function(index, item) {
+                    item.expanded(value);
                 });
             },
             read: function() {
-                var expanded = false;
-                $.each(self.registeredNodes(), function(index, node) {
-                    expanded |= node.expanded();  // Bitwise or, |= is correct.
+                return self.nodesAndCluster().every(function(node){
+                    return node.expanded()
                 });
-                return expanded;
             }
         });
         self.anyCollapsed = ko.pureComputed(function() {
             /**
              * Check if any node is collapsed
              * Different than the expanded check in the way this will return true when any are collapsed as opposed to all
-              */
-            var collapsed = false;
-            $.each(self.registeredNodes(), function(index, node) {
-                if (node.expanded() === false) {
-                    collapsed = true;
-                    return false;
-                }
+             */
+            return self.nodesAndCluster().some(function(node){
+                    return node.expanded()
             });
-            return collapsed;
         });
         self.showDetails = ko.pureComputed(function() {
             return self.alba_backend.initialized() && self.backend.guid();
@@ -295,7 +289,7 @@ define([
                     if (!generic.xhrCompleted(self.nodeClustersHandle)) {
                         return
                     }
-                    var options = {contents: 'stack,node_metadata,local_summary,read_only_mode,_relations,_relation_contents_alba_nodes=local_summary'};
+                    var options = {contents: 'stack,cluster_metadata,local_summary,read_only_mode,_relations,_relation_contents_alba_nodes=local_summary'};
                     return self.nodeClustersHandle = albaNodeClusterService.loadAlbaNodeClusters(options)
                         .then(function(data) {
                             var updateData = {alba_node_clusters: data.data};
@@ -396,17 +390,6 @@ define([
                     deferred.reject();
                 }
             }).promise();
-        },
-        getNodeById: function(nodeID){
-            var self = this;
-            var node_to_return = undefined;
-            $.each(self.registeredNodes(), function(index, node) {
-              if (node.node_id() === nodeID) {
-                  node_to_return = node;
-                  return false
-              }
-            });
-            return node_to_return
         }
     };
 
@@ -442,7 +425,7 @@ define([
         register: function(node) {
             var self = this;
             var oldNode = undefined;
-            $.each(self.registeredNodes(), function(index, registeredNode) {
+            $.each(self.alba_nodes_registered(), function(index, registeredNode) {
                 if (registeredNode.ip() === node.ip()) {
                     oldNode = registeredNode;
                     return false;
@@ -465,7 +448,6 @@ define([
             }));
         },
         addNode: function() {
-            var self = this;
             var node = new AlbaNode();
             dialog.show(new AddNodeWizard({
                 modal: true,

@@ -16,26 +16,38 @@
 /*global define */
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
-    'ovs/generic', 'ovs/api', 'ovs/shared',
+    'ovs/generic', 'ovs/shared',
     'viewmodels/containers/albanode/albanodebase', 'viewmodels/containers/albanode/albanode',
     'viewmodels/wizards/addosd/index', 'viewmodels/wizards/removeosd/index', 'viewmodels/wizards/registernodeundercluster/index',
     'viewmodels/services/albanodecluster'
 ], function($, app, ko, dialog,
-            generic, api, shared,
+            generic, shared,
             AlbaNodeBase, AlbaNode,
             AddOSDWizard, RemoveOSDWizard, RegisterNodeWizard,
             albaNodeClusterService) {
     "use strict";
     var albaNodeClusterMapping = {
+        // Avoid caching the same data twice in the mapping plugin. Stack is not required to be observable as we used the slot models instead
+        // If stack had to be a viewmodel with observable properties: the slots would need to be created out of a copy of the stack as they now share the same instance
+        // If the stack would not just be copied: the plugin would update either the stack or the slots first.
+        // Since the slots is derived from the stack data (extracted data using Object.keys), the plugin will have cached the data object
+        // (it pumps the full data object into the cache as a key and does a keylookup)
+        // When it would update the next property, the plugin would detect that data object to apply was already applied and it won't update the object
+        copy: ['stack'],
         'alba_nodes': {
             key: function(data) {  // For relation updates: check if the GUID has changed before discarding a model
                 return ko.utils.unwrapObservable(data.guid)
             },
-            create: function(options) {  // This object has not yet been converted to work with ko.mapping thus manually overriden the create
+            create: function(options) {
                 var data = options.data;
                 var parent = options.parent;
-                if (ko.utils.unwrapObservable(parent.stack) !== null) {data.stack = generic.tryGet(parent.stack, data.node_id, {})}
-                return new AlbaNode(data, parent.albaBackend);
+                if (ko.utils.unwrapObservable(parent.stack) !== null) {
+                    data.stack = generic.tryGet(ko.utils.unwrapObservable(parent.stack), data.node_id, {});
+                    data.node_metadata = ko.utils.unwrapObservable(parent.cluster_metadata)
+                }
+                var node = new AlbaNode(data, parent.albaBackend);
+                node.subscribeToSlotEvents();
+                return node
                 // @todo generate osds based on stack data to fill in
             }
         }
@@ -101,17 +113,32 @@ define([
     }
     var functions = {
         // Functions
+        // /**
+        //  * Update the current view model with the supplied data
+        //  * Overrules the default update to pull apart stack
+        //  * @param data: Data to update on this view model (keys map with the observables)
+        //  * @type data: Object
+        //  */
+        // update: function(data) {
+        //     var self = this;
+        //     if ('stack' in data) {
+        //         data = $.extend(data, {'slots': self.generateSlotsByStack(data.stack)});
+        //     }
+        //     return AlbaNodeBase.prototype.update.call(this, data)
+        // },
         /**
          * Refresh the current object instance by updating it with API data
-         * @param queryParams: Additional query params. Defaults to no params
-         * @param relayParams: Relay to use (Optional, defaults to no relay)
+         * @param options: Options to refresh with (Default to fetching the stack)
          * @returns {Deferred}
          */
-        refresh: function(queryParams, relayParams){
+        refresh: function(options){
+            if (typeof options === 'undefined') {
+                options = { contents: 'stack' }
+            }
             var self = this;
             return albaNodeClusterService.loadAlbaNodeCluster(self.guid(), queryParams, relayParams)
                 .done(function(data) {
-                    self.update(data.data)
+                    self.update(data)
                 })
                 .fail(function(data) {
                     // @TODO remove

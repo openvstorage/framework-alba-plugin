@@ -139,8 +139,6 @@ define([
         self.addOSDs = function() {
             subscriberService.trigger('albanode_{0}:add_osds'.format([self.node_id()]), self)
         };
-        // @todo replace these functions with events (if possible because its wizards)
-        // Functions
         self.clear = function() {
             subscriberService.trigger('albanode_{0}:clear_slot'.format([self.node_id()]), self);
         };

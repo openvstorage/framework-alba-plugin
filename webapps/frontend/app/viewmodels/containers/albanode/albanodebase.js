@@ -97,9 +97,6 @@ define([
                     return 1;
                 }
                 return -1;
-        },
-        subscribeToSlotEvents: function() {
-            throw new Error('Needs to be implemented')
         }
     });
     return viewModel
