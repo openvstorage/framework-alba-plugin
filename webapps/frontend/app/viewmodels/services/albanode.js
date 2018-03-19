@@ -19,9 +19,9 @@
  */
 define([
     'jquery', 'knockout',
-    'ovs/api', 'ovs/generic'
+    'ovs/api', 'ovs/generic', 'ovs/shared'
 ], function ($, ko,
-             api, generic) {
+             api, generic, shared) {
 
     function AlbaNodeService() {
         var self = this;
@@ -89,6 +89,55 @@ define([
         self.replaceAlbaNode = function(oldNodeGuid, newNodeID) {
             return api.post('alba/nodes/' + oldNodeGuid + '/replace_node', {data: {new_node_id: newNodeID}})
         };
+        /**
+         * Removes a slot from an AlbaNode
+         * Returns a Promise which resolves in data (Task is processed)
+         * @param guid: Guid of the AlbaNode
+         * @param slotID: ID of the slot to remove
+         * @return {Promise<T>}
+         */
+        self.removeSlot = function(guid, slotID) {
+            return api.post('alba/nodes/' + guid + '/remove_slot', { data: { slot: slotID } })
+                .then(shared.tasks.wait)
+        };
+        /**
+         * Restarts an OSD from an AlbaNode
+         * Returns a Promise which resolves in data (Task is processed)
+         * @param guid: Guid of the AlbaNode
+         * @param osdID: ID of the OSD to restart
+         * @return {Promise<T>}
+         */
+        self.restartOSD = function(guid, osdID) {
+            return api.post('alba/nodes/' + guid + '/restart_osd', { data: { osd_id: osdID }})
+                .then(shared.tasks.wait)
+        };
+        /**
+         * Remove an AlbaNode
+         * Returns a Promise which resolves in data (Task is processed)
+         * @param guid: Guid of the AlbaNode
+         * @return {Promise<T>}
+         */
+        self.deleteNode = function(guid) {
+            return api.del('alba/nodes/' + guid)
+                .then(shared.tasks.wait)
+        };
+        /**
+         * Generates an empty slot for an AlbaNode
+         * @param guid: Guid of the AlbaNode
+         * @return {*|Promise}
+         */
+        self.generateEmptySlot = function(guid) {
+            return api.post('alba/nodes/' + guid + '/generate_empty_slot')
+        };
+        /**
+         * Download the log files from an AlbaNode
+         * @param guid: Guid of the AlbaNode
+         * @return {*|Promise<T>}
+         */
+        self.downloadLogFiles = function(guid) {
+            return api.get('alba/nodes/' + guid + '/get_logfiles')
+                .then(shared.tasks.wait)
+        }
     }
     return new AlbaNodeService();
 });

@@ -16,16 +16,16 @@
 /*global define */
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
-    'ovs/generic', 'ovs/api', 'ovs/shared',
+    'ovs/generic', 'ovs/shared',
     'viewmodels/containers/albanode/albanodebase', 'viewmodels/containers/albanode/albaslot', 'viewmodels/containers/albanode/localsummary',
     'viewmodels/containers/storagerouter/storagerouter',
     'viewmodels/wizards/addosd/index', 'viewmodels/wizards/removeosd/index',
-    'viewmodels/services/subscriber'
+    'viewmodels/services/subscriber', 'viewmodels/services/albabackend', 'viewmodels/services/albanode'
 ], function($, app, ko, dialog,
-            generic, api, shared,
+            generic, shared,
             AlbaNodeBase, Slot, LocalSummary, StorageRouter,
             AddOSDWizard, RemoveOSDWizard,
-            subscriberService) {
+            subscriberService, albaBackendService, albaNodeService) {
     "use strict";
     var nodeTypes = {
         generic: 'GENERIC',
@@ -80,12 +80,11 @@ define([
     /**
      * AlbaNode class
      * @param albaBackend: Linked Albackend mode
-     * @param parentVM: ParentVM that should be linked
      * @param data: Data that represents this AlbaNode
      * Note: the osds have to be explicitely set to allow the knockout mapping plugin to update them.
      * They can be generated out of the stack property but must be fed in into the data explicitly
      */
-    function AlbaNode(data, albaBackend, parentVM) {
+    function AlbaNode(data, albaBackend) {
         var self = this;
 
         AlbaNodeBase.call(this);  // Inherit from Base
@@ -93,10 +92,10 @@ define([
         // Variables
         self.shared      = shared;
         self.albaBackend = albaBackend;
-        self.parentVM    = parentVM;  // Parent ViewModel, so backend-alba-detail page in this case
 
         // Handles
         self.loadLogFilesHandle = undefined;
+        self.loadingHandle = undefined;
 
         // Observables
         self.downLoadingLogs   = ko.observable(false);
@@ -218,6 +217,21 @@ define([
             }
             return AlbaNodeBase.prototype.update.call(this, data)
         },
+        /**
+         * Refresh the current instance
+         * @param options: Options to refresh with. Defaults to fetching the stack
+         */
+        refresh: function(options) {
+            var self = this;
+            if (typeof options === 'undefined') {
+                options = { contents: 'stack' }
+            }
+            return self.loadHandle = albaNodeService.loadAlbaNode(self.guid(), options)
+                .then(function(data) {
+                    self.update(data);
+                    return data
+                })
+        },
         downloadLogfiles: function () {
             var self = this;
             if (self.downLoadingLogs() === true) {
@@ -226,8 +240,7 @@ define([
             if (generic.xhrCompleted(self.loadLogFilesHandle)) {
                 self.downLoadingLogs(true);
                 self.downloadLogState($.t('alba:support.downloading_logs'));
-                self.loadLogFilesHandle = api.get('alba/nodes/' + self.guid() + '/get_logfiles')
-                    .then(self.shared.tasks.wait)
+                self.loadLogFilesHandle = albaNodeService.downloadLogfiles(self.guid())
                     .done(function (data) {
                         window.location.href = 'downloads/' + data;
                     })
@@ -239,7 +252,7 @@ define([
         },
         generateEmptySlot: function() {
             var self = this;
-            return api.post('alba/nodes/' + self.guid() + '/generate_empty_slot')
+            return albaNodeService.generateEmptySlot(self.guid())
                 .done(function (data) {
                     self.emptySlotMessage(undefined);
                     var slotsData = [];
@@ -277,7 +290,7 @@ define([
         },
         subscribeToSlotEvents: function() {
             var self = this;
-            self.disposables.push(  // @Todo for all these events check for possbile relations to throw them to the albanodecluster
+            self.disposables.push(
                 subscriberService.onEvents('albanode_{0}:add_osds'.format([self.node_id()])).then(function (slot) {
                     self.addOSDs(slot);
                 }),
@@ -350,8 +363,8 @@ define([
                 });
             });
             wizard.completed.always(function() {
-                self.parentVM.updateNodes(false)
-                    .then(function() {
+                self.refresh()
+                    .then(function(){
                         $.each(slots, function(index, slot) {
                             slot.processing(false);
                             $.each(slot.osds(), function(_, osd) {
@@ -414,13 +427,7 @@ define([
                                 $.t('alba:osds.claim.started_msg_multi')
                             );
                         }
-                        return api.post('alba/backends/' + self.albaBackend.guid() + '/add_osds', {
-                            data: {
-                                osds: osdData,
-                                alba_node_guid: self.guid()
-                            }
-                        })
-                            .then(self.shared.tasks.wait)
+                        return albaBackendService.addOSDsOfNode(self.albaBackend.guid(), osdData, self.guid())
                             .then(function(data) {
                                 if (data.length === 0) {
                                     if (osdIDs.length === 1) {
@@ -447,7 +454,7 @@ define([
                                         );
                                     }
                                 }
-                                self.parentVM.updateNodes()
+                                self.refresh()
                                     .then(function() {
                                         resetProcessingState();
                                     });
@@ -485,7 +492,7 @@ define([
                 matchingSlot.processing(false);
             });
             wizard.completed.always(function() {
-                self.parentVM.updateNodes()
+                self.refresh()
                     .then(function() {
                         osd.processing(false);
                         matchingSlot.processing(false);
@@ -502,14 +509,12 @@ define([
                 $.t('alba:osds.restart.started'),
                 $.t('alba:osds.restart.started_msg', { what: osd.osdID() })
             );
-            return api.post('alba/nodes/' + self.guid() + '/restart_osd', { data: { osd_id: osd.osdID() }})
-                .then(self.shared.tasks.wait)
+            return albaNodeService.restartOSD(self.guid(), osd.osdID())
                 .then(function() {
                     generic.alertSuccess(
                         $.t('alba:osds.restart.complete'),
                         $.t('alba:osds.restart.success', {what: osd.osdID()})
                     );
-
                 }, function(error) {
                     error = generic.extractErrorMessage(error);
                     generic.alertError(
@@ -531,8 +536,7 @@ define([
                 $.t('alba:slots.remove.started'),
                 $.t('alba:slots.remove.started_msg', { what: slot.slot_id() }));
             (function(currentSlot) {
-                return api.post('alba/nodes/' + self.guid() + '/remove_slot', { data: { slot: currentSlot.slot_id() } })
-                    .then(self.shared.tasks.wait)
+                return albaNodeService.removeSlot(self.guid(), currentSlot.slot_id())
                     .then(function() {
                         generic.alertSuccess(
                             $.t('alba:slots.remove.complete'),
@@ -546,7 +550,7 @@ define([
                         );
                     })
                     .always(function() {
-                        self.parentVM.updateNodes(false)
+                        self.refresh()
                             .then(function() {
                                 currentSlot.processing(false);
                                 $.each(currentSlot.osds(), function(_, osd) {
@@ -580,8 +584,7 @@ define([
                         $.t('alba:node.remove.started'),
                         $.t('alba:node.remove.started_msg', {what: self.node_id()})
                     );
-                    return api.del('alba/nodes/' + self.guid())
-                        .then(self.shared.tasks.wait)
+                    return albaNodeService.deleteNode(self.guid())
                         .then(function() {
                             generic.alertSuccess(
                                 $.t('alba:node.remove.complete'),

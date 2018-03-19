@@ -124,7 +124,7 @@ define([
             var self = this;
             return $.when()
                 .then(function() {
-                    if (!generic.xhrCompleted(self.loadHandle)) {
+                    if (!generic.xhrCompleted(self.actionsHandle)) {
                         return self.availableActions()
                     }
                     return self.actionsHandle = albaBackendService.getAvailableActions(self.guid())

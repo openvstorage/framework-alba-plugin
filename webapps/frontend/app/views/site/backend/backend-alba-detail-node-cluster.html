@@ -84,16 +84,16 @@ but WITHOUT ANY WARRANTY of any kind.
                         <span class="hand fa fa-fw"
                               data-i18n="[html]alba:icons.initialize"
                               data-bind="attr: { id: 'initialize_all_' + node_id() },
-                                         click: function() { addOSDs(); },
+                                         click: function() { $parent.addOSDs(); },
                                          tooltip: 'alba:generic.initialize_all',
-                                         style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !readOnlyMode() ? 'black': 'lightgrey' }">
+                                         style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !$parent.read_only_mode() ? 'black': 'lightgrey' }">
                         </span>
                         <span class="hand fa fa-fw"
                               data-i18n="[html]alba:icons.claim"
                               data-bind="attr: { id: 'claim_all_' + node_id() },
                                          click: function() { claimAll(); },
                                          tooltip: 'alba:generic.claim_all',
-                                         style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() && !readOnlyMode() ? 'black' : 'lightgrey' }">
+                                         style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() && !read_only_mode() ? 'black' : 'lightgrey' }">
                         </span>
                         <span class="hand fa fa-fw"
                               data-i18n="[html]alba:icons.delete"
