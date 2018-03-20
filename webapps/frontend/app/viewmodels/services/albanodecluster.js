@@ -19,9 +19,9 @@
  */
 define([
     'jquery', 'knockout',
-    'ovs/api'
+    'ovs/api', 'ovs/shared'
 ], function ($, ko,
-             api) {
+             api, shared) {
 
     function AlbaNodeClusterService() {
         var self = this;
@@ -78,6 +78,17 @@ define([
                     node_ids: albaNodeIDs
                 }
             })
+        };
+        /**
+         * Fills in the slots of a particular AlbaNodeCluster
+         * Returns a Promise which resolves in data (Task is processed)
+         * @param guid: Guid of the AlbaNodeCluster
+         * @param nodeSlotData: Data of the node - slots
+         * @return {Promise<T>}
+         */
+        self.fillSlots = function(guid, nodeSlotData) {
+            return api.post('alba/nodeclusters/' + guid + '/fill_slots', { data: { node_slot_information: nodeSlotData } })
+                .then(shared.tasks.wait)
         }
     }
     return new AlbaNodeClusterService();

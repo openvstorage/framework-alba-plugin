@@ -17,9 +17,10 @@
 define(['knockout', 'jquery', 'ovs/formBuilder'], function(ko, $, formBuilder){
     "use strict";
 
-    function Data(node, slots, confirmOnly, formQuestions, fieldMapping, formMetadata, formMapping) {
+    function Data(node, nodeCluster, slots, confirmOnly, formQuestions, fieldMapping, formMetadata, formMapping) {
         var self = this;
         self.node               = ko.observable(node);
+        self.nodeCluster        = ko.observable(nodeCluster);
         self.slots              = ko.observable(slots);
         self.formQuestions      = ko.observable(formQuestions);
         self.formFieldMapping   = ko.observable(fieldMapping);
@@ -34,6 +35,9 @@ define(['knockout', 'jquery', 'ovs/formBuilder'], function(ko, $, formBuilder){
                 hasText[item().field()] = key !== $.t(key);
             });
             return hasText;
+        });
+        self.workingWithCluster = ko.pureComputed(function() {
+            return !!self.nodeCluster()
         })
     }
     Data.prototype = {

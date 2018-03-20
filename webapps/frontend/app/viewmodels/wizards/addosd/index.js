@@ -57,11 +57,11 @@ define([
                 'displayOn': ['confirm']
             }
         };
-        var metadata = ko.toJS(options.node.node_metadata);
+        var metadata = ko.toJS(options.node.node_metadata);  // Node metadata is given by the node cluster when working with a cluster
         var formData = formBuilder.generateFormData(metadata, formMapping);
         var formQuestions = formData.questions;
         var fieldMapping = formData.fieldMapping;
-        var data = new Data(options.node, options.slots, false, formQuestions(), fieldMapping, metadata, formMapping);
+        var data = new Data(options.node, options.nodeCluster, options.slots, false, formQuestions(), fieldMapping, metadata, formMapping);
         var stepOptions = {
             parent: self,
             data: data

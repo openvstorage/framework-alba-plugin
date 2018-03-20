@@ -16,8 +16,11 @@
 /*global define */
 define([
     'jquery', 'knockout',
-    'ovs/api', 'ovs/shared', 'ovs/generic', 'ovs/formBuilder'
-], function($, ko, api, shared, generic, formBuilder) {
+    'ovs/api', 'ovs/shared', 'ovs/generic', 'ovs/formBuilder',
+    'viewmodels/services/albanode', 'viewmodels/services/albanodecluster'
+], function($, ko,
+            api, shared, generic, formBuilder,
+            albaNodeService, albaNodeClusterService) {
     "use strict";
     return function(stepOptions) {
         var self = this;
@@ -52,6 +55,7 @@ define([
         self.finish = function () {
             var slotData = self.gatherSlotData();
             var node = self.data.node();
+            var nodeCluster = self.data.nodeCluster();
             var osdAmount = slotData[0].hasOwnProperty('count') ? slotData[0].count : 1;
             var slotAmount = slotData.length;
             if (slotAmount === 1) {
@@ -72,50 +76,57 @@ define([
                     })
                 );
             }
-            return api.post('alba/nodes/' + node.guid() + '/fill_slots', {data: {slot_information: slotData}})
-            .then(self.shared.tasks.wait)
-            .then(function () {
-                if (slotAmount === 1) {
-                    generic.alertSuccess(
-                        $.t('alba:wizards.add_osd.confirm.success'),
-                        $.t('alba:wizards.add_osd.confirm.success_msg', {
-                            name: slotData[0].slot_id,
-                            multi: osdAmount > 1 ? 's': '',
-                            amount: osdAmount
-                        })
-                    );
-                } else {
-                    generic.alertSuccess(
-                        $.t('alba:wizards.add_osd.confirm.success'),
-                        $.t('alba:wizards.add_osd.confirm.success_multi_msg', {
-                            multi: osdAmount > 1 ? 's': '',
-                            amount: osdAmount
-                        })
-                    );
-                }
-            }, function(error) {
-                error = generic.extractErrorMessage(error);
-                if (slotAmount === 1) {
-                    generic.alertError(
-                        $.t('alba:wizards.add_osd.confirm.failure'),
-                        $.t('alba:wizards.add_osd.confirm.failure_msg', {
-                            why: error,
-                            name: slotData[0].slot_id,
-                            multi: osdAmount > 1 ? 's': '',
-                            amount: osdAmount
-                        })
-                    );
-                } else {
-                    generic.alertError(
-                        $.t('alba:wizards.add_osd.confirm.failure'),
-                        $.t('alba:wizards.add_osd.confirm.failure_multi_msg', {
-                            why: error,
-                            multi: osdAmount > 1 ? 's': '',
-                            amount: osdAmount
-                        })
-                    );
-                }
-            });
+            return $.when()  // Start a chain
+                .then(function() {
+                    if (self.data.workingWithCluster()) {
+                        var data = {};
+                        data[node.guid()] = slotData;
+                        return albaNodeClusterService.fillSlots(nodeCluster.guid(), data)
+                    }
+                    return albaNodeService.fillSlots(node.guid(), slotData)
+                })
+                .then(function () {
+                    if (slotAmount === 1) {
+                        generic.alertSuccess(
+                            $.t('alba:wizards.add_osd.confirm.success'),
+                            $.t('alba:wizards.add_osd.confirm.success_msg', {
+                                name: slotData[0].slot_id,
+                                multi: osdAmount > 1 ? 's': '',
+                                amount: osdAmount
+                            })
+                        );
+                    } else {
+                        generic.alertSuccess(
+                            $.t('alba:wizards.add_osd.confirm.success'),
+                            $.t('alba:wizards.add_osd.confirm.success_multi_msg', {
+                                multi: osdAmount > 1 ? 's': '',
+                                amount: osdAmount
+                            })
+                        );
+                    }
+                }, function(error) {
+                    error = generic.extractErrorMessage(error);
+                    if (slotAmount === 1) {
+                        generic.alertError(
+                            $.t('alba:wizards.add_osd.confirm.failure'),
+                            $.t('alba:wizards.add_osd.confirm.failure_msg', {
+                                why: error,
+                                name: slotData[0].slot_id,
+                                multi: osdAmount > 1 ? 's': '',
+                                amount: osdAmount
+                            })
+                        );
+                    } else {
+                        generic.alertError(
+                            $.t('alba:wizards.add_osd.confirm.failure'),
+                            $.t('alba:wizards.add_osd.confirm.failure_multi_msg', {
+                                why: error,
+                                multi: osdAmount > 1 ? 's': '',
+                                amount: osdAmount
+                            })
+                        );
+                    }
+                });
         };
     }
 });

@@ -137,6 +137,17 @@ define([
         self.downloadLogFiles = function(guid) {
             return api.get('alba/nodes/' + guid + '/get_logfiles')
                 .then(shared.tasks.wait)
+        };
+        /**
+         * Fills in the slots of a particular node
+         * Returns a Promise which resolves in data (Task is processed)
+         * @param guid: Guid of the AlbaNode
+         * @param slotData: Data of the slots
+         * @return {Promise<T>}
+         */
+        self.fillSlots = function(guid, slotData) {
+            return api.post('alba/nodes/' + guid + '/fill_slots', { data: { slot_information: slotData } })
+                .then(self.shared.tasks.wait)
         }
     }
     return new AlbaNodeService();
