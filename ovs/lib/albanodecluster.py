@@ -99,7 +99,6 @@ class AlbaNodeClusterController(object):
         if len(messages) > 0:
             raise ValueError('Errors occurred while registering AlbaNodes with IDs {0}:\n - {1}'.format(node_ids, '\n - '.join(messages)))
 
-
     @staticmethod
     @ovs_task(name='albanodecluster.unregister_node')
     def unregister_node(node_cluster_guid, node_id):

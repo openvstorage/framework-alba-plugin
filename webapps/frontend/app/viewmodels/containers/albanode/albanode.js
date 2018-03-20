@@ -76,7 +76,7 @@ define([
             }
         }
     };
-
+    var albaBackendDetailContext = 'albaBackendDetail';
     /**
      * AlbaNode class
      * @param albaBackend: Linked Albackend mode
@@ -148,10 +148,10 @@ define([
             }, {});
         });
         self.isPartOfCluster = ko.pureComputed(function() {
-           if (self.alba_node_cluster_guid === undefined) {
+           if (self.alba_node_cluster_guid() === undefined) {
                throw new Error('Unable to determine if this node is part of a cluster because the information has not been retrieved')
            }
-           return self.alba_node_cluster_guid !== null
+           return !!self.alba_node_cluster_guid()
         });
         self.canInitializeAll = ko.pureComputed(function() {
             return self.allSlots().some(function(slot) {
@@ -291,19 +291,19 @@ define([
         subscribeToSlotEvents: function() {
             var self = this;
             self.disposables.push(
-                subscriberService.onEvents('albanode_{0}:add_osds'.format([self.node_id()])).then(function (slot) {
+                subscriberService.onEvents('albanode_{0}:add_osds'.format([self.node_id()]), albaBackendDetailContext).then(function (slot) {
                     self.addOSDs(slot);
                 }),
-                subscriberService.onEvents('albanode_{0}:clear_slot'.format([self.node_id()])).then(function (slot) {
+                subscriberService.onEvents('albanode_{0}:clear_slot'.format([self.node_id()]), albaBackendDetailContext).then(function (slot) {
                     self.removeSlot(slot);
                 }),
-                subscriberService.onEvents('albanode_{0}:claim_osds'.format([self.node_id()])).then(function (data) {
+                subscriberService.onEvents('albanode_{0}:claim_osds'.format([self.node_id()]), albaBackendDetailContext).then(function (data) {
                     self.claimOSDs(data);
                 }),
-                subscriberService.onEvents('albanode_{0}:restart_osd'.format([self.node_id()])).then(function (osd) {
+                subscriberService.onEvents('albanode_{0}:restart_osd'.format([self.node_id()]), albaBackendDetailContext).then(function (osd) {
                     self.restartOSD(osd);
                 }),
-                subscriberService.onEvents('albanode_{0}:remove_osd'.format([self.node_id()])).then(function (osd) {
+                subscriberService.onEvents('albanode_{0}:remove_osd'.format([self.node_id()]), albaBackendDetailContext).then(function (osd) {
                     self.removeOSD(osd);
                 }))
         },
@@ -342,6 +342,13 @@ define([
                     slots.push(currentSlot);
                 }
             });
+            if (self.isPartOfCluster()) {
+                var data = {
+                    node: self,
+                    slots: slots
+                };
+                return subscriberService.trigger('albanodecluster_{0}:add_osds'.format([self.alba_node_cluster_guid()]), data)
+            }
             var wizard = new AddOSDWizard({
                     node: self,
                     slots: slots,
