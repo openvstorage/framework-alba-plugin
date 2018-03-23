@@ -136,11 +136,13 @@ class AlbaNodeClusterController(object):
 
     @staticmethod
     @ovs_task(name='albanodecluster.fill_slots')
-    def fill_slots(node_cluster_guid, slot_information, metadata=None):
+    def fill_slots(node_cluster_guid, node_guid, slot_information, metadata=None):
         """
         Creates 1 or more new OSDs
         :param node_cluster_guid: Guid of the node cluster to which the disks belong
         :type node_cluster_guid: basestring
+        :param node_guid: Guid of the AlbaNode to act as the 'active' side
+        :type node_guid: basestring
         :param slot_information: Information about the amount of OSDs to add to each Slot
         :type slot_information: list
         :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
@@ -148,17 +150,20 @@ class AlbaNodeClusterController(object):
         :return: None
         :rtype: NoneType
         """
-        raise NotImplementedError('Filling slots of a cluster is not yet supported')
-        node = AlbaNode(node_guid)
+        node_cluster = AlbaNodeCluster(node_cluster_guid)
+        # Check for the active side if it's part of the cluster
+        active_node = AlbaNode(node_guid)
+        if active_node not in node_cluster.alba_nodes:
+            raise ValueError('The requested active AlbaNode is not part of AlbaNodeCluster {0}'.format(node_cluster.guid))
         required_params = {'slot_id': (str, None)}
         can_be_filled = False
         for flow in ['fill', 'fill_add']:
-            if node.node_metadata[flow] is False:
+            if node_cluster.cluster_metadata[flow] is False:
                 continue
             can_be_filled = True
             if flow == 'fill_add':
                 required_params['alba_backend_guid'] = (str, None)
-            for key, mtype in node.node_metadata['{0}_metadata'.format(flow)].iteritems():
+            for key, mtype in node_cluster.cluster_metadata['{0}_metadata'.format(flow)].iteritems():
                 if mtype == 'integer':
                     required_params[key] = (int, None)
                 elif mtype == 'osd_type':
@@ -168,7 +173,7 @@ class AlbaNodeClusterController(object):
                 elif mtype == 'port':
                     required_params[key] = (int, {'min': 1, 'max': 65535})
         if can_be_filled is False:
-            raise ValueError('The given node does not support filling slots')
+            raise ValueError('The given node cluster does not support filling slots')
 
         validation_reasons = []
         for slot_info in slot_information:
@@ -179,22 +184,27 @@ class AlbaNodeClusterController(object):
         if len(validation_reasons) > 0:
             raise ValueError('Missing required parameter:\n *{0}'.format('\n* '.join(validation_reasons)))
 
-        for slot_info in slot_information:
-            if node.node_metadata['fill'] is True:
-                # Only filling is required
-                node.client.fill_slot(slot_id=slot_info['slot_id'],
-                                      extra=dict((key, slot_info[key]) for key in node.node_metadata['fill_metadata']))
-            elif node.node_metadata['fill_add'] is True:
-                # Fill the slot
-                node.client.fill_slot(slot_id=slot_info['slot_id'],
-                                      extra=dict((key, slot_info[key]) for key in node.node_metadata['fill_add_metadata']))
+        # @todo setup active and passive side
+        for node in node_cluster.alba_nodes:
+            active = node == active_node
+            for slot_info in slot_information:
+                if node_cluster.cluster_metadata['fill'] is True:
+                    # Only filling is required
+                    node.client.fill_slot(slot_id=slot_info['slot_id'],
+                                          extra=dict((key, slot_info[key]) for key in node_cluster.cluster_metadata['fill_metadata']))
+                elif node_cluster.cluster_metadata['fill_add'] is True:
+                    # Fill the slot
+                    node.client.fill_slot(slot_id=slot_info['slot_id'],
+                                          extra=dict((key, slot_info[key]) for key in node_cluster.cluster_metadata['fill_add_metadata']))
 
-                # And add/claim the OSD
-                AlbaController.add_osds(alba_backend_guid=slot_info['alba_backend_guid'],
-                                        osds=[slot_info],
-                                        alba_node_guid=node_guid,
-                                        metadata=metadata)
-        node.invalidate_dynamics('stack')
+                    # And add/claim the OSD
+                    AlbaController.add_osds(alba_backend_guid=slot_info['alba_backend_guid'],
+                                            osds=[slot_info],
+                                            alba_node_guid=node_guid,
+                                            metadata=metadata)
+        for node in node_cluster.alba_nodes:
+            node.invalidate_dynamics('stack')
+        node_cluster.invalidate_dynamics('stack')
 
     @staticmethod
     @ovs_task(name='albanodecluster.remove_slot', ensure_single_info={'mode': 'CHAINED'})

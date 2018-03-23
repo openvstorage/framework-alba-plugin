@@ -96,11 +96,13 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaNodeCluster)
-    def fill_slots(self, albanodecluster, slot_information, metadata=None):
+    def fill_slots(self, albanodecluster, alba_node_guid, slot_information, metadata=None):
         """
         Fills 1 or more Slots
         :param albanodecluster: The AlbaNode on which the Slots will be filled
         :type albanodecluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
+        :param alba_node_guid: Guid of the AlbaNode to act as the 'active' side
+        :type alba_node_guid: basestring
         :param slot_information: A list of Slot information
         :type slot_information: list
         :param metadata: Extra metadata if required
@@ -109,6 +111,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :rtype: CeleryTask
         """
         return AlbaNodeClusterController.fill_slots.delay(node_cluster_guid=albanodecluster.guid,
+                                                          node_guid=alba_node_guid,
                                                           slot_information=slot_information,
                                                           metadata=metadata)
 
