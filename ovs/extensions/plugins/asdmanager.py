@@ -313,3 +313,12 @@ class ASDManagerClient(object):
         :rtype: str
         """
         return self._call(requests.get, 'service_status/{0}'.format(name))['status'][1]
+
+    def sync_stack(self, stack):
+        """
+        Synchronize the stack of an AlbaNode with the stack of another AlbaNode
+        :param stack: Stack to sync
+        :return: None
+        :rtype: Nonetype
+        """
+        return self._call(requests.post, 'dual_controller/sync_stack', data={'stack': stack})

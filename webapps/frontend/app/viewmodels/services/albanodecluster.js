@@ -79,23 +79,6 @@ define([
                 }
             })
         };
-        /**
-         * Fills in the slots of a particular AlbaNodeCluster
-         * Returns a Promise which resolves in data (Task is processed)
-         * @param guid: Guid of the AlbaNodeCluster
-         * @param albaNodeGuid: Guid of the AlbaNode to act as the 'active' side
-         * @param nodeSlotData: Data of the node - slots
-         * @return {Promise<T>}
-         */
-        self.fillSlots = function(guid, albaNodeGuid, nodeSlotData) {
-            return api.post('alba/nodeclusters/' + guid + '/fill_slots', {
-                data: {
-                    slot_information: nodeSlotData,
-                    alba_node_guid: albaNodeGuid
-                }
-            })
-                .then(shared.tasks.wait)
-        }
     }
     return new AlbaNodeClusterService();
 });

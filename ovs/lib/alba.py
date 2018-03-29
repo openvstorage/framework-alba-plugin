@@ -166,7 +166,7 @@ class AlbaController(object):
         :type alba_backend_guid: str
         :param osds: OSDs to add to the ALBA Backend
         :type osds: list[dict]
-        :param alba_node_guid: Guid of the ALBA Node
+        :param alba_node_guid: Guid of the ALBA Node (None in case of other Backends as OSDs)
         :type alba_node_guid: str
         :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
         :type metadata: dict
@@ -213,6 +213,9 @@ class AlbaController(object):
                 break
         if service_deployed is False:
             validation_reasons.append('No maintenance agents have been deployed for ALBA Backend {0}'.format(alba_backend.name))
+
+        if len(generic_osds) > 0 and alba_node_guid is None:
+            validation_reasons.append('The OSDs are not linked to an AlbaNode')
 
         if len(validation_reasons) > 0:
             raise RuntimeError('- {0}'.format('\n- '.join(validation_reasons)))
@@ -511,6 +514,9 @@ class AlbaController(object):
         alba_node.invalidate_dynamics()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
+        # Dual Controller logic changes nothing about the claim. Only the stack should be updated
+        if alba_node.alba_node_cluster is not None:
+            alba_node.alba_node_cluster.invalidate_dynamics()
         return failure_osds, unclaimed_osds
 
     @staticmethod

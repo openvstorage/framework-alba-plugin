@@ -29,6 +29,7 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs_extensions.api.exceptions import HttpNotAcceptableException
 from ovs.extensions.generic.configuration import Configuration
 from ovs.lib.albanode import AlbaNodeController
+from ovs.lib.albanodecluster import AlbaNodeClusterController
 from ovs.lib.helpers.toolbox import Toolbox
 
 
@@ -216,6 +217,12 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :return: Celery async task result
         :rtype: CeleryTask
         """
+        if albanode.alba_node_cluster is not None:
+            # The current node is treated as the 'active' side
+            return AlbaNodeClusterController.fill_slots.delay(node_cluster_guid=albanode.alba_node_cluster.guid,
+                                                              node_guid=albanode.guid,
+                                                              slot_information=slot_information,
+                                                              metadata=metadata)
         return AlbaNodeController.fill_slots.delay(node_guid=albanode.guid,
                                                    slot_information=slot_information,
                                                    metadata=metadata)
@@ -284,6 +291,11 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :return: Celery async task result
         :rtype: CeleryTask
         """
+        if albanode.alba_node_cluster is not None:
+            # The current node is treated as the 'active' side
+            return AlbaNodeClusterController.remove_slot.delay(node_cluster_guid=albanode.alba_node_cluster.guid,
+                                                               node_guid=albanode.guid,
+                                                               slot_id=slot)
         return AlbaNodeController.remove_slot.delay(albanode.guid, slot)
 
     @action()
@@ -327,6 +339,12 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         if safety is None:
             raise HttpNotAcceptableException(error='invalid_data',
                                              error_description='Safety must be passed')
+        if albanode.alba_node_cluster is not None:
+            # The current node is treated as the 'active' side
+            return AlbaNodeClusterController.reset_osd.delay(node_cluster_guid=albanode.alba_node_cluster.guid,
+                                                             node_guid=albanode.guid,
+                                                             osd_id=osd_id,
+                                                             safety=safety)
         return AlbaNodeController.reset_osd.delay(albanode.guid, osd_id, safety)
 
     @action()
@@ -361,6 +379,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :return: Celery async task result
         :rtype: CeleryTask
         """
+        # Changes nothing for the Dual Controller implementation. The 'Active side' will restart the OSD
         return AlbaNodeController.restart_osd.delay(albanode.guid, osd_id)
 
     @action()

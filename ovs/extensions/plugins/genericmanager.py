@@ -86,3 +86,13 @@ class GenericManagerClient(object):
         """
         _ = self
         return {'_version': 3}
+
+    def sync_stack(self, stack):
+        """
+        Synchronize the stack of an AlbaNode with the stack of another AlbaNode
+        :param stack: Stack to sync
+        :return: None
+        :rtype: Nonetype
+        """
+        _ = stack
+        return None

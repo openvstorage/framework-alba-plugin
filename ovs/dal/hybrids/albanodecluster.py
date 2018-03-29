@@ -57,7 +57,7 @@ class AlbaNodeCluster(DataObject):
             if alba_node.type != node_type:  # Should be blocked by the API. This type is currently not supported
                 node_type = self.CLUSTER_TYPES.MIXED
                 break
-        return node_type
+        return node_type or self.CLUSTER_TYPES.ASD  # Default to ASD
 
     def _cluster_metadata(self):
         """

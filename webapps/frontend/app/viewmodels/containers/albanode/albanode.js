@@ -79,6 +79,8 @@ define([
     var albaBackendDetailContext = 'albaBackendDetail';
     /**
      * AlbaNode class
+     * A potential relation with an AlbaNodeCluster is handled by the API. After registering the node under a cluster,
+     * the api will treat the node passed as the 'active' side
      * @param albaBackend: Linked Albackend mode
      * @param data: Data that represents this AlbaNode
      * Note: the osds have to be explicitely set to allow the knockout mapping plugin to update them.
@@ -327,6 +329,11 @@ define([
         }
     };
     var wizards = {
+        /**
+         * Add new OSDs to the slot
+         * Spawns a new 'ADDOSDWizard' to handle the amount to claim
+         * @param slot: Slot to add OSDs for
+         */
         addOSDs: function(slot) {  // Fill the slot specified or all empty Slots if 'slot' is undefined
             var self = this;
             if (!self.canInitializeAll() || self.read_only_mode() || !self.shared.user.roles().contains('manage')) {
@@ -342,13 +349,6 @@ define([
                     slots.push(currentSlot);
                 }
             });
-            if (self.isPartOfCluster()) {
-                var data = {
-                    node: self,
-                    slots: slots
-                };
-                return subscriberService.trigger('albanodecluster_{0}:add_osds'.format([self.alba_node_cluster_guid()]), data)
-            }
             var wizard = new AddOSDWizard({
                     node: self,
                     slots: slots,
@@ -382,6 +382,12 @@ define([
             });
             dialog.show(wizard);
         },
+        /**
+         * Claims the given OSDs
+         * Dual Controller feature has no impact here
+         * @param osdsToClaim: Object with slot_id keys and object with a key 'osds', value: list of OSD objects as value
+         * @return {Promise<T>}
+         */
         claimOSDs: function(osdsToClaim) {
             var self = this;
             if (self.albaBackend === undefined) {
@@ -416,6 +422,7 @@ define([
             var osdIDs = osds.map(function(osd) {
                 return osd.osd_id()
             });
+            // Dual Controller logic does not change anything about the claiming side
             return app.showMessage(
                 $.t('alba:osds.claim.warning', { what: '<ul><li>' + osdIDs.join('</li><li>') + '</li></ul>', multi: osdIDs.length === 1 ? '' : 's' }).trim(),
                 $.t('alba:osds.claim.title', {multi: osdIDs.length === 1 ? '' : 's'}),
@@ -480,6 +487,11 @@ define([
                     resetProcessingState();
                 });
         },
+        /**
+         * Removes an OSD from the backend
+         * Spawns a new 'RemoveOSDWizard' to handle the removal
+         * @param osd: OSD object to remove
+         */
         removeOSD: function(osd) {
             var self = this;
             var matchingSlot = self.findSlotByOSDID(osd.osd_id());
@@ -509,6 +521,11 @@ define([
             matchingSlot.processing(true);
             dialog.show(wizard);
         },
+        /**
+         * Restarts an OSD
+         * @param osd: OSD object to restart
+         * @return {*|void}
+         */
         restartOSD: function(osd) {
             var self = this;
             osd.processing(true);
@@ -533,6 +550,10 @@ define([
                     osd.processing(false);
                 });
         },
+        /**
+         * Removes a slot containing OSDs. Clears the OSDs and add new one if the type != GENERIC
+         * @param slot: Slot to remove/clear
+         */
         removeSlot: function(slot) {
             var self = this;
             slot.processing(true);
@@ -567,10 +588,16 @@ define([
                     })
             })(slot);
         },
+        /**
+         * Removes the node from the cluster
+         * @return {*}
+         */
         deleteNode: function() {
             var self = this;
             if (!self.canDelete() || !self.shared.user.roles().contains('manage')) {
-                return $.when();
+                return $.Deferred(function(deferred){
+                    deferred.reject('Unable to delete the node')
+                }).promise()
             }
             return app.showMessage(
                 $.t('alba:node.remove.warning'),

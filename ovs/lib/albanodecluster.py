@@ -184,58 +184,72 @@ class AlbaNodeClusterController(object):
         if len(validation_reasons) > 0:
             raise ValueError('Missing required parameter:\n *{0}'.format('\n* '.join(validation_reasons)))
 
-        # @todo setup active and passive side
-        for node in node_cluster.alba_nodes:
-            active = node == active_node
-            for slot_info in slot_information:
-                if node_cluster.cluster_metadata['fill'] is True:
-                    # Only filling is required
-                    node.client.fill_slot(slot_id=slot_info['slot_id'],
-                                          extra=dict((key, slot_info[key]) for key in node_cluster.cluster_metadata['fill_metadata']))
-                elif node_cluster.cluster_metadata['fill_add'] is True:
-                    # Fill the slot
-                    node.client.fill_slot(slot_id=slot_info['slot_id'],
-                                          extra=dict((key, slot_info[key]) for key in node_cluster.cluster_metadata['fill_add_metadata']))
+        for slot_info in slot_information:
+            if node_cluster.cluster_metadata['fill'] is True:
+                # Only filling is required
+                active_node.client.fill_slot(slot_id=slot_info['slot_id'],
+                                             extra=dict((key, slot_info[key]) for key in node_cluster.cluster_metadata['fill_metadata']))
+            elif node_cluster.cluster_metadata['fill_add'] is True:
+                # Fill the slot
+                active_node.client.fill_slot(slot_id=slot_info['slot_id'],
+                                             extra=dict((key, slot_info[key]) for key in node_cluster.cluster_metadata['fill_add_metadata']))
 
-                    # And add/claim the OSD
-                    AlbaController.add_osds(alba_backend_guid=slot_info['alba_backend_guid'],
-                                            osds=[slot_info],
-                                            alba_node_guid=node_guid,
-                                            metadata=metadata)
+                # And add/claim the OSD
+                AlbaController.add_osds(alba_backend_guid=slot_info['alba_backend_guid'],
+                                        osds=[slot_info],
+                                        alba_node_guid=node_guid,
+                                        metadata=metadata)
+        # Invalidate the stack and sync towards all passive sides
+        active_node.invalidate_dynamics('stack')
         for node in node_cluster.alba_nodes:
-            node.invalidate_dynamics('stack')
+            if node != active_node:
+                try:
+                    node.client.sync_stack(active_node.stack)
+                except:
+                    AlbaNodeClusterController._logger.exception('Error while syncing stacks to the passive side')
         node_cluster.invalidate_dynamics('stack')
 
     @staticmethod
     @ovs_task(name='albanodecluster.remove_slot', ensure_single_info={'mode': 'CHAINED'})
-    def remove_slot(node_cluster_guid, slot_id):
+    def remove_slot(node_cluster_guid, node_guid, slot_id):
         """
-        Removes a disk
+        Removes a slot
         :param node_cluster_guid: Guid of the node cluster to remove a disk from
         :type node_cluster_guid: str
+        :param node_guid: Guid of the AlbaNode to act as the 'active' side
+        :type node_guid: basestring
         :param slot_id: Slot ID
         :type slot_id: str
         :return: None
         :rtype: NoneType
         """
-        raise NotImplementedError('Removing slots of a cluster is not yet supported')
-        # Verify client connectivity
-        node = AlbaNode(node_guid)
-        osds = [osd for osd in node.osds if osd.slot_id == slot_id]
+        node_cluster = AlbaNodeCluster(node_cluster_guid)
+        active_node = AlbaNode(node_guid)
+        if active_node not in node_cluster.alba_nodes:
+            raise ValueError('The requested active AlbaNode is not part of AlbaNodeCluster {0}'.format(node_cluster.guid))
+        osds = [osd for osd in active_node.osds if osd.slot_id == slot_id]
         if len(osds) > 0:
             raise RuntimeError('A slot with claimed OSDs can\'t be removed')
 
-        node.client.clear_slot(slot_id)
-
-        node.invalidate_dynamics()
-        if node.storagerouter is not None:
-            DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
+        active_node.client.clear_slot(slot_id)
+        active_node.invalidate_dynamics()
+        # Invalidate the stack and sync towards all passive sides
+        for node in node_cluster.alba_nodes:
+            if node != active_node:
+                try:
+                    node.client.sync_stack(active_node.stack)
+                except:
+                    AlbaNodeClusterController._logger.exception('Error while syncing stacks to the passive side')
+        if active_node.storagerouter is not None:
+            DiskController.sync_with_reality(storagerouter_guid=active_node.storagerouter_guid)
 
     @staticmethod
     @ovs_task(name='albanodecluster.remove_osd', ensure_single_info={'mode': 'CHAINED'})
-    def remove_osd(node_guid, osd_id, expected_safety):
+    def remove_osd(node_cluster_guid, node_guid, osd_id, expected_safety):
         """
         Removes an OSD
+        :param node_cluster_guid: Guid of the AlbaNodeCluster
+        :type node_cluster_guid: str
         :param node_guid: Guid of the node to remove an OSD from
         :type node_guid: str
         :param osd_id: ID of the OSD to remove
@@ -245,10 +259,12 @@ class AlbaNodeClusterController(object):
         :return: Aliases of the disk on which the OSD was removed
         :rtype: list
         """
-        raise NotImplementedError('Removing an from the cluster is not yet supported')
+        node_cluster = AlbaNodeCluster(node_cluster_guid)
+        active_node = AlbaNode(node_guid)
+        if active_node not in node_cluster.alba_nodes:
+            raise ValueError('The requested active AlbaNode is not part of AlbaNodeCluster {0}'.format(node_cluster.guid))
         # Retrieve corresponding OSD in model
-        node = AlbaNode(node_guid)
-        AlbaNodeClusterController._logger.debug('Removing OSD {0} at node {1}'.format(osd_id, node.ip))
+        AlbaNodeClusterController._logger.debug('Removing OSD {0} at node {1}'.format(osd_id, active_node.ip))
         osd = AlbaOSDList.get_by_osd_id(osd_id)
         alba_backend = osd.alba_backend
 
@@ -267,33 +283,42 @@ class AlbaNodeClusterController(object):
                                     osd_ids=[osd_id])
 
         # Delete the OSD
-        result = node.client.delete_osd(slot_id=osd.slot_id,
-                                        osd_id=osd_id)
+        result = active_node.client.delete_osd(slot_id=osd.slot_id, osd_id=osd_id)
         if result['_success'] is False:
             raise RuntimeError('Error removing OSD: {0}'.format(result['_error']))
+        # Invalidate the stack and sync towards all passive sides
+        active_node.invalidate_dynamics('stack')
+        for node in node_cluster.alba_nodes:
+            if node != active_node:
+                try:
+                    node.client.sync_stack(active_node.stack)
+                except:
+                    AlbaNodeClusterController._logger.exception('Error while syncing stacks to the passive side')
 
         # Clean configuration management and model - Well, just try it at least
         if Configuration.exists(AlbaNodeClusterController.ASD_CONFIG.format(osd_id), raw=True):
             Configuration.delete(AlbaNodeClusterController.ASD_CONFIG_DIR.format(osd_id), raw=True)
 
         osd.delete()
-        node.invalidate_dynamics()
+        active_node.invalidate_dynamics()
         if alba_backend is not None:
             alba_backend.invalidate_dynamics()
             alba_backend.backend.invalidate_dynamics()
-        if node.storagerouter is not None:
+        if active_node.storagerouter is not None:
             try:
-                DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
+                DiskController.sync_with_reality(storagerouter_guid=active_node.storagerouter_guid)
             except UnableToConnectException:
-                AlbaNodeClusterController._logger.warning('Skipping disk sync since StorageRouter {0} is offline'.format(node.storagerouter.name))
+                AlbaNodeClusterController._logger.warning('Skipping disk sync since StorageRouter {0} is offline'.format(active_node.storagerouter.name))
 
         return [osd.slot_id]
 
     @staticmethod
     @ovs_task(name='albanodecluster.reset_osd')
-    def reset_osd(node_guid, osd_id, expected_safety):
+    def reset_osd(node_cluster_guid, node_guid, osd_id, expected_safety):
         """
         Removes and re-adds an OSD to a Disk
+        :param node_cluster_guid: Guid of the AlbaNodeCluster
+        :type node_cluster_guid: str
         :param node_guid: Guid of the node to reset an OSD of
         :type node_guid: str
         :param osd_id: OSD to reset
@@ -303,77 +328,31 @@ class AlbaNodeClusterController(object):
         :return: None
         :rtype: NoneType
         """
-        raise NotImplementedError('Resetting an OSD is not yet implemented')
-        node = AlbaNode(node_guid)
+        node_cluster = AlbaNodeCluster(node_cluster_guid)
+        active_node = AlbaNode(node_guid)
+        if active_node not in node_cluster.alba_nodes:
+            raise ValueError('The requested active AlbaNode is not part of AlbaNodeCluster {0}'.format(node_cluster.guid))
         osd = AlbaOSDList.get_by_osd_id(osd_id)
-        fill_slot_extra = node.client.build_slot_params(osd)
+        fill_slot_extra = active_node.client.build_slot_params(osd)
         disk_aliases = AlbaNodeClusterController.remove_osd(node_guid=node_guid, osd_id=osd_id, expected_safety=expected_safety)
         if len(disk_aliases) == 0:
             return
         try:
-            node.client.fill_slot(osd.slot_id, fill_slot_extra)
+            active_node.client.fill_slot(osd.slot_id, fill_slot_extra)
         except (requests.ConnectionError, requests.Timeout):
-            AlbaNodeClusterController._logger.warning('Could not connect to node {0} to (re)configure ASD'.format(node.guid))
+            AlbaNodeClusterController._logger.warning('Could not connect to node {0} to (re)configure ASD'.format(active_node.guid))
+            return
         except NotFoundError:
             # Can occur when the slot id could not be matched with an existing slot on the alba-asd manager
             # This error can be anticipated when the status of the osd would be 'missing' in the nodes stack but that would be too much overhead
             message = 'Could not add a new OSD. The requested slot {0} could not be found'.format(osd.slot_id)
             AlbaNodeClusterController._logger.warning(message)
             raise RuntimeError('{0}. Slot {1} might no longer be present on Alba node {2}'.format(message, osd.slot_id, node_guid))
-        node.invalidate_dynamics('stack')
-
-    @staticmethod
-    @ovs_task(name='albanodecluster.restart_osd')
-    def restart_osd(node_guid, osd_id):
-        """
-        Restarts an OSD on a given Node
-        :param node_guid: Guid of the node to restart an OSD on
-        :type node_guid: str
-        :param osd_id: ID of the OSD to restart
-        :type osd_id: str
-        :return: None
-        :rtype: NoneType
-        """
-        raise NotImplementedError('Restarting an OSD is not yet supported')
-        node = AlbaNode(node_guid)
-        osd = AlbaOSDList.get_by_osd_id(osd_id)
-        if osd.alba_node_guid != node.guid:
-            raise RuntimeError('Could not locate OSD {0} on node {1}'.format(osd_id, node_guid))
-
-        try:
-            result = node.client.restart_osd(osd.slot_id, osd.osd_id)
-            if result['_success'] is False:
-                AlbaNodeClusterController._logger.error('Error restarting OSD: {0}'.format(result['_error']))
-                raise RuntimeError(result['_error'])
-        except (requests.ConnectionError, requests.Timeout):
-            AlbaNodeClusterController._logger.warning('Could not connect to node {0} to restart OSD'.format(node.guid))
-            raise
-
-    @staticmethod
-    @ovs_task(name='albanodecluster.restart_slot')
-    def restart_slot(node_guid, slot_id):
-        """
-        Restarts a slot
-        :param node_guid: Guid of the ALBA Node to restart a slot on
-        :type node_guid: str
-        :param slot_id: ID of the slot (eg. pci-0000:03:00.0-sas-0x5000c29f4cf04566-lun-0)
-        :type slot_id: str
-        :return: None
-        :rtype: NoneType
-        """
-        raise NotImplementedError('Restarting a slot is not yet implemented')
-        node = AlbaNode(node_guid)
-        AlbaNodeClusterController._logger.debug('Restarting slot {0} on node {1}'.format(slot_id, node.ip))
-        try:
-            if slot_id not in node.client.get_stack():
-                AlbaNodeClusterController._logger.exception('Slot {0} not available for restart on ALBA Node {1}'.format(slot_id, node.ip))
-                raise RuntimeError('Could not find slot')
-        except (requests.ConnectionError, requests.Timeout):
-            AlbaNodeClusterController._logger.warning('Could not connect to node {0} to validate slot'.format(node.guid))
-            raise
-
-        result = node.client.restart_slot(slot_id=slot_id)
-        if result['_success'] is False:
-            raise RuntimeError('Error restarting slot: {0}'.format(result['_error']))
-        for backend in AlbaBackendList.get_albabackends():
-            backend.invalidate_dynamics()
+        # Invalidate the stack and sync towards all passive sides
+        active_node.invalidate_dynamics('stack')
+        for node in node_cluster.alba_nodes:
+            if node != active_node:
+                try:
+                    node.client.sync_stack(active_node.stack)
+                except:
+                    AlbaNodeClusterController._logger.exception('Error while syncing stacks to the passive side')
