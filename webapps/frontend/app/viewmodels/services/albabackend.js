@@ -55,7 +55,7 @@ define([
             return api.get('alba/backends/' + guid + '/get_available_actions', { queryparams: queryParams, relayParams: relayParams })
         };
         /**
-         * Register OSDs under an AlbaBackend
+         * Register OSDs from an AlbaNode under an AlbaBackend
          * Returns a Promise which resolves into the data (task is handled)
          * @param guid: Guid of the AlbaBackend
          * @param osdData: Collection of OSD data

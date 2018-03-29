@@ -78,11 +78,6 @@ define([
             }
             return $.when()  // Start a chain
                 .then(function() {
-                    if (self.data.workingWithCluster()) {
-                        var data = {};
-                        data[node.guid()] = slotData;
-                        return albaNodeClusterService.fillSlots(nodeCluster.guid(), data)
-                    }
                     return albaNodeService.fillSlots(node.guid(), slotData)
                 })
                 .then(function () {

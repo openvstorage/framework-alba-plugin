@@ -135,7 +135,6 @@ define([
         });
 
         // Event Functions
-        // @Todo use a unique identifier to indicate both clusters/nodes as it is not clear at the moment
         self.addOSDs = function() {
             subscriberService.trigger('albanode_{0}:add_osds'.format([self.node_id()]), self)
         };

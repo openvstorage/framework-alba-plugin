@@ -55,24 +55,11 @@ define([
                 if (options.parent.alba_backend === undefined) {
                     return null
                 }
-                var cluster = new NodeCluster(options.data, options.parent.alba_backend);
-                cluster.subscribeToNodeEvents();
-                return cluster
+                return new NodeCluster(options.data, options.parent.alba_backend);
             },
             update: function (options){
                 options.target.update(options.data);
                 return options.target
-            },
-            arrayChanged: function(event, item) {
-                // Undocumented callback in the plugin. This function notifies what 'event' of what 'item' happened in the array
-                // The possible events are:
-                // - 'retained': item is kept, callback hooking can be done through the 'update' callback
-                // - 'added': item is created, callback hooking can be done through the through the 'create' callback
-                // - 'deleted': 'item' was removed from the array
-                // Hooking in the delete to unsubscribe from our events
-                if (event === 'deleted' && item && item.unsubscribeToNodeEvents && typeof item.unsubscribeToNodeEvents === 'function') {
-                    item.unsubscribeToNodeEvents()
-                }
             }
         },
         alba_nodes_discovered: {
@@ -582,9 +569,6 @@ define([
             // Remove all event listeners of the underlying nodes
             $.each([].concat(self.alba_nodes_discovered(), self.alba_nodes_registered()), function(index, node) {
                 node.unsubscribeToSlotEvents()
-            });
-            $.each([].concat(self.alba_node_clusters()), function(index, cluster) {
-                cluster.unsubscribeToNodeEvents()
             });
             // Remove our own disposables
             self.disposeAll();

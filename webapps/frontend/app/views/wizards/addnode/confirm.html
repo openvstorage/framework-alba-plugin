@@ -19,7 +19,7 @@ but WITHOUT ANY WARRANTY of any kind.
     <div>
         <p data-i18n="[html]alba:wizards.add_node.confirm.basic_info"></p>
         <ul>
-            <li>
+            <li data-bind="visible: !data.workingWithCluster()">
                 <b data-i18n="alba:wizards.add_node.confirm.id"></b>
                 <i data-i18n="alba:generic.generated" data-bind="visible: !!data.newNode().node_id()"></i>
                 <span data-bind="text: data.newNode().node_id, visible: !data.newNode().node_id()"></span>
