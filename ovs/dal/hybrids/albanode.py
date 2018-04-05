@@ -25,7 +25,7 @@ from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.albanodecluster import AlbaNodeCluster
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
-from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs_extensions.generic.exceptions import InvalidCredentialsError
 from ovs.extensions.generic.logger import Logger
 from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
@@ -75,7 +75,8 @@ class AlbaNode(DataObject):
                   Dynamic('node_metadata', dict, 3600),
                   Dynamic('supported_osd_types', list, 3600),
                   Dynamic('read_only_mode', bool, 60),
-                  Dynamic('local_summary', dict, 60)]
+                  Dynamic('local_summary', dict, 60),
+                  Dynamic('ipmi_info', dict, 3600)]
 
     def __init__(self, *args, **kwargs):
         """
@@ -305,3 +306,16 @@ class AlbaNode(DataObject):
                 if status in state_map:  # Can never be too sure
                     device_info[state_map[status]].append(osd_info)
         return local_summary
+
+    def _ipmi_info(self):
+        """
+        Retrieve the IPMI information of the AlbaNode
+        :return: Dict with ipmi information
+        :rtype: dict
+        """
+        try:
+            return Configuration.get('/ovs/alba/asdnodes/{0}/config/ipmi'.format(self.node_id))
+        except NotFoundException:  # Could be that the ASDManager does not yet have the IPMI info stored
+            return {'ip': None,
+                    'username': None,
+                    'password': None}
