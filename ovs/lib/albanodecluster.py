@@ -21,7 +21,6 @@ import requests
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albanodecluster import AlbaNodeCluster
 from ovs.dal.hybrids.albaosd import AlbaOSD
-from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.albaosdlist import AlbaOSDList
 from ovs.extensions.generic.configuration import Configuration
@@ -41,6 +40,7 @@ class AlbaNodeClusterController(object):
     _logger = Logger('lib')
     ASD_CONFIG_DIR = '/ovs/alba/asds/{0}'
     ASD_CONFIG = '{0}/config'.format(ASD_CONFIG_DIR)
+
 
     @staticmethod
     @ovs_task(name='albanodecluster.create_new')
@@ -90,6 +90,13 @@ class AlbaNodeClusterController(object):
                             if claimed_by == AlbaNode.OSD_STATUSES.UNKNOWN:
                                 raise RuntimeError('Unable to link AlbaNode {0}. No information could be retrieved about OSD {1}'.format(node_id, osd_id))
                             raise RuntimeError('Unable to link AlbaNode {0} because it already has OSDs which are claimed'.format(node_id))
+                try:
+                    AlbaNodeClusterController.register_cluster(an_node.guid, an_cluster.guid)
+                except Exception:
+                    message = 'Unable to register the node under cluster'
+                    AlbaNodeClusterController._logger.exception(message)
+                    messages.append(message)
+                    continue
                 an_node.alba_node_cluster = an_cluster
                 an_node.save()
             except Exception:
@@ -356,3 +363,15 @@ class AlbaNodeClusterController(object):
                     node.client.sync_stack(active_node.stack)
                 except:
                     AlbaNodeClusterController._logger.exception('Error while syncing stacks to the passive side')
+
+    @staticmethod
+    def register_cluster(node_cluster_guid, node_guid):
+        """
+        Register the relation of a node to a node cluster under Configuration
+        :param node_cluster_guid: Guid of the NodeCluster
+        :param node_guid: Guid of node
+        :return:
+        """
+        with Configuration.lock('alba_node_cluster_{0}_registration'.format(node_cluster_guid), wait=60, expiration=60):
+            # @todo implement
+            pass

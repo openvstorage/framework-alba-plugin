@@ -18,8 +18,10 @@ import time
 from threading import Thread
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodeclusterlist import AlbaNodeClusterList
-from ovs_extensions.generic.exceptions import NoLockAvailableException
 from ovs.extensions.generic.configuration import Configuration
+from ovs_extensions.generic.exceptions import NoLockAvailableException
+from ovs_extensions.generic.ipmi import IPMIController
+from ovs.extensions.generic.sshclient import SSHClient
 from ovs.extensions.generic.logger import Logger
 
 
@@ -29,6 +31,7 @@ class AlbaHeartBeat(object):
     """
 
     _logger = Logger('alba_heart_beat')
+    _client = SSHClient('127.0.0.1', username='root')
 
     @classmethod
     def poll_node_osds_state(cls):
@@ -99,6 +102,11 @@ class AlbaHeartBeat(object):
                     # Another node must be selected
                     continue
                 # Kill current node through IPMI
-
+                ipmi_info = node.ipmi_info
+                try:
+                    ipmi_controller = IPMIController(client=cls._client, **ipmi_info)
+                    ipmi_controller.power_off_node()
+                except:
+                    cls._logger.exception('Unable to control node with guid {0} through IPMI'.format(node_guid))
 
         raise RuntimeError('No failover happened. Exhausted all options')
