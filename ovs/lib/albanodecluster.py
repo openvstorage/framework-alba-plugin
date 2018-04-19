@@ -17,19 +17,21 @@
 """
 AlbaNodeController module
 """
+import copy
 import requests
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albanodecluster import AlbaNodeCluster
 from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.albaosdlist import AlbaOSDList
-from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs_extensions.generic.exceptions import NotFoundError
 from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import UnableToConnectException
 from ovs_extensions.generic.toolbox import ExtensionsToolbox
 from ovs.lib.alba import AlbaController
 from ovs.lib.disk import DiskController
+from ovs.lib.shared.albanode import constants
 from ovs.lib.helpers.decorators import ovs_task
 
 
@@ -38,13 +40,15 @@ class AlbaNodeClusterController(object):
     Contains all BLL related to ALBA nodes
     """
     _logger = Logger('lib')
-    ASD_CONFIG_DIR = '/ovs/alba/asds/{0}'
-    ASD_CONFIG = '{0}/config'.format(ASD_CONFIG_DIR)
 
+    ASD_NODE_LOCATION = '/ovs/alba/asdnodes/{0}'
+    CLUSTER_NODE_RELATION_LOCATION = '{0}/config/cluster_node_relation'.format(ASD_NODE_LOCATION)
+    NODE_CLUSTER_RELATION_LOCATION = '{0}/config/node_cluster_relation'.format(ASD_NODE_LOCATION)
 
     @staticmethod
     @ovs_task(name='albanodecluster.create_new')
     def create(name):
+        # type: (str) -> str
         """
         Creates a new AlbaNodeCluster
         :param name: Name of the AlbaNodeCluster
@@ -59,6 +63,7 @@ class AlbaNodeClusterController(object):
     @staticmethod
     @ovs_task(name='albanodecluster.register_node')
     def register_node(node_cluster_guid, node_id=None, node_ids=None):
+        # type: (str, str, List[str]) -> None
         """
         Register a AlbaNode to the AlbaNodeCluster
         :param node_cluster_guid: Guid of the AlbaNodeCluster to add the node to
@@ -91,7 +96,7 @@ class AlbaNodeClusterController(object):
                                 raise RuntimeError('Unable to link AlbaNode {0}. No information could be retrieved about OSD {1}'.format(node_id, osd_id))
                             raise RuntimeError('Unable to link AlbaNode {0} because it already has OSDs which are claimed'.format(node_id))
                 try:
-                    AlbaNodeClusterController.register_cluster(an_node.guid, an_cluster.guid)
+                    AlbaNodeClusterController.register_node_to_cluster(an_cluster.guid, an_node.node_id)
                 except Exception:
                     message = 'Unable to register the node under cluster'
                     AlbaNodeClusterController._logger.exception(message)
@@ -109,6 +114,7 @@ class AlbaNodeClusterController(object):
     @staticmethod
     @ovs_task(name='albanodecluster.unregister_node')
     def unregister_node(node_cluster_guid, node_id):
+        # type: (str) -> None
         """
         Unregisters an AlbaNode from the AlbaNodeCluster
         This will update the cluster to no longer work with active/passive
@@ -116,7 +122,8 @@ class AlbaNodeClusterController(object):
         :type node_cluster_guid: basestring
         :param node_id: ID of the ALBA node to register
         :type node_id: basestring
-        :return:
+        :return: None
+        :rtype: NoneType
         """
         _ = node_cluster_guid
         an_node = AlbaNodeList.get_albanode_by_node_id(node_id)
@@ -128,6 +135,7 @@ class AlbaNodeClusterController(object):
     @staticmethod
     @ovs_task(name='albanodecluster.remove_cluster')
     def remove_cluster(node_cluster_guid):
+        # type: (str) -> None
         """
         Removes an AlbaNodeCluster
         :param node_cluster_guid: Guid of the AlbaNodeCluster to remove
@@ -144,6 +152,7 @@ class AlbaNodeClusterController(object):
     @staticmethod
     @ovs_task(name='albanodecluster.fill_slots')
     def fill_slots(node_cluster_guid, node_guid, slot_information, metadata=None):
+        # type: (str, str, List[Dict[str, Any]]) -> None
         """
         Creates 1 or more new OSDs
         :param node_cluster_guid: Guid of the node cluster to which the disks belong
@@ -219,6 +228,7 @@ class AlbaNodeClusterController(object):
     @staticmethod
     @ovs_task(name='albanodecluster.remove_slot', ensure_single_info={'mode': 'CHAINED'})
     def remove_slot(node_cluster_guid, node_guid, slot_id):
+        # type: (str, str, str) -> None
         """
         Removes a slot
         :param node_cluster_guid: Guid of the node cluster to remove a disk from
@@ -253,6 +263,7 @@ class AlbaNodeClusterController(object):
     @staticmethod
     @ovs_task(name='albanodecluster.remove_osd', ensure_single_info={'mode': 'CHAINED'})
     def remove_osd(node_cluster_guid, node_guid, osd_id, expected_safety):
+        # type: (str, str, str, Dict[str, int]) -> List[str]
         """
         Removes an OSD
         :param node_cluster_guid: Guid of the AlbaNodeCluster
@@ -264,7 +275,7 @@ class AlbaNodeClusterController(object):
         :param expected_safety: Expected safety after having removed the OSD
         :type expected_safety: dict or None
         :return: Aliases of the disk on which the OSD was removed
-        :rtype: list
+        :rtype: list(str)
         """
         node_cluster = AlbaNodeCluster(node_cluster_guid)
         active_node = AlbaNode(node_guid)
@@ -303,8 +314,8 @@ class AlbaNodeClusterController(object):
                     AlbaNodeClusterController._logger.exception('Error while syncing stacks to the passive side')
 
         # Clean configuration management and model - Well, just try it at least
-        if Configuration.exists(AlbaNodeClusterController.ASD_CONFIG.format(osd_id), raw=True):
-            Configuration.delete(AlbaNodeClusterController.ASD_CONFIG_DIR.format(osd_id), raw=True)
+        if Configuration.exists(constants.ASD_CONFIG.format(osd_id), raw=True):
+            Configuration.delete(constants.ASD_CONFIG_DIR.format(osd_id), raw=True)
 
         osd.delete()
         active_node.invalidate_dynamics()
@@ -322,6 +333,7 @@ class AlbaNodeClusterController(object):
     @staticmethod
     @ovs_task(name='albanodecluster.reset_osd')
     def reset_osd(node_cluster_guid, node_guid, osd_id, expected_safety):
+        # type: (str, str, str, Dict[str, int]) -> None
         """
         Removes and re-adds an OSD to a Disk
         :param node_cluster_guid: Guid of the AlbaNodeCluster
@@ -364,14 +376,134 @@ class AlbaNodeClusterController(object):
                 except:
                     AlbaNodeClusterController._logger.exception('Error while syncing stacks to the passive side')
 
-    @staticmethod
-    def register_cluster(node_cluster_guid, node_guid):
+    @classmethod
+    def register_node_to_cluster(cls, node_cluster_guid, node_id):
+        # type: (str, str) -> None
         """
         Register the relation of a node to a node cluster under Configuration
+        This entry is maintained so the ASD Manager can look it up to perform additional checks
         :param node_cluster_guid: Guid of the NodeCluster
-        :param node_guid: Guid of node
-        :return:
+        :type node_cluster_guid: str
+        :param node_id: Alba ID of the node
+        :type node_id: str
+        :return: None
+        :rtype: NoneType
         """
-        with Configuration.lock('alba_node_cluster_{0}_registration'.format(node_cluster_guid), wait=60, expiration=60):
-            # @todo implement
-            pass
+        # Wrap it in a lambda so it does not get executed here
+        Configuration.safely_store(callback=lambda: cls._get_registering_data(node_cluster_guid, node_id),
+                                   max_retries=20)
+
+    @classmethod
+    def unregister_node_of_cluster(cls, node_cluster_guid, node_id):
+        """
+        Unregister the relation of a node to a node cluster under Configuration
+        This entry is maintained so the ASD Manager can look it up to perform additional checks
+        :param node_cluster_guid: Guid of the NodeCluster
+        :type node_cluster_guid: str
+        :param node_id: Alba ID of the node
+        :type node_id: str
+        :return: None
+        :rtype: NoneType
+        """
+        # Wrap it in a lambda so it does not get executed here
+        Configuration.safely_store(callback=lambda: cls._get_registering_data(node_cluster_guid, node_id, add=False),
+                                   max_retries=20)
+
+    @classmethod
+    def _get_registering_data(cls, node_cluster_guid, node_id, add=True):
+        """
+        Gets all data to be saved. Used as callbacks for safely_store
+        Can perform a cleanup if required
+        :param node_cluster_guid: Guid of the NodeCluster
+        :type node_cluster_guid: str
+        :param node_id: Alba ID of the node
+        :type node_id: str
+        :param add: When True: register the node under the cluster else remove it
+        :type add: bool
+        :return: The callback data
+        :rtype: tuple(key, callable)
+        """
+        # @todo implement unregister
+        if add is False:
+            raise NotImplementedError()
+        cluster_node_relation = cls.CLUSTER_NODE_RELATION_LOCATION.format(node_id)
+        node_cluster_relation = cls.NODE_CLUSTER_RELATION_LOCATION.format(node_id)
+
+        try:
+            # Unable to use 'default=' as the assertion requires to know if the key was set to {} or not
+            cluster_node_overview = Configuration.get(cluster_node_relation)
+            old_cluster_node_overview = copy.deepcopy(cluster_node_overview)
+        except NotFoundException:
+            cluster_node_overview = {}
+            old_cluster_node_overview = None
+        try:
+            node_cluster_overview = Configuration.get(node_cluster_relation)
+            old_node_cluster_overview = copy.deepcopy(node_cluster_overview)
+        except NotFoundException:
+            node_cluster_overview = {}
+            old_node_cluster_overview = None
+        # Search for potential different owners
+        current_cluster_guid = node_cluster_overview.get(node_id)
+        if current_cluster_guid is not None:
+            cluster_node_list = cluster_node_overview.get(current_cluster_guid, [])
+            if current_cluster_guid == node_cluster_guid:  # Nothing changes when the owner is the same
+                if node_id in cluster_node_list:
+                    cls._logger.warning('Node with ID {0} is already registered under cluster with guid {1}.'
+                                        ' Not re-registering again.'.format(node_id, node_cluster_guid))
+                    return  # Not much to register
+                    # In case something messed up the config. This way the file can be rebuilt with this method
+                cluster_node_list.append(node_id)
+                new_cluster_node_list = cluster_node_list
+            else:
+                # Initiate a config cleanup
+                # Depends on the callee to have checked the relation within DAL
+                cls._logger.warning('Node with ID {0} is registered under cluster with guid {1}.'
+                                    ' Cleaning up the remnant.'.format(node_id, current_cluster_guid))
+                # @todo config cleanup
+                raise NotImplementedError()
+        else:
+            new_cluster_node_list = [node_id]
+        cluster_node_overview[current_cluster_guid] = new_cluster_node_list
+        node_cluster_overview[node_id] = node_cluster_guid
+
+        return [(cluster_node_relation, cluster_node_overview, old_cluster_node_overview),
+                (node_cluster_relation, node_cluster_overview, old_node_cluster_overview)]
+
+    @staticmethod
+    def move_slot(node_guid, slot_id, destination_node_guid):
+        """
+        Move a slot from one node to another. If the same disk can be accessed, all ASD ownership is moved
+        This is a Dual Controller feature
+        :param node_guid: Guid of the owner node
+        :type node_guid: str
+        :param slot_id: Identifier of the slot
+        :type slot_id: str
+        :param destination_node_guid: Guid of the destination node
+        :type destination_node_guid: str
+        :return: None
+        :rtype: NoneType
+        """
+        origin_node = AlbaNode(node_guid)
+        destination_node = AlbaNode(destination_node_guid)
+        # Validation
+        if origin_node.alba_node_cluster is None:
+            raise ValueError('Node with guid {0} is not part of a cluster'.format(node_guid))
+        if origin_node.alba_node_cluster != destination_node.alba_node_cluster:
+            raise ValueError('The nodes are not part of the same cluster')
+        if slot_id not in origin_node.stack:
+            raise ValueError(
+                'Slot with ID {0} is not available in the origin node with guid {1}'.format(slot_id, node_guid))
+        if slot_id not in destination_node.stack:
+            raise ValueError('Slot with ID {0} is not available in the destination node with guid {1}'.format(slot_id, destination_node_guid))
+        # Stop the OSDs on the origin
+        try:
+            origin_node.client.stop_slot(slot_id)
+        except:
+            AlbaNodeClusterController._logger.exception('Unable to stop the slot ')
+            raise
+        try:
+            # Update all references in Alba
+            AlbaController.update_osds()
+            raise NotImplementedError()
+        except:
+            raise

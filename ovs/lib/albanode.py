@@ -36,6 +36,7 @@ from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs_extensions.generic.toolbox import ExtensionsToolbox
 from ovs.lib.alba import AlbaController
 from ovs.lib.disk import DiskController
+from ovs.lib.shared.albanode import constants
 from ovs.lib.helpers.decorators import add_hooks, ovs_task
 
 
@@ -44,8 +45,6 @@ class AlbaNodeController(object):
     Contains all BLL related to ALBA nodes
     """
     _logger = Logger('lib')
-    ASD_CONFIG_DIR = '/ovs/alba/asds/{0}'
-    ASD_CONFIG = '{0}/config'.format(ASD_CONFIG_DIR)
 
     @staticmethod
     @ovs_task(name='albanode.register')
@@ -283,8 +282,8 @@ class AlbaNodeController(object):
             raise RuntimeError('Error removing OSD: {0}'.format(result['_error']))
 
         # Clean configuration management and model - Well, just try it at least
-        if Configuration.exists(AlbaNodeController.ASD_CONFIG.format(osd_id), raw=True):
-            Configuration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(osd_id), raw=True)
+        if Configuration.exists(constants.ASD_CONFIG.format(osd_id), raw=True):
+            Configuration.delete(constants.ASD_CONFIG_DIR.format(osd_id), raw=True)
 
         osd.delete()
         node.invalidate_dynamics()
