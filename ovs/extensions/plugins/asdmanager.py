@@ -189,6 +189,12 @@ class ASDManagerClient(object):
         """
         return self._call(requests.post, 'slots/{0}/restart'.format(slot_id))
 
+    def stop_slot(self, slot_id):
+        """
+        Stops all OSDs on the slot
+        """
+        return self._call(requests.post, 'slots/{0}/stop'.format(slot_id))
+
     ##########
     # UPDATE #
     ##########
