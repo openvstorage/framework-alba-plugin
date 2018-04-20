@@ -50,10 +50,5 @@ echo '{"configuration_store":"arakoon"}' > /opt/OpenvStorage/config/framework.js
 
 # Run tests
 echo "Running unittests"
-# Running multiple ones. Piping too run all of the commands because the set -e would otherwise abort too soon
 export PYTHONPATH=/opt/OpenvStorage:/opt/OpenvStorage/webapps:$PYTHONPATH;
-EXIT_STATUS=0
-ovs unittest test-alba  || EXIT_STATUS=$?
-ovs unittest test_hybrids || EXIT_STATUS=$?
-ovs unittest test_api_configuration || EXIT_STATUS=$?
-exit ${EXIT_STATUS}
+ovs unittest test_alba,test_hybrids,test_api_configuration
