@@ -32,14 +32,15 @@ apt-get install -y --force-yes openvstorage openvstorage-extensions
 
 # Prepare to accept new code
 echo "Preparing to accept new code"
-rm -rf /opt/OpenvStorage
+find /opt/OpenvStorage -type d -exec chmod 777 {} +
+find /opt/OpenvStorage -type f -exec chmod 666 {} +
 chmod 777 /opt
 chmod -R 777 /var/log/ovs
 chmod 777 /run
 
 # Move over the Travis cloned code base. The repository code was mapped under /root/repo-code (see install_docker.sh)
 echo "Copying the mapped code"
-cp -R /root/repo-code /opt/OpenvStorage
+cp -R /root/repo-code/. /opt/OpenvStorage/
 
 # Further tweaks to run our tests
 echo "Further tweaking the OVS install"
@@ -50,9 +51,9 @@ echo '{"configuration_store":"arakoon"}' > /opt/OpenvStorage/config/framework.js
 # Run tests
 echo "Running unittests"
 # Running multiple ones. Piping too run all of the commands because the set -e would otherwise abort too soon
-export PYTHONPATH=/opt/OpenvStorage:/opt/OpenvStorage/webapps:$PYTHONPATH
+export PYTHONPATH=/opt/OpenvStorage:/opt/OpenvStorage/webapps:$PYTHONPATH;
 EXIT_STATUS=0
 ovs unittest test-alba  || EXIT_STATUS=$?
 ovs unittest test_hybrids || EXIT_STATUS=$?
 ovs unittest test_api_configuration || EXIT_STATUS=$?
-exit EXIT_STATUS
+exit ${EXIT_STATUS}
