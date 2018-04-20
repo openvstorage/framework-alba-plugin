@@ -43,16 +43,14 @@ cp -R /root/repo-code /opt/OpenvStorage
 
 # Further tweaks to run our tests
 echo "Further tweaking the OVS install"
-cp /opt/OpenvStorage/scripts/system/ovs /usr/bin/
 chmod 777 /usr/bin/ovs
-cd /opt/OpenvStorage/webapps/api
-export PYTHONPATH=/opt/OpenvStorage:/opt/OpenvStorage/webapps:$PYTHONPATH
-python manage.py syncdb --noinput
+cd /opt/OpenvStorage/webapps/api; export PYTHONPATH=/opt/OpenvStorage:/opt/OpenvStorage/webapps:$PYTHONPATH; python manage.py syncdb --noinput
 echo '{"configuration_store":"arakoon"}' > /opt/OpenvStorage/config/framework.json
 
 # Run tests
 echo "Running unittests"
 # Running multiple ones. Piping too run all of the commands because the set -e would otherwise abort too soon
+export PYTHONPATH=/opt/OpenvStorage:/opt/OpenvStorage/webapps:$PYTHONPATH
 EXIT_STATUS=0
 ovs unittest test-alba  || EXIT_STATUS=$?
 ovs unittest test_hybrids || EXIT_STATUS=$?
