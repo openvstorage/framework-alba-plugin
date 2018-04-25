@@ -335,6 +335,8 @@ class AlbaStatsMonkeyController(StatsMonkey):
         def _get_stats_osds_for_alba_backend(alba_backend, statistics, errored_calls):
             try:
                 for osd_id, result in alba_backend.osd_statistics.iteritems():
+                    # Remove the 'version' key as it is a non-numeric value
+                    result.pop('version', None)
                     statistics.append({'tags': {'guid': alba_backend.guid,
                                                 'long_id': osd_id,
                                                 'environment': environment,
