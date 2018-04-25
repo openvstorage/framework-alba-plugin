@@ -368,8 +368,8 @@ class AlbaUpdateController(object):
             components = [PackageFactory.COMP_ALBA]
 
         abort = False
-        alba_nodes = [alba_node for alba_node in AlbaNodeList.get_albanodes() if alba_node.type == AlbaNode.NODE_TYPES.ASD]
-        alba_nodes.sort(key=lambda node: ExtensionsToolbox.advanced_sort(element=node.ip, separator='.'))
+        alba_nodes = sorted(AlbaNodeList.get_albanodes_by_type(AlbaNode.NODE_TYPES.ASD),
+                            key=lambda an: ExtensionsToolbox.advanced_sort(element=an.ip, separator='.'))
         for alba_node in alba_nodes:
             cls._logger.debug('ALBA Node {0}: Verifying packages'.format(alba_node.ip))
             for component in components:
@@ -434,8 +434,8 @@ class AlbaUpdateController(object):
         # Update ALBA nodes
         method_name = inspect.currentframe().f_code.co_name
         cls._logger.info('Executing hook {0}'.format(method_name))
-        alba_nodes = [alba_node for alba_node in AlbaNodeList.get_albanodes() if alba_node.type == AlbaNode.NODE_TYPES.ASD]
-        alba_nodes.sort(key=lambda node: ExtensionsToolbox.advanced_sort(element=node.ip, separator='.'))
+        alba_nodes = sorted(AlbaNodeList.get_albanodes_by_type(AlbaNode.NODE_TYPES.ASD),
+                            key=lambda an: ExtensionsToolbox.advanced_sort(element=an.ip, separator='.'))
         for alba_node in alba_nodes:
             services_to_restart = []
             for component in components:

@@ -61,3 +61,12 @@ class AlbaNodeList(object):
         if len(nodes) == 1:
             return nodes[0]
         return None
+
+    @staticmethod
+    def get_albanodes_by_type(node_type):
+        """
+        Returns all nodes with the specified type
+        :param node_type: Type of the ALBA node
+        """
+        return DataList(AlbaNode, {'type': DataList.where_operator.AND,
+                                   'items': [('type', DataList.operator.EQUALS, node_type)]})
