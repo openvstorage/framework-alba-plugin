@@ -652,7 +652,7 @@ class AlbaController(object):
         # Check storage nodes reachable
         for alba_node in AlbaNodeList.get_albanodes():
             try:
-                alba_node.client.list_maintenance_services()
+                alba_node.client.get_metadata()
             except requests.exceptions.ConnectionError as ce:
                 raise RuntimeError('Node {0} is not reachable, ALBA Backend cannot be removed. {1}'.format(alba_node.ip, ce))
 
@@ -1836,7 +1836,8 @@ class AlbaController(object):
             return allowed_nodes_per_backend
 
         AlbaController._logger.info('Loading maintenance information')
-        alba_nodes = sorted(AlbaNodeList.get_albanodes(), key=lambda an: ExtensionsToolbox.advanced_sort(element=an.ip, separator='.'))
+        alba_nodes = sorted(AlbaNodeList.get_albanodes_by_type(AlbaNode.NODE_TYPES.ASD),
+                            key=lambda an: ExtensionsToolbox.advanced_sort(element=an.ip, separator='.'))
         success_add = True
         alba_backends = [AlbaBackend(alba_backend_guid)] if alba_backend_guid is not None else sorted(AlbaBackendList.get_albabackends(), key=lambda ab: ExtensionsToolbox.advanced_sort(element=ab.name, separator='.'))
         load_per_node = {}
