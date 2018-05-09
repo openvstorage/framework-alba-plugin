@@ -17,11 +17,10 @@
 """
 Contains the AlbaBackendViewSet
 """
-
 from rest_framework import viewsets
 from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
-from api.backend.decorators import load, log, required_roles, return_list, return_object, return_task, return_simple
+from api.backend.decorators import load, log, required_roles, return_list, return_object, return_task, return_simple, extended_action
 from api.backend.serializers.serializers import FullSerializer
 from api.backend.toolbox import ApiToolbox
 from ovs.dal.hybrids.albabackend import AlbaBackend
@@ -409,3 +408,63 @@ class AlbaBackendViewSet(viewsets.ViewSet):
             raise HttpNotAcceptableException(error='invalid_data',
                                              error_description="Cluster names passed should be of type 'list'")
         return AlbaController.nsm_checkup.delay(alba_backend_guid=albabackend.guid, external_nsm_cluster_names=cluster_names)
+
+    @action()
+    @log()
+    @required_roles(['read', 'write', 'manage'])
+    @return_simple()
+    @load(AlbaBackend, validator=_validate_access)
+    def set_maintenance_config(self, albabackend, maintenance_config):
+        # type : (AlbaBackend, int) -> None
+        """
+        Set the maintenance config for the Backend
+        :param albabackend: ALBA Backend to set the maintenance config for
+        :type albabackend: ovs.dal.hybrids.albabackend.AlbaBackend
+        :param maintenance_config: Maintenance config as it should be set
+        Possible keys:
+        - auto_cleanup_deleted_namespaces: Number of days to wait before cleaning up. Setting to 0 means disabling the auto cleanup
+        and always clean up a namespace after removing it (int)
+        :type maintenance_config: dict
+        :return: Asynchronous result of a CeleryTask
+        :rtype: celery.result.AsyncResult
+        """
+        # API implementation can be changed in the future. The whole config is sent through the API but only one setting is used
+        days = maintenance_config.get('auto_cleanup_deleted_namespaces')
+        if not isinstance(days, int) or 0 > days:
+            raise HttpNotAcceptableException(error='invalid_data',
+                                             error_description="'auto_cleanup_deleted_namespaces' should be a positive integer or 0")
+        return AlbaController.set_auto_cleanup(alba_backend_guid=albabackend.guid, days=days)
+
+    @link()
+    @log()
+    @required_roles(['read', 'write', 'manage'])
+    @return_simple()
+    @load(AlbaBackend, validator=_validate_access)
+    def get_maintenance_config(self, albabackend):
+        # type : (AlbaBackend, int) -> None
+        """
+        Set the maintenance config for the Backend
+        :param albabackend: ALBA Backend to set the maintenance config for
+        :type albabackend: ovs.dal.hybrids.albabackend.AlbaBackend
+        :return: Asynchronous result of a CeleryTask
+        :rtype: celery.result.AsyncResult
+        """
+        return AlbaController.get_maintenance_config(alba_backend_guid=albabackend.guid)
+
+    @extended_action(methods=['get'], detail=False)
+    @log()
+    @return_simple()
+    @required_roles(['read', 'write', 'manage'])
+    @load()
+    def get_maintenance_metadata(self):
+        # type: () -> dict
+        """
+        Return a maintenance layout that the GUI can interpret to create a dynamic form
+        :return: Dict with metadata
+        :rtype: dict
+        """
+        metadata = {}
+        if AlbaController.can_set_auto_cleanup():
+            metadata.update({'edit': True,
+                             'edit_metadata': {'auto_cleanup_deleted_namespaces': 'integer'}})
+        return metadata

@@ -606,6 +606,17 @@ class AlbaController(object):
         alba_backend.invalidate_dynamics('live_status')
 
     @staticmethod
+    def can_set_auto_cleanup():
+        # type: () -> bool
+        """
+        Return if it is possible to set the auto-cleanup
+        :return: True if possible else False
+        :rtype: bool
+        """
+        storagerouter = StorageRouterList.get_storagerouters()[0]
+        return StorageRouter.ALBA_FEATURES.AUTO_CLEANUP in storagerouter.features['alba']['features']
+
+    @staticmethod
     def set_auto_cleanup(alba_backend_guid, days=30, config=None):
         # type: (str, int) -> None
         """
@@ -622,11 +633,10 @@ class AlbaController(object):
         """
         if not isinstance(days, int) or 0 > days:
             raise ValueError('Number of days must be an integer > 0')
-        storagerouter = StorageRouterList.get_storagerouters()[0]
         if config is None:
             alba_backend = AlbaBackend(alba_backend_guid)
             config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
-        if StorageRouter.ALBA_FEATURES.AUTO_CLEANUP in storagerouter.features['alba']['features']:
+        if AlbaController.can_set_auto_cleanup():
             # Check if the maintenance config was not set (disabled)
             maintenance_config = AlbaCLI.run(command='get-maintenance-config', config=config)
             # Should be None when disabled (default behaviour)
@@ -636,6 +646,18 @@ class AlbaController(object):
             # Default to 30 days
             named_params = {'enable-auto-cleanup-deleted-namespaces-days': days}
             AlbaCLI.run(command='update-maintenance-config', config=config, named_params=named_params)
+
+    @staticmethod
+    def get_maintenance_config(alba_backend_guid):
+        """
+        Retrieve the maintenance config for an ALBA Backend
+        :param alba_backend_guid: Guid of the ALBA Backend to extract the maintenance config from
+        :return: Maintenance config
+        :rtype: dict
+        """
+        alba_backend = AlbaBackend(alba_backend_guid)
+        abm_config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
+        return AlbaCLI.run(command='get-maintenance-config', config=abm_config)
 
     @staticmethod
     def set_cache_eviction(alba_backend_guid, config=None):
