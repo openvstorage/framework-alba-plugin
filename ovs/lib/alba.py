@@ -626,19 +626,19 @@ class AlbaController(object):
         :param days: Number of days to wait before cleaning up. Setting to 0 means disabling the auto cleanup
         and always clean up a namespace after removing it
         :type days: int
-        :param config: Arakoon configuration of the backend (optional)
+        :param config: Arakoon configuration of the backend (optional, for caching)
         :type config: str
         :return: None
         :rtype: NoneType
         """
         if not isinstance(days, int) or 0 > days:
             raise ValueError('Number of days must be an integer > 0')
-        if config is None:
-            alba_backend = AlbaBackend(alba_backend_guid)
-            config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
         if AlbaController.can_set_auto_cleanup():
+            if config is None:
+                alba_backend = AlbaBackend(alba_backend_guid)
+                config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
             # Check if the maintenance config was not set (disabled)
-            maintenance_config = AlbaCLI.run(command='get-maintenance-config', config=config)
+            maintenance_config = AlbaController.get_maintenance_config(alba_backend_guid, config)
             # Should be None when disabled (default behaviour)
             auto_cleanup_setting = maintenance_config.get('auto_cleanup_deleted_namespaces', None)
             if auto_cleanup_setting is not None and auto_cleanup_setting == days:
@@ -648,24 +648,30 @@ class AlbaController(object):
             AlbaCLI.run(command='update-maintenance-config', config=config, named_params=named_params)
 
     @staticmethod
-    def get_maintenance_config(alba_backend_guid):
+    def get_maintenance_config(alba_backend_guid, config=None):
+        # type: (str, str) -> dict
         """
         Retrieve the maintenance config for an ALBA Backend
         :param alba_backend_guid: Guid of the ALBA Backend to extract the maintenance config from
+        :type alba_backend_guid: str
+        :param config: Arakoon configuration of the backend (optional, for caching)
+        :type config: str
         :return: Maintenance config
         :rtype: dict
         """
-        alba_backend = AlbaBackend(alba_backend_guid)
-        abm_config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
-        return AlbaCLI.run(command='get-maintenance-config', config=abm_config)
+        if config is None:
+            alba_backend = AlbaBackend(alba_backend_guid)
+            config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
+        return AlbaCLI.run(command='get-maintenance-config', config=config)
 
     @staticmethod
     def set_cache_eviction(alba_backend_guid, config=None):
+        # type: (str, str) -> None
         """
         Set the cache eviction for maintenance of an ALBA Backend
         :param alba_backend_guid: Guid of the ALBA Backend to set the cache eviction for
         :type alba_backend_guid: str
-        :param config: Arakoon configuration of the backend (optional)
+        :param config: Arakoon configuration of the backend (optional, for caching)
         :type config: str
         :return: None
         :rtype: NoneType
@@ -673,7 +679,7 @@ class AlbaController(object):
         if config is None:
             alba_backend = AlbaBackend(alba_backend_guid)
             config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
-        maintenance_config = AlbaCLI.run(command='get-maintenance-config', config=config)
+        maintenance_config = AlbaController.get_maintenance_config(alba_backend_guid, config)
         eviction_types = maintenance_config.get('eviction_type', ['Automatic'])  # Defaults to ['Automatic'] normally
         # Check if update would be required. Put in place so Migration can call this function also
         if 'Automatic' in eviction_types:

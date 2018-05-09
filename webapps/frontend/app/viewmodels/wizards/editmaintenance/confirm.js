@@ -1,4 +1,4 @@
-// Copyright (C) 2016 iNuron NV
+// Copyright (C) 2018 iNuron NV
 //
 // This file is part of Open vStorage Open Source Edition (OSE),
 // as available from
@@ -49,8 +49,8 @@ define([
                         }, function(error) {
                             error = generic.extractErrorMessage(error);
                             generic.alertError(
-                                $.t('alba:wizards.add_osd.confirm.failure'),
-                                $.t('alba:wizards.add_osd.confirm.failure_msg', {why: error})
+                                $.t('alba:wizards.' + self.data.wizardName + '.confirm.failure'),
+                                $.t('alba:wizards.' + self.data.wizardName + '.confirm.failure_msg', {why: error})
                             );
                         });
                 });

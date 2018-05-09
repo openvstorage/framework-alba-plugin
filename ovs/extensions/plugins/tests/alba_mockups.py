@@ -28,6 +28,8 @@ class VirtualAlbaBackend(object):
     """
     A virtual Alba Backend
     """
+    MAINTENANCE_CONFIG_KEY = 'maintenance_config'
+
     data = {}
     run_log = {}
     statistics = None
@@ -84,16 +86,43 @@ class VirtualAlbaBackend(object):
         data = VirtualAlbaBackend._get_data(**kwargs)
         return data['nsms']
 
-    @staticmethod
-    def update_maintenance_config(**kwargs):
+    @classmethod
+    def update_maintenance_config(cls, **kwargs):
         """
         Updates maintenance config
         """
-        key = VirtualAlbaBackend._key_from_config(**kwargs)
-        data = VirtualAlbaBackend._get_data(**kwargs)
-        if 'set-lru-cache-eviction' in kwargs:
-            data['lru_cache_eviction'] = kwargs['set-lru-cache-eviction']
-            VirtualAlbaBackend.run_log[key].append(['update_maintenance_config', 'set_lru_cache_eviction'])
+        action_key_map = {'set-lru-cache-eviction': ('redis_lru_cache_eviction', {}),
+                          'enable-auto-cleanup-deleted-namespaces-days': ('auto_cleanup_deleted_namespaces', 30),
+                          '--eviction-type-random': ('eviction_type', ['Random'])}
+        key = cls._key_from_config(**kwargs)
+        data = cls._get_data(**kwargs)
+        if cls.MAINTENANCE_CONFIG_KEY not in data:
+            data[cls.MAINTENANCE_CONFIG_KEY] = {}
+        maintenance_config = data[cls.MAINTENANCE_CONFIG_KEY]
+        for action, (maintenance_key, maintenance_value) in action_key_map.iteritems():
+            if action in kwargs:
+                maintenance_config[maintenance_key] = kwargs[action]
+                cls.run_log[key].append(['update_maintenance_config', action])
+            if action in kwargs.get('extra_params', []):
+                # Special case, take the value from the mapping
+                maintenance_config[maintenance_key] = maintenance_value
+                cls.run_log[key].append(['update_maintenance_config', action])
+
+    @classmethod
+    def get_maintenance_config(cls, **kwargs):
+        """
+        Return sample maintenance config
+        """
+        sample_config = {u'auto_cleanup_deleted_namespaces': None,
+                         u'auto_repair_disabled_nodes': [],
+                         u'auto_repair_timeout_seconds': 900.0,
+                         u'cache_eviction_prefix_preset_pairs': {},
+                         u'enable_auto_repair': True,
+                         u'enable_rebalance': True,
+                         u'eviction_type': [u'Automatic'],
+                         u'redis_lru_cache_eviction': None}
+        sample_config.update(cls._get_data(**kwargs).get(cls.MAINTENANCE_CONFIG_KEY, {}))
+        return sample_config
 
     @staticmethod
     def update_nsm_host(**kwargs):

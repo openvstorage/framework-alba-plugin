@@ -441,13 +441,13 @@ class AlbaBackendViewSet(viewsets.ViewSet):
     @return_simple()
     @load(AlbaBackend, validator=_validate_access)
     def get_maintenance_config(self, albabackend):
-        # type : (AlbaBackend, int) -> None
+        # type : (AlbaBackend, int) -> dict
         """
         Set the maintenance config for the Backend
         :param albabackend: ALBA Backend to set the maintenance config for
         :type albabackend: ovs.dal.hybrids.albabackend.AlbaBackend
-        :return: Asynchronous result of a CeleryTask
-        :rtype: celery.result.AsyncResult
+        :return: Dict that represents the config
+        :rtype: dict
         """
         return AlbaController.get_maintenance_config(alba_backend_guid=albabackend.guid)
 

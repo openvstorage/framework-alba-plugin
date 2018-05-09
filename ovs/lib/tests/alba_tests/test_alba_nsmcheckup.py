@@ -87,7 +87,8 @@ class NSMCheckup(unittest.TestCase):
         self._validate_nsm([['1']])
         self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [['update_abm_client_config'],
                                                                            ['add_nsm_host', 'backend_1-nsm_0'],
-                                                                           ['update_maintenance_config', 'set_lru_cache_eviction']])
+                                                                           ['update_maintenance_config', '--eviction-type-random'],
+                                                                           ['update_maintenance_config', 'enable-auto-cleanup-deleted-namespaces-days']])
 
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaController.nsm_checkup()
@@ -250,7 +251,8 @@ class NSMCheckup(unittest.TestCase):
         self.assertIsNone(obj=alba_backend.nsm_clusters[0].nsm_services[0].service.storagerouter)
         self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [['update_abm_client_config'],
                                                                            ['add_nsm_host', 'backend_1-nsm_0'],
-                                                                           ['update_maintenance_config', 'set_lru_cache_eviction']])
+                                                                           ['update_maintenance_config','--eviction-type-random'],
+                                                                           ['update_maintenance_config','enable-auto-cleanup-deleted-namespaces-days']])
 
         # Add cluster already invokes a NSM checkup, so nothing should have changed
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
