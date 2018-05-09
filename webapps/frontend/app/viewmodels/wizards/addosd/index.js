@@ -17,11 +17,12 @@
 define([
     'jquery', 'knockout', 'ovs/generic', 'ovs/formBuilder',
     '../build', './confirm', './gather', './data'
-], function($, ko, generic, formBuilder, build, Confirm, Gather, data) {
+], function($, ko, generic, formBuilder, Build, Confirm, Gather, data) {
     "use strict";
     return function(options) {
         var self = this;
-        build(self);
+        // Inherit
+        Build.call(self);
 
         // Variables
         self.data = data;

@@ -15,6 +15,10 @@ The [OVS commandline](https://openvstorage.gitbooks.io/administration/content/Ad
 
 ##### Specific ASD node related keys
 ```
+/ovs/alba/asdnodes/main = {"client_timeout": 20}
+Note: This file does not exist by default. It can be created and manipulated in case one requires to change global asdnode settings.
+Calls towards the asd-manager can take up to <client_timeout value> seconds before raising an error.    
+
 /ovs/alba/asdnodes/<node_id>/config/main = {"username": "root",
                                             "version": 0,
                                             "ip": "$Public IP of the ASD node",

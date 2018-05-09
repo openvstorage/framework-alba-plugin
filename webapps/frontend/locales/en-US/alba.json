@@ -1,4 +1,9 @@
 {
+    "backend_detail": {
+        "actions": {
+            "edit_maintenance": "Edit maintenance config"
+        }
+    },
     "dashboard": {
         "helpcontent": "This panel displays the state of the Open vStorage Backends. It shows how many OSDs are in use by the backend, grouped by their state.",
         "helptitle": "Help - Backends",
@@ -386,6 +391,25 @@
                 "warning": "Adding presets can help shape the Open vStorage Backend to your specific needs.<br /><br />When creating a preset, make sure to understand the impact of certain compression algorithms and policies. For example, creating a (1, 0, 1, 1) policy might cause dataloss when a single disk fails. Remember that the order in which policies are defined is the same order in which policies will be used. Make sure to put the safest/most preferred policies on top.<br /><br />Improperly configured presets can cause dataloss!"
             },
             "title": "Add Preset"
+        },
+        "edit_maintenance": {
+            "confirm": {
+                "basic_info": "Validate and confirm information below",
+                "auto_cleanup_deleted_namespaces": "Amount of days:",
+                "detailed_info": "Maintenance will be setup with these settings for this backend",
+                "failure": "Failure",
+                "failure_msg": "Changing maintenance config failed: __why__",
+                "started": "Change",
+                "started_msg": "Changing maintenance config",
+                "success": "Changed",
+                "success_msg": "Successfully changed maintenance config"
+            },
+            "gather": {
+                "auto_cleanup_deleted_namespaces": "Amount of days:",
+                "auto_cleanup_deleted_namespaces_help": "Amount of days to keep namespaces in the recycle bin. Value '0' indicates instant removal",
+                "loading": "All required information is being loaded. Please wait"
+            },
+            "title": "Edit maintenance config"
         },
         "edit_preset": {
             "confirm": {

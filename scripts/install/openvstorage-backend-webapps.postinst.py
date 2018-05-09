@@ -21,6 +21,5 @@ import sys
 # (Re)load plugins to make the Alba plugin available
 if len(sys.argv) >= 3 and sys.argv[2] == 'configure' and (len(sys.argv) == 3 or sys.argv[3] == ''):
     # Fresh installation scenario
-    sys.path.append('/opt/OpenvStorage')
     from ovs.extensions.generic.plugins import PluginManager
     PluginManager.install_plugins()

@@ -203,6 +203,42 @@ class AlbaMigrationController(object):
             except Exception:
                 AlbaMigrationController._logger.exception('Updating migration version failed')
 
+        ####################################
+        # Enable auto-cleanup
+        migration_auto_cleanup_key = '/ovs/framework/migration|alba_auto_cleanup'
+        if Configuration.get(key=migration_auto_cleanup_key, default=False) is False:
+            try:
+                for storagerouter in StorageRouterList.get_storagerouters():
+                    storagerouter.invalidate_dynamics('features')  # New feature was added
+                errors = []
+                for alba_backend in AlbaBackendList.get_albabackends():
+                    try:
+                        AlbaController.set_auto_cleanup(alba_backend.guid)
+                    except Exception as ex:
+                        AlbaMigrationController._logger.exception('Failed to set the auto-cleanup for ALBA Backend {0}'.format(alba_backend.name))
+                        errors.append(ex)
+                if len(errors) == 0:
+                    Configuration.set(key=migration_auto_cleanup_key, value=True)
+            except Exception:
+                AlbaMigrationController._logger.exception('Updating auto cleanup failed')
+
+        ####################################
+        # Change cache eviction
+        migration_random_eviction_key = '/ovs/framework/migration|alba_cache_eviction_random'
+        if Configuration.get(key=migration_random_eviction_key, default=False) is False:
+            try:
+                errors = []
+                for alba_backend in AlbaBackendList.get_albabackends():
+                    try:
+                        AlbaController.set_cache_eviction(alba_backend.guid)
+                    except Exception as ex:
+                        AlbaMigrationController._logger.exception('Failed to set the auto-cleanup for ALBA Backend {0}'.format(alba_backend.name))
+                        errors.append(ex)
+                if len(errors) == 0:
+                    Configuration.set(key=migration_random_eviction_key, value=True)
+            except Exception:
+                AlbaMigrationController._logger.exception('Updating auto cleanup failed')
+
         AlbaMigrationController._logger.info('Finished out of band migrations')
 
     @staticmethod

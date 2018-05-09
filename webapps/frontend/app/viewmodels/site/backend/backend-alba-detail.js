@@ -17,14 +17,15 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
-    '../../containers/albabackend', '../../containers/albanode', '../../containers/backend',
-    '../../containers/backendtype', '../../containers/domain', '../../containers/storagerouter', '../../containers/albaosd',
-    '../../wizards/addnode/index', '../../wizards/addpreset/index', '../../wizards/linkbackend/index',
-    '../../wizards/unlinkbackend/index'
+    'viewmodels/containers/backend/albabackend', 'viewmodels/containers/albanode/albanode', 'viewmodels/containers/backend/backend',
+    'viewmodels/containers/backend/backendtype', 'viewmodels/containers/domain/domain',
+    'viewmodels/containers/storagerouter/storagerouter', 'viewmodels/containers/albanode/albaosd',
+    'viewmodels/wizards/addnode/index', 'viewmodels/wizards/addpreset/index', 'viewmodels/wizards/linkbackend/index',
+    'viewmodels/wizards/unlinkbackend/index', 'viewmodels/wizards/editmaintenance/index'
 ], function($, app, ko, router, dialog,
             shared, generic, Refresher, api,
             AlbaBackend, Node, Backend, BackendType, Domain, StorageRouter, AlbaOSD,
-            AddNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard) {
+            AddNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard, EditMaintenanceWizard) {
     "use strict";
     return function() {
         var self = this;
@@ -431,6 +432,12 @@ define([
               }
             });
             return node_to_return
+        };
+        self.editMaintenance = function() {
+            dialog.show(new EditMaintenanceWizard({
+                modal: true,
+                backend: self.albaBackend()
+            }));
         };
 
         // Durandal

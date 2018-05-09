@@ -17,7 +17,7 @@
 define([
     'jquery', 'knockout',
     'ovs/generic',
-    '../containers/albaosd'
+    'viewmodels/containers/albanode/albaosd'
 ], function($, ko, generic, Osd) {
     "use strict";
     return function(id, node, albaBackend) {

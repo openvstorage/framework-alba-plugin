@@ -15,12 +15,14 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'knockout', 'ovs/generic', '../build', './gather', './confirm', './data'],
-    function($, ko, generic, build, Gather, Confirm, data) {
+    'jquery', 'knockout', 'ovs/generic',
+        '../build', './gather', './confirm', './data'],
+    function($, ko, generic, Build, Gather, Confirm, data) {
     "use strict";
     return function(options) {
         var self = this;
-        build(self);
+        // Inherit
+        Build.call(self);
 
         // Variables
         self.data = data;

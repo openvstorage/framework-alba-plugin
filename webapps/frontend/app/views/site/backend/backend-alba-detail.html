@@ -47,6 +47,12 @@ but WITHOUT ANY WARRANTY of any kind.
                                    enable: $root.shared.user.roles().contains('manage') && backend() !== undefined && backend().status() === 'running'">
                     <span class="fa" data-i18n="[html]ovs:icons.delete"></span>
                 </button>
+                <button type="button" class="btn btn-mini btn-default" id="editMaintenance" style="color: #428bca;"
+                        data-bind="click: $root.editMaintenance,
+                                   tooltip: 'alba:backend_detail.actions.edit_maintenance',
+                                   enable: backend().loaded() && backend().status() === 'running' && $root.shared.user.roles().contains('manage')">
+                    <span class="fa" data-i18n="[html]ovs:icons.cog"></span>
+                </button>
             </li>
         </ul>
         <div class="tab-content">

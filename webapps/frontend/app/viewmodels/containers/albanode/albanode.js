@@ -17,8 +17,8 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
     'ovs/generic', 'ovs/api', 'ovs/shared',
-    '../containers/albaslot',
-    '../wizards/addosd/index', '../wizards/removeosd/index'
+    'viewmodels/containers/albanode/albaslot',
+    'viewmodels/wizards/addosd/index', 'viewmodels/wizards/removeosd/index'
 ], function($, app, ko, dialog,
             generic, api, shared,
             Slot,

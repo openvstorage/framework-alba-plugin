@@ -33,9 +33,9 @@ from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.generic.exceptions import InvalidCredentialsError, NotFoundError
 from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
+from ovs_extensions.generic.toolbox import ExtensionsToolbox
 from ovs.lib.alba import AlbaController
 from ovs.lib.disk import DiskController
-from ovs.lib.helpers.toolbox import Toolbox
 from ovs.lib.helpers.decorators import add_hooks, ovs_task
 
 
@@ -186,7 +186,7 @@ class AlbaNodeController(object):
                 elif mtype == 'osd_type':
                     required_params[key] = (str, AlbaOSD.OSD_TYPES.keys())
                 elif mtype == 'ip':
-                    required_params[key] = (str, Toolbox.regex_ip)
+                    required_params[key] = (str, ExtensionsToolbox.regex_ip)
                 elif mtype == 'port':
                     required_params[key] = (int, {'min': 1, 'max': 65535})
         if can_be_filled is False:
@@ -195,8 +195,7 @@ class AlbaNodeController(object):
         validation_reasons = []
         for slot_info in slot_information:
             try:
-                Toolbox.verify_required_params(required_params=required_params,
-                                               actual_params=slot_info)
+                ExtensionsToolbox.verify_required_params(required_params=required_params, actual_params=slot_info)
             except RuntimeError as ex:
                 validation_reasons.append(str(ex))
         if len(validation_reasons) > 0:
