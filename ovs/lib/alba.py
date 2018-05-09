@@ -39,6 +39,7 @@ from ovs.dal.hybrids.j_abmservice import ABMService
 from ovs.dal.hybrids.j_nsmservice import NSMService
 from ovs.dal.hybrids.service import Service as DalService
 from ovs.dal.hybrids.servicetype import ServiceType
+from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.albaosdlist import AlbaOSDList
@@ -592,15 +593,9 @@ class AlbaController(object):
             AlbaController.remove_cluster(alba_backend_guid=alba_backend.guid)
             raise
 
-        # Enable LRU
-        key = AlbaController.CONFIG_ALBA_BACKEND_KEY.format('lru_redis')
-        if Configuration.exists(key, raw=True):
-            endpoint = Configuration.get(key, raw=True).strip().strip('/')
-        else:
-            masters = StorageRouterList.get_masters()
-            endpoint = 'redis://{0}:6379'.format(masters[0].ip)
-        redis_endpoint = '{0}/alba_lru_{1}'.format(endpoint, alba_backend.guid)
-        AlbaCLI.run(command='update-maintenance-config', config=config, named_params={'set-lru-cache-eviction': redis_endpoint})
+        # Enable cache eviction and auto-cleanup
+        AlbaController.set_cache_eviction(alba_backend_guid, config=config)
+        AlbaController.set_auto_cleanup(alba_backend_guid, config=config)
 
         # Mark the Backend as 'running'
         alba_backend.backend.status = Backend.STATUSES.RUNNING
@@ -609,6 +604,86 @@ class AlbaController(object):
         AlbaNodeController.model_albanodes()
         AlbaController.checkup_maintenance_agents.delay()
         alba_backend.invalidate_dynamics('live_status')
+
+    @staticmethod
+    def can_set_auto_cleanup():
+        # type: () -> bool
+        """
+        Return if it is possible to set the auto-cleanup
+        :return: True if possible else False
+        :rtype: bool
+        """
+        storagerouter = StorageRouterList.get_storagerouters()[0]
+        return StorageRouter.ALBA_FEATURES.AUTO_CLEANUP in storagerouter.features['alba']['features']
+
+    @staticmethod
+    def set_auto_cleanup(alba_backend_guid, days=30, config=None):
+        # type: (str, int) -> None
+        """
+        Set the auto cleanup policy for an ALBA Backend
+        :param alba_backend_guid: Guid of the ALBA Backend to set the auto cleanup for
+        :type alba_backend_guid: str
+        :param days: Number of days to wait before cleaning up. Setting to 0 means disabling the auto cleanup
+        and always clean up a namespace after removing it
+        :type days: int
+        :param config: Arakoon configuration of the backend (optional, for caching)
+        :type config: str
+        :return: None
+        :rtype: NoneType
+        """
+        if not isinstance(days, int) or 0 > days:
+            raise ValueError('Number of days must be an integer > 0')
+        if AlbaController.can_set_auto_cleanup():
+            if config is None:
+                alba_backend = AlbaBackend(alba_backend_guid)
+                config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
+            # Check if the maintenance config was not set (disabled)
+            maintenance_config = AlbaController.get_maintenance_config(alba_backend_guid, config)
+            # Should be None when disabled (default behaviour)
+            auto_cleanup_setting = maintenance_config.get('auto_cleanup_deleted_namespaces', None)
+            if auto_cleanup_setting is not None and auto_cleanup_setting == days:
+                return  # Nothing to do
+            # Default to 30 days
+            named_params = {'enable-auto-cleanup-deleted-namespaces-days': days}
+            AlbaCLI.run(command='update-maintenance-config', config=config, named_params=named_params)
+
+    @staticmethod
+    def get_maintenance_config(alba_backend_guid, config=None):
+        # type: (str, str) -> dict
+        """
+        Retrieve the maintenance config for an ALBA Backend
+        :param alba_backend_guid: Guid of the ALBA Backend to extract the maintenance config from
+        :type alba_backend_guid: str
+        :param config: Arakoon configuration of the backend (optional, for caching)
+        :type config: str
+        :return: Maintenance config
+        :rtype: dict
+        """
+        if config is None:
+            alba_backend = AlbaBackend(alba_backend_guid)
+            config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
+        return AlbaCLI.run(command='get-maintenance-config', config=config)
+
+    @staticmethod
+    def set_cache_eviction(alba_backend_guid, config=None):
+        # type: (str, str) -> None
+        """
+        Set the cache eviction for maintenance of an ALBA Backend
+        :param alba_backend_guid: Guid of the ALBA Backend to set the cache eviction for
+        :type alba_backend_guid: str
+        :param config: Arakoon configuration of the backend (optional, for caching)
+        :type config: str
+        :return: None
+        :rtype: NoneType
+        """
+        if config is None:
+            alba_backend = AlbaBackend(alba_backend_guid)
+            config = Configuration.get_configuration_path(key=alba_backend.abm_cluster.config_location)
+        maintenance_config = AlbaController.get_maintenance_config(alba_backend_guid, config)
+        eviction_types = maintenance_config.get('eviction_type', ['Automatic'])  # Defaults to ['Automatic'] normally
+        # Check if update would be required. Put in place so Migration can call this function also
+        if 'Automatic' in eviction_types:
+            AlbaCLI.run(command='update-maintenance-config', config=config, extra_params=['--eviction-type-random'])
 
     @staticmethod
     @ovs_task(name='alba.remove_cluster')
