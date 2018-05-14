@@ -22,12 +22,12 @@ define([
     'viewmodels/containers/storagerouter/storagerouter', 'viewmodels/containers/albanode/albaosd',
     'viewmodels/containers/albanode/albanodecluster',
     'viewmodels/wizards/addnode/index', 'viewmodels/wizards/addpreset/index', 'viewmodels/wizards/linkbackend/index',
-    'viewmodels/wizards/unlinkbackend/index',
+    'viewmodels/wizards/unlinkbackend/index', 'viewmodels/wizards/editmaintenance/index',
     'viewmodels/services/albanode', 'viewmodels/services/albanodecluster', 'viewmodels/services/subscriber'
 ], function($, app, ko, router, dialog, d3,
             shared, generic, Refresher, api,
             BaseContainer, AlbaBackend, AlbaNode, Backend, BackendType, Domain, StorageRouter, AlbaOSD, NodeCluster,
-            AddNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard,
+            AddNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard, EditMaintenanceWizard,
             albaNodeService, albaNodeClusterService, subscriberService) {
     "use strict";
     var viewModelMapping = {
@@ -538,8 +538,15 @@ define([
                         }
                     });
             }).promise();
+        },
+        editMaintenance: function() {
+            var self = this;
+            dialog.show(new EditMaintenanceWizard({
+                modal: true,
+                backend: self.albaBackend()
+            }));
         }
-    };
+    }
 
     var durandalFunctions = {
         activate: function(mode, guid) {
