@@ -421,7 +421,7 @@ class AlbaNodeClusterController(object):
         :param add: When True: register the node under the cluster else remove it
         :type add: bool
         :return: The callback data
-        :rtype: tuple(key, callable)
+        :rtype: list[tuple[str, dict, none]
         """
         # @todo implement unregister
         if add is False:

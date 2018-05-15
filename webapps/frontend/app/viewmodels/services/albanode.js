@@ -147,7 +147,7 @@ define([
          */
         self.fillSlots = function(guid, slotData) {
             return api.post('alba/nodes/' + guid + '/fill_slots', { data: { slot_information: slotData } })
-                .then(self.shared.tasks.wait)
+                .then(shared.tasks.wait)
         }
     }
     return new AlbaNodeService();

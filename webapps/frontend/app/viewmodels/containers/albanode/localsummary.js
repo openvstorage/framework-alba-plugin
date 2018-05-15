@@ -89,7 +89,7 @@ define([
 
         // Function
         /**
-         * Retrieve this object as list of individual objects with styling (used in the GUI) but fitlered the GUID
+         * Retrieve this object as list of individual objects with styling (used in the GUI) but filtered the GUID
          */
         self.listViewByBackend = function(albaBackendGuid){
             return ko.computed(function() {
@@ -98,7 +98,7 @@ define([
                 var listView = $.map(colourInfoMap, function(value, key) {
                     return $.extend({
                         text: ko.utils.unwrapObservable(self[key]).filter(function(osd) {
-                            if (osd.claimed_by === albaBackendGuid) { return osd }
+                            if (ko.utils.unwrapObservable(osd.claimed_by) === albaBackendGuid) { return osd }
                             else { unavailable.push(osd) }
                         }).length
                     }, colourInfoMap[key])

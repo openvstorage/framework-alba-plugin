@@ -327,4 +327,4 @@ class ASDManagerClient(object):
         :return: None
         :rtype: Nonetype
         """
-        return self._call(requests.post, 'dual_controller/sync_stack', data={'stack': stack})
+        return self._call(requests.post, 'dual_controller/sync_stack', data={'stack': json.dumps(stack)})

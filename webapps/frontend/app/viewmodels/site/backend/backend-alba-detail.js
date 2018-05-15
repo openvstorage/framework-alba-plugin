@@ -202,7 +202,7 @@ define([
              * Different than the expanded check in the way this will return true when any are collapsed as opposed to all
              */
             return self.nodesAndCluster().some(function(node){
-                    return node.expanded()
+                    return !node.expanded()
             });
         });
         self.showDetails = ko.pureComputed(function() {
@@ -543,10 +543,10 @@ define([
             var self = this;
             dialog.show(new EditMaintenanceWizard({
                 modal: true,
-                backend: self.albaBackend()
+                backend: self.alba_backend
             }));
         }
-    }
+    };
 
     var durandalFunctions = {
         activate: function(mode, guid) {
