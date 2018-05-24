@@ -48,17 +48,17 @@ class AlbaNodeClusterController(object):
     @staticmethod
     @ovs_task(name='albanodecluster.create_new')
     def create(name):
-        # type: (str) -> str
+        # type: (str) -> AlbaNodeCluster
         """
         Creates a new AlbaNodeCluster
         :param name: Name of the AlbaNodeCluster
-        :return: Newly created instance guid
-        :rtype: basestring
+        :return: Newly created instance
+        :rtype: AlbaNodeCluster
         """
         an_cluster = AlbaNodeCluster()
         an_cluster.name = name
         an_cluster.save()
-        return an_cluster.guid
+        return an_cluster
 
     @staticmethod
     @ovs_task(name='albanodecluster.register_node')

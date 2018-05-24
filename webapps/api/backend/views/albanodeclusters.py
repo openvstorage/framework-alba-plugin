@@ -35,7 +35,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
     prefix = r'alba/nodeclusters'
     base_name = 'albanodeclusters'
-    return_exceptions = ['albanodes.create', 'albanodes.destroy']
+    return_exceptions = ['albanodeclusters.destroy']
 
     enabled = False
 
@@ -68,19 +68,19 @@ class AlbaNodeViewSet(viewsets.ViewSet):
 
     @log()
     @required_roles(['read', 'write', 'manage'])
-    @return_task()
+    @return_object(AlbaNodeCluster, mode='created')
     @load()
     def create(self, name):
         """
         Adds a node cluster with a given name to the model
         :param name: Name of the node cluster
         :type name: str
-        :return: Celery async task result
-        :rtype: CeleryTask
+        :return: The created AlbaNodeCluster object
+        :rtype: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
         """
         if not self.enabled:
             raise RuntimeError('Feature not enabled')
-        return AlbaNodeClusterController.create.delay(name)
+        return AlbaNodeClusterController.create(name)
 
     @log()
     @required_roles(['manage'])
@@ -120,7 +120,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         Registers AlbaNodes under a AlbaNodeCluster
         The AlbaNodeCluster to which the AlbaNode will be registered
-        :type albanodecluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
+        :param albanodecluster: The AlbaNodeCluster to which the AlbaNodes will be registered
         :type albanodecluster: ovs.dal.hybrids.albanodecluster.AlbaNodeCluster
         :param node_ids: List of IDs of AlbaNodes to register
         :type node_ids: list[str]
