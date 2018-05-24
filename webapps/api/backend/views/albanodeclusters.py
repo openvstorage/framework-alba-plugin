@@ -37,6 +37,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     base_name = 'albanodeclusters'
     return_exceptions = ['albanodes.create', 'albanodes.destroy']
 
+    enabled = False
+
     # noinspection PyProtectedMember
     @log()
     @required_roles(['read'])
@@ -76,6 +78,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         :return: Celery async task result
         :rtype: CeleryTask
         """
+        if not self.enabled:
+            raise RuntimeError('Feature not enabled')
         return AlbaNodeClusterController.create.delay(name)
 
     @log()

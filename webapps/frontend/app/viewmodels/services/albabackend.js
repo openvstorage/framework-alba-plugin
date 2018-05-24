@@ -19,9 +19,9 @@
  */
 define([
     'jquery', 'knockout',
-    'ovs/api'
+    'ovs/api', 'ovs/shared'
 ], function ($, ko,
-             api) {
+             api, shared) {
 
     function AlbaBackendService() {
         var self = this;
@@ -69,7 +69,7 @@ define([
                     alba_node_guid: albaNodeGuid
                 }
             })
-            .then(self.shared.tasks.wait)
+            .then(shared.tasks.wait)
         };
     }
     return new AlbaBackendService();

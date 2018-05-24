@@ -20,7 +20,10 @@ define(['knockout',
     "use strict";
     function viewModel(newNode, oldNode, confirmOnly) {
         var self = this;
-        var typeEnum = Object.freeze({generic: 'GENERIC', cluster: 'ALBANODECLUSTER'});
+        var enableDualController = false;
+        var typeEnum;
+        if (enableDualController) {typeEnum = Object.freeze({generic: 'GENERIC', cluster: 'ALBANODECLUSTER'});}
+        else { typeEnum = Object.freeze({generic: 'GENERIC'});}
         // Observables
         self.name = ko.observable('').extend({regex: generic.nameRegex});
         self.newNode = ko.observable(newNode);

@@ -444,8 +444,7 @@ class AlbaController(object):
                 ips = actual_osd_info['ips']
                 port = actual_osd_info['port']
                 decommissioned = actual_osd_info['decommissioned']
-                if decommissioned is True:
-                    failure_osds.append('{0}:{1}'.format(ips[0], port))
+                if decommissioned is True:  # Not suited for mapping
                     continue
                 if ips is None:
                     # IPs can be None for OSDs of type Backend which have been added at this point, but not yet claimed
