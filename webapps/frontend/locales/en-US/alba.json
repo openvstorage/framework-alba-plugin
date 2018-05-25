@@ -464,7 +464,7 @@
                 "basic_info": "Following Alba Nodes will be added to cluster:",
                 "complete": "Completed",
                 "failed": "Adding node cluster failed: __why__",
-                "in_progress": "Node is being registered un the cluster",
+                "in_progress": "Node is being registered in the cluster",
                 "ip": "IP Address",
                 "started": "Started",
                 "success": "Node cluster has been created"

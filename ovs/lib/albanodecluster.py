@@ -166,6 +166,10 @@ class AlbaNodeClusterController(object):
         :return: None
         :rtype: NoneType
         """
+        metadata_type_validation = {'integer': (int, None),
+                                    'osd_type': (str, AlbaOSD.OSD_TYPES.keys()),
+                                    'ip': (str, ExtensionsToolbox.regex_ip),
+                                    'port': (int, {'min': 1, 'max': 65535})}
         node_cluster = AlbaNodeCluster(node_cluster_guid)
         # Check for the active side if it's part of the cluster
         active_node = AlbaNode(node_guid)
@@ -180,14 +184,8 @@ class AlbaNodeClusterController(object):
             if flow == 'fill_add':
                 required_params['alba_backend_guid'] = (str, None)
             for key, mtype in node_cluster.cluster_metadata['{0}_metadata'.format(flow)].iteritems():
-                if mtype == 'integer':
-                    required_params[key] = (int, None)
-                elif mtype == 'osd_type':
-                    required_params[key] = (str, AlbaOSD.OSD_TYPES.keys())
-                elif mtype == 'ip':
-                    required_params[key] = (str, ExtensionsToolbox.regex_ip)
-                elif mtype == 'port':
-                    required_params[key] = (int, {'min': 1, 'max': 65535})
+                if mtype in metadata_type_validation:
+                    required_params[key] = metadata_type_validation[mtype]
         if can_be_filled is False:
             raise ValueError('The given node cluster does not support filling slots')
 
