@@ -1,0 +1,112 @@
+<!--
+Copyright (C) 2016 iNuron NV
+
+This file is part of Open vStorage Open Source Edition (OSE),
+as available from
+
+      http://www.openvstorage.org and
+      http://www.openvstorage.com.
+
+This file is free software; you can redistribute it and/or modify it
+under the terms of the GNU Affero General Public License v3 (GNU AGPLv3)
+as published by the Free Software Foundation, in version 3 as it comes
+in the LICENSE.txt file of the Open vStorage OSE distribution.
+
+Open vStorage is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY of any kind.
+-->
+<!--The parent is the AlbaBackendViewModel as is the root. The current context is an AlbaNodeCluster -->
+<!--Complete view of the node wrapped in a tbody for table display-->
+<tbody>
+    <tr>
+        <td style="border-top: 0;">
+            <span class="hand fa" data-i18n="[html]alba:icons.collapse"
+                  data-bind="visible: expanded(), click: function() { expanded(!expanded()); }"></span>
+            <span class="hand fa" data-i18n="[html]alba:icons.expand"
+                  data-bind="visible: !expanded(), click: function() { expanded(!expanded()); }"></span>
+        </td>
+        <td style="border-top: 0;" data-bind="style: { fontWeight: expanded() ? 'bold' : '' },
+                                              text: name"></td>
+        <td></td>
+        <!--@Todo insert local summary-->
+        <td data-bind="if: !expanded()" style="border-top: 0;">
+            <!-- ko let: { summary: local_summary } -->
+                <!-- ko foreach: { data: summary.listView, as: 'item' } -->
+                <span class="label label-success pointer"
+                      data-bind="tooltip: item.tooltip,
+                                 text: item.text,
+                                 css: item.css"></span>
+                <span class="label label-success pointer"
+                      data-bind="tooltip: local_summary() === null ? '' : $.t('alba:generic.states.osdinfo.node.claimed'),
+                                 text: (local_summary() === null ? 0 : localSummaryByBackend($root.albaBackend().guid())().green)"></span>&nbsp;
+                <span class="label label-warning pointer"
+                      data-bind="tooltip: local_summary() === null ? '' : $.t('alba:generic.states.osdinfo.node.warning'),
+                                 text: (local_summary() === null ? 0 : localSummaryByBackend($root.albaBackend().guid())().orange)"></span>&nbsp;
+                <span class="label label-danger pointer"
+                      data-bind="tooltip: local_summary() === null ? '' : $.t('alba:generic.states.osdinfo.node.error'),
+                                 text: (local_summary() === null ? 0 : localSummaryByBackend($root.albaBackend().guid())().red)"></span>&nbsp;
+                <span class="label label-unavailable pointer"
+                      data-bind="tooltip: $root.local_summary() === null ? '' : $.t('alba:generic.states.osdinfo.node.unavailable'),
+                                 text: (local_summary() === null ? 0 : localSummaryByBackend($root.albaBackend().guid())().lightgray)"></span>
+                <span class="label label-missing pointer"
+                      data-bind="tooltip: $root.local_summary() === null ? '' : $.t('alba:generic.states.osdinfo.node.unknown'),
+                                 text: (local_summary() === null ? 0 : localSummaryByBackend($root.albaBackend().guid())().gray)"></span>
+                <!-- /ko -->
+            <!-- /ko -->
+        </td>
+        <td style="border-top: 0;" data-i18n="alba:generic.nodetypes.albanodecluster"></td>
+        <td style="border-top: 0;" align="right">
+            <span class="hand fa fa-fw"
+                  data-i18n="[html]ovs:icons.add"
+                  data-bind="attr: { id: 'initialize_all_' + name() },
+                             click: registerAlbaNode,
+                             tooltip: 'alba:generic.register_node',
+                             style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !read_only_mode() ? 'black': 'lightgrey' }">
+            </span>
+            <span class="hand fa fa-fw"
+                  data-i18n="[html]alba:icons.delete"
+                  data-bind="attr: { id: 'delete_' + name() },
+                             click: function() { deleteNode(); },
+                             tooltip: 'alba:generic.remove',
+                             style: { color: $root.shared.user.roles().contains('manage') && canDelete() ? 'black' : 'lightgrey' }">
+            </span>
+        </td>
+    </tr>
+    <!-- ko if: expanded -->
+    <!-- ko compose: { model: $data, view: 'backend-alba-detail-registered-node-slots.html', area: 'site/backend', preserveContext:true, cacheViews:true, mode: 'templated'}-->
+    <!--/ko-->
+        <!-- ko foreach: alba_nodes -->
+            <!-- ko compose: { model: $data, view: 'backend-alba-detail-registered-node-details.html', area: 'site/backend', preserveContext:true, cacheViews:true, mode: 'templated'}-->
+                <tr>
+                    <td data-part="expand" style="border-top: 0;"></td>
+                    <td data-part="local_summary" style="border-top: 0;"></td>
+                    <td data-part="actions" style="border-top: 0;" align="right">
+                        <span class="hand fa fa-fw"
+                              data-i18n="[html]alba:icons.initialize"
+                              data-bind="attr: { id: 'initialize_all_' + node_id() },
+                                         click: function() { $parent.addOSDs(); },
+                                         tooltip: 'alba:generic.initialize_all',
+                                         style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !$parent.read_only_mode() ? 'black': 'lightgrey' }">
+                        </span>
+                        <span class="hand fa fa-fw"
+                              data-i18n="[html]alba:icons.claim"
+                              data-bind="attr: { id: 'claim_all_' + node_id() },
+                                         click: function() { claimAll(); },
+                                         tooltip: 'alba:generic.claim_all',
+                                         style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() && !read_only_mode() ? 'black' : 'lightgrey' }">
+                        </span>
+                        <span class="hand fa fa-fw"
+                              data-i18n="[html]alba:icons.delete"
+                              data-bind="attr: { id: 'delete_' + node_id() },
+                                         click: function() { deleteNode(); },
+                                         tooltip: 'alba:generic.remove',
+                                         style: { color: $root.shared.user.roles().contains('manage') && canDelete() ? 'black' : 'lightgrey' }">
+                        </span>
+                    </td>
+                </tr>
+            <!--/ko-->
+            <!-- ko compose: { model: $data, view: 'backend-alba-detail-registered-node-slots.html', area: 'site/backend', preserveContext:true, cacheViews:true, mode: 'templated'}-->
+            <!--/ko-->
+        <!--/ko-->
+    <!--/ko-->
+</tbody>

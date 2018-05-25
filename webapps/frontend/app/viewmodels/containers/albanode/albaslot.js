@@ -17,34 +17,85 @@
 define([
     'jquery', 'knockout',
     'ovs/generic',
-    'viewmodels/containers/albanode/albaosd'
-], function($, ko, generic, Osd) {
+    'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albaosd',
+    'viewmodels/services/subscriber'
+], function($, ko,
+            generic,
+            BaseContainer, OSD,
+            subscriberService) {
     "use strict";
-    return function(id, node, albaBackend) {
-        var self = this;
-        // Variables
-        self.errorStatuses = ['warning', 'error', 'unavailable', 'unknown'];
+    var viewModelMapping = {
+        'osds': {
+            key: function(data) {  // For relation updates: check if the osd_id has changed before discarding a model
+                return ko.utils.unwrapObservable(data.osd_id)
+            },
+            create: function(options) {
+                var data = $.extend(options.data || {}, {
+                    alba_backend_guid: ko.utils.unwrapObservable(options.parent.alba_backend_guid),
+                    node_metadata: ko.utils.unwrapObservable(options.parent.node_metadata),
+                    slot_id: ko.utils.unwrapObservable(options.parent.slot_id)
+                });
+                return new OSD(data);
+            }
+        }
+    };
 
-        // Externally added
-        self.node        = node;
-        self.albaBackend = albaBackend;
+    /**
+     * AlbaSlot viewModel
+     * @param data: Data to include in the model
+     */
+    function AlbaSlot(data) {
+        var self = this;
+        BaseContainer.call(self);
+
+        // Constants
+        self.errorStatuses = Object.freeze({
+            warning: 'warning',
+            error: 'error',
+            unavailable: 'unavailable',
+            unknown: 'unknown'
+        });
 
         // Observables
         self.loaded       = ko.observable(false);
-        self.osds         = ko.observableArray([]);
         self.processing   = ko.observable(false);
         self.size         = ko.observable();
-        self.slotID       = ko.observable(id);
-        self.status       = ko.observable();  // Can be empty, ok, warning, error
-        self.statusDetail = ko.observable();
         // ASD slot properties
         self.device       = ko.observable();
         self.mountpoint   = ko.observable();
         self.usage        = ko.observable();
 
+        var vmData = $.extend({  // Order matters
+            alba_backend_guid: null, // Guid of the AlbaBackend of the AlbaDetailView
+            // Displaying props
+            alba_backend_guids: null,
+            // ASD slot props
+            usage: null,
+            device: null,
+            mountpoint: null,
+            aliases: null,
+            available: null,
+            node_id: null,
+            partition_aliases: null,
+            partition_amount: null,
+            // OSD slot props
+            status: null,
+            status_detail: '',
+            size: null,
+            node_metadata: {}, // Can be both an object with properties or a viewModel with observable
+            slot_id: null,
+            osds: []
+        }, data);
+
+        ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
+        self.loaded(true);
+
         // Computed
-        self.canClear = ko.computed(function() {
-            if (self.node !== undefined && self.node.metadata() !== undefined && self.node.metadata().clear === false) {
+        self.hasErrorStatus = ko.pureComputed(function() {
+            return Object.values(self.errorStatuses).contains(self.status()) && self.status_detail() !== undefined && self.status_detail() !== ''
+        });
+        self.canClear = ko.pureComputed(function() {
+            if (!!ko.utils.unwrapObservable(self.node_metadata.clear) === false) {
                 return false;
             }
             if (self.osds().length === 0) {
@@ -58,13 +109,13 @@ define([
             });
             return canClear;
         });
-        self.canFill = ko.computed(function() {
-           return self.node.metadata().fill
+        self.canFill = ko.pureComputed(function() {
+           return !!ko.utils.unwrapObservable(self.node_metadata.fill)
         });
-        self.canFillAdd = ko.computed(function() {
-            return self.node.metadata().fill_add
+        self.canFillAdd = ko.pureComputed(function() {
+            return !!ko.utils.unwrapObservable(self.node_metadata.fill_add)
         });
-        self.canClaim = ko.computed(function() {
+        self.canClaim = ko.pureComputed(function() {
             var claimable = false;
             $.each(self.osds(), function(index, osd) {
                 if (osd.status() === 'available') {
@@ -73,7 +124,7 @@ define([
             });
             return claimable;
         });
-        self.locked = ko.computed(function() {
+        self.locked = ko.pureComputed(function() {
             var locked = false;
             $.each(self.osds(), function(index, osd) {
                 if (osd.locked()) {
@@ -83,33 +134,12 @@ define([
             return locked;
         });
 
-        // Functions
-        self.clear = function() {
-            self.node.removeSlot(self);
+        // Event Functions
+        self.addOSDs = function() {
+            subscriberService.trigger('albanode_{0}:add_osds'.format([self.node_id()]), self)
         };
-        self.fillData = function(data) {
-            self.status(data.status);
-            self.statusDetail(data.status_detail || '');
-            self.size(data.size);
-            // ASD slot
-            generic.trySet(self.usage, data, 'usage');
-            generic.trySet(self.device, data, 'device');
-            generic.trySet(self.mountpoint, data, 'mountpoint');
-            // Add OSDs
-            var osdIds = Object.keys(data.osds || {});
-            generic.crossFiller(
-                osdIds, self.osds,
-                function(osdId) {
-                    return new Osd(osdId, self, self.node, self.albaBackend);
-                }, 'osdID'
-            );
-            $.each(self.osds(), function (index, osd) {
-                osd.fillData(data.osds[osd.osdID()])
-            });
-            self.osds.sort(function(a, b) {
-                return a.osdID() < b.osdID() ? -1 : 1;
-            });
-            self.loaded(true);
+        self.clear = function() {
+            subscriberService.trigger('albanode_{0}:clear_slot'.format([self.node_id()]), self);
         };
         self.claimOSDs = function() {
             var data = {}, osds = [];
@@ -118,8 +148,11 @@ define([
                     osds.push(osd);
                 }
             });
-            data[self.slotID()] = {slot: self, osds: osds};
-            self.node.claimOSDs(data);
+            data[self.slot_id()] = {osds: osds};
+            subscriberService.trigger('albanode_{0}:claim_osds'.format([self.node_id()]), data);
         };
-    };
+    }
+    // Prototypical inheritance
+    AlbaSlot.prototype = $.extend({}, BaseContainer.prototype);
+    return AlbaSlot
 });

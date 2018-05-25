@@ -1,4 +1,4 @@
-// Copyright (C) 2017 iNuron NV
+// Copyright (C) 2016 iNuron NV
 //
 // This file is part of Open vStorage Open Source Edition (OSE),
 // as available from
@@ -14,20 +14,16 @@
 // Open vStorage is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
-define([
-    'jquery', 'knockout', 'ovs/shared', 'ovs/formBuilder'
-], function($, ko, shared, formBuilder) {
+define([], function() {
     "use strict";
-    return function(stepOptions) {
-        var self = this;
 
-        // Variables
-        self.data   = stepOptions.data;
-        self.shared = shared;
-
-        // Computed
-        self.canContinue = ko.computed(function() {
-            return formBuilder.validateForm('alba:wizards.add_osd.gather.invalid_', self.data.formQuestions());
-        });
-    }
+    /**
+     * AlbaNodeType singleton which contains all possible AlbaNodeTypes (for re-use defined in a seperate container)
+     * @constructor
+     */
+    return Object.freeze({
+        generic: 'GENERIC',
+        asd: 'ASD',
+        nodeCluster: 'NODE CLUSTER'
+    });
 });

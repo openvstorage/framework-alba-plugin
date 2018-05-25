@@ -189,6 +189,12 @@ class ASDManagerClient(object):
         """
         return self._call(requests.post, 'slots/{0}/restart'.format(slot_id))
 
+    def stop_slot(self, slot_id):
+        """
+        Stops all OSDs on the slot
+        """
+        return self._call(requests.post, 'slots/{0}/stop'.format(slot_id))
+
     ##########
     # UPDATE #
     ##########
@@ -313,3 +319,12 @@ class ASDManagerClient(object):
         :rtype: str
         """
         return self._call(requests.get, 'service_status/{0}'.format(name))['status'][1]
+
+    def sync_stack(self, stack):
+        """
+        Synchronize the stack of an AlbaNode with the stack of another AlbaNode
+        :param stack: Stack to sync
+        :return: None
+        :rtype: Nonetype
+        """
+        return self._call(requests.post, 'dual_controller/sync_stack', data={'stack': json.dumps(stack)})

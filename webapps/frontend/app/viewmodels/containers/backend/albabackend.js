@@ -17,163 +17,157 @@
 define([
     'jquery', 'knockout', 'durandal/app',
     'ovs/generic', 'ovs/api', 'ovs/shared',
-    'viewmodels/containers/backend/backend'
-], function($, ko, app, generic, api, shared, Backend) {
+    'viewmodels/containers/shared/base_container', 'viewmodels/containers/backend/backend', 'viewmodels/containers/backend/localsummary',
+    'viewmodels/services/backend', 'viewmodels/services/albabackend'
+], function($, ko, app, generic, api, shared,
+            BaseContainer, Backend, LocalSummary,
+            backendService, albaBackendService) {
     "use strict";
-    return function(guid) {
+
+    var viewModelMapping = {
+        backend_guid: {
+            update: function(options) {
+                if (options.parent.backend) {
+                    options.parent.backend.guid(options.data)
+                }
+                return options.data
+            }
+        },
+        backend: {
+            key: function(data) {  // For relation updates: check if the GUID has changed before discarding a model
+                return ko.utils.unwrapObservable(data.guid)
+            },
+            create: function(options) {
+                // The Backend model is never to be filled yet in this model (yet?)
+                return new Backend(ko.utils.unwrapObservable(options.data.guid));
+            }
+        },
+        local_summary: {
+            create: function(options) {
+                return new LocalSummary(options.data)
+            }
+        },
+        include: ['color']
+    };
+    /**
+     * AlbaBackend class
+     * @param guid: Guid of the AlbaBackend
+     * @param data: Data of the AlbaBackend
+     * @constructor
+     */
+    function AlbaBackend(guid, data){
         var self = this;
+        BaseContainer.call(self);
 
         // Handles
         self.actionsHandle = undefined;
         self.loadHandle    = undefined;
-        self.rawData       = undefined;
         self.shared        = shared;
 
         // Observables
-        self.albaId             = ko.observable();
-        self.availableActions   = ko.observableArray([]);
-        self.backend            = ko.observable();
-        self.backendGuid        = ko.observable();
-        self.color              = ko.observable();
-        self.guid               = ko.observable(guid);
-        self.linkedBackendGuids = ko.observableArray();
         self.loaded             = ko.observable(false);
         self.loading            = ko.observable(false);
-        self.localSummary       = ko.observable();
-        self.name               = ko.observable();
-        self.presets            = ko.observableArray([]);
-        self.scaling            = ko.observable();
-        self.totalSize          = ko.observable();
-        self.usage              = ko.observable([]);
+        self.color              = ko.observable(null);
+        self.availableActions   = ko.observableArray([]);
+
+        var vmData = $.extend({
+            alba_id: null,
+            backend: {},
+            backend_guid: null,
+            color: null,
+            guid: guid,
+            linked_backend_guids: [],
+            presets: [],
+            name: null,
+            scaling: null,
+            local_summary: {},
+            usages: {size: null, used: null, free: null}  // Converted into a viewModel with observables
+        }, data || {});
+
+        ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
 
         // Computed
-        self.enhancedPresets = ko.computed(function() {
-            var presets = [], policies, newPolicy, isAvailable, isActive, inUse,
-                policyMapping = ['grey', 'black', 'green'], worstPolicy, replication, policyObject;
-            $.each(self.presets(), function(index, preset) {
-                worstPolicy = 0;
-                policies = [];
-                replication = undefined;
-                $.each(preset.policies, function(jndex, policy) {
-                    policyObject = JSON.parse(policy.replace('(', '[').replace(')', ']'));
-                    isAvailable = preset.policy_metadata[policy].is_available;
-                    isActive = preset.policy_metadata[policy].is_active;
-                    inUse = preset.policy_metadata[policy].in_use;
-                    newPolicy = {
-                        text: policy,
-                        color: 'grey',
-                        isActive: false,
-                        k: policyObject[0],
-                        m: policyObject[1],
-                        c: policyObject[2],
-                        x: policyObject[3]
-                    };
-                    if (isAvailable) {
-                        newPolicy.color = 'black';
-                    }
-                    if (isActive) {
-                        newPolicy.isActive = true;
-                    }
-                    if (inUse) {
-                        newPolicy.color = 'green';
-                    }
-                    worstPolicy = Math.max(policyMapping.indexOf(newPolicy.color), worstPolicy);
-                    policies.push(newPolicy);
-                });
-                if (preset.policies.length === 1) {
-                    policyObject = JSON.parse(preset.policies[0].replace('(', '[').replace(')', ']'));
-                    if (policyObject[0] === 1 && policyObject[0] + policyObject[1] === policyObject[3] && policyObject[2] === 1) {
-                        replication = policyObject[0] + policyObject[1];
-                    }
-                }
-                presets.push({
-                    policies: policies,
-                    name: preset.name,
-                    compression: preset.compression,
-                    fragSize: preset.fragment_size,
-                    encryption: preset.fragment_encryption,
-                    color: policyMapping[worstPolicy],
-                    inUse: preset.in_use,
-                    isDefault: preset.is_default,
-                    replication: replication
-                });
-            });
-            return presets.sort(function(preset1, preset2) {
-                return preset1.name.toLowerCase() < preset2.name.toLowerCase() ? -1 : 1;
-            });
+        self.enhancedPresets = ko.pureComputed(function() {
+            return backendService.parsePresets(self.presets().map(function(presetModel) {
+                return ko.toJS(presetModel)
+            }));
         });
-
-        // Functions
-        self.getAvailableActions = function() {
-            return $.Deferred(function(deferred) {
-                if (generic.xhrCompleted(self.actionsHandle)) {
-                    self.actionsHandle = api.get('alba/backends/' + self.guid() + '/get_available_actions')
-                        .done(function(data) {
-                            self.availableActions(data);
-                            deferred.resolve();
-                        })
-                        .fail(deferred.reject);
-                } else {
-                    deferred.reject();
+        self.usage = ko.pureComputed(function() {
+            var usageKeys = ['size', 'used', 'free'];
+            if (!usageKeys.every(function(key) { return ko.utils.unwrapObservable(self.usages[key]) !== null })) {
+                return []
+            }
+            var stats = ko.mapping.toJS(self.usages);
+            return [
+                {
+                    name: $.t('alba:generic.stats.used'),
+                    value: stats.used,
+                    percentage: stats.size > 0 ? stats.used / stats.size : 0,
+                    // Use custom colors for the pie chart
+                    color: '#377ca8'
+                },
+                {
+                    name: $.t('alba:generic.stats.freespace'),
+                    value: stats.size > 0 ? stats.free : 0.000001,
+                    percentage: stats.size > 0 ? stats.free / stats.size : 1
                 }
-            }).promise();
-        };
-        self.fillData = function(data) {
-            self.name(data.name);
-            self.albaId(data.alba_id);
-            self.scaling(data.scaling);
-            generic.trySet(self.presets, data, 'presets');
-            generic.trySet(self.localSummary, data, 'local_summary');
-            generic.trySet(self.linkedBackendGuids, data, 'linked_backend_guids');
-            if (self.backendGuid() !== data.backend_guid) {
-                self.backendGuid(data.backend_guid);
-                self.backend(new Backend(data.backend_guid));
+                ];
+        });
+        self.totalSize = ko.pureComputed(function() {
+            if (self.usages.size) {
+                return ko.utils.unwrapObservable(self.usages.size)
             }
-            if (data.hasOwnProperty('usages')) {
-                var stats = data.usages;
-                self.totalSize(stats.size);
-                self.usage([
-                    {
-                        name: $.t('alba:generic.stats.used'),
-                        value: stats.used,
-                        percentage: stats.size > 0 ? stats.used / stats.size : 0,
-                        // Use custom colors for the pie chart
-                        color: '#377ca8'
-                    },
-                    {
-                        name: $.t('alba:generic.stats.freespace'),
-                        value: stats.size > 0 ? stats.free : 0.000001,
-                        percentage: stats.size > 0 ? stats.free / stats.size : 1
+        })
+    }
+    var functions = {
+        getAvailableActions: function() {
+            var self = this;
+            return $.when()
+                .then(function() {
+                    if (!generic.xhrCompleted(self.actionsHandle)) {
+                        return self.availableActions()
                     }
-                ]);
-            }
-            self.rawData = data;
-            self.loaded(true);
-            self.loading(false);
-        };
-        self.load = function(contents) {
+                    return self.actionsHandle = albaBackendService.getAvailableActions(self.guid())
+                        .then(function(data) {
+                            self.availableActions(data);
+                            return self.availableActions()
+                        })
+                })
+        },
+        load: function(contents) {
+            var self = this;
             if (contents === undefined) {
                 // TODO: Remove collecting all dynamics and all relations on every load action
                 contents = '_dynamics,-statistics,-ns_data,-local_stack,_relations';
             }
-            return $.Deferred(function(deferred) {
-                self.loading(true);
-                if (generic.xhrCompleted(self.loadHandle)) {
-                    self.loadHandle = api.get('alba/backends/' + self.guid(), { queryparams: { contents: contents } })
-                        .done(function(data) {
-                            self.fillData(data);
-                            deferred.resolve();
-                        })
-                        .fail(function() {
-                            deferred.reject();
+            self.loading(true);
+            return $.when()
+                .then(function() {
+                    if (!generic.xhrCompleted(self.loadHandle)) {
+                        return self
+                    }
+                    return self.loadHandle = albaBackendService.loadAlbaBackend(self.guid(), { contents: contents })
+                        .then(function(data) {
+                            self.update(data);
+                            self.loaded(true);
+                            return data
                         })
                         .always(function() {
                             self.loading(false);
                         });
-                } else {
-                    deferred.reject();
-                }
-            }).promise();
-        };
+                });
+        },
+        /**
+         * Loads the associated backend model
+         */
+        loadBackend: function() {
+            if (!ko.utils.unwrapObservable(self.backend_guid)) {
+                throw new Error('No backend information')
+            }
+            var backend = new Backend(self.backend_guid());
+            return backend.load()
+        }
     };
+    AlbaBackend.prototype = $.extend({}, BaseContainer.prototype, functions);
+    return AlbaBackend
 });

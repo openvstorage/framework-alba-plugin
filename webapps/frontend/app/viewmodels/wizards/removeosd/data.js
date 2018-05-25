@@ -16,21 +16,19 @@
 /*global define */
 define(['knockout'], function(ko){
     "use strict";
-    var singleton = function() {
-        var data = {
-            safety: ko.observable({}),
-            loaded: ko.observable(false),
-            albaOSD: ko.observable(),
-            albaNode: ko.observable(),
-            confirmed:  ko.observable(false),
-            completed:  ko.observable(),
-            albaBackend: ko.observable()
-        };
-        data.shouldConfirm = ko.computed(function() {
-            return (data.safety().lost !== undefined && data.safety().lost > 0) ||
-                   (data.safety().critical !== undefined && data.safety().critical > 0);
+    function ViewModel(albaOSD, albaNode, albaBackend) {
+        var self = this;
+        self.safety = ko.observable({});
+        self.loaded = ko.observable(false);
+        self.albaOSD =  ko.observable(albaOSD);
+        self.albaNode= ko.observable(albaNode);
+        self.confirmed=  ko.observable(false);
+        self.albaBackend= ko.observable(albaBackend);
+
+        self.shouldConfirm = ko.computed(function() {
+            var safety = self.safety();
+            return (safety.lost !== undefined && safety.lost > 0) || (safety.critical !== undefined && safety.critical > 0);
         });
-        return data;
-    };
-    return singleton();
+    }
+    return ViewModel;
 });

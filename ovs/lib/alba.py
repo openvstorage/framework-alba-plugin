@@ -84,7 +84,7 @@ class AlbaController(object):
     def update_osds(osds, alba_node_guid):
         """
         Update OSDs that are already registered on an ALBA Backend.
-        Currently used to update the IPs on which the OSD should be exposed
+        Currently used to update the IPs or node ID on which the OSD should be exposed
         :param osds: List of OSD information objects [ [osd_id, osd_data],  ]
         :type osds: list
         :param alba_node_guid: Guid of the ALBA Node on which the OSDs reside
@@ -98,19 +98,35 @@ class AlbaController(object):
         for osd_id, osd_data in osds:
             AlbaController._logger.debug('OSD with ID {0}: Verifying information'.format(osd_id))
             try:
-                ExtensionsToolbox.verify_required_params(required_params={'ips': (list, ExtensionsToolbox.regex_ip)}, actual_params=osd_data)
+                ExtensionsToolbox.verify_required_params(required_params={'ips': (list, ExtensionsToolbox.regex_ip, False),
+                                                                          'node_id': (str, None, False)},
+                                                         actual_params=osd_data)
             except RuntimeError as ex:
                 validation_reasons.append(str(ex))
                 continue
+
+            requested_ips = osd_data.get('ips')
+            requested_node_id = osd_data.get('node_id')
+            if requested_ips is None and requested_node_id is None:
+                continue  # Nothing to do
 
             osd = AlbaOSDList.get_by_osd_id(osd_id)
             if osd is None:
                 validation_reasons.append('OSD with ID {0} has not yet been registered.'.format(osd_id))
                 continue
 
-            if osd_data['ips'] == osd.ips:
+            if requested_node_id is not None:
+                requested_node = AlbaNodeList.get_albanode_by_node_id(requested_node_id)
+                if requested_node is None:
+                    validation_reasons.append('OSD with ID {0} cannot be added to node with ID {1} because the node does not exist'.format(osd_id, requested_node_id))
+                else:
+                    node_osd_ids = [osd_id for slot_data in requested_node.stack.values() for osd_id in slot_data['osds'].keys()]
+                    if osd_id not in node_osd_ids:
+                        validation_reasons.append('OSD with ID {0} is not a part of the requested node with ID {1}'.format(osd_id, requested_node_id))
+
+            if requested_ips is not None and requested_ips == osd.ips:
                 AlbaController._logger.info('OSD with ID {0} already has the requested IPs configured: {1}'.format(osd_id, ', '.join(osd.ips)))
-                continue
+
             if osd.osd_type == AlbaOSD.OSD_TYPES.ALBA_BACKEND:
                 validation_reasons.append('OSD with ID {0} is of type {1} and cannot be updated.'.format(osd_id, osd.osd_type))
 
@@ -125,7 +141,8 @@ class AlbaController(object):
         failures = []
         for osd_id, osd_data in osds_to_process:
             AlbaController._logger.debug('OSD with ID {0}: Updating'.format(osd_id))
-            ips = osd_data['ips']
+            requested_ips = osd_data.get('ips')
+            requested_node_id = osd_data.get('node_id')
             osd = osd_data['object']
             orig_ips = osd.ips
             config_location = Configuration.get_configuration_path(key=osd.alba_backend.abm_cluster.config_location)
@@ -133,29 +150,35 @@ class AlbaController(object):
             try:
                 alba_node.client.update_osd(slot_id=osd.slot_id,
                                             osd_id=osd.osd_id,
-                                            update_data={'ips': ips})
+                                            update_data={'ips': requested_ips})
             except Exception:
                 AlbaController._logger.exception('OSD with ID {0}: Failed to update IPs via asd-manager'.format(osd_id))
                 failures.append(osd_id)
                 continue
+            if requested_ips is not None:
+                try:
+                    AlbaCLI.run(command='update-osd', config=config_location, named_params={'long-id': osd_id,
+                                                                                            'ip': ','.join(requested_ips)})
+                except AlbaError:
+                    AlbaController._logger.exception('OSD with ID {0}: Failed to update IPs via ALBA'.format(osd_id))
+                    failures.append(osd_id)
+                    continue
 
-            try:
-                AlbaCLI.run(command='update-osd', config=config_location, named_params={'long-id': osd_id, 'ip': ','.join(ips)})
-            except AlbaError:
-                AlbaController._logger.exception('OSD with ID {0}: Failed to update IPs via ALBA'.format(osd_id))
-                failures.append(osd_id)
-                continue
+            # Node ID is stored under the ASD Config
 
             AlbaController._logger.debug('OSD with ID {0}: Updating in model'.format(osd_id))
             try:
-                osd.ips = ips
+                if requested_ips is not None:
+                    osd.ips = requested_ips
+                if requested_node_id is not None:
+                    osd.alba_node = AlbaNodeList.get_albanode_by_node_id(requested_node_id)
                 osd.save()
             except Exception:
                 failures.append(osd_id)
                 try:  # Updated in ALBA, so try to revert config in ALBA, because model is out of sync
                     AlbaCLI.run(command='update-osd', config=config_location, named_params={'long-id': osd_id, 'ip': ','.join(orig_ips)})
                 except AlbaError:
-                    AlbaController._logger.exception('OSD with ID {0}: Failed to revert OSD IPs from new IPs {1} to original IPs {2}'.format(osd_id, ', '.join(ips), ', '.join(orig_ips)))
+                    AlbaController._logger.exception('OSD with ID {0}: Failed to revert OSD IPs from new IPs {1} to original IPs {2}'.format(osd_id, ', '.join(requested_ips), ', '.join(orig_ips)))
         return failures
 
     @staticmethod
@@ -167,7 +190,7 @@ class AlbaController(object):
         :type alba_backend_guid: str
         :param osds: OSDs to add to the ALBA Backend
         :type osds: list[dict]
-        :param alba_node_guid: Guid of the ALBA Node
+        :param alba_node_guid: Guid of the ALBA Node (None in case of other Backends as OSDs)
         :type alba_node_guid: str
         :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
         :type metadata: dict
@@ -214,6 +237,9 @@ class AlbaController(object):
                 break
         if service_deployed is False:
             validation_reasons.append('No maintenance agents have been deployed for ALBA Backend {0}'.format(alba_backend.name))
+
+        if len(generic_osds) > 0 and alba_node_guid is None:
+            validation_reasons.append('The OSDs are not linked to an AlbaNode')
 
         if len(validation_reasons) > 0:
             raise RuntimeError('- {0}'.format('\n- '.join(validation_reasons)))
@@ -418,8 +444,7 @@ class AlbaController(object):
                 ips = actual_osd_info['ips']
                 port = actual_osd_info['port']
                 decommissioned = actual_osd_info['decommissioned']
-                if decommissioned is True:
-                    failure_osds.append('{0}:{1}'.format(ips[0], port))
+                if decommissioned is True:  # Not suited for mapping
                     continue
                 if ips is None:
                     # IPs can be None for OSDs of type Backend which have been added at this point, but not yet claimed
@@ -512,6 +537,9 @@ class AlbaController(object):
         alba_node.invalidate_dynamics()
         alba_backend.invalidate_dynamics()
         alba_backend.backend.invalidate_dynamics()
+        # Dual Controller logic changes nothing about the claim. Only the stack should be updated
+        if alba_node.alba_node_cluster is not None:
+            alba_node.alba_node_cluster.invalidate_dynamics()
         return failure_osds, unclaimed_osds
 
     @staticmethod

@@ -1,0 +1,86 @@
+<!--
+Copyright (C) 2016 iNuron NV
+
+This file is part of Open vStorage Open Source Edition (OSE),
+as available from
+
+      http://www.openvstorage.org and
+      http://www.openvstorage.com.
+
+This file is free software; you can redistribute it and/or modify it
+under the terms of the GNU Affero General Public License v3 (GNU AGPLv3)
+as published by the Free Software Foundation, in version 3 as it comes
+in the LICENSE.txt file of the Open vStorage OSE distribution.
+
+Open vStorage is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY of any kind.
+-->
+<!--The parent is the AlbaBackendViewModel as is the root. The current context is an AlbaNode -->
+<tr>
+    <td data-part="expand" style="border-top: 0;">
+        <span class="hand fa" data-i18n="[html]alba:icons.collapse"
+              data-bind="visible: expanded(), click: function() { expanded(!expanded()); }"></span>
+        <span class="hand fa" data-i18n="[html]alba:icons.expand"
+              data-bind="visible: !expanded(), click: function() { expanded(!expanded()); }"></span>
+    </td>
+    <td data-part="node_id" style="border-top: 0;" data-bind="text: node_id"></td>
+    <td style="border-top: 0;">
+        <div>
+            <!-- ko if: type() !== 'GENERIC' -->
+                <!-- ko ifnot: hasStorageRouter()-->
+                    <span data-bind="text: ip"></span>:<span data-bind="text: port"></span>
+                <!-- /ko -->
+                <!-- ko if: hasStorageRouter() -->
+                    <span data-bind="lazyloader: { item: storagerouter, loadedObservable: 'loaded', undefinedLoading: true }">
+                        <a data-part="lazy-entry"
+                           data-bind="text: item().name,
+                                      attr: { href: item().pageHash }"></a>
+                    </span>
+                <!-- /ko -->
+            <!-- /ko -->
+            <!-- ko if: type() === 'GENERIC' -->
+                <!-- ko if: name() !== undefined -->
+                    <span data-bind="text: name()"></span>
+                <!-- /ko -->
+                <!-- ko if: name() === undefined -->
+                    <span data-i18n="ovs:generic.null"></span>
+                <!-- /ko -->
+            <!-- /ko -->
+        </div>
+        <div class="notification-message" data-bind="visible: read_only_mode()">
+            <a data-i18n="alba:detail.update" data-bind="attr: { href: $root.shared.routing.loadHash('updates') }"></a>
+            <span data-i18n="alba:detail.update_required"></span>
+        </div>
+    </td>
+    <td data-part="local_summary" data-bind="if: !expanded()" style="border-top: 0;">
+        <!-- ko foreach: local_summary.listViewByBackend($root.alba_backend.guid()) -->
+            <span data-bind="css: css,
+                             text: text,
+                             tooltip: tooltip"></span>
+        <!-- /ko -->
+    </td>
+    <td style="border-top: 0;" data-bind="text: type"></td>
+    <td data-part="actions" style="border-top: 0;" align="right">
+        <span class="hand fa fa-fw"
+              data-i18n="[html]alba:icons.initialize"
+              data-bind="attr: { id: 'initialize_all_' + node_id() },
+                         click: function() { addOSDs(); },
+                         tooltip: 'alba:generic.initialize_all',
+                         style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !read_only_mode() ? 'black': 'lightgrey' }">
+        </span>
+        <span class="hand fa fa-fw"
+              data-i18n="[html]alba:icons.claim"
+              data-bind="attr: { id: 'claim_all_' + node_id() },
+                         click: function() { claimAll(); },
+                         tooltip: 'alba:generic.claim_all',
+                         style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() && !read_only_mode() ? 'black' : 'lightgrey' }">
+        </span>
+        <span class="hand fa fa-fw"
+              data-i18n="[html]alba:icons.delete"
+              data-bind="attr: { id: 'delete_' + node_id() },
+                         click: function() { deleteNode(); },
+                         tooltip: 'alba:generic.remove',
+                         style: { color: $root.shared.user.roles().contains('manage') && canDelete() ? 'black' : 'lightgrey' }">
+        </span>
+    </td>
+</tr>

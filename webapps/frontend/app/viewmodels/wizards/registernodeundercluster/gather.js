@@ -16,8 +16,8 @@
 /*global define */
 define([
     'jquery', 'knockout',
-    'ovs/api', 'ovs/shared', 'ovs/generic',
-], function($, ko, api, shared, generic) {
+    'ovs/api', 'ovs/shared', 'ovs/generic'
+], function($, ko, api, shared) {
     "use strict";
     return function(stepOptions) {
         var self = this;
@@ -29,9 +29,9 @@ define([
         // Computed
         self.canContinue = ko.computed(function() {
             var reasons = [], fields = [];
-            if (!self.data.name.valid()) {
-                fields.push('name');
-                reasons.push($.t('alba:wizards.add_node.gather.invalid_name'));
+            if (self.data.selectedAlbaNodes().length === 0){
+                fields.push('nodes');
+                reasons.push('No nodes selected')  //@todo translation
             }
             return {value: reasons.length === 0, reasons: reasons, fields: fields};
         });

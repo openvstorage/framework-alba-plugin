@@ -66,6 +66,13 @@ class GenericManagerClient(object):
         _ = self, slot_id
         return {'_success': True}
 
+    def stop_slot(self, slot_id):
+        """
+        Pretends to stop a slot
+        """
+        _ = self, slot_id
+        return {'_success': True}
+
     def delete_osd(self, slot_id, osd_id):
         """
         Pretends to delete the OSD from the Slot
@@ -86,3 +93,13 @@ class GenericManagerClient(object):
         """
         _ = self
         return {'_version': 3}
+
+    def sync_stack(self, stack):
+        """
+        Synchronize the stack of an AlbaNode with the stack of another AlbaNode
+        :param stack: Stack to sync
+        :return: None
+        :rtype: Nonetype
+        """
+        _ = stack
+        return None

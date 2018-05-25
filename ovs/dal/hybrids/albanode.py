@@ -22,9 +22,10 @@ import os
 import re
 import requests
 from ovs.dal.dataobject import DataObject
+from ovs.dal.hybrids.albanodecluster import AlbaNodeCluster
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
-from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs_extensions.generic.exceptions import InvalidCredentialsError
 from ovs.extensions.generic.logger import Logger
 from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
@@ -66,14 +67,16 @@ class AlbaNode(DataObject):
                     Property('password', str, mandatory=False, doc='Password of the AlbaNode'),
                     Property('type', NODE_TYPES.keys(), default=NODE_TYPES.ASD, doc='The type of the AlbaNode'),
                     Property('package_information', dict, mandatory=False, default={}, doc='Information about installed packages and potential available new versions')]
-    __relations = [Relation('storagerouter', StorageRouter, 'alba_node', onetoone=True, mandatory=False, doc='StorageRouter hosting the AlbaNode')]
+    __relations = [Relation('storagerouter', StorageRouter, 'alba_node', onetoone=True, mandatory=False, doc='StorageRouter hosting the Alba Node'),
+                   Relation('alba_node_cluster', AlbaNodeCluster, 'alba_nodes', mandatory=False, doc='The Alba Node Cluster to which the Alba Node belongs')]
     __dynamics = [Dynamic('stack', dict, 15, locked=True),
                   Dynamic('ips', list, 3600),
                   Dynamic('maintenance_services', dict, 30, locked=True),
                   Dynamic('node_metadata', dict, 3600),
                   Dynamic('supported_osd_types', list, 3600),
                   Dynamic('read_only_mode', bool, 60),
-                  Dynamic('local_summary', dict, 60)]
+                  Dynamic('local_summary', dict, 60),
+                  Dynamic('ipmi_info', dict, 3600)]
 
     def __init__(self, *args, **kwargs):
         """
@@ -215,8 +218,6 @@ class AlbaNode(DataObject):
                                 break
                             except (AlbaError, RuntimeError):
                                 AlbaNode._logger.warning('get-osd-claimed-by failed for IP:port {0}:{1}'.format(ip, port))
-                        if claimed_by == 'unknown' and len(ips) > 0:
-                            raise
                         alba_backend = AlbaBackendList.get_by_alba_id(claimed_by)
                         osd['claimed_by'] = alba_backend.guid if alba_backend is not None else claimed_by
                     except KeyError:
@@ -305,3 +306,16 @@ class AlbaNode(DataObject):
                 if status in state_map:  # Can never be too sure
                     device_info[state_map[status]].append(osd_info)
         return local_summary
+
+    def _ipmi_info(self):
+        """
+        Retrieve the IPMI information of the AlbaNode
+        :return: Dict with ipmi information
+        :rtype: dict
+        """
+        try:
+            return Configuration.get('/ovs/alba/asdnodes/{0}/config/ipmi'.format(self.node_id))
+        except NotFoundException:  # Could be that the ASDManager does not yet have the IPMI info stored
+            return {'ip': None,
+                    'username': None,
+                    'password': None}

@@ -25,14 +25,8 @@ define([
         Build.call(self);
 
         // Variables
-        var data = new Data(options.newNode, options.oldNode, options.confirmOnly);
-        var title = options.oldNode === undefined ? $.t('alba:wizards.add_node.title') : $.t('alba:wizards.replace_node.title');
-
-        // Observables
-        self.title = ko.pureComputed(function() {  // Overrule default title
-            if (data.workingWithCluster()) { return $.t('alba:wizards.add_nodecluster.title')}
-            else { return title }
-        });
+        var data = new Data(options.albaNodeCluster);
+        self.title(generic.tryGet(options, 'title', $.t('alba:wizards.register_node_under_cluster.title')));
         self.modal(generic.tryGet(options, 'modal', false));
 
         // Setup
@@ -40,9 +34,7 @@ define([
             data: data,
             title:self.title
         };
-        if (options.confirmOnly) { self.steps([new Confirm(stepOptions)]); }
-        else { self.steps([new Gather(stepOptions), new Confirm(stepOptions)]); }
-
+        self.steps([new Gather(stepOptions), new Confirm(stepOptions)]);
         self.activateStep();
     };
 });
