@@ -43,7 +43,12 @@ define([
         var data = new Data(options.backend);
         $.when(api.get('alba/backends/get_maintenance_metadata'), api.get('alba/backends/' + data.backend().guid() + '/get_maintenance_config'))
             .then(function(metadata, maintenance_data) {
-                formMapping.auto_cleanup_deleted_namespaces.value = maintenance_data.auto_cleanup_deleted_namespaces || 30;
+                var auto_cleanup_days = maintenance_data.auto_cleanup_deleted_namespaces;
+                if (!(auto_cleanup_days === 0))  {
+                    // Special case - 0 is false-ish so using || for easier assignment would not work
+                    auto_cleanup_days = 30;
+                }
+                formMapping.auto_cleanup_deleted_namespaces.value = auto_cleanup_days;
                 var formData = formBuilder.generateFormData(metadata, formMapping);
                 var formQuestions = formData.questions;
                 var fieldMapping = formData.fieldMapping;
