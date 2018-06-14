@@ -31,7 +31,7 @@ from ovs.extensions.generic.sshclient import UnableToConnectException
 from ovs_extensions.generic.toolbox import ExtensionsToolbox
 from ovs.lib.alba import AlbaController
 from ovs.lib.disk import DiskController
-from ovs.lib.shared.albanode import constants
+from ovs.constants.albanode import ASD_CONFIG, ASD_CONFIG_DIR
 from ovs.lib.helpers.decorators import ovs_task
 
 
@@ -312,8 +312,8 @@ class AlbaNodeClusterController(object):
                     AlbaNodeClusterController._logger.exception('Error while syncing stacks to the passive side')
 
         # Clean configuration management and model - Well, just try it at least
-        if Configuration.exists(constants.ASD_CONFIG.format(osd_id), raw=True):
-            Configuration.delete(constants.ASD_CONFIG_DIR.format(osd_id), raw=True)
+        if Configuration.exists(ASD_CONFIG.format(osd_id), raw=True):
+            Configuration.delete(ASD_CONFIG_DIR.format(osd_id), raw=True)
 
         osd.delete()
         active_node.invalidate_dynamics()
