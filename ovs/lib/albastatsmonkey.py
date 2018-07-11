@@ -56,6 +56,10 @@ class AlbaStatsMonkeyController(StatsMonkey):
                      'ok_standalone': 0.0,
                      'checkup_required': 1.0}
 
+    @classmethod
+    def _get_configuration(cls):
+        return Configuration
+
     def __init__(self):
         """
         Init method. This class is a completely static class, so cannot be instantiated
