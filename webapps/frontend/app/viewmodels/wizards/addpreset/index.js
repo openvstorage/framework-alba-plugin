@@ -54,10 +54,10 @@ define([
                 $.each(options.currentPreset.policies, function (index, policy) {
                     self.data.policies.push({
                         id: ko.observable(index),
-                        k: ko.observable(policy.k).extend({numeric: {min: 0}}),
-                        m: ko.observable(policy.m).extend({numeric: {min: 0}}),
-                        c: ko.observable(policy.c).extend({numeric: {min: 0}}),
-                        x: ko.observable(policy.x).extend({numeric: {min: 0}})
+                        k: ko.observable(policy.k).extend({numeric: {min: 0}, rateLimit: { method: "notifyWhenChangesStop", timeout: 800 }}),
+                        m: ko.observable(policy.m).extend({numeric: {min: 0}, rateLimit: { method: "notifyWhenChangesStop", timeout: 800 }}),
+                        c: ko.observable(policy.c).extend({numeric: {min: 0}, rateLimit: { method: "notifyWhenChangesStop", timeout: 800 }}),
+                        x: ko.observable(policy.x).extend({numeric: {min: 0}, rateLimit: { method: "notifyWhenChangesStop", timeout: 800 }})
                     });
                 });
             };

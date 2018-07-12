@@ -107,10 +107,10 @@ define([
             var newID = Math.max(0, Math.max.apply(this, self.data.policies().map(function(item) { return item.id(); }))) + 1;
             self.data.policies.push({
                 id: ko.observable(newID),
-                k: ko.observable(0).extend({numeric: { min: 0 }}),
-                m: ko.observable(0).extend({numeric: { min: 0 }}),
-                c: ko.observable(0).extend({numeric: { min: 0 }}),
-                x: ko.observable(0).extend({numeric: { min: 0 }})
+                k: ko.observable(0).extend({numeric: { min: 0 }, rateLimit: { method: "notifyWhenChangesStop", timeout: 800 }}),
+                m: ko.observable(0).extend({numeric: { min: 0 }, rateLimit: { method: "notifyWhenChangesStop", timeout: 800 }}),
+                c: ko.observable(0).extend({numeric: { min: 0 }, rateLimit: { method: "notifyWhenChangesStop", timeout: 800 }}),
+                x: ko.observable(0).extend({numeric: { min: 0 }, rateLimit: { method: "notifyWhenChangesStop", timeout: 800 }})
             });
         };
         self.next = function() {
