@@ -48,7 +48,7 @@ class AlbaDalHelper(object):
         DalHelper.setup(**kwargs)
 
         # noinspection PyProtectedMember
-        ManagerClientMockup._clean()
+        ManagerClientMockup.clean()
         # noinspection PyProtectedMember
         VirtualAlbaBackend._clean()
         # noinspection PyProtectedMember
@@ -63,7 +63,7 @@ class AlbaDalHelper(object):
         """
         DalHelper.teardown(**kwargs)
         # noinspection PyProtectedMember
-        ManagerClientMockup._clean()
+        ManagerClientMockup.clean()
         # noinspection PyProtectedMember
         VirtualAlbaBackend._clean()
 

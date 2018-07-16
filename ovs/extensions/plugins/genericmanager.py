@@ -24,6 +24,7 @@ from ovs.extensions.generic.logger import Logger
 class GenericManagerClient(object):
     """
     Generic Manager Client
+    Used by AD OSDs. No API implementation for this type yet.
     """
 
     def __init__(self, node):
