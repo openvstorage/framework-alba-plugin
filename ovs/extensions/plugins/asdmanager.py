@@ -90,13 +90,7 @@ class ASDManagerClient(object):
                 raise InvalidCredentialsError(error_message)
             raise RuntimeError(error_message)
         if clean is True:
-            def _clean(_dict):
-                for _key in _dict.keys():
-                    if _key.startswith('_'):
-                        del _dict[_key]
-                    elif isinstance(_dict[_key], dict):
-                        _clean(_dict[_key])
-            _clean(data)
+            data = self.clean(data)
         duration = time.time() - start
         if duration > self._log_min_duration:
             self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.stack()[1][3], duration, internal_duration))
@@ -106,6 +100,7 @@ class ASDManagerClient(object):
         """
         Gets metadata from the node
         """
+        # Backward compatibility
         return self._call(requests.get, '')
 
     ##############
@@ -114,10 +109,12 @@ class ASDManagerClient(object):
     def get_stack(self):
         """
         Gets the remote node stack
+        :return: stack data
+        :rtype: dict
         """
         # Version 3 introduced 'slots'
         if self.get_metadata()['_version'] >= 3:
-            data = self._call(requests.get, 'slots', timeout=5, clean=True)
+            data = self.extract_data(self._call(requests.get, 'slots', timeout=5))
             for slot_info in data.itervalues():
                 for osd in slot_info.get('osds', {}).itervalues():
                     osd['type'] = 'ASD'
@@ -205,7 +202,8 @@ class ASDManagerClient(object):
         """
         # For backwards compatibility we first attempt to retrieve using the newest API
         try:
-            return self._call(requests.get, 'update/package_information', timeout=120, clean=True)
+            # Newest ASD Manager wraps it. Older ones require cleaning
+            return self.extract_data(self._call(requests.get, 'update/package_information', timeout=120))
         except NotFoundError:
             update_info = self._call(requests.get, 'update/information', timeout=120, clean=True)
             if update_info['version']:
@@ -252,7 +250,8 @@ class ASDManagerClient(object):
         :return: Version of the currently installed package
         :rtype: str
         """
-        return self._call(requests.get, 'update/installed_version_package/{0}'.format(package_name), timeout=60)['version']
+        return self.extract_data(self._call(requests.get, 'update/installed_version_package/{0}'.format(package_name), timeout=60),
+                                 old_key='version')
 
     ############
     # SERVICES #
@@ -308,7 +307,8 @@ class ASDManagerClient(object):
         Retrieve configured maintenance services from asd manager
         :return: dict of services
         """
-        return self._call(requests.get, 'maintenance', clean=True)['services']
+        return self.extract_data(self._call(requests.get, 'maintenance', clean=True),
+                                 old_key='services')
 
     def get_service_status(self, name):
         """
@@ -318,7 +318,8 @@ class ASDManagerClient(object):
         :return: Status of the service
         :rtype: str
         """
-        return self._call(requests.get, 'service_status/{0}'.format(name))['status'][1]
+        return self.extract_data(self._call(requests.get, 'service_status/{0}'.format(name)),
+                                 old_key='status')[1]
 
     def sync_stack(self, stack):
         """
@@ -328,3 +329,42 @@ class ASDManagerClient(object):
         :rtype: Nonetype
         """
         return self._call(requests.post, 'dual_controller/sync_stack', data={'stack': json.dumps(stack)})
+
+    def extract_data(self, response_data, old_key=None):
+        # type: (dict) -> any
+        """
+        Extract the data from the API
+        For backwards compatibility purposes (older asd-managers might not wrap their data)
+        :param response_data: Data of the response
+        :type response_data: dict
+        :param old_key: Old key (if any) to extract
+        :type old_key: str
+        :return: The data
+        :rtype: any
+        """
+        if 'data' in response_data:
+            return response_data['data']
+        if old_key:
+            if old_key not in response_data:
+                raise KeyError('{0} not present in the response data. Format might have changed'.format(old_key))
+            return response_data[old_key]
+        # Revert back to cleaning the response
+        return self.clean(response_data)
+
+    @classmethod
+    def clean(cls, data):
+        # type: (dict) -> dict
+        """
+        Clean data of metadata keys
+        :param data: Dict with data
+        :type data: dict
+        :return: Cleaned data
+        :rtype: dict
+        """
+        data_copy = data.copy()
+        for key in data.iterkeys():
+            if key.startswith('_'):
+                del data_copy[key]
+            elif isinstance(data_copy[key], dict):
+                data_copy[key] = cls.clean(data_copy[key])
+        return data_copy
