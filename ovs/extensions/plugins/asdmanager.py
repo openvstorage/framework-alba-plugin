@@ -368,9 +368,3 @@ class ASDManagerClient(object):
             elif isinstance(data_copy[key], dict):
                 data_copy[key] = cls.clean(data_copy[key])
         return data_copy
-
-if __name__ == '__main__':
-    from ovs.dal.lists.albanodelist import AlbaNodeList
-    an = AlbaNodeList.get_albanodes()[0]
-    client = an.client  # type: ASDManagerClient
-    client.get_stack()
