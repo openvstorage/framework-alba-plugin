@@ -16,8 +16,10 @@
 /*global define */
 define([
     'jquery', 'knockout',
-    'ovs/api', 'ovs/shared', 'ovs/generic'
-], function($, ko, api, shared, generic) {
+    'ovs/api', 'ovs/shared', 'ovs/generic', 'ovs/pluginloader',
+    'viewmodels/services/albabackend', 'viewmodels/services/storagerouter'
+], function($, ko, api, shared, generic,
+            albaBackendService, storageRouterService) {
     "use strict";
     return function() {
         var self = this;
@@ -33,7 +35,7 @@ define([
         self.validStorageRouterFound = ko.observable();
 
         // Computed
-        self.canContinue = ko.computed(function() {
+        self.canContinue = ko.pureComputed(function() {
             var valid = true, reasons = [], fields = [];
             if (self.validStorageRouterFound() === false) {
                 valid = false;
@@ -46,41 +48,32 @@ define([
         });
 
         self.finish = function(data) {
-            return $.Deferred(function(deferred) {
-                api.post('alba/backends', { data: {
-                    backend_guid: data.guid,
-                    scaling: self.scaling().toUpperCase()
-                }})
-                    .done(function() {
-                        deferred.resolve(data);
-                    })
-                    .fail(deferred.reject);
-            }).promise();
+            return albaBackendService.addAlbaBackend({
+                backend_guid: data.guid,
+                scaling: self.scaling().toUpperCase()
+            })
         };
 
         // Durandal
         self.activate = function() {
             if (generic.xhrCompleted(self.loadStorageRoutersHandle)) {
-                self.loadStorageRoutersHandle = api.get('storagerouters', { queryparams: { contents: '' } })
-                    .done(function(data) {
+                self.loadStorageRoutersHandle = storageRouterService.loadStorageRouters({ contents: '' })
+                    .then(function(data) {
                         var subcalls = [];
                         $.each(data.data, function(index, item) {
-                            subcalls.push($.Deferred(function(deferred) {
-                                api.post('storagerouters/' + item.guid + '/get_metadata')
-                                    .then(self.shared.tasks.wait)
-                                    .done(function(metadata) {
+                            subcalls.push(
+                                storageRouterService.getMetadata(item.guid)
+                                    .then(function(metadata) {
                                         $.each(metadata.partitions, function(role, partitions) {
                                             if (role === 'DB' && partitions.length > 0) {
                                                 self.validStorageRouterFound(true);
                                             }
                                         });
-                                        deferred.resolve();
-                                    })
-                                    .fail(deferred.resolve);
-                                }).promise());
+                                        return metadata
+                                    }))
                         });
                         $.when.apply($, subcalls)
-                            .done(function(){
+                            .then(function(){
                                 if (self.validStorageRouterFound() === undefined) {
                                     self.validStorageRouterFound(false);
                                 }
