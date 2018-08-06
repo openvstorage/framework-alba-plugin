@@ -35,7 +35,7 @@ class VirtualAlbaBackend(object):
     statistics = None
 
     @staticmethod
-    def _clean():
+    def clean_data():
         """
         Clean everything related to the ALBA tests
         """
@@ -197,7 +197,7 @@ class ManagerClientMockup(ASDManagerClient):
         super(ManagerClientMockup, self).__init__(node=node)
 
     @staticmethod
-    def clean():
+    def clean_data():
         ManagerClientMockup.test_results = {}
         ManagerClientMockup.test_exceptions = {}
         ManagerClientMockup.maintenance_agents = {}

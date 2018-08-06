@@ -48,9 +48,9 @@ class AlbaDalHelper(object):
         DalHelper.setup(**kwargs)
 
         # noinspection PyProtectedMember
-        ManagerClientMockup.clean()
+        ManagerClientMockup.clean_data()
         # noinspection PyProtectedMember
-        VirtualAlbaBackend._clean()
+        VirtualAlbaBackend.clean_data()
         # noinspection PyProtectedMember
         AlbaController._add_base_configuration()
 
@@ -63,9 +63,9 @@ class AlbaDalHelper(object):
         """
         DalHelper.teardown(**kwargs)
         # noinspection PyProtectedMember
-        ManagerClientMockup.clean()
+        ManagerClientMockup.clean_data()
         # noinspection PyProtectedMember
-        VirtualAlbaBackend._clean()
+        VirtualAlbaBackend.clean_data()
 
     @staticmethod
     def build_dal_structure(structure, previous_structure=None):
