@@ -596,9 +596,9 @@ class AlbaController(object):
         try:
             counter = 0
             while counter < 300:
-                if AlbaController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
-                                                              abm_cluster=abm_cluster,
-                                                              nsm_clusters=nsm_clusters) is True:
+                if AlbaArakoonController.manual_alba_arakoon_checkup(alba_backend_guid=alba_backend_guid,
+                                                                     abm_cluster=abm_cluster,
+                                                                     nsm_clusters=nsm_clusters) is True:
                     break
                 counter += 1
                 time.sleep(1)
