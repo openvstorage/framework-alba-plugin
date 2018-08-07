@@ -25,6 +25,15 @@ define([
 
     function AlbaBackendService() {
         var self = this;
+
+        /**
+         * Creates a new AlbaBackend
+         * @param data: Data about the AlbaBackend
+         * @return {*|Promise}
+         */
+        self.addAlbaBackend = function(data) {
+            return api.post('alba/backends', {data: data})
+        };
         /**
          * Loads in all AlbaBackends for the current supplied data
          * @param queryParams: Additional query params. Defaults to no params

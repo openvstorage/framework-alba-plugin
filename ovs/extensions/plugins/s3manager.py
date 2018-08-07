@@ -20,7 +20,6 @@ Generic module for calling the ASD-Manager
 
 import json
 import time
-import base64
 import requests
 from ovs.extensions.plugins.apiclient import APIClient
 from ovs.extensions.generic.configuration import Configuration
@@ -31,33 +30,17 @@ class ASDManagerClient(APIClient):
     """
     ASD Manager Client
     """
-
     def __init__(self, node, timeout=None):
-        # type: (ovs.dal.hybrids.albanode.AlbaNode, int) -> None
+        self.node = node
         if timeout is None:
             self.timeout = Configuration.get('/ovs/alba/asdnodes/main|client_timeout', default=20)
-        self.node = node
-        super(ASDManagerClient, self).__init__(node.ip, node.port, (node.username, node.password,), timeout)
-
-    def _refresh(self):
-        # type: () -> Tuple[str, dict]
-        """
-        Refresh the endpoint and credentials
-        This function is called before every request
-        :return: The base URL and the 'Authorization' header
-        :rtype: tuple
-        """
-        # The node data might have changed
-        # @todo revisit. THe node is never reloaded so this wont ever change?
-        base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
-        base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}
-        return base_url, base_headers
+        credentials = (self.node.username, self.node.password)
+        super(ASDManagerClient, self).__init__(self.node.ip, self.node.port, credentials, timeout)
 
     def get_metadata(self):
         """
         Gets metadata from the node
         """
-        # Backward compatibility
         return self._call(requests.get, '')
 
     ##############
@@ -66,12 +49,10 @@ class ASDManagerClient(APIClient):
     def get_stack(self):
         """
         Gets the remote node stack
-        :return: stack data
-        :rtype: dict
         """
         # Version 3 introduced 'slots'
         if self.get_metadata()['_version'] >= 3:
-            data = self.extract_data(self._call(requests.get, 'slots', timeout=5))
+            data = self._call(requests.get, 'slots', timeout=5, clean=True)
             for slot_info in data.itervalues():
                 for osd in slot_info.get('osds', {}).itervalues():
                     osd['type'] = 'ASD'
@@ -159,8 +140,7 @@ class ASDManagerClient(APIClient):
         """
         # For backwards compatibility we first attempt to retrieve using the newest API
         try:
-            # Newest ASD Manager wraps it. Older ones require cleaning
-            return self.extract_data(self._call(requests.get, 'update/package_information', timeout=120))
+            return self._call(requests.get, 'update/package_information', timeout=120, clean=True)
         except NotFoundError:
             update_info = self._call(requests.get, 'update/information', timeout=120, clean=True)
             if update_info['version']:
@@ -207,8 +187,7 @@ class ASDManagerClient(APIClient):
         :return: Version of the currently installed package
         :rtype: str
         """
-        return self.extract_data(self._call(requests.get, 'update/installed_version_package/{0}'.format(package_name), timeout=60),
-                                 old_key='version')
+        return self._call(requests.get, 'update/installed_version_package/{0}'.format(package_name), timeout=60)['version']
 
     ############
     # SERVICES #
@@ -264,8 +243,7 @@ class ASDManagerClient(APIClient):
         Retrieve configured maintenance services from asd manager
         :return: dict of services
         """
-        return self.extract_data(self._call(requests.get, 'maintenance', clean=True),
-                                 old_key='services')
+        return self._call(requests.get, 'maintenance', clean=True)['services']
 
     def get_service_status(self, name):
         """
@@ -275,8 +253,7 @@ class ASDManagerClient(APIClient):
         :return: Status of the service
         :rtype: str
         """
-        return self.extract_data(self._call(requests.get, 'service_status/{0}'.format(name)),
-                                 old_key='status')[1]
+        return self._call(requests.get, 'service_status/{0}'.format(name))['status'][1]
 
     def sync_stack(self, stack):
         """
@@ -286,42 +263,3 @@ class ASDManagerClient(APIClient):
         :rtype: Nonetype
         """
         return self._call(requests.post, 'dual_controller/sync_stack', data={'stack': json.dumps(stack)})
-
-    def extract_data(self, response_data, old_key=None):
-        # type: (dict) -> any
-        """
-        Extract the data from the API
-        For backwards compatibility purposes (older asd-managers might not wrap their data)
-        :param response_data: Data of the response
-        :type response_data: dict
-        :param old_key: Old key (if any) to extract
-        :type old_key: str
-        :return: The data
-        :rtype: any
-        """
-        if 'data' in response_data:
-            return response_data['data']
-        if old_key:
-            if old_key not in response_data:
-                raise KeyError('{0} not present in the response data. Format might have changed'.format(old_key))
-            return response_data[old_key]
-        # Revert back to cleaning the response
-        return self.clean(response_data)
-
-    @classmethod
-    def clean(cls, data):
-        # type: (dict) -> dict
-        """
-        Clean data of metadata keys
-        :param data: Dict with data
-        :type data: dict
-        :return: Cleaned data
-        :rtype: dict
-        """
-        data_copy = data.copy()
-        for key in data.iterkeys():
-            if key.startswith('_'):
-                del data_copy[key]
-            elif isinstance(data_copy[key], dict):
-                data_copy[key] = cls.clean(data_copy[key])
-        return data_copy
