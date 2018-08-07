@@ -18,18 +18,21 @@
 Generic module for calling the Generic Manager. Well, sort off, since it's a dummy manager
 """
 
-from ovs.extensions.generic.logger import Logger
+from ovs.extensions.plugins.albabase import AlbaBaseClient
 
 
-class GenericManagerClient(object):
+class GenericManagerClient(AlbaBaseClient):
     """
     Generic Manager Client
     Used by AD OSDs. No API implementation for this type yet.
     """
 
-    def __init__(self, node):
-        self._logger = Logger('extensions-plugins')
-        self.node = node
+    def __init__(self, node, timeout=None):
+        # type: (ovs.dal.hybrids.albanode.AlbaNode, int) -> None
+        super(GenericManagerClient, self).__init__(node, timeout)
+
+    def _call(self, *args, **kwargs):
+        raise RuntimeError('The generic Manager client does not use an API yet')
 
     def get_stack(self):
         """

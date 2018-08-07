@@ -19,23 +19,17 @@ Generic module for calling the ASD-Manager
 """
 
 import json
-import time
 import requests
-from ovs.extensions.plugins.apiclient import APIClient
-from ovs.extensions.generic.configuration import Configuration
-from ovs_extensions.generic.exceptions import NotFoundError
+from ovs.extensions.plugins.albabase import AlbaBaseClient
 
 
-class ASDManagerClient(APIClient):
+class S3ManagerClient(AlbaBaseClient):
     """
     ASD Manager Client
     """
     def __init__(self, node, timeout=None):
-        self.node = node
-        if timeout is None:
-            self.timeout = Configuration.get('/ovs/alba/asdnodes/main|client_timeout', default=20)
-        credentials = (self.node.username, self.node.password)
-        super(ASDManagerClient, self).__init__(self.node.ip, self.node.port, credentials, timeout)
+        # type: (ovs.dal.hybrids.albanode.AlbaNode, int) -> None
+        super(S3ManagerClient, self).__init__(node, timeout)
 
     def get_metadata(self):
         """
@@ -50,28 +44,10 @@ class ASDManagerClient(APIClient):
         """
         Gets the remote node stack
         """
-        # Version 3 introduced 'slots'
-        if self.get_metadata()['_version'] >= 3:
-            data = self._call(requests.get, 'slots', timeout=5, clean=True)
-            for slot_info in data.itervalues():
-                for osd in slot_info.get('osds', {}).itervalues():
-                    osd['type'] = 'ASD'
-            return data
-
-        # Version 2 and older used AlbaDisk
-        data = self._call(method=requests.get, url='disks', timeout=5, clean=True)
-        for disk_id, value in data.iteritems():
-            if len(value.get('partition_aliases', [])) == 0:  # disks/<disk_id>/asds raises error if no partition_aliases could be found for current disk
-                value[ur'osds'] = {}
-                value[u'state'] = 'empty'
-                continue
-
-            value[u'osds'] = self._call(method=requests.get, url='disks/{0}/asds'.format(disk_id), clean=True)
-            value[u'state'] = 'empty' if len(value['osds']) == 0 else 'ok'
-            for osd_id, osd_info in value['osds'].iteritems():
-                osd_info[u'ips'] = osd_info.get('ips', [])
-                osd_info[u'type'] = 'ASD'
-                osd_info[u'folder'] = osd_id
+        data = self._call(requests.get, 'slots', timeout=5, clean=True)
+        for slot_info in data.itervalues():
+            for osd in slot_info.get('osds', {}).itervalues():
+                osd['type'] = 'S3'
         return data
 
     def fill_slot(self, slot_id, extra):
@@ -83,27 +59,27 @@ class ASDManagerClient(APIClient):
         """
         # Call can raise a NotFoundException when the slot could no longer be found
         for _ in xrange(extra['count']):
-            self._call(requests.post, 'slots/{0}/asds'.format(slot_id))
+            self._call(requests.post, 'slots/{0}/osds'.format(slot_id))
 
     def restart_osd(self, slot_id, osd_id):
         """
         Restarts a given OSD in a given Slot
         """
-        return self._call(requests.post, 'slots/{0}/asds/{1}/restart'.format(slot_id, osd_id))
+        return self._call(requests.post, 'slots/{0}/osds/{1}/restart'.format(slot_id, osd_id))
 
     def update_osd(self, slot_id, osd_id, update_data):
         """
         Updates a given OSD in a given Slot
         """
         return self._call(method=requests.post,
-                          url='slots/{0}/asds/{1}/update'.format(slot_id, osd_id),
+                          url='slots/{0}/osds/{1}/update'.format(slot_id, osd_id),
                           data={'update_data': json.dumps(update_data)})
 
     def delete_osd(self, slot_id, osd_id):
         """
         Deletes the OSD from the Slot
         """
-        return self._call(requests.delete, 'slots/{0}/asds/{1}'.format(slot_id, osd_id))
+        return self._call(requests.delete, 'slots/{0}/osds/{1}'.format(slot_id, osd_id))
 
     def build_slot_params(self, osd):
         """
@@ -138,38 +114,14 @@ class ASDManagerClient(APIClient):
         Retrieve the package information for this ALBA node
         :return: Latest available version and services which require a restart
         """
-        # For backwards compatibility we first attempt to retrieve using the newest API
-        try:
-            return self._call(requests.get, 'update/package_information', timeout=120, clean=True)
-        except NotFoundError:
-            update_info = self._call(requests.get, 'update/information', timeout=120, clean=True)
-            if update_info['version']:
-                return {'alba': {'openvstorage-sdm': {'candidate': update_info['version'],
-                                                      'installed': update_info['installed'],
-                                                      'services_to_restart': []}}}
-            return {}
+        return self._call(requests.get, 'update/package_information', timeout=120, clean=True)
 
     def execute_update(self, package_name):
         """
         Execute an update
         :return: None
         """
-        try:
-            return self._call(requests.post, 'update/install/{0}'.format(package_name), timeout=300)
-        except NotFoundError:
-            # Backwards compatibility
-            status = self._call(requests.post, 'update/execute/started', timeout=300).get('status', 'done')
-            if status != 'done':
-                counter = 0
-                max_counter = 12
-                while counter < max_counter:
-                    status = self._call(requests.post, 'update/execute/{0}'.format(status), timeout=300).get('status', 'done')
-                    if status == 'done':
-                        break
-                    time.sleep(10)
-                    counter += 1
-                if counter == max_counter:
-                    raise Exception('Failed to update SDM')
+        return self._call(requests.post, 'update/install/{0}'.format(package_name), timeout=300)
 
     def update_execute_migration_code(self):
         """
@@ -262,4 +214,4 @@ class ASDManagerClient(APIClient):
         :return: None
         :rtype: Nonetype
         """
-        return self._call(requests.post, 'dual_controller/sync_stack', data={'stack': json.dumps(stack)})
+        raise NotImplementedError()

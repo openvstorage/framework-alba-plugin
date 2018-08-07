@@ -57,6 +57,7 @@ from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 from ovs.extensions.storage.volatilefactory import VolatileFactory
 from ovs.lib.helpers.decorators import add_hooks, ovs_task
 from ovs.lib.helpers.toolbox import Schedule
+from ovs.lib.albaarakoon import AlbaArakoonController
 
 
 class DecommissionedException(Exception):
@@ -714,6 +715,45 @@ class AlbaController(object):
             AlbaCLI.run(command='update-maintenance-config', config=config, extra_params=['--eviction-type-random'])
 
     @staticmethod
+    def nodes_reachable(alba_backend):
+        """
+        Check if all AlbaNodes are reachable for a backend
+        :param alba_backend: AlbaBackend object
+        :type alba_backend: AlbaBackend
+        :return: None
+        :rtype: NoneType
+        :raises: RuntimeError: When an ABM could not be reached
+        """
+        for alba_node in AlbaNodeList.get_albanodes():
+            try:
+                alba_node.client.get_metadata()
+            except requests.exceptions.ConnectionError as ce:
+                raise RuntimeError('Node {0} is not reachable, ALBA Backend cannot be removed. {1}'.format(alba_node.ip, ce))
+
+    @classmethod
+    def remove_maintenance_services(cls, alba_backend, validate_nodes_reachable=True):
+        # type: (AlbaBackend, bool) -> None
+        """
+        Remove all maintenance services for a backend
+        :param alba_backend: AlbaBackend object
+        :type alba_backend: AlbaBackend
+        :param validate_nodes_reachable: Validate if all nodes are reachable first
+        :type validate_nodes_reachable: bool
+        :return: None
+        :rtype: NoneType
+        """
+        if validate_nodes_reachable:
+            cls.nodes_reachable(alba_backend)
+        for node in AlbaNodeList.get_albanodes():
+            node.invalidate_dynamics('maintenance_services')
+            for service_info in node.maintenance_services.get(alba_backend.name, []):
+                try:
+                    node.client.remove_maintenance_service(name=service_info[0], alba_backend_guid=alba_backend.guid)
+                    AlbaController._logger.info('Removed maintenance service {0} on {1}'.format(service_info[0], node.ip))
+                except Exception:
+                    AlbaController._logger.exception('Could not clean up maintenance services for {0}'.format(alba_backend.name))
+
+    @staticmethod
     @ovs_task(name='alba.remove_cluster')
     def remove_cluster(alba_backend_guid):
         """
@@ -727,93 +767,19 @@ class AlbaController(object):
         if len(alba_backend.osds) > 0:
             raise RuntimeError('An ALBA Backend with claimed OSDs cannot be removed')
 
-        if alba_backend.abm_cluster is not None:
-            # Check ABM cluster reachable
-            for abm_service in alba_backend.abm_cluster.abm_services:
-                if abm_service.service.is_internal is True:
-                    service = abm_service.service
-                    try:
-                        SSHClient(endpoint=service.storagerouter, username='root')
-                    except UnableToConnectException:
-                        raise RuntimeError('Node {0} with IP {1} is not reachable, ALBA Backend cannot be removed.'.format(service.storagerouter.name, service.storagerouter.ip))
+        AlbaArakoonController.abms_reachable(alba_backend)
+        AlbaArakoonController.nsms_reachable(alba_backend)
+        AlbaController.nodes_reachable(alba_backend)
 
-            # Check all NSM clusters reachable
-            for nsm_cluster in alba_backend.nsm_clusters:
-                for nsm_service in nsm_cluster.nsm_services:
-                    service = nsm_service.service
-                    if service.is_internal is True:
-                        try:
-                            SSHClient(endpoint=service.storagerouter, username='root')
-                        except UnableToConnectException:
-                            raise RuntimeError('Node {0} with IP {1} is not reachable, ALBA Backend cannot be removed'.format(service.storagerouter.name, service.storagerouter.ip))
-
-        # Check storage nodes reachable
-        for alba_node in AlbaNodeList.get_albanodes():
-            try:
-                alba_node.client.get_metadata()
-            except requests.exceptions.ConnectionError as ce:
-                raise RuntimeError('Node {0} is not reachable, ALBA Backend cannot be removed. {1}'.format(alba_node.ip, ce))
-
-        # ACTUAL REMOVAL
+        # Removal
         alba_backend.backend.status = Backend.STATUSES.DELETING
         alba_backend.invalidate_dynamics('live_status')
         alba_backend.backend.save()
-        if alba_backend.abm_cluster is not None:
-            AlbaController._logger.debug('Removing ALBA Backend {0}'.format(alba_backend.name))
-            internal = alba_backend.abm_cluster.abm_services[0].service.is_internal
-            abm_cluster_name = alba_backend.abm_cluster.name
-            arakoon_clusters = list(Configuration.list('/ovs/arakoon'))
-            if abm_cluster_name in arakoon_clusters:
-                # Remove ABM Arakoon cluster
-                arakoon_installer = ArakoonInstaller(cluster_name=abm_cluster_name)
-                arakoon_installer.load()
-                if internal is True:
-                    AlbaController._logger.debug('Deleting ALBA manager Arakoon cluster {0}'.format(abm_cluster_name))
-                    arakoon_installer.delete_cluster()
-                    AlbaController._logger.debug('Deleted ALBA manager Arakoon cluster {0}'.format(abm_cluster_name))
-                else:
-                    AlbaController._logger.debug('Un-claiming ALBA manager Arakoon cluster {0}'.format(abm_cluster_name))
-                    arakoon_installer.unclaim_cluster()
-                    AlbaController._logger.debug('Unclaimed ALBA manager Arakoon cluster {0}'.format(abm_cluster_name))
-
-            # Remove ABM Arakoon services
-            for abm_service in alba_backend.abm_cluster.abm_services:
-                abm_service.delete()
-                abm_service.service.delete()
-                if internal is True:
-                    AlbaController._logger.debug('Removed service {0} on node {1}'.format(abm_service.service.name, abm_service.service.storagerouter.name))
-                else:
-                    AlbaController._logger.debug('Removed service {0}'.format(abm_service.service.name))
-            alba_backend.abm_cluster.delete()
-
-            # Remove NSM Arakoon clusters and services
-            for nsm_cluster in alba_backend.nsm_clusters:
-                if nsm_cluster.name in arakoon_clusters:
-                    arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster.name)
-                    arakoon_installer.load()
-                    if internal is True:
-                        AlbaController._logger.debug('Deleting Namespace manager Arakoon cluster {0}'.format(nsm_cluster.name))
-                        arakoon_installer.delete_cluster()
-                        AlbaController._logger.debug('Deleted Namespace manager Arakoon cluster {0}'.format(nsm_cluster.name))
-                    else:
-                        AlbaController._logger.debug('Un-claiming Namespace manager Arakoon cluster {0}'.format(nsm_cluster.name))
-                        arakoon_installer.unclaim_cluster()
-                        AlbaController._logger.debug('Unclaimed Namespace manager Arakoon cluster {0}'.format(nsm_cluster.name))
-                for nsm_service in nsm_cluster.nsm_services:
-                    nsm_service.delete()
-                    nsm_service.service.delete()
-                    AlbaController._logger.debug('Removed service {0}'.format(nsm_service.service.name))
-                nsm_cluster.delete()
+        # Remove all related Arakoons
+        AlbaArakoonController.remove_alba_arakoon_clusters(alba_backend_guid, validate_clusters_reachable=False)
 
         # Delete maintenance agents
-        for node in AlbaNodeList.get_albanodes():
-            node.invalidate_dynamics('maintenance_services')
-            for service_info in node.maintenance_services.get(alba_backend.name, []):
-                try:
-                    node.client.remove_maintenance_service(name=service_info[0], alba_backend_guid=alba_backend.guid)
-                    AlbaController._logger.info('Removed maintenance service {0} on {1}'.format(service_info[0], node.ip))
-                except Exception:
-                    AlbaController._logger.exception('Could not clean up maintenance services for {0}'.format(alba_backend.name))
+        AlbaController.remove_maintenance_services(alba_backend, False)
 
         config_key = AlbaController.CONFIG_ALBA_BACKEND_KEY.format(alba_backend_guid)
         AlbaController._logger.debug('Deleting ALBA Backend entry {0} from configuration management'.format(config_key))

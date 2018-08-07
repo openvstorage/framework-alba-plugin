@@ -22,12 +22,12 @@ import json
 import time
 import base64
 import requests
-from ovs.extensions.plugins.apiclient import APIClient
+from ovs.extensions.plugins.albabase import AlbaBaseClient
 from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.generic.exceptions import NotFoundError
 
 
-class ASDManagerClient(APIClient):
+class ASDManagerClient(AlbaBaseClient):
     """
     ASD Manager Client
     """
@@ -35,9 +35,8 @@ class ASDManagerClient(APIClient):
     def __init__(self, node, timeout=None):
         # type: (ovs.dal.hybrids.albanode.AlbaNode, int) -> None
         if timeout is None:
-            self.timeout = Configuration.get('/ovs/alba/asdnodes/main|client_timeout', default=20)
-        self.node = node
-        super(ASDManagerClient, self).__init__(node.ip, node.port, (node.username, node.password,), timeout)
+            timeout = Configuration.get('/ovs/alba/asdnodes/main|client_timeout', default=20)
+        super(ASDManagerClient, self).__init__(node, timeout)
 
     def _refresh(self):
         # type: () -> Tuple[str, dict]
@@ -286,27 +285,6 @@ class ASDManagerClient(APIClient):
         :rtype: Nonetype
         """
         return self._call(requests.post, 'dual_controller/sync_stack', data={'stack': json.dumps(stack)})
-
-    def extract_data(self, response_data, old_key=None):
-        # type: (dict) -> any
-        """
-        Extract the data from the API
-        For backwards compatibility purposes (older asd-managers might not wrap their data)
-        :param response_data: Data of the response
-        :type response_data: dict
-        :param old_key: Old key (if any) to extract
-        :type old_key: str
-        :return: The data
-        :rtype: any
-        """
-        if 'data' in response_data:
-            return response_data['data']
-        if old_key:
-            if old_key not in response_data:
-                raise KeyError('{0} not present in the response data. Format might have changed'.format(old_key))
-            return response_data[old_key]
-        # Revert back to cleaning the response
-        return self.clean(response_data)
 
     @classmethod
     def clean(cls, data):
