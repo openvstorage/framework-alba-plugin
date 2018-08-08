@@ -27,3 +27,5 @@ CONFIG_DEFAULT_NSM_HOSTS_KEY = '/ovs/alba/backends/default_nsm_hosts'
 ABM_PLUGIN = 'albamgr_plugin'
 NSM_PLUGIN = 'nsm_host_plugin'
 ARAKOON_PLUGIN_DIR = '/usr/lib/alba'
+
+MAX_NSM_AMOUNT = 50  # Maximum amount of NSMs for a backend

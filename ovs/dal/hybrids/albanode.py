@@ -91,9 +91,10 @@ class AlbaNode(DataObject):
         self.client = None
         if os.environ.get('RUNNING_UNITTESTS') == 'True':
             self.client = ManagerClientMockup(self)
-        if self.type in self._CLIENTS:
-            raise NotImplementedError('Type {0} is not implemented'.format(self.type))
-        self.client = self._CLIENTS[self.type](self)
+        else:
+            if self.type not in self._CLIENTS:
+                raise NotImplementedError('Type {0} is not implemented'.format(self.type))
+            self.client = self._CLIENTS[self.type](self)
         self._frozen = True
 
     def _ips(self):
