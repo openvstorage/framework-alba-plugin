@@ -47,6 +47,7 @@ from ovs.extensions.storage.volatilefactory import VolatileFactory
 from ovs.lib.helpers.decorators import add_hooks, ovs_task
 from ovs.lib.helpers.toolbox import Schedule
 from ovs.lib.albaarakoon import AlbaArakoonController
+from ovs.lib.helpers.alba_arakoon_installer import ABMInstaller, NSMInstaller
 
 
 class DecommissionedException(Exception):
@@ -896,9 +897,7 @@ class AlbaController(object):
                     arakoon_installer.restart_cluster_after_shrinking()
 
                     AlbaController._logger.info('* Updating NSM cluster config to ABM for cluster {0}'.format(nsm_cluster.name))
-                    AlbaArakoonController._update_nsm(abm_name=abm_cluster_name,
-                                                      nsm_name=nsm_cluster.name,
-                                                      ip=nsm_remaining_ips[0])
+                    NSMInstaller._update_nsm(abm_name=abm_cluster_name, nsm_name=nsm_cluster.name, ip=nsm_remaining_ips[0])
 
                     AlbaController._logger.info('* Remove old NSM node from model')
                     nsm_service = [nsm_service for nsm_service in nsm_cluster.nsm_services if nsm_service.service.storagerouter.ip == cluster_ip][0]

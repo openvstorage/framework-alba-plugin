@@ -17,8 +17,6 @@
 """
 Module which does everything Arakoon related for the Alba plugin
 """
-import time
-import datetime
 import collections
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
@@ -41,279 +39,12 @@ from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.lib.helpers.decorators import ovs_task
 from ovs.lib.helpers.toolbox import Schedule
 from ovs.constants.albarakoon import ABM_PLUGIN, NSM_PLUGIN, ARAKOON_PLUGIN_DIR, MAX_NSM_AMOUNT
+from ovs.lib.helpers.alba_arakoon_installer import ABMInstaller, NSMInstaller
 
 
 class AlbaArakoonController(object):
 
     _logger = Logger('lib')
-
-    # Set up Arakoons
-    @classmethod
-    def _deploy_abm_cluster(cls, alba_backend, abm_cluster_name, version_str, requested_abm_cluster_name=None, available_storagerouters=None, ssh_clients=None):
-        # type: (AlbaBackend, str, str, Optional[str], Optional[Dict[StorageRouter, DiskPartition]], Optional[Dict[StorageRouter, SSHClient]]) -> None
-        """
-        Deploy an ABM Cluster
-        Will try to claim an external one if one is available
-        :param alba_backend: ALBA Backend to create the ABM cluster for
-        :type alba_backend: AlbaBackend
-        :param abm_cluster_name: Name of the ABM cluster to add
-        The code will claim the Arakoon clusters for this backend when provided
-        :type abm_cluster_name: str
-        :param version_str: The current version of the Alba binary
-        :type version_str: str
-        :param requested_abm_cluster_name: The request ABM name for this backend
-        :type requested_abm_cluster_name: str
-        :param available_storagerouters: Map with all StorageRouters and their DB DiskPartition
-        :type available_storagerouters: Dict[StorageRouter, DiskPartition]
-        :param ssh_clients: Dict with SSHClients for every Storagerouter
-        :type ssh_clients: Dict[StorageRouter, SSHClient]
-        :return:None
-        :rtype: NoneType
-        """
-        # @todo revisit for external arakoons
-        available_storagerouters = available_storagerouters or cls.get_available_arakoon_storagerouters()
-        # Check if ABMs are available for claiming. When the requested cluster name is None, a different external ABM might be claimed
-        metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM,
-                                                                          cluster_name=requested_abm_cluster_name)
-        if metadata is None:  # No externally unused clusters found, we create 1 ourselves
-            if not available_storagerouters:
-                raise RuntimeError('Could not find any partitions with DB role')
-            if requested_abm_cluster_name is not None:
-                raise ValueError('Cluster {0} has been claimed by another process'.format(requested_abm_cluster_name))
-            cls._logger.info('Creating Arakoon cluster: {0}'.format(abm_cluster_name))
-            storagerouter, partition = available_storagerouters.items()[0]
-            arakoon_installer = ArakoonInstaller(cluster_name=abm_cluster_name)
-            arakoon_installer.create_cluster(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM,
-                                             ip=storagerouter.ip,
-                                             base_dir=partition.folder,
-                                             plugins={ABM_PLUGIN: version_str})
-            if ssh_clients:
-                client = ssh_clients[storagerouter]
-            else:
-                client = SSHClient(storagerouter)
-            cls._link_plugins(client=client, data_dir=partition.folder, plugins=[ABM_PLUGIN], cluster_name=abm_cluster_name)
-            arakoon_installer.start_cluster()
-            ports = arakoon_installer.ports[storagerouter.ip]
-            metadata = arakoon_installer.metadata
-        else:
-            ports = []
-            storagerouter = None
-
-        abm_cluster_name = metadata['cluster_name']
-        cluster_manage_type = 'externally' if storagerouter is None else 'internally'
-        cls._logger.info('Claimed {0} managed Arakoon cluster: {1}'.format(cluster_manage_type, abm_cluster_name))
-        if ssh_clients:
-            ip = ssh_clients.keys()[0].ip
-        else:
-            ip = StorageRouterList.get_storagerouters()[0].ip
-        cls._update_abm_client_config(abm_cluster_name, ip=ip)
-        cls._model_arakoon_service(alba_backend, abm_cluster_name, ports, storagerouter)
-
-    @classmethod
-    def _deploy_nsm_cluster(cls, alba_backend, storagerouter=None, nsm_cluster_name=None, version_str=None, nsm_clusters=None, ssh_clients=None):
-        # type: (AlbaBackend, Optional[StorageRouter], Optional[str], Optional[List[str]], Optional[Dict[StorageRouter, SSHClient]]) -> None
-        """
-        Deploy an NSM cluster.
-        Will attempt to claim external NSMs if they are available
-        :param alba_backend: Alba Backend to deploy the NSM cluster for
-        :type alba_backend: str
-        :param storagerouter: StorageRouter to deploy NSM on (internal)
-        :type storagerouter: StorageRouter
-        :param nsm_cluster_name: The name for the NSM cluster to be deployed
-        :type nsm_cluster_name: str
-        :param version_str: The current version of the Alba binary
-        :type version_str: str
-        :param nsm_clusters: List with the names of the NSM clusters to claim for this backend
-        :type nsm_clusters: List[str]
-        :param ssh_clients: Dict with SSHClients for every Storagerouter
-        :type ssh_clients: Dict[StorageRouter, SSHClient]
-        :return:None
-        :rtype: NoneType
-        """
-        # @todo revisit for external
-        if nsm_clusters is None:
-            nsm_clusters = []
-        version_str = version_str or cls.get_alba_version_string()
-        ports = []
-        if len(nsm_clusters) > 0:
-            # Check if the external NSMs can be used
-            metadatas = []
-            for external_nsm_cluster in nsm_clusters:
-                # Claim the external nsm
-                metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
-                                                                                  cluster_name=external_nsm_cluster)
-                if metadata is None:  # External NSM could not be claimed. Revert all others
-                    cls._logger.warning('Arakoon cluster {0} has been claimed by another process, reverting...'.format(external_nsm_cluster))
-                    for md in metadatas:
-                        ArakoonInstaller(cluster_name=md['cluster_name']).unclaim_cluster()
-                    ArakoonInstaller(cluster_name=alba_backend.abm_cluster.name).unclaim_cluster()
-                    raise ValueError('Arakoon cluster {0} has been claimed by another process'.format(external_nsm_cluster))
-                metadatas.append(metadata)
-        else:
-            metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM)
-            if metadata is None:  # No externally unused clusters found, we create 1 ourselves
-                if not storagerouter:
-                    raise RuntimeError('Could not find any partitions with DB role')
-                partition = cls.get_db_partition(storagerouter)
-                nsm_cluster_name = nsm_cluster_name or '{0}-nsm_0'.format(alba_backend.name)
-                cls._logger.info('ALBA Backend {0} - Creating NSM cluster {1}'.format(alba_backend.name, nsm_cluster_name))
-                arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster_name)
-                arakoon_installer.create_cluster(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.NSM,
-                                                 ip=storagerouter.ip,
-                                                 base_dir=partition.folder,
-                                                 plugins={NSM_PLUGIN: version_str})
-                if ssh_clients:
-                    client = ssh_clients[storagerouter]
-                else:
-                    client = SSHClient(storagerouter)
-                cls._logger.info('ALBA Backend {0} - Cluster {1} - Linking plugins'.format(alba_backend.name, nsm_cluster_name))
-                AlbaArakoonController._link_plugins(client=client,
-                                                    data_dir=partition.folder,
-                                                    plugins=[NSM_PLUGIN],
-                                                    cluster_name=nsm_cluster_name)
-                cls._logger.info('ALBA Backend {0} - Cluster {1} - Starting cluster'.format(alba_backend.name, nsm_cluster_name))
-                arakoon_installer.start_cluster()
-                ports = arakoon_installer.ports[storagerouter.ip]
-                metadata = arakoon_installer.metadata
-            metadatas = [metadata]
-
-        for index, metadata in enumerate(metadatas):
-            nsm_cluster_name = metadata['cluster_name']
-            cluster_manage_type = 'externally' if storagerouter is None else 'internally'
-            cls._logger.info('Claimed {0} managed Arakoon cluster: {1}'.format(cluster_manage_type, nsm_cluster_name))
-            if ssh_clients:
-                ip = ssh_clients.keys()[0].ip
-            else:
-                ip = StorageRouterList.get_storagerouters()[0].ip
-            cls._logger.debug('ALBA Backend {0} - Cluster {1} - Registering NSM'.format(alba_backend.name, nsm_cluster_name))
-            cls._register_nsm(abm_name=alba_backend.abm_cluster.name,
-                              nsm_name=nsm_cluster_name,
-                              ip=ip)
-            cls._logger.debug('ALBA Backend {0} - Cluster {1} - Modeling services'.format(alba_backend.name, nsm_cluster_name))
-            cls._model_arakoon_service(alba_backend=alba_backend,
-                                       cluster_name=nsm_cluster_name,
-                                       ports=ports,
-                                       storagerouter=None if len(nsm_clusters) > 0 else storagerouter,
-                                       number=index)
-
-    @classmethod
-    def _extend_abm_cluster(cls, storagerouter, abm_cluster, ssh_client=None, version_str=None):
-        # type: (StorageRouter, ABMCluster, Optional[SSHClient], Optional[str]) -> None
-        """
-        Extend the ABM cluster to reach the desired safety
-        :param storagerouter: StorageRouter to extend to
-        :type storagerouter: StorageRouter
-        :param abm_cluster: ABM Cluster object to extend
-        :type abm_cluster: ABMCluster
-        :param ssh_client: SSHClient to the StorageRouter
-        :type ssh_client: SSHClient
-        :param version_str: The current version of the Alba binary
-        :type version_str: str
-        :return:None
-        :rtype: NoneType
-        """
-        alba_backend = abm_cluster.alba_backend
-        version_str = version_str or cls.get_alba_version_string()
-        partition = cls.get_db_partition(storagerouter)
-        ssh_client = ssh_client or SSHClient(storagerouter)
-
-        arakoon_installer = ArakoonInstaller(cluster_name=abm_cluster.name)
-        arakoon_installer.load()
-        arakoon_installer.extend_cluster(new_ip=storagerouter.ip,
-                                         base_dir=partition.folder,
-                                         plugins={ABM_PLUGIN: version_str})
-        cls._link_plugins(client=ssh_client,
-                          data_dir=partition.folder,
-                          plugins=[ABM_PLUGIN],
-                          cluster_name=abm_cluster.name)
-        cls._model_arakoon_service(alba_backend=alba_backend,
-                                   cluster_name=abm_cluster.name,
-                                   ports=arakoon_installer.ports[storagerouter.ip],
-                                   storagerouter=storagerouter)
-        arakoon_installer.restart_cluster_after_extending(new_ip=storagerouter.ip)
-        cls._update_abm_client_config(abm_name=abm_cluster.name,
-                                      ip=storagerouter.ip)
-
-    @classmethod
-    def _extend_nsm_cluster(cls, storagerouter, nsm_cluster, ssh_client=None, version_str=None):
-        # type: (StorageRouter, NSMCluster, Optional[SSHClient], Optional[str]) -> None
-        """
-        Extend the NSM cluster to another StorageRouter
-        :return:None
-        :rtype: NoneType
-        """
-        alba_backend = nsm_cluster.alba_backend
-        version_str = version_str or cls.get_alba_version_string()
-        partition = cls.get_db_partition(storagerouter)
-        ssh_client = ssh_client or SSHClient(storagerouter)
-
-        arakoon_installer = ArakoonInstaller(cluster_name=nsm_cluster.name)
-        arakoon_installer.load()
-
-        cls._logger.debug('ALBA Backend {0} - Extending cluster {1} on node {2} with IP {3}'.format(alba_backend.name,
-                                                                                                    nsm_cluster.name,
-                                                                                                    storagerouter.name,
-                                                                                                    storagerouter.ip))
-        arakoon_installer.extend_cluster(new_ip=storagerouter.ip, base_dir=partition.folder, plugins={NSM_PLUGIN: version_str})
-        cls._logger.debug('ALBA Backend {0} - Linking plugins'.format(alba_backend.name))
-        cls._link_plugins(client=ssh_client, data_dir=partition.folder, plugins=[NSM_PLUGIN],
-                          cluster_name=nsm_cluster.name)
-        cls._logger.debug('ALBA Backend {0} - Modeling services'.format(alba_backend.name))
-        cls._model_arakoon_service(alba_backend=alba_backend, cluster_name=nsm_cluster.name,
-                                   ports=arakoon_installer.ports[storagerouter.ip], storagerouter=storagerouter,
-                                   number=nsm_cluster.number)
-        cls._logger.debug('ALBA Backend {0} - Restarting cluster'.format(alba_backend.name))
-        arakoon_installer.restart_cluster_after_extending(new_ip=storagerouter.ip)
-        cls._update_nsm(abm_name=alba_backend.abm_cluster.name, nsm_name=nsm_cluster.name, ip=storagerouter.ip)
-        cls._logger.debug('ALBA Backend {0} - Extended cluster'.format(alba_backend.name))
-
-    @classmethod
-    def _remove_cluster(cls, cluster_name, internal, associated_junction_services, junction_type, arakoon_clusters=None):
-        # type: (str, bool, Iterable[Union[ABMService, NSMService]], type, List[str]) -> None
-        """
-        Removes an arakoon cluster (either abm or nsm)
-        :param cluster_name: Name of the Arakoon cluster to remove
-        :type cluster_name: str
-        :param internal: Indicator if the Arakoon is managed internally or not
-        :type internal: bool
-        :param associated_junction_services: All associated modeled services
-        :type associated_junction_services: Iterable[Service]
-        :param junction_type: Type of the provided junction (used for logging)
-        :type junction_type: type
-        :param arakoon_clusters: All arakoon clusters up to this point. Defaults to fetching the data
-        :type arakoon_clusters: List[str]
-        :return: None
-        :rtype: NoneType
-        """
-        if junction_type == ABMService:
-            arakoon_id_log = 'ALBA manager'
-        elif junction_type == NSMService:
-            arakoon_id_log = 'Namespace manager'
-        else:
-            raise NotImplementedError('No removal logic implemented for {0}'.format(junction_type))
-
-        arakoon_clusters = arakoon_clusters if arakoon_clusters is not None else list(Configuration.list('/ovs/arakoon'))
-        if cluster_name in arakoon_clusters:
-            # Remove Arakoon cluster
-            arakoon_installer = ArakoonInstaller(cluster_name=cluster_name)
-            arakoon_installer.load()
-            if internal is True:
-                AlbaArakoonController._logger.info('Deleting {0} Arakoon cluster {1}'.format(arakoon_id_log, cluster_name))
-                arakoon_installer.delete_cluster()
-                AlbaArakoonController._logger.info('Deleted {0} Arakoon cluster {1}'.format(arakoon_id_log, cluster_name))
-            else:
-                AlbaArakoonController._logger.info('Un-claiming {0} Arakoon cluster {1}'.format(arakoon_id_log, cluster_name))
-                arakoon_installer.unclaim_cluster()
-                AlbaArakoonController._logger.info('Unclaimed {0} Arakoon cluster {1}'.format(arakoon_id_log, cluster_name))
-
-        # Remove Arakoon services
-        for j_service in associated_junction_services:  # type: Union[ABMService, NSMService]
-            j_service.delete()
-            j_service.service.delete()
-            if internal is True:
-                AlbaArakoonController._logger.info('Removed service {0} on node {1}'.format(j_service.service.name, j_service.service.storagerouter.name))
-            else:
-                AlbaArakoonController._logger.info('Removed service {0}'.format(j_service.service.name))
 
     @staticmethod
     def get_db_partition(storagerouter):
@@ -393,24 +124,12 @@ class AlbaArakoonController(object):
 
         if alba_backend.abm_cluster is not None:
             AlbaArakoonController._logger.debug('Removing clusters for ALBA Backend {0}'.format(alba_backend.name))
-            internal = alba_backend.abm_cluster.abm_services[0].service.is_internal
-            abm_cluster_name = alba_backend.abm_cluster.name
             arakoon_clusters = list(Configuration.list('/ovs/arakoon'))
-            # Remove the ABM clusters
-            cls._remove_cluster(abm_cluster_name, internal,
-                                associated_junction_services=alba_backend.abm_cluster.abm_services,
-                                junction_type=ABMService,
-                                arakoon_clusters=arakoon_clusters)
-            # Remove the link
-            alba_backend.abm_cluster.delete()
-
+            # Remove the ABM cluster
+            ABMInstaller.remove_abm_cluster(alba_backend.abm_cluster, arakoon_clusters)
             # Remove NSM Arakoon clusters and services
             for nsm_cluster in alba_backend.nsm_clusters:
-                cls._remove_cluster(nsm_cluster.name, internal,
-                                    associated_junction_services=nsm_cluster.nsm_services,
-                                    junction_type=NSMService,
-                                    arakoon_clusters=arakoon_clusters)
-                nsm_cluster.delete()
+                NSMInstaller.remove_nsm_cluster(nsm_cluster, arakoon_clusters)
 
     @classmethod
     def get_available_arakoon_storagerouters(cls, ssh_clients=None):
@@ -463,8 +182,8 @@ class AlbaArakoonController(object):
         available_storagerouters = cls.get_available_arakoon_storagerouters(clients)
 
         # Call here, because this potentially raises error, which should happen before actually making changes
-        alba_pkg_name, alba_version_cmd = PackageFactory.get_package_and_version_cmd_for(component=PackageFactory.COMP_ALBA)
-        version_str = '{0}=`{1}`'.format(alba_pkg_name, alba_version_cmd)
+        abm_installer = ABMInstaller(ssh_clients=clients)
+        nsm_installer = NSMInstaller(version_str=abm_installer.version_str, ssh_clients=clients)
 
         # Cluster creation
         if alba_backend_guid is not None:
@@ -474,27 +193,23 @@ class AlbaArakoonController(object):
 
             # ABM Arakoon cluster creation
             if alba_backend.abm_cluster is None:
-                cls._deploy_abm_cluster(alba_backend, abm_cluster_name, version_str,
-                                        requested_abm_cluster_name=abm_cluster,
-                                        available_storagerouters=available_storagerouters,
-                                        ssh_clients=clients)
+                # Fallback to installing the cluster on an available storagerouter
+                storagerouter, partition = available_storagerouters.items()[0]
+                abm_installer.deploy_abm_cluster(alba_backend, abm_cluster_name,
+                                                 requested_abm_cluster_name=abm_cluster,
+                                                 storagerouter=storagerouter)
 
             # NSM Arakoon cluster creation
             if len(alba_backend.nsm_clusters) == 0 and nsm_clusters is not None:
                 storagerouter, partition = available_storagerouters.items()[0]
-                cls._deploy_nsm_cluster(alba_backend,
-                                        version_str=version_str,
-                                        nsm_clusters=nsm_clusters,
-                                        storagerouter=storagerouter,
-                                        ssh_clients=clients)
+                nsm_installer.deploy_nsm_cluster(alba_backend, storagerouter=storagerouter, nsm_clusters=nsm_clusters)
 
         # ABM Cluster extension
         for alba_backend in AlbaBackendList.get_albabackends():
             if alba_backend.abm_cluster is None:
                 AlbaArakoonController._logger.warning('ALBA Backend {0} does not have an ABM cluster registered'.format(alba_backend.name))
                 continue
-            cls.ensure_abm_cluster_safety(alba_backend.abm_cluster, version_str=version_str,
-                                          available_storagerouters=available_storagerouters, ssh_clients=clients)
+            cls.ensure_abm_cluster_safety(alba_backend.abm_cluster, available_storagerouters, abm_installer=abm_installer)
 
     @staticmethod
     @ovs_task(name='alba.scheduled_alba_arakoon_checkup',
@@ -761,24 +476,20 @@ class AlbaArakoonController(object):
         return '{0}=`{1}`'.format(alba_pkg_name, alba_version_cmd)
 
     @classmethod
-    def ensure_abm_cluster_safety(cls, abm_cluster, version_str=None, available_storagerouters=None, ssh_clients=None):
-        # type: (ABMCluster, Optional[str], Optional[Dict[StorageRouter, DiskPartition]], Optional[Dict[StorageRouter, SSHClient]]) -> None
+    def ensure_abm_cluster_safety(cls, abm_cluster, available_storagerouters, abm_installer=None):
+        # type: (ABMCluster, Dict[StorageRouter, DiskPartition],  ABMInstaller) -> None
         """
         Ensure that the ABM cluster is safe and sound
         :param abm_cluster: ABM Cluster object
         :type abm_cluster: ABMCluster
-        :param version_str: Alba version string
-        :type version_str: str
         :param available_storagerouters: All available storagerouters mapped with their DB partition
         :type available_storagerouters:  Dict[StorageRouter, DiskPartition]
-        :param ssh_clients: SShClients towards all Storagerouters
-        :type ssh_clients: Dict[StorageRouter, SSHClient]
+        :param abm_installer: The ABMInstaller to use. Defaults to creating a new one
+        :type abm_installer: ABMInstaller
         :return: None
         :rtype: NoneType
         """
-        if ssh_clients is None:
-            ssh_clients = {}
-        version_str = version_str or cls.get_alba_version_string()
+        abm_installer = abm_installer or ABMInstaller()
 
         metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=abm_cluster.name)
         if 0 < len(abm_cluster.abm_services) < len(available_storagerouters) and metadata['internal'] is True:
@@ -786,19 +497,22 @@ class AlbaArakoonController(object):
             for storagerouter, partition in available_storagerouters.iteritems():
                 if storagerouter.ip in current_abm_ips:
                     continue
-                ssh_client = ssh_clients.get(storagerouter)
-                cls._extend_abm_cluster(storagerouter, abm_cluster, ssh_client, version_str)
+                abm_installer.extend_abm_cluster(storagerouter, abm_cluster)
                 current_abm_ips.append(storagerouter.ip)
 
     @classmethod
-    def ensure_nsm_cluster_safety(cls, nsm_cluster, nsms_per_storagerouter=None, ssh_clients=None, version_str=None):
-        # type: (NSMCluster, Dict[StorageRouter, int]) -> None
+    def ensure_nsm_cluster_safety(cls, nsm_cluster, nsms_per_storagerouter=None, nsm_installer=None):
+        # type: (NSMCluster, Dict[StorageRouter, int], NSMInstaller) -> None
         """
         Ensure that the NSM cluster are safe and sound
+        :param nsm_cluster: NSM Cluster to extend
+        :type nsm_cluster: NSMCluster
+        :param nsms_per_storagerouter: Amount of NSMs mapped by StorageRouter
+        :type nsms_per_storagerouter: Dict[StorageRouter, int]
+        :param nsm_installer: NSMInstaller instance to use. Defaults to creating a new one
+        :type nsm_installer: NSMInstaller
         """
-        if ssh_clients is None:
-            ssh_clients = {}
-        version_str = version_str or cls.get_alba_version_string()
+        nsm_installer = nsm_installer or NSMInstaller()
         alba_backend = nsm_cluster.alba_backend
         nsms_per_storagerouter = nsms_per_storagerouter if nsms_per_storagerouter is not None else cls.get_nsms_per_storagerouter(alba_backend)
 
@@ -824,7 +538,7 @@ class AlbaArakoonController(object):
                 current_sr_hosts.append(candidate_sr.ip)
                 available_sr_hosts.remove(candidate_sr)
                 # Extend the cluster (configuration, services, ...)
-                cls._extend_nsm_cluster(candidate_sr, nsm_cluster, ssh_client=ssh_clients.get(candidate_sr), version_str=version_str)
+                nsm_installer.extend_nsm_cluster(candidate_sr, nsm_cluster)
 
     @classmethod
     def ensure_nsm_clusters_load(cls, alba_backend, nsms_per_storagerouter=None, min_internal_nsms=1, external_nsm_cluster_names=None, version_str=None, ssh_clients=None):
@@ -1034,14 +748,15 @@ class AlbaArakoonController(object):
                     for nsm_service in nsm_cluster.nsm_services:
                         storagerouters.add(nsm_service.service.storagerouter)
 
-        storagerouter_cache = {}
+        ssh_clients = {}
         for storagerouter in storagerouters:
             try:
-                storagerouter_cache[storagerouter] = SSHClient(endpoint=storagerouter)
+                ssh_clients[storagerouter] = SSHClient(endpoint=storagerouter)
             except UnableToConnectException:
                 raise RuntimeError('StorageRouter {0} with IP {1} is not reachable'.format(storagerouter.name, storagerouter.ip))
 
         version_str = AlbaArakoonController.get_alba_version_string()
+        nsm_installer = NSMInstaller(ssh_clients=ssh_clients)
 
         ##################
         # Check Clusters #
@@ -1065,7 +780,7 @@ class AlbaArakoonController(object):
                 sorted_nsm_clusters = sorted(alba_backend.nsm_clusters, key=lambda k: k.number)
 
                 if not internal and len(external_nsm_cluster_names) > 0:
-                    for sr, cl in storagerouter_cache.iteritems():
+                    for sr, cl in ssh_clients.iteritems():
                         if sr.node_type == 'MASTER':
                             master_client = cl
                             break
@@ -1083,67 +798,11 @@ class AlbaArakoonController(object):
                     # Extend existing NSM clusters if safety not met
                     for nsm_cluster in sorted_nsm_clusters:
                         AlbaArakoonController._logger.debug('ALBA Backend {0} - Processing NSM {1} - Expected safety {2} - Current safety {3}'.format(alba_backend.name, nsm_cluster.number, safety, len(nsm_cluster.nsm_services)))
-                        AlbaArakoonController.ensure_nsm_cluster_safety(nsm_cluster,
-                                                                        nsms_per_storagerouter=nsm_storagerouters,
-                                                                        ssh_clients=storagerouter_cache,
-                                                                        version_str=version_str)
+                        AlbaArakoonController.ensure_nsm_cluster_safety(nsm_cluster, nsm_storagerouters, nsm_installer=nsm_installer)
                 AlbaArakoonController.ensure_nsm_clusters_load(alba_backend, nsms_per_storagerouter=nsm_storagerouters,
-                                                               ssh_clients=storagerouter_cache, version_str=version_str,
+                                                               ssh_clients=ssh_clients, version_str=version_str,
                                                                min_internal_nsms=min_internal_nsms,
                                                                external_nsm_cluster_names=external_nsm_cluster_names)
             except Exception:
                 AlbaArakoonController._logger.exception('NSM Checkup failed for Backend {0}'.format(alba_backend.name))
                 failed_backends.append(alba_backend.name)
-
-    @classmethod
-    def monitor_arakoon_clusters(cls):
-        """
-        Get an overview of where the Arakoon clusters for each ALBA Backend have been deployed
-        The overview is printed on stdout
-        :return: None
-        """
-        try:
-            while True:
-                output = ['',
-                          'Open vStorage - NSM/ABM debug information',
-                          '=========================================',
-                          'timestamp: {0}'.format(datetime.datetime.now()),
-                          '']
-                alba_backends = sorted(AlbaBackendList.get_albabackends(), key=lambda k: k.name)
-                for sr in sorted(StorageRouterList.get_storagerouters(), key=lambda k: k.name):
-                    if len([service for service in sr.services if service.type.name in [ServiceType.SERVICE_TYPES.NS_MGR, ServiceType.SERVICE_TYPES.ALBA_MGR] and service.storagerouter == sr]) == 0:
-                        continue
-                    output.append('+ {0} ({1})'.format(sr.name, sr.ip))
-                    for alba_backend in alba_backends:
-                        is_internal = alba_backend.abm_cluster.abm_services[0].service.is_internal
-                        if is_internal is False:
-                            output.append('    + ABM (externally managed)')
-                        else:
-                            abm_service = [abm_service for abm_service in alba_backend.abm_cluster.abm_services if abm_service.service.storagerouter == sr]
-                            nsm_clusters = [nsm_cluster for nsm_cluster in alba_backend.nsm_clusters for nsm_service in nsm_cluster.nsm_services if nsm_service.service.storagerouter == sr]
-                            if len(abm_service) > 0 or len(nsm_clusters) > 0:
-                                output.append('  + {0}'.format(alba_backend.name))
-                                if len(abm_service) > 0:
-                                    output.append('    + ABM - port {0}'.format(abm_service[0].service.ports))
-                            for nsm_cluster in sorted(nsm_clusters, key=lambda k: k.number):
-                                load = None
-                                try:
-                                    load = cls.get_load(nsm_cluster)
-                                except:
-                                    pass  # Don't print load when Arakoon unreachable
-                                load = 'infinite' if load == float('inf') else '{0}%'.format(round(load, 2)) if load is not None else 'unknown'
-                                capacity = 'infinite' if float(nsm_cluster.capacity) < 0 else float(nsm_cluster.capacity)
-                                for nsm_service in nsm_cluster.nsm_services:
-                                    if nsm_service.service.storagerouter != sr:
-                                        continue
-                                    if is_internal is True:
-                                        output.append('    + NSM {0} - port {1} - capacity: {2}, load: {3}'.format(nsm_cluster.number, nsm_service.service.ports, capacity, load))
-                                    else:
-                                        output.append('    + NSM {0} (externally managed) - capacity: {1}, load: {2}'.format(nsm_cluster.number, capacity, load))
-                output += ['',
-                           'Press ^C to exit',
-                           '']
-                print '\x1b[2J\x1b[H' + '\n'.join(output)
-                time.sleep(1)
-        except KeyboardInterrupt:
-            pass
