@@ -53,6 +53,7 @@ class ASDManagerClient(AlbaBaseClient):
         return base_url, base_headers
 
     def get_metadata(self):
+        # type: () -> dict
         """
         Gets metadata from the node
         """
@@ -63,6 +64,7 @@ class ASDManagerClient(AlbaBaseClient):
     # SLOTS/OSDS #
     ##############
     def get_stack(self):
+        # type: () -> dict
         """
         Gets the remote node stack
         :return: stack data
@@ -93,58 +95,102 @@ class ASDManagerClient(AlbaBaseClient):
         return data
 
     def fill_slot(self, slot_id, extra):
+        # type: (str, dict) -> None
         """
         Fills a slot (disk) with one or more OSDs
         :param slot_id: Id of the slot to fill
         :param extra: Extra parameters to supply. Supported extra params: {count: number of asds to add}
         :type extra: dict
+        :return: None
+        :rtype: NoneType
         """
         # Call can raise a NotFoundException when the slot could no longer be found
         for _ in xrange(extra['count']):
             self._call(requests.post, 'slots/{0}/asds'.format(slot_id))
 
     def restart_osd(self, slot_id, osd_id):
+        # type: (str, str) -> None
         """
         Restarts a given OSD in a given Slot
+        :param slot_id: Identifier of the slot
+        :type slot_id: str
+        :param osd_id: Identifier of the OSD
+        :type osd_id: str
+        :return: None
+        :rtype: NoneType
         """
         return self._call(requests.post, 'slots/{0}/asds/{1}/restart'.format(slot_id, osd_id))
 
     def update_osd(self, slot_id, osd_id, update_data):
+        # type: (str, str, dict) -> None
         """
         Updates a given OSD in a given Slot
+        :param slot_id: Identifier of the slot
+        :type slot_id: str
+        :param osd_id: Identifier of the OSD
+        :type osd_id: str
+        :param update_data: Data to update the OSD with
+        :type update_data: dict
+        :return: None
+        :rtype: NoneType
         """
         return self._call(method=requests.post,
                           url='slots/{0}/asds/{1}/update'.format(slot_id, osd_id),
                           data={'update_data': json.dumps(update_data)})
 
     def delete_osd(self, slot_id, osd_id):
+        # type: (str, str) -> None
         """
         Deletes the OSD from the Slot
+        :param slot_id: Identifier of the slot
+        :type slot_id: str
+        :param osd_id: Identifier of the OSD
+        :type osd_id: str
+        :return: None
+        :rtype: NoneType
         """
         return self._call(requests.delete, 'slots/{0}/asds/{1}'.format(slot_id, osd_id))
 
     def build_slot_params(self, osd):
+        # type: (ovs.dal.hybrids.albaosd.AlbaOSD) -> dict
         """
         Builds the "extra" params for replacing an OSD
+        :param osd: The OSD to generate the params for
+        :type osd: ovs.dal.hybrids.albaosd.AlbaOSD
         """
         _ = self, osd
         return {'count': 1}
 
     def clear_slot(self, slot_id):
+        # type: (str) -> None
         """
         Clears the slot
+        :param slot_id: Identifier of the slot to clear
+        :type slot_id: str
+        :return: None
+        :rtype: NoneType
         """
         return self._call(requests.delete, 'slots/{0}'.format(slot_id))
 
     def restart_slot(self, slot_id):
+        # type: (str) -> None
         """
         Restart the slot with given slot id
+        :param slot_id: Identifier of the slot to clear
+        :type slot_id: str
+        :return: None
+        :rtype: NoneType
         """
         return self._call(requests.post, 'slots/{0}/restart'.format(slot_id))
 
     def stop_slot(self, slot_id):
+        # type: (str) -> None
         """
         Stops all OSDs on the slot
+        :param slot_id: Identifier of the slot to clear
+        :type slot_id: str
+        :return: None
+        :rtype: NoneType
         """
         return self._call(requests.post, 'slots/{0}/stop'.format(slot_id))
 
@@ -152,9 +198,11 @@ class ASDManagerClient(AlbaBaseClient):
     # UPDATE #
     ##########
     def get_package_information(self):
+        # type: () -> dict
         """
         Retrieve the package information for this ALBA node
         :return: Latest available version and services which require a restart
+        :rtype: dict
         """
         # For backwards compatibility we first attempt to retrieve using the newest API
         try:
@@ -169,9 +217,12 @@ class ASDManagerClient(AlbaBaseClient):
             return {}
 
     def execute_update(self, package_name):
+        # type: (str) -> None
         """
         Execute an update
+        :param package_name: Package to update
         :return: None
+        :rtype: NoneType
         """
         try:
             return self._call(requests.post, 'update/install/{0}'.format(package_name), timeout=300)
@@ -191,6 +242,7 @@ class ASDManagerClient(AlbaBaseClient):
                     raise Exception('Failed to update SDM')
 
     def update_execute_migration_code(self):
+        # type: () -> None
         """
         Run some migration code after an update has been done
         :return: None
@@ -199,6 +251,7 @@ class ASDManagerClient(AlbaBaseClient):
         return self._call(requests.post, 'update/execute_migration_code')
 
     def update_installed_version_package(self, package_name):
+        # type: (str) -> str
         """
         Retrieve the currently installed package version
         :param package_name: Name of the package to retrieve the version for
@@ -213,6 +266,7 @@ class ASDManagerClient(AlbaBaseClient):
     # SERVICES #
     ############
     def restart_services(self, service_names=None):
+        # type: (Optional[str]) -> None
         """
         Restart the specified services (alba-asd and maintenance services)
         :param service_names: Names of the services to restart
@@ -227,6 +281,7 @@ class ASDManagerClient(AlbaBaseClient):
                           data={'service_names': json.dumps(service_names)})
 
     def add_maintenance_service(self, name, alba_backend_guid, abm_name, read_preferences):
+        # type: (str, str, str, List[str]) -> dict
         """
         Add service to asd manager
         :param name: Name of the service to add
@@ -238,6 +293,7 @@ class ASDManagerClient(AlbaBaseClient):
         :param read_preferences: List of ALBA Node IDs (LOCAL) or linked ALBA Backend Guids (GLOBAL) for the maintenance services where they should prioritize the READ actions
         :type read_preferences: list[str]
         :return: result
+        :rtype: dict
         """
         return self._call(method=requests.post,
                           url='maintenance/{0}/add'.format(name),
@@ -246,6 +302,7 @@ class ASDManagerClient(AlbaBaseClient):
                                 'alba_backend_guid': alba_backend_guid})
 
     def remove_maintenance_service(self, name, alba_backend_guid):
+        # type: (str, str) -> dict
         """
         Remove service from asd manager
         :param name: Name of the maintenance service to remove
@@ -253,20 +310,24 @@ class ASDManagerClient(AlbaBaseClient):
         :param alba_backend_guid: Guid of the ALBA Backend to which the maintenance service belongs
         :type alba_backend_guid: str
         :return: result
+        :rtype: dict
         """
         return self._call(method=requests.post,
                           url='maintenance/{0}/remove'.format(name),
                           data={'alba_backend_guid': alba_backend_guid})
 
     def list_maintenance_services(self):
+        # type: () -> dict
         """
         Retrieve configured maintenance services from asd manager
         :return: dict of services
+        :rtype: dict
         """
         return self.extract_data(self._call(requests.get, 'maintenance', clean=True),
                                  old_key='services')
 
     def get_service_status(self, name):
+        # type: (str) -> str
         """
         Retrieve the status of the service specified
         :param name: Name of the service to check
@@ -278,6 +339,7 @@ class ASDManagerClient(AlbaBaseClient):
                                  old_key='status')[1]
 
     def sync_stack(self, stack):
+        # type: (dict) -> None
         """
         Synchronize the stack of an AlbaNode with the stack of another AlbaNode
         :param stack: Stack to sync

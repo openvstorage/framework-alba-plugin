@@ -13,6 +13,7 @@
 #
 # Open vStorage is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY of any kind.
+from ovs.constants.albarakoon import ABM_PLUGIN, NSM_PLUGIN, ARAKOON_PLUGIN_DIR
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albansmcluster import NSMCluster
@@ -30,7 +31,6 @@ from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient
 from ovs.extensions.packages.albapackagefactory import PackageFactory
 from ovs.extensions.plugins.albacli import AlbaCLI
-from ovs.constants.albarakoon import ABM_PLUGIN, NSM_PLUGIN, ARAKOON_PLUGIN_DIR
 
 
 class AlbaArakoonInstaller(object):
@@ -105,7 +105,7 @@ class AlbaArakoonInstaller(object):
                 cls._logger.info('Removed service {0}'.format(j_service.service.name))
 
     @classmethod
-    def _link_plugins(cls, client, data_dir, plugins, cluster_name):
+    def link_plugins(cls, client, data_dir, plugins, cluster_name):
         # type: (SSHClient, str, List[str], str) -> None
         """
         Create symlinks for the Arakoon plugins to the correct (mounted) partition
@@ -156,13 +156,15 @@ class AlbaArakoonInstaller(object):
 
     @classmethod
     def is_internally_managed(cls, alba_backend=None, abm_cluster=None, nsm_cluster=None):
-        # type: (AlbaBackend) -> bool
+        # type: (Optional[AlbaBackend], Optional[ABMCluster], Optional[NSMCluster]) -> bool
         """
         Check if the Alba Arakoons are internally managed for a backend
         :param alba_backend: Alba Backend to check for
         :type alba_backend: AlbaBackend
         :param abm_cluster: ABM Cluster to check
         :type abm_cluster: ABMCluster
+        :param nsm_cluster: NSM Cluster to check
+        :type nsm_cluster: NSMCluster
         :return: True if internally managed
         :rtype: bool
         """
@@ -179,7 +181,7 @@ class AlbaArakoonInstaller(object):
         return internal
 
     @classmethod
-    def _model_arakoon_service(cls, alba_backend, cluster_name, ports=None, storagerouter=None, number=None):
+    def model_arakoon_service(cls, alba_backend, cluster_name, ports=None, storagerouter=None, number=None):
         # type: (AlbaBackend, str, Optional[List[int]], Optional[StorageRouter, int]) -> None
         """
         Adds service to the model
@@ -267,7 +269,8 @@ class ABMInstaller(AlbaArakoonInstaller):
         super(ABMInstaller, self).__init__(version_str=version_str, ssh_clients=ssh_clients)
 
     @classmethod
-    def _update_abm_client_config(cls, abm_name, ip):
+    def update_abm_client_config(cls, abm_name, ip):
+        # type: (str, str) -> None
         """
         Update the client configuration for the ABM cluster
         :param abm_name: Name of the ABM service
@@ -318,7 +321,7 @@ class ABMInstaller(AlbaArakoonInstaller):
                                              base_dir=partition.folder,
                                              plugins={ABM_PLUGIN: self.version_str})
             ssh_client = self.get_ssh_client(storagerouter)
-            self._link_plugins(client=ssh_client, data_dir=partition.folder, plugins=[ABM_PLUGIN], cluster_name=abm_cluster_name)
+            self.link_plugins(client=ssh_client, data_dir=partition.folder, plugins=[ABM_PLUGIN], cluster_name=abm_cluster_name)
             arakoon_installer.start_cluster()
             ports = arakoon_installer.ports[storagerouter.ip]
             metadata = arakoon_installer.metadata
@@ -330,8 +333,8 @@ class ABMInstaller(AlbaArakoonInstaller):
         cluster_manage_type = 'externally' if storagerouter is None else 'internally'
         self._logger.info('Claimed {0} managed Arakoon cluster: {1}'.format(cluster_manage_type, abm_cluster_name))
         ip = self.get_an_ip()
-        self._update_abm_client_config(abm_cluster_name, ip=ip)
-        self._model_arakoon_service(alba_backend, abm_cluster_name, ports, storagerouter)
+        self.update_abm_client_config(abm_cluster_name, ip=ip)
+        self.model_arakoon_service(alba_backend, abm_cluster_name, ports, storagerouter)
 
     def extend_abm_cluster(self, storagerouter, abm_cluster, ssh_client=None):
         # type: (StorageRouter, ABMCluster, Optional[SSHClient]) -> None
@@ -353,11 +356,11 @@ class ABMInstaller(AlbaArakoonInstaller):
         arakoon_installer = ArakoonInstaller(cluster_name=abm_cluster.name)
         arakoon_installer.load()
         arakoon_installer.extend_cluster(new_ip=storagerouter.ip, base_dir=partition.folder, plugins={ABM_PLUGIN: self.version_str})
-        self._link_plugins(client=ssh_client, data_dir=partition.folder, plugins=[ABM_PLUGIN], cluster_name=abm_cluster.name)
-        self._model_arakoon_service(alba_backend=alba_backend, cluster_name=abm_cluster.name,
-                                    ports=arakoon_installer.ports[storagerouter.ip], storagerouter=storagerouter)
+        self.link_plugins(client=ssh_client, data_dir=partition.folder, plugins=[ABM_PLUGIN], cluster_name=abm_cluster.name)
+        self.model_arakoon_service(alba_backend=alba_backend, cluster_name=abm_cluster.name,
+                                   ports=arakoon_installer.ports[storagerouter.ip], storagerouter=storagerouter)
         arakoon_installer.restart_cluster_after_extending(new_ip=storagerouter.ip)
-        self._update_abm_client_config(abm_name=abm_cluster.name, ip=storagerouter.ip)
+        self.update_abm_client_config(abm_name=abm_cluster.name, ip=storagerouter.ip)
 
     @classmethod
     def remove_abm_cluster(cls, abm_cluster, arakoon_clusters=None):
@@ -431,7 +434,7 @@ class NSMInstaller(AlbaArakoonInstaller):
                                                  plugins={NSM_PLUGIN: self.version_str})
                 ssh_client = self.get_ssh_client(storagerouter)
                 self._logger.info('ALBA Backend {0} - Cluster {1} - Linking plugins'.format(alba_backend.name, nsm_cluster_name))
-                self._link_plugins(client=ssh_client, data_dir=partition.folder, plugins=[NSM_PLUGIN], cluster_name=nsm_cluster_name)
+                self.link_plugins(client=ssh_client, data_dir=partition.folder, plugins=[NSM_PLUGIN], cluster_name=nsm_cluster_name)
                 self._logger.info('ALBA Backend {0} - Cluster {1} - Starting cluster'.format(alba_backend.name, nsm_cluster_name))
                 arakoon_installer.start_cluster()
                 ports = arakoon_installer.ports[storagerouter.ip]
@@ -444,10 +447,10 @@ class NSMInstaller(AlbaArakoonInstaller):
             self._logger.info('Claimed {0} managed Arakoon cluster: {1}'.format(cluster_manage_type, nsm_cluster_name))
             ip = self.get_an_ip()
             self._logger.debug('ALBA Backend {0} - Cluster {1} - Registering NSM'.format(alba_backend.name, nsm_cluster_name))
-            self._register_nsm(abm_name=alba_backend.abm_cluster.name, nsm_name=nsm_cluster_name, ip=ip)
+            self.register_nsm(abm_name=alba_backend.abm_cluster.name, nsm_name=nsm_cluster_name, ip=ip)
             self._logger.debug('ALBA Backend {0} - Cluster {1} - Modeling services'.format(alba_backend.name, nsm_cluster_name))
-            self._model_arakoon_service(alba_backend=alba_backend, cluster_name=nsm_cluster_name, ports=ports,
-                                        storagerouter=None if len(nsm_clusters) > 0 else storagerouter, number=index)
+            self.model_arakoon_service(alba_backend=alba_backend, cluster_name=nsm_cluster_name, ports=ports,
+                                       storagerouter=None if len(nsm_clusters) > 0 else storagerouter, number=index)
 
     def extend_nsm_cluster(self, storagerouter, nsm_cluster, ssh_client=None):
         # type: (StorageRouter, NSMCluster, Optional[SSHClient]) -> None
@@ -465,18 +468,18 @@ class NSMInstaller(AlbaArakoonInstaller):
         self._logger.debug('ALBA Backend {0} - Extending cluster {1} on node {2} with IP {3}'.format(alba_backend.name, nsm_cluster.name, storagerouter.name, storagerouter.ip))
         arakoon_installer.extend_cluster(new_ip=storagerouter.ip, base_dir=partition.folder, plugins={NSM_PLUGIN: self.version_str})
         self._logger.debug('ALBA Backend {0} - Linking plugins'.format(alba_backend.name))
-        self._link_plugins(client=ssh_client, data_dir=partition.folder, plugins=[NSM_PLUGIN], cluster_name=nsm_cluster.name)
+        self.link_plugins(client=ssh_client, data_dir=partition.folder, plugins=[NSM_PLUGIN], cluster_name=nsm_cluster.name)
         self._logger.debug('ALBA Backend {0} - Modeling services'.format(alba_backend.name))
-        self._model_arakoon_service(alba_backend=alba_backend, cluster_name=nsm_cluster.name,
-                                    ports=arakoon_installer.ports[storagerouter.ip], storagerouter=storagerouter,
-                                    number=nsm_cluster.number)
+        self.model_arakoon_service(alba_backend=alba_backend, cluster_name=nsm_cluster.name,
+                                   ports=arakoon_installer.ports[storagerouter.ip], storagerouter=storagerouter,
+                                   number=nsm_cluster.number)
         self._logger.debug('ALBA Backend {0} - Restarting cluster'.format(alba_backend.name))
         arakoon_installer.restart_cluster_after_extending(new_ip=storagerouter.ip)
-        self._update_nsm(abm_name=alba_backend.abm_cluster.name, nsm_name=nsm_cluster.name, ip=storagerouter.ip)
+        self.update_nsm(abm_name=alba_backend.abm_cluster.name, nsm_name=nsm_cluster.name, ip=storagerouter.ip)
         self._logger.debug('ALBA Backend {0} - Extended cluster'.format(alba_backend.name))
 
     @classmethod
-    def _register_nsm(cls, abm_name, nsm_name, ip):
+    def register_nsm(cls, abm_name, nsm_name, ip):
         # type: (str, str, str) -> None
         """
         Register the NSM service to the cluster
@@ -493,7 +496,8 @@ class NSMInstaller(AlbaArakoonInstaller):
         AlbaCLI.run(command='add-nsm-host', config=abm_config_file, extra_params=[nsm_config_file], client=SSHClient(endpoint=ip))
 
     @classmethod
-    def _update_nsm(cls, abm_name, nsm_name, ip):
+    def update_nsm(cls, abm_name, nsm_name, ip):
+        # type: (str, str, str) -> None
         """
         Update the NSM service
         :param abm_name: Name of the ABM cluster

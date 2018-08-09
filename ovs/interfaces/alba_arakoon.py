@@ -43,17 +43,17 @@ class AlbaArakoonInterface(object):
                           'timestamp: {0}'.format(datetime.datetime.now()),
                           '']
                 alba_backends = sorted(AlbaBackendList.get_albabackends(), key=lambda k: k.name)
-                for sr in sorted(StorageRouterList.get_storagerouters(), key=lambda k: k.name):
-                    if len([service for service in sr.services if service.type.name in [ServiceType.SERVICE_TYPES.NS_MGR, ServiceType.SERVICE_TYPES.ALBA_MGR] and service.storagerouter == sr]) == 0:
+                for storagerouter in sorted(StorageRouterList.get_storagerouters(), key=lambda k: k.name):
+                    if len([service for service in storagerouter.services if service.type.name in [ServiceType.SERVICE_TYPES.NS_MGR, ServiceType.SERVICE_TYPES.ALBA_MGR] and service.storagerouter == storagerouter]) == 0:
                         continue
-                    output.append('+ {0} ({1})'.format(sr.name, sr.ip))
+                    output.append('+ {0} ({1})'.format(storagerouter.name, storagerouter.ip))
                     for alba_backend in alba_backends:
                         is_internal = alba_backend.abm_cluster.abm_services[0].service.is_internal
                         if is_internal is False:
                             output.append('    + ABM (externally managed)')
                         else:
-                            abm_service = [abm_service for abm_service in alba_backend.abm_cluster.abm_services if abm_service.service.storagerouter == sr]
-                            nsm_clusters = [nsm_cluster for nsm_cluster in alba_backend.nsm_clusters for nsm_service in nsm_cluster.nsm_services if nsm_service.service.storagerouter == sr]
+                            abm_service = [abm_service for abm_service in alba_backend.abm_cluster.abm_services if abm_service.service.storagerouter == storagerouter]
+                            nsm_clusters = [nsm_cluster for nsm_cluster in alba_backend.nsm_clusters for nsm_service in nsm_cluster.nsm_services if nsm_service.service.storagerouter == storagerouter]
                             if len(abm_service) > 0 or len(nsm_clusters) > 0:
                                 output.append('  + {0}'.format(alba_backend.name))
                                 if len(abm_service) > 0:
@@ -67,7 +67,7 @@ class AlbaArakoonInterface(object):
                                 load = 'infinite' if load == float('inf') else '{0}%'.format(round(load, 2)) if load is not None else 'unknown'
                                 capacity = 'infinite' if float(nsm_cluster.capacity) < 0 else float(nsm_cluster.capacity)
                                 for nsm_service in nsm_cluster.nsm_services:
-                                    if nsm_service.service.storagerouter != sr:
+                                    if nsm_service.service.storagerouter != storagerouter:
                                         continue
                                     if is_internal is True:
                                         output.append('    + NSM {0} - port {1} - capacity: {2}, load: {3}'.format(nsm_cluster.number, nsm_service.service.ports, capacity, load))

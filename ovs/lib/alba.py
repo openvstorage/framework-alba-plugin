@@ -73,6 +73,7 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.update_osds')
     def update_osds(osds, alba_node_guid):
+        # type: (List[List[str, dict]], str) -> List[str]
         """
         Update OSDs that are already registered on an ALBA Backend.
         Currently used to update the IPs or node ID on which the OSD should be exposed
@@ -175,6 +176,7 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.add_osds')
     def add_osds(alba_backend_guid, osds, alba_node_guid=None, metadata=None):
+        # type: (str, List[dict], Optional[str], Optional[dict]) -> List[str]
         """
         Adds and claims an OSD to the Backend
         :param alba_backend_guid: Guid of the ALBA Backend
@@ -271,6 +273,7 @@ class AlbaController(object):
 
     @staticmethod
     def _add_backend_osds(alba_backend_guid, osds, domain, metadata):
+        # type: (str, List[dict], Domain, dict) -> Tuple[List[str], List[str]]
         """
         Adds and claims an OSD of type Backend
         Currently only supports linking one at the time due to the metadata aspect being sent only for a single OSD
@@ -376,6 +379,7 @@ class AlbaController(object):
 
     @staticmethod
     def _add_generic_osds(alba_backend_guid, alba_node_guid, osds, domain, metadata):
+        # type: (str, str, List[dict], Domain, dict) -> Tuple[List[str], List[str]]
         """
         Adds and claims an OSD to the Backend
         :param alba_backend_guid: Guid of the ALBA Backend
@@ -536,6 +540,7 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.remove_units')
     def remove_units(alba_backend_guid, osd_ids):
+        # type: (str, List[str]) -> None
         """
         Removes storage units from an ALBA Backend
         :param alba_backend_guid: Guid of the ALBA Backend
@@ -706,6 +711,7 @@ class AlbaController(object):
 
     @staticmethod
     def nodes_reachable():
+        # type: () -> None
         """
         Check if all AlbaNodes are reachable for a backend
         :return: None
@@ -744,6 +750,7 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.remove_cluster')
     def remove_cluster(alba_backend_guid):
+        # type: (str) -> None
         """
         Removes an ALBA Backend/cluster
         :param alba_backend_guid: Guid of the ALBA Backend
@@ -783,6 +790,7 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.get_arakoon_config')
     def get_arakoon_config(alba_backend_guid):
+        # type: (str) -> dict
         """
         Gets the Arakoon configuration for an ALBA Backend
         :param alba_backend_guid: Guid of the ALBA Backend
@@ -811,27 +819,9 @@ class AlbaController(object):
         return config.export_dict()
 
     @staticmethod
-    def _link_plugins(client, data_dir, plugins, cluster_name):
-        """
-        Create symlinks for the Arakoon plugins to the correct (mounted) partition
-        :param client: SSHClient to execute this on
-        :type client: SSHClient
-        :param data_dir: Directory on which the DB partition resides
-        :type data_dir: str
-        :param plugins: Plugins to symlink
-        :type plugins: list
-        :param cluster_name: Name of the Arakoon cluster
-        :type cluster_name: str
-        :return: None
-        :rtype: NoneType
-        """
-        data_dir = '' if data_dir == '/' else data_dir
-        for plugin in plugins:
-            client.run(['ln', '-s', '{0}/{1}.cmxs'.format(AlbaController.ARAKOON_PLUGIN_DIR, plugin), ArakoonInstaller.ARAKOON_HOME_DIR.format(data_dir, cluster_name)])
-
-    @staticmethod
     @add_hooks('nodetype', 'demote')
     def _on_demote(cluster_ip, master_ip, offline_node_ips=None):
+        # type: (str, Optional[str], Optional[List[str]]) -> None
         """
         A node is being demoted
         :param cluster_ip: IP of the cluster node to execute this on
@@ -869,8 +859,7 @@ class AlbaController(object):
                     arakoon_installer.restart_cluster_after_shrinking()
 
                     AlbaController._logger.info('* Updating ABM client config')
-                    AlbaArakoonController._update_abm_client_config(abm_name=abm_cluster_name,
-                                                                    ip=abm_remaining_ips[0])
+                    ABMInstaller.update_abm_client_config(abm_name=abm_cluster_name, ip=abm_remaining_ips[0])
 
                     AlbaController._logger.info('* Remove old ABM node from model')
                     abm_service = [abm_service for abm_service in alba_backend.abm_cluster.abm_services if abm_service.service.storagerouter.ip == cluster_ip][0]
@@ -897,7 +886,7 @@ class AlbaController(object):
                     arakoon_installer.restart_cluster_after_shrinking()
 
                     AlbaController._logger.info('* Updating NSM cluster config to ABM for cluster {0}'.format(nsm_cluster.name))
-                    NSMInstaller._update_nsm(abm_name=abm_cluster_name, nsm_name=nsm_cluster.name, ip=nsm_remaining_ips[0])
+                    NSMInstaller.update_nsm(abm_name=abm_cluster_name, nsm_name=nsm_cluster.name, ip=nsm_remaining_ips[0])
 
                     AlbaController._logger.info('* Remove old NSM node from model')
                     nsm_service = [nsm_service for nsm_service in nsm_cluster.nsm_services if nsm_service.service.storagerouter.ip == cluster_ip][0]
@@ -907,6 +896,7 @@ class AlbaController(object):
     @staticmethod
     @add_hooks('noderemoval', 'remove')
     def _on_remove(cluster_ip, complete_removal):
+        # type: (str, bool) -> None
         """
         A node is removed
         :param cluster_ip: IP of the node being removed
@@ -948,6 +938,7 @@ class AlbaController(object):
     @staticmethod
     @add_hooks('noderemoval', 'validate_removal')
     def _validate_removal(cluster_ip):
+        # type: (str) -> None
         """
         Validate whether the specified StorageRouter can be removed
         :param cluster_ip: IP of the StorageRouter to validate for removal
@@ -975,6 +966,7 @@ class AlbaController(object):
     @staticmethod
     @add_hooks('noderemoval', 'validate_asd_removal')
     def _validate_asd_removal(storage_router_ip):
+        # type: (str) -> dict
         """
         Do some validations before removing a node
         :param storage_router_ip: IP of the node trying to be removed
@@ -1015,6 +1007,7 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.calculate_safety')
     def calculate_safety(alba_backend_guid, removal_osd_ids):
+        # type: (str, List[str]) -> dict
         """
         Calculates/loads the safety when a certain set of disks are removed
         :param alba_backend_guid: Guid of the ALBA Backend
@@ -1067,30 +1060,10 @@ class AlbaController(object):
         return result
 
     @staticmethod
-    def get_load(nsm_cluster):
-        """
-        Calculates the load of an NSM node, returning a float percentage
-        :param nsm_cluster: NSM cluster to retrieve the load for
-        :type nsm_cluster: ovs.dal.hybrids.albansmcluster.NSMCluster
-        :return: Load of the NSM service
-        :rtype: float
-        """
-        service_capacity = float(nsm_cluster.capacity)
-        if service_capacity < 0:
-            return 50.0
-        if service_capacity == 0:
-            return float('inf')
-
-        config = Configuration.get_configuration_path(key=nsm_cluster.alba_backend.abm_cluster.config_location)
-        hosts_data = AlbaCLI.run(command='list-nsm-hosts', config=config)
-        host = [host for host in hosts_data if host['id'] == nsm_cluster.name][0]
-        usage = host['namespaces_count']
-        return round(usage / service_capacity * 100.0, 5)
-
-    @staticmethod
     @add_hooks('nodeinstallation', ['firstnode', 'extranode'])  # Arguments: cluster_ip and for extra node also master_ip
     @add_hooks('plugin', ['postinstall'])  # Arguments: ip
     def _add_base_configuration(*args, **kwargs):
+        # type: (any, any) -> None
         _ = args, kwargs
         key = '/ovs/framework/plugins/alba/config'
         if not Configuration.exists(key):
@@ -1113,6 +1086,7 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.link_alba_backends')
     def link_alba_backends(alba_backend_guid, metadata):
+        # type: (str, dict) -> bool
         """
         Link a GLOBAL ALBA Backend to a LOCAL or another GLOBAL ALBA Backend
         :param alba_backend_guid: ALBA Backend guid to link another ALBA Backend to
@@ -1147,6 +1121,7 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.unlink_alba_backends')
     def unlink_alba_backends(target_guid, linked_guid):
+        # type: (str, str) -> None
         """
         Unlink a LOCAL or GLOBAL ALBA Backend from a GLOBAL ALBA Backend
         :param target_guid: Guid of the GLOBAL ALBA Backend from which a link will be removed
@@ -1171,6 +1146,7 @@ class AlbaController(object):
 
     @staticmethod
     def get_read_preferences_for_global_backend(alba_backend, alba_node_id, read_preferences):
+        # type: (AlbaBackend, str, List[str]) -> List[str]
         """
         Retrieve the read preferences for a GLOBAL ALBA Backend and ALBA Node combination
         WARNING: Max recursion depth exceeded error possible, because when for example:
@@ -1204,6 +1180,7 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.checkup_maintenance_agents', schedule=Schedule(minute='0', hour='*'), ensure_single_info={'mode': 'CHAINED'})
     def checkup_maintenance_agents(alba_backend_guid=None):
+        # type: () -> None
         """
         Check if requested nr of maintenance agents per ALBA Backend is actually present
         Add / remove maintenance agents to fulfill the requested layout or the requested amount of services (configurable through configuration management)
@@ -1558,8 +1535,11 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.verify_namespaces', schedule=Schedule(minute='0', hour='0', day_of_month='1', month_of_year='*/3'))
     def verify_namespaces():
+        # type: () -> None
         """
         Verify namespaces for all backends
+        :return: None
+        :rtype: NoneType
         """
         AlbaController._logger.info('Verify namespace task scheduling started')
 
@@ -1583,6 +1563,7 @@ class AlbaController(object):
     @staticmethod
     @add_hooks('backend', 'domains-update')
     def _post_backend_domains_updated(backend_guid):
+        # type: (str) -> None
         """
         Execute this functionality when the Backend Domains have been updated
         :param backend_guid: Guid of the Backend to be updated
