@@ -31,6 +31,7 @@ from ovs.extensions.generic.logger import Logger
 from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 from ovs.extensions.plugins.asdmanager import ASDManagerClient
 from ovs.extensions.plugins.genericmanager import GenericManagerClient
+from ovs.extensions.plugins.s3manager import S3ManagerClient
 from ovs.extensions.plugins.tests.alba_mockups import ManagerClientMockup
 
 
@@ -38,7 +39,7 @@ class AlbaNode(DataObject):
     """
     The AlbaNode contains information about nodes (containing OSDs)
     """
-    NODE_TYPES = DataObject.enumerator('NodeType', ['ASD', 'GENERIC'])
+    NODE_TYPES = DataObject.enumerator('NodeType', ['ASD', 'GENERIC', 'S3'])
     OSD_STATUSES = DataObject.enumerator('OSDStatus', {'ERROR': 'error',
                                                        'MISSING': 'missing',
                                                        'OK': 'ok',
@@ -57,6 +58,9 @@ class AlbaNode(DataObject):
                                                          'UNAVAILABLE': 'unavailable',
                                                          'UNKNOWN': 'unknown',
                                                          'EMPTY': 'empty'})
+    _CLIENTS = {NODE_TYPES.ASD: ASDManagerClient,
+                NODE_TYPES.GENERIC: GenericManagerClient,
+                NODE_TYPES.S3: S3ManagerClient}
 
     _logger = Logger('hybrids')
     __properties = [Property('ip', str, indexed=True, mandatory=False, doc='IP Address'),
@@ -87,10 +91,10 @@ class AlbaNode(DataObject):
         self.client = None
         if os.environ.get('RUNNING_UNITTESTS') == 'True':
             self.client = ManagerClientMockup(self)
-        elif self.type == AlbaNode.NODE_TYPES.ASD:
-            self.client = ASDManagerClient(self)
-        elif self.type == AlbaNode.NODE_TYPES.GENERIC:
-            self.client = GenericManagerClient(self)
+        else:
+            if self.type not in self._CLIENTS:
+                raise NotImplementedError('Type {0} is not implemented'.format(self.type))
+            self.client = self._CLIENTS[self.type](self)
         self._frozen = True
 
     def _ips(self):
@@ -257,8 +261,11 @@ class AlbaNode(DataObject):
         from ovs.dal.hybrids.albaosd import AlbaOSD
         if self.type == AlbaNode.NODE_TYPES.GENERIC:
             return [AlbaOSD.OSD_TYPES.ASD, AlbaOSD.OSD_TYPES.AD]
-        if self.type == AlbaNode.NODE_TYPES.ASD:
+        elif self.type == AlbaNode.NODE_TYPES.ASD:
             return [AlbaOSD.OSD_TYPES.ASD]
+        elif self.type == AlbaNode.NODE_TYPES.S3:
+            return []
+        return []
 
     def _read_only_mode(self):
         """
