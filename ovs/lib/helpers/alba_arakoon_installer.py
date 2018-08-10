@@ -17,12 +17,15 @@ from ovs.constants.albarakoon import ABM_PLUGIN, NSM_PLUGIN, ARAKOON_PLUGIN_DIR
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albansmcluster import NSMCluster
+from ovs.dal.hybrids.albas3transactioncluster import S3TransactionCluster
 from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.j_abmservice import ABMService
 from ovs.dal.hybrids.j_nsmservice import NSMService
+from ovs.dal.hybrids.j_s3transactionservice import S3TransactionService
 from ovs.dal.hybrids.service import Service as DalService
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.hybrids.storagerouter import StorageRouter
+from ovs.dal.lists.albas3transactionclusterlist import S3TransactionClusterList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakooninstaller import ArakoonClusterConfig, ArakoonInstaller
@@ -155,8 +158,8 @@ class AlbaArakoonInstaller(object):
             raise ValueError('StorageRouter {0} does not have a DB role. Cannot extend!'.format(storagerouter.guid))
 
     @classmethod
-    def is_internally_managed(cls, alba_backend=None, abm_cluster=None, nsm_cluster=None):
-        # type: (Optional[AlbaBackend], Optional[ABMCluster], Optional[NSMCluster]) -> bool
+    def is_internally_managed(cls, alba_backend=None, abm_cluster=None, nsm_cluster=None, s3_cluster=None):
+        # type: (Optional[AlbaBackend], Optional[ABMCluster], Optional[NSMCluster], Optional[S3TransactionCluster]) -> bool
         """
         Check if the Alba Arakoons are internally managed for a backend
         :param alba_backend: Alba Backend to check for
@@ -165,6 +168,8 @@ class AlbaArakoonInstaller(object):
         :type abm_cluster: ABMCluster
         :param nsm_cluster: NSM Cluster to check
         :type nsm_cluster: NSMCluster
+        :param s3_cluster: S3 Transaction Cluster to check
+        :type s3_cluster: S3TransactionCluster
         :return: True if internally managed
         :rtype: bool
         """
@@ -173,6 +178,8 @@ class AlbaArakoonInstaller(object):
             internal = len(abm_cluster.abm_services) > 0 and abm_cluster.abm_services[0].service.is_internal
         elif nsm_cluster:
             internal = len(nsm_cluster.nsm_services) > 0 and nsm_cluster.nsm_services[0].service.is_internal
+        elif s3_cluster:
+            internal = len(s3_cluster.s3_transaction_services) > 0 and s3_cluster.s3_transaction_services[0].service.is_internal
         elif alba_backend:
             internal = alba_backend.abm_cluster and len(alba_backend.abm_cluster.abm_services) > 0 and alba_backend.abm_cluster.abm_services[0].service.is_internal or\
                        len(alba_backend.nsm_clusters) > 0 and len(alba_backend.nsm_clusters[0].nsm_services) > 0 and alba_backend.nsm_clusters[0].nsm_services[0].service.is_internal
@@ -182,7 +189,7 @@ class AlbaArakoonInstaller(object):
 
     @classmethod
     def model_arakoon_service(cls, alba_backend, cluster_name, ports=None, storagerouter=None, number=None):
-        # type: (AlbaBackend, str, Optional[List[int]], Optional[StorageRouter, int]) -> None
+        # type: (AlbaBackend, str, Optional[List[int]], Optional[StorageRouter], int) -> None
         """
         Adds service to the model
         :param alba_backend: ALBA Backend with which the service is linked
@@ -532,3 +539,130 @@ class NSMInstaller(AlbaArakoonInstaller):
                             junction_type=NSMService, arakoon_clusters=arakoon_clusters)
         # Remove item
         nsm_cluster.delete()
+
+
+class S3TransactionInstaller(AlbaArakoonInstaller):
+    """
+    Managed the S3 Transaction Arakoon cluster
+    """
+
+    def __init__(self, version_str=None, ssh_clients=None):
+        super(S3TransactionInstaller, self).__init__(version_str, ssh_clients)
+
+    def deploy_s3_cluster(self, storagerouter=None, cluster_name='alba_s3_transaction', external_cluster_name=None):
+        # type: (Optional[StorageRouter], Optional[str], Optional[str]) -> None
+        """
+        Deploy a S3 Arakoon cluster
+        :param storagerouter: StorageRouter to deploy NSM on (internal)
+        :type storagerouter: StorageRouter
+        :param cluster_name: The name for the cluster to be deployed. Defaults to `alba_s3_transaction`
+        :type cluster_name: str
+        :param external_cluster_name: Name of the external cluster to claim
+        :type external_cluster_name: str
+        :return: None
+        :rtype: NoneType
+        """
+        # @todo create a generic method to share with ABM
+        # Check if ABMs are available for claiming. When the requested cluster name is None, a different external ABM might be claimed
+        metadata = ArakoonInstaller.get_unused_arakoon_metadata_and_claim(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM,
+                                                                          cluster_name=external_cluster_name)
+        if metadata is None:  # No externally unused clusters found, we create 1 ourselves
+            if not storagerouter:
+                raise RuntimeError('No StorageRouter specified to install cluster on')
+            if external_cluster_name is not None:
+                raise ValueError('Cluster {0} has been claimed by another process'.format(external_cluster_name))
+            self._logger.info('Creating Arakoon cluster: {0}'.format(cluster_name))
+            partition = self.get_db_partition(storagerouter)
+            arakoon_installer = ArakoonInstaller(cluster_name=cluster_name)
+            arakoon_installer.create_cluster(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM,
+                                             ip=storagerouter.ip,
+                                             base_dir=partition.folder,
+                                             plugins={ABM_PLUGIN: self.version_str})
+            ssh_client = self.get_ssh_client(storagerouter)
+            self.link_plugins(client=ssh_client, data_dir=partition.folder, plugins=[ABM_PLUGIN], cluster_name=cluster_name)
+            arakoon_installer.start_cluster()
+            ports = arakoon_installer.ports[storagerouter.ip]
+            metadata = arakoon_installer.metadata
+        else:
+            ports = []
+            storagerouter = None
+
+        cluster_name = metadata['cluster_name']
+        cluster_manage_type = 'externally' if storagerouter is None else 'internally'
+        self._logger.info('Claimed {0} managed Arakoon cluster: {1}'.format(cluster_manage_type, cluster_name))
+        self.model_s3_arakoon_service(cluster_name, ports, storagerouter)
+
+    def extend_s3_cluster(self, storagerouter, s3_cluster):
+        # type: (StorageRouter, S3TransactionCluster) -> None
+        """
+        Extend the ABM cluster to reach the desired safety
+        :param storagerouter: StorageRouter to extend to
+        :type storagerouter: StorageRouter
+        :param s3_cluster: S3 cluster object to extend
+        :type s3_cluster: S3 cluster
+        :return:None
+        :rtype: NoneType
+        """
+        partition = self.get_db_partition(storagerouter)
+
+        arakoon_installer = ArakoonInstaller(cluster_name=s3_cluster.name)
+        arakoon_installer.load()
+        arakoon_installer.extend_cluster(new_ip=storagerouter.ip, base_dir=partition.folder)
+        self.model_s3_arakoon_service(cluster_name=s3_cluster.name, ports=arakoon_installer.ports[storagerouter.ip], storagerouter=storagerouter)
+        arakoon_installer.restart_cluster_after_extending(new_ip=storagerouter.ip)
+
+    @classmethod
+    def remove_s3_cluster(cls, s3_cluster, arakoon_clusters=None):
+        # type: (S3TransactionCluster, Optional[List[str]]) -> None
+        """
+        :param s3_cluster: S3 Transaction Cluster to remove
+        :type s3_cluster: S3TransactionCluster
+        :param arakoon_clusters: All available arakoon clusters (Defaults to fetching them)
+        :type arakoon_clusters: List[str]
+        :return: None
+        :rtype: NoneType
+        """
+        internal = cls.is_internally_managed(nsm_cluster=nsm_cluster)
+        cls._remove_cluster(nsm_cluster.name, internal,
+                            associated_junction_services=nsm_cluster.nsm_services,
+                            junction_type=NSMService, arakoon_clusters=arakoon_clusters)
+        # Remove item
+        nsm_cluster.delete()
+
+    @classmethod
+    def model_s3_arakoon_service(cls, cluster_name, ports=None, storagerouter=None):
+        # type: (str, Optional[List[int]], Optional[StorageRouter]) -> None
+        """
+        Adds S3 service to the model
+        :param cluster_name: Name of the cluster the service belongs to
+        :type cluster_name: str
+        :param ports: Ports on which the service is listening (None if externally managed service)
+        :type ports: list
+        :param storagerouter: StorageRouter on which the service has been deployed (None if externally managed service)
+        :type storagerouter: ovs.dal.hybrids.storagerouter.StorageRouter
+        :return: None
+        :rtype: NoneType
+        """
+        if ports is None:
+            ports = []
+
+        service_type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.ALBA_S3_TRANSACTION)
+        cluster = S3TransactionClusterList.get_by_name(cluster_name) or S3TransactionCluster()
+        service_name = 'arakoon_s3_transaction'
+        junction_service = S3TransactionService()
+
+        cls._logger.info('Model service: {0}'.format(str(service_name)))
+        cluster.name = cluster_name
+        cluster.config_location = ArakoonClusterConfig.CONFIG_KEY.format(cluster_name)
+        cluster.save()
+
+        service = DalService()
+        service.name = service_name
+        service.type = service_type
+        service.ports = ports
+        service.storagerouter = storagerouter
+        service.save()
+
+        junction_service.s3_transaction_cluster = cluster
+        junction_service.service = service
+        junction_service.save()
