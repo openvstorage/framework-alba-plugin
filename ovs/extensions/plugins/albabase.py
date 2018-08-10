@@ -32,6 +32,8 @@ class AlbaBaseClient(APIClient):
         Initialize a base clients. Creates an API client with an AlbaNode
         :param node: The AlbaNode to create the API client for
         :param timeout: Call timeout in seconds
+        :return: None
+        :rtype: NoneType
         """
         self.node = node
         credentials = (self.node.username, self.node.password)
@@ -43,7 +45,7 @@ class AlbaBaseClient(APIClient):
         """
         Gets metadata from the node
         :return: Dict with metadata
-        ;:rtype: dict
+        :rtype: dict
         """
         raise NotImplementedError()
 
@@ -100,6 +102,7 @@ class AlbaBaseClient(APIClient):
         raise NotImplementedError()
 
     def stop_slot(self, slot_id):
+        # type: (str) -> None
         """
         Stop a slot. This will cause all OSDs on that slot to stop
         :param slot_id: Identifier of the slot

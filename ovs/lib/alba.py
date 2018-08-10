@@ -821,7 +821,7 @@ class AlbaController(object):
     @staticmethod
     @add_hooks('nodetype', 'demote')
     def _on_demote(cluster_ip, master_ip, offline_node_ips=None):
-        # type: (str, Optional[str], Optional[List[str]]) -> None
+        # type: (str, str, Optional[List[str]]) -> None
         """
         A node is being demoted
         :param cluster_ip: IP of the cluster node to execute this on
@@ -1180,7 +1180,7 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.checkup_maintenance_agents', schedule=Schedule(minute='0', hour='*'), ensure_single_info={'mode': 'CHAINED'})
     def checkup_maintenance_agents(alba_backend_guid=None):
-        # type: () -> None
+        # type: (Optional[str]) -> None
         """
         Check if requested nr of maintenance agents per ALBA Backend is actually present
         Add / remove maintenance agents to fulfill the requested layout or the requested amount of services (configurable through configuration management)
