@@ -311,6 +311,7 @@
         },
         "add_node": {
             "confirm": {
+                "asd_ips": "Followings IPs are configured:",
                 "basic_info": "Validate and confirm information below",
                 "complete": "Completed",
                 "failed": "Adding node failed: __why__",

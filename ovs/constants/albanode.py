@@ -17,6 +17,16 @@
 """
 Shared albanode constants module
 """
+import os
 
+# ASD
 ASD_CONFIG_DIR = '/ovs/alba/asds/{0}'
 ASD_CONFIG = '{0}/config'.format(ASD_CONFIG_DIR)
+
+# ASD NODES
+ASD_NODE_BASE_PATH = '/ovs/alba/asdnodes'
+ASD_NODE_CONFIG_PATH = os.path.join(ASD_NODE_BASE_PATH, '{0}/config')
+
+# S3 NODES
+S3_NODE_BASE_PATH = '/ovs/alba/s3nodes'
+S3_NODE_CONFIG_PATH = os.path.join(S3_NODE_BASE_PATH, '{0}/config')

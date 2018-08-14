@@ -390,6 +390,16 @@ class ABMInstaller(AlbaArakoonInstaller):
 class NSMInstaller(AlbaArakoonInstaller):
 
     def __init__(self, version_str=None, ssh_clients=None):
+        # type: (Optional[str], Optional[Dict[StorageRouter, SSHClient]]) -> None
+        """
+        Initialize an AlbaArakoonInstaller
+        :param ssh_clients: Dict with SSHClients for every Storagerouter
+        This dict is consulted first before building an SSHClient in the code.
+        Used to re-use already established connection and avoid failures on connecting to a storagerouter
+        :type ssh_clients: Dict[StorageRouter, SSHClient]
+        :param version_str: String of the Alba version to use
+        :type version_str: str
+        """
         super(NSMInstaller, self).__init__(version_str, ssh_clients)
 
     def deploy_nsm_cluster(self, alba_backend, storagerouter=None, nsm_cluster_name=None, nsm_clusters=None):
@@ -547,6 +557,16 @@ class S3TransactionInstaller(AlbaArakoonInstaller):
     """
 
     def __init__(self, version_str=None, ssh_clients=None):
+        # type: (Optional[str], Optional[Dict[StorageRouter, SSHClient]]) -> None
+        """
+        Initialize an AlbaArakoonInstaller
+        :param ssh_clients: Dict with SSHClients for every Storagerouter
+        This dict is consulted first before building an SSHClient in the code.
+        Used to re-use already established connection and avoid failures on connecting to a storagerouter
+        :type ssh_clients: Dict[StorageRouter, SSHClient]
+        :param version_str: String of the Alba version to use
+        :type version_str: str
+        """
         super(S3TransactionInstaller, self).__init__(version_str, ssh_clients)
 
     def deploy_s3_cluster(self, storagerouter=None, cluster_name='alba_s3_transaction', external_cluster_name=None):
@@ -622,12 +642,12 @@ class S3TransactionInstaller(AlbaArakoonInstaller):
         :return: None
         :rtype: NoneType
         """
-        internal = cls.is_internally_managed(nsm_cluster=nsm_cluster)
-        cls._remove_cluster(nsm_cluster.name, internal,
-                            associated_junction_services=nsm_cluster.nsm_services,
+        internal = cls.is_internally_managed(s3_cluster=s3_cluster)
+        cls._remove_cluster(s3_cluster.name, internal,
+                            associated_junction_services=s3_cluster.s3_transaction_services,
                             junction_type=NSMService, arakoon_clusters=arakoon_clusters)
         # Remove item
-        nsm_cluster.delete()
+        s3_cluster.delete()
 
     @classmethod
     def model_s3_arakoon_service(cls, cluster_name, ports=None, storagerouter=None):

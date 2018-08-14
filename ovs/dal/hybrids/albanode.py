@@ -21,6 +21,7 @@ AlbaNode module
 import os
 import re
 import requests
+from ovs.constants.albanode import ASD_NODE_CONFIG_PATH, S3_NODE_CONFIG_PATH
 from ovs.dal.dataobject import DataObject
 from ovs.dal.hybrids.albanodecluster import AlbaNodeCluster
 from ovs.dal.hybrids.storagerouter import StorageRouter
@@ -58,9 +59,12 @@ class AlbaNode(DataObject):
                                                          'UNAVAILABLE': 'unavailable',
                                                          'UNKNOWN': 'unknown',
                                                          'EMPTY': 'empty'})
-    _CLIENTS = {NODE_TYPES.ASD: ASDManagerClient,
-                NODE_TYPES.GENERIC: GenericManagerClient,
-                NODE_TYPES.S3: S3ManagerClient}
+    CLIENTS = DataObject.enumerator('AlbaNodeClients', {NODE_TYPES.ASD: ASDManagerClient,
+                                                        NODE_TYPES.GENERIC: GenericManagerClient,
+                                                        NODE_TYPES.S3: S3ManagerClient})
+    CONFIG_LOCATIONS = DataObject.enumerator('AlbaNodeConfigLocations', {NODE_TYPES.ASD: ASD_NODE_CONFIG_PATH,
+                                                                         NODE_TYPES.GENERIC: '',
+                                                                         NODE_TYPES.S3: S3_NODE_CONFIG_PATH})
 
     _logger = Logger('hybrids')
     __properties = [Property('ip', str, indexed=True, mandatory=False, doc='IP Address'),
@@ -92,16 +96,16 @@ class AlbaNode(DataObject):
         if os.environ.get('RUNNING_UNITTESTS') == 'True':
             self.client = ManagerClientMockup(self)
         else:
-            if self.type not in self._CLIENTS:
+            if self.type not in self.CLIENTS:
                 raise NotImplementedError('Type {0} is not implemented'.format(self.type))
-            self.client = self._CLIENTS[self.type](self)
+            self.client = self.CLIENTS[self.type](self)
         self._frozen = True
 
     def _ips(self):
         """
         Returns the IPs of the node
         """
-        return Configuration.get('/ovs/alba/asdnodes/{0}/config/network|ips'.format(self.node_id))
+        return Configuration.get(os.path.join(self.CONFIG_LOCATIONS[self.type], 'network/ips').format(self.node_id))
 
     def _maintenance_services(self):
         """
@@ -321,7 +325,7 @@ class AlbaNode(DataObject):
         :rtype: dict
         """
         try:
-            return Configuration.get('/ovs/alba/asdnodes/{0}/config/ipmi'.format(self.node_id))
+            return Configuration.get(os.path.join(self.CONFIG_LOCATIONS[self.type], 'ipmi').format(self.node_id))
         except NotFoundException:  # Could be that the ASDManager does not yet have the IPMI info stored
             return {'ip': None,
                     'username': None,
