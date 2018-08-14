@@ -29,6 +29,7 @@ from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.albaosdlist import AlbaOSDList
+from ovs.dal.lists.albas3transactionclusterlist import S3TransactionClusterList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.generic.exceptions import InvalidCredentialsError, NotFoundError
@@ -36,6 +37,7 @@ from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs_extensions.generic.toolbox import ExtensionsToolbox
 from ovs.lib.alba import AlbaController
+from ovs.lib.albaarakoon import AlbaArakoonController
 from ovs.lib.disk import DiskController
 from ovs.constants.albanode import ASD_CONFIG, ASD_CONFIG_DIR
 from ovs.lib.helpers.decorators import add_hooks, ovs_task
@@ -61,6 +63,10 @@ class AlbaNodeController(object):
         :return: None
         :rtype: NoneType
         """
+        if node_type == AlbaNode.NODE_TYPES.S3:
+            # The transaction arakoon is needed. This wil check deployment & extend
+            AlbaArakoonController.configure_s3_transaction_cluster()
+            raise NotImplementedError('Saving an s3 node is not yet implemented')
         if node_type == AlbaNode.NODE_TYPES.GENERIC:
             node = AlbaNode()
             node.name = name

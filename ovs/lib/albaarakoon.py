@@ -25,14 +25,16 @@ from ovs.dal.hybrids.albansmcluster import NSMCluster
 from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.hybrids.storagerouter import StorageRouter
+from ovs.dal.hybrids.albas3transactioncluster import S3TransactionCluster
 from ovs.dal.lists.albabackendlist import AlbaBackendList
+from ovs.dal.lists.albas3transactionclusterlist import S3TransactionClusterList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakooninstaller import ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.plugins.albacli import AlbaCLI
-from ovs.lib.helpers.alba_arakoon_installer import AlbaArakoonInstaller, ABMInstaller, NSMInstaller
+from ovs.lib.helpers.alba_arakoon_installer import AlbaArakoonInstaller, ABMInstaller, NSMInstaller, S3TransactionInstaller
 from ovs.lib.helpers.decorators import ovs_task
 from ovs.lib.helpers.toolbox import Schedule
 
@@ -329,7 +331,7 @@ class AlbaArakoonController(object):
     def ensure_nsm_cluster_safety(cls, nsm_cluster, nsms_per_storagerouter=None, nsm_installer=None):
         # type: (NSMCluster, Optional[Dict[StorageRouter, int]], Optional[NSMInstaller]) -> None
         """
-        Ensure that the NSM cluster are safe and sound
+        Ensure that the NSM clusters are safe and sound
         :param nsm_cluster: NSM Cluster to extend
         :type nsm_cluster: NSMCluster
         :param nsms_per_storagerouter: Amount of NSMs mapped by StorageRouter
@@ -638,3 +640,46 @@ class AlbaArakoonController(object):
             except Exception:
                 AlbaArakoonController._logger.exception('NSM Checkup failed for Backend {0}'.format(alba_backend.name))
                 failed_backends.append(alba_backend.name)
+
+    @classmethod
+    def ensure_s3_transaction_safety(cls, s3_cluster, available_storagerouters, s3_installer=None):
+        # type: (S3TransactionCluster, Dict[StorageRouter, DiskPartition], S3TransactionInstaller) -> None
+        """
+        Ensure that the S3 transaction cluster is safe and sound
+        :param s3_cluster: ABM Cluster object
+        :type s3_cluster: ABMCluster
+        :param available_storagerouters: All available storagerouters mapped with their DB partition
+        :type available_storagerouters:  Dict[StorageRouter, DiskPartition]
+        :param s3_installer: The ABMInstaller to use. Defaults to creating a new one
+        :type s3_installer: ABMInstaller
+        :return: None
+        :rtype: NoneType
+        """
+        s3_transaction_installer = s3_installer or S3TransactionInstaller()
+
+        metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=s3_cluster.name)
+        if 0 < len(s3_cluster.s3_transaction_services) < len(available_storagerouters) and metadata['internal'] is True:
+            current_service_ips = [j_service.service.storagerouter.ip for j_service in s3_cluster.s3_transaction_services]
+            for storagerouter, partition in available_storagerouters.iteritems():
+                if storagerouter.ip in current_service_ips:
+                    continue
+                s3_transaction_installer.extend_s3_cluster(storagerouter, s3_cluster)
+                current_service_ips.append(storagerouter.ip)
+
+    @classmethod
+    def configure_s3_transaction_cluster(cls):
+        """
+        Completely deploys a S3 transaction cluster
+        :return: None
+        :rtype: NoneType
+        """
+        s3_transaction_installer = S3TransactionInstaller()
+        available_storagerouters = cls.get_available_arakoon_storagerouters()
+        if not available_storagerouters:
+            raise ValueError('No available storagerouters. Cannot deploy the S3 Transaction Cluster')
+        if len(S3TransactionClusterList.get_s3_transaction_clusters()) == 0:
+            # Deployment required
+            storagerouter, partition = available_storagerouters.items()[0]
+            s3_transaction_installer.deploy_s3_cluster(storagerouter)
+        s3_transaction_cluster = S3TransactionClusterList.get_s3_transaction_clusters()[0]
+        cls.ensure_s3_transaction_safety(s3_transaction_cluster, available_storagerouters)
