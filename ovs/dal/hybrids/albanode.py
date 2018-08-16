@@ -105,7 +105,7 @@ class AlbaNode(DataObject):
         """
         Returns the IPs of the node
         """
-        return Configuration.get(os.path.join(self.CONFIG_LOCATIONS[self.type], 'network/ips').format(self.node_id))
+        return Configuration.get(os.path.join(self.CONFIG_LOCATIONS[self.type], 'network|ips').format(self.node_id))
 
     def _maintenance_services(self):
         """

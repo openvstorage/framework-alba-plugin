@@ -17,7 +17,7 @@
 """
 AlbaNodeController module
 """
-
+import os
 import uuid
 import string
 import random
@@ -50,6 +50,31 @@ class AlbaNodeController(object):
     _logger = Logger('lib')
 
     @staticmethod
+    def model_alba_node(node_id, node_type, ip=None):
+        # type: (str, str, Optional[str]) -> AlbaNode
+        """
+        Models a non-existing AlbaNode
+        :param node_id: ID of the node
+        :type node_id: str
+        :param node_type: Type of the node
+        :type node_type: str
+        :param ip: IP of the node
+        :type ip: str
+        :return: The modeled node
+        :rtype: AlbaNode
+        """
+        node = AlbaNode()
+        node.type = node_type
+        node.node_id = node_id
+        config_path = AlbaNode.CONFIG_LOCATIONS[node_type].format(node_id)  # type str
+        node.ip = ip or Configuration.get(os.path.join(config_path, 'main|ip'))
+        node.port = Configuration.get(os.path.join(config_path, 'main|port'))
+        node.username = Configuration.get(os.path.join(config_path, 'main|username'))
+        node.password = Configuration.get(os.path.join(config_path, 'main|password'))
+        node.storagerouter = StorageRouterList.get_by_ip(node.ip)
+        return node
+
+    @staticmethod
     @ovs_task(name='albanode.register')
     def register(node_id=None, node_type=None, name=None):
         """
@@ -78,6 +103,7 @@ class AlbaNodeController(object):
                 raise RuntimeError('A node_id must be given for type ASD')
             node = AlbaNodeList.get_albanode_by_node_id(node_id)
             if node is None:
+                # node = AlbaNodeController.model_alba_node(node_id, node_type)
                 main_config = Configuration.get('/ovs/alba/asdnodes/{0}/config/main'.format(node_id))
                 node = AlbaNode()
                 node.name = name

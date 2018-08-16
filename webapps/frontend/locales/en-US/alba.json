@@ -34,6 +34,13 @@
         "link_backend": "Link Backend",
         "name": "Name",
         "preset": "Preset",
+        "refresh_nodes": {
+            "failed_msg": "Could not refresh the ALBA nodes: __why__",
+            "started": "Refreshing",
+            "started_msg": "ALBA nodes are being refreshed",
+            "success": "Refreshed",
+            "success_msg": "Refreshed the ALBA nodes"
+        },
         "scaling": "Scaling",
         "status": "Status",
         "title": "Open vStorage Backend",

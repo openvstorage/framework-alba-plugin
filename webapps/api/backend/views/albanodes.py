@@ -18,7 +18,6 @@
 Contains the AlbaNodeViewSet
 """
 import re
-import os
 from rest_framework import viewsets
 from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
@@ -44,23 +43,21 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     return_exceptions = ['albanodes.create', 'albanodes.destroy']
 
     @staticmethod
-    def _model_volatile_node(node_id, node_type, ip=None):
-        # type: (str, str) -> AlbaNode
+    def model_volatile_node(node_id, node_type, ip=None):
+        # type: (str, str, Optional[str]) -> AlbaNode
         """
         Models a non-existing AlbaNode
         :param node_id: ID of the node
+        :type node_id: str
         :param node_type: Type of the node
+        :type node_type: str
+        :param ip: IP of the node
+        :type ip: str
         :return: The modeled node
         :rtype: AlbaNode
         """
-        node = AlbaNode(volatile=True)
-        node.type = node_type
-        node.node_id = node_id
-        config_path = AlbaNode.CONFIG_LOCATIONS[node_type].format(node_id)  # type str
-        node.ip = ip or Configuration.get(os.path.join(config_path, 'main|ip'))
-        node.port = Configuration.get(os.path.join(config_path, 'main|port'))
-        node.username = Configuration.get(os.path.join(config_path, 'main|username'))
-        node.password = Configuration.get(os.path.join(config_path, 'main|password'))
+        node = AlbaNodeController.model_alba_node(node_id, node_type, ip)
+        node.volatile = True
         return node
 
     @classmethod
@@ -77,7 +74,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         nodes = {}
         if ip is not None:
             # List the requested node
-            node = cls._model_volatile_node(node_id, AlbaNode.NODE_TYPES.ASD, ip)
+            node = cls.model_volatile_node(node_id, AlbaNode.NODE_TYPES.ASD, ip)
             data = node.client.get_metadata()
             if data['_success'] is False and data['_error'] == 'Invalid credentials':
                 raise HttpNotAcceptableException(error='invalid_data',
@@ -99,7 +96,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
 
             for node_type, node_ids in node_ids_by_type.iteritems():
                 for node_id in node_ids:
-                    node = cls._model_volatile_node(node_id, node_type)
+                    node = cls.model_volatile_node(node_id, node_type)
                     if node.node_id not in model_node_ids and node.node_id not in found_node_ids:
                         nodes[node.guid] = node
                         found_node_ids.add(node.node_id)
