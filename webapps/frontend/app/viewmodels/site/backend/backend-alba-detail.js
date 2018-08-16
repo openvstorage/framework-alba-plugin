@@ -228,7 +228,13 @@ define([
     var functions = {
         refresh: function() {
             var self = this;
-            self.updateNodes(true);
+            generic.alertInfo($.t('alba:detail.refresh_nodes.started'), $.t('alba:detail.refresh_nodes.started_msg'));
+            self.updateNodes(true).then(function() {
+                generic.alertSuccess($.t('alba:detail.refresh_nodes.success'), $.t('alba:detail.refresh_nodes.success_msg'));
+            }, function(error) {
+                error = generic.extractErrorMessage(error);
+                generic.alertError($.t('ovs:generic.error'), $.t('alba:detail.refresh_nodes.failed_msg', { why: error }));
+            })
         },
         load: function() {
             var self = this;
