@@ -245,6 +245,8 @@ class AlbaMigrationController(object):
         # Sync all disks and apply the backend role. Backend role was removed with the AD (since 1.10)
         albanode_backend_role_sync_key = '/ovs/framework/migration|albanode_backend_role_sync'
         if not Configuration.get(key=albanode_backend_role_sync_key, default=False):
+            # Sync to add all potential partitions that will need a backend role
+            DiskController.sync_with_reality(storagerouter_guid=alba_node.storagerouter_guid)
             try:
                 errors = []
                 for alba_node in AlbaNodeList.get_albanodes():
@@ -252,15 +254,13 @@ class AlbaMigrationController(object):
                         if not alba_node.storagerouter:
                             continue
                         stack = alba_node.client.get_stack()  # type: dict
-                        DiskController.sync_with_reality(storagerouter_guid=alba_node.storagerouter_guid)
                         for slot_id, slot_information in stack.iteritems():
                             osds = slot_information.get('osds', {})  # type: dict
                             slot_aliases = slot_information.get('aliases', [])  # type: list
-                            if not osds:
+                            if not osds:  # No osds means no partition was made
                                 continue
                             for disk in alba_node.storagerouter.disks:
                                 if set(disk.aliases).intersection(set(slot_aliases)):
-                                    print disk.aliases, slot_aliases
                                     partition = disk.partitions[0]
                                     if DiskPartition.ROLES.BACKEND not in partition.roles:
                                         partition.roles.append(DiskPartition.ROLES.BACKEND)
