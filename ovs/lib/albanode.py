@@ -229,8 +229,10 @@ class AlbaNodeController(object):
         """
         node.client.fill_slot(slot_id=slot_id,
                               extra=extra)
-        stack = node.client.get_stack()  # type: dict
+
+        # Sync model
         if node.storagerouter is not None:
+            stack = node.client.get_stack()  # type: dict
             DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
             slot_information = stack.get(slot_id, {})
             slot_aliases = slot_information.get('aliases', [])
@@ -262,7 +264,17 @@ class AlbaNodeController(object):
         node.client.clear_slot(slot_id)
 
         node.invalidate_dynamics()
+        # Sync model
         if node.storagerouter is not None:
+            stack = node.client.get_stack()  # type: dict
+            slot_information = stack.get(slot_id, {})
+            slot_aliases = slot_information.get('aliases', [])
+            for disk in node.storagerouter.disks:
+                if set(disk.aliases).intersection(set(slot_aliases)):
+                    partition = disk.partitions[0]
+                    if DiskPartition.ROLES.BACKEND in partition.roles:
+                        partition.roles.remove(DiskPartition.ROLES.BACKEND)
+                        partition.save()
             DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
 
     @staticmethod
@@ -345,7 +357,7 @@ class AlbaNodeController(object):
         if len(disk_aliases) == 0:
             return
         try:
-            node.client.fill_slot(osd.slot_id, fill_slot_extra)
+            AlbaNodeController._fill_slot(node, osd.slot_id, fill_slot_extra)
         except (requests.ConnectionError, requests.Timeout):
             AlbaNodeController._logger.warning('Could not connect to node {0} to (re)configure ASD'.format(node.guid))
         except NotFoundError:
