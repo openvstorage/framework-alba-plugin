@@ -24,6 +24,7 @@ import random
 import requests
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albaosd import AlbaOSD
+from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
@@ -201,19 +202,44 @@ class AlbaNodeController(object):
         for slot_info in slot_information:
             if node.node_metadata['fill'] is True:
                 # Only filling is required
-                node.client.fill_slot(slot_id=slot_info['slot_id'],
-                                      extra=dict((key, slot_info[key]) for key in node.node_metadata['fill_metadata']))
+                AlbaNodeController._fill_slot(node, slot_info['slot_id'], dict((key, slot_info[key]) for key in node.node_metadata['fill_metadata']))
             elif node.node_metadata['fill_add'] is True:
                 # Fill the slot
-                node.client.fill_slot(slot_id=slot_info['slot_id'],
-                                      extra=dict((key, slot_info[key]) for key in node.node_metadata['fill_add_metadata']))
-
+                AlbaNodeController._fill_slot(node, slot_info['slot_id'], dict((key, slot_info[key]) for key in node.node_metadata['fill_add_metadata']))
                 # And add/claim the OSD
                 AlbaController.add_osds(alba_backend_guid=slot_info['alba_backend_guid'],
                                         osds=[slot_info],
                                         alba_node_guid=node_guid,
                                         metadata=metadata)
         node.invalidate_dynamics('stack')
+
+    @classmethod
+    def _fill_slot(cls, node, slot_id, extra):
+        # type: (AlbaNode, str, any) -> None
+        """
+        Fills in the slots with ASDs and checks if the BACKEND role needs to be added
+        :param node: The AlbaNode to fill on
+        :type node: AlbaNode
+        :param slot_id: ID of the slot to fill (which is an alias of the slot)
+        :type slot_id: str
+        :param extra: Extra information for filling
+        :type extra: any
+        :return: None
+        :rtype: NoneType
+        """
+        node.client.fill_slot(slot_id=slot_id,
+                              extra=extra)
+        stack = node.client.get_stack()  # type: dict
+        if node.storagerouter is not None:
+            DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
+            slot_information = stack.get(slot_id, {})
+            slot_aliases = slot_information.get('aliases', [])
+            for disk in node.storagerouter.disks:
+                if set(disk.aliases).intersection(set(slot_aliases)):
+                    partition = disk.partitions[0]
+                    if DiskPartition.ROLES.BACKEND not in partition.roles:
+                        partition.roles.append(DiskPartition.ROLES.BACKEND)
+                        partition.save()
 
     @staticmethod
     @ovs_task(name='albanode.remove_slot', ensure_single_info={'mode': 'CHAINED'})
