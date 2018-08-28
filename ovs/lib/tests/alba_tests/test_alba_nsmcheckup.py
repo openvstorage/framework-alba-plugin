@@ -27,6 +27,7 @@ from ovs_extensions.generic.tests.sshclient_mock import MockedSSHClient
 from ovs_extensions.log.logger import Logger
 from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
 from ovs.lib.alba import AlbaController
+from ovs.lib.albaarakoon import AlbaArakoonController
 
 
 class NSMCheckup(unittest.TestCase):
@@ -81,7 +82,7 @@ class NSMCheckup(unittest.TestCase):
 
         # Validation of nsm_checkup
         with self.assertRaises(ValueError):
-            AlbaController.nsm_checkup(min_internal_nsms=0)  # Min_nsms should be at least 1
+            AlbaArakoonController.nsm_checkup(min_internal_nsms=0)  # Min_nsms should be at least 1
 
         # Validate single node NSM cluster
         self._validate_nsm([['1']])
@@ -91,7 +92,7 @@ class NSMCheckup(unittest.TestCase):
                                                                            ['update_maintenance_config', 'enable-auto-cleanup-deleted-namespaces-days']])
 
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
-        AlbaController.nsm_checkup()
+        AlbaArakoonController.nsm_checkup()
 
         # Running the NSM checkup should not change anything after an add_cluster
         self._validate_nsm([['1']])
@@ -99,7 +100,7 @@ class NSMCheckup(unittest.TestCase):
 
         structure = DalHelper.build_dal_structure(structure={'storagerouters': [2]}, previous_structure=structure)
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
-        AlbaController.nsm_checkup()
+        AlbaArakoonController.nsm_checkup()
 
         # There should still be one NSM, since the safety is still at 1
         self._validate_nsm([['1']])
@@ -107,7 +108,7 @@ class NSMCheckup(unittest.TestCase):
 
         Configuration.set('/ovs/framework/plugins/alba/config|nsm.safety', 2)
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
-        AlbaController.nsm_checkup()
+        AlbaArakoonController.nsm_checkup()
 
         # There should still be one NSM, since the ABM isn't extended yet
         self._validate_nsm([['1']])
@@ -118,14 +119,14 @@ class NSMCheckup(unittest.TestCase):
         MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-abm/config -catchup-only'] = None
         MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
-        AlbaController.manual_alba_arakoon_checkup(alba_backend.guid, nsm_clusters=[])
+        AlbaArakoonController.manual_alba_arakoon_checkup(alba_backend.guid, nsm_clusters=[])
 
         self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [['update_abm_client_config']])
 
         MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_0/config -catchup-only'] = None
         MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_0/db'] = None
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
-        AlbaController.nsm_checkup()
+        AlbaArakoonController.nsm_checkup()
 
         # Now that the ABM was extended, the NSM should also be extended
         self._validate_nsm([['1', '2']])
@@ -138,7 +139,7 @@ class NSMCheckup(unittest.TestCase):
         MockedSSHClient._run_returns[storagerouter_1.ip]['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_1/config -catchup-only'] = None
         MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_1/config -catchup-only'] = None
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
-        AlbaController.nsm_checkup(min_internal_nsms=2)
+        AlbaArakoonController.nsm_checkup(min_internal_nsms=2)
 
         # A second NSM cluster (running on two nodes) should be added
         self._validate_nsm([['1', '2'],
@@ -148,7 +149,7 @@ class NSMCheckup(unittest.TestCase):
         VirtualAlbaBackend.data['backend_1-abm']['nsms'][0]['namespaces_count'] = 25
 
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
-        AlbaController.nsm_checkup()
+        AlbaArakoonController.nsm_checkup()
 
         # Nothing should be happened, since there's still a non-overloaded NSM
         self._validate_nsm([['1', '2'],
@@ -164,7 +165,7 @@ class NSMCheckup(unittest.TestCase):
         MockedSSHClient._run_returns[storagerouter_1.ip]['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_2/config -catchup-only'] = None
         MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_2/config -catchup-only'] = None
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
-        AlbaController.nsm_checkup()
+        AlbaArakoonController.nsm_checkup()
 
         # A third NSM cluster (running on two nodes) should be added
         self._validate_nsm([['1', '2'],
@@ -173,7 +174,7 @@ class NSMCheckup(unittest.TestCase):
         self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [['add_nsm_host', 'backend_1-nsm_2']])
 
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
-        AlbaController.nsm_checkup()
+        AlbaArakoonController.nsm_checkup()
 
         # Running the checkup should not change anything
         self._validate_nsm([['1', '2'],
@@ -197,17 +198,17 @@ class NSMCheckup(unittest.TestCase):
 
         # Validate some logic for externally managed arakoons during NSM checkup
         with self.assertRaises(ValueError) as raise_info:
-            AlbaController.nsm_checkup(external_nsm_cluster_names=['test'])  # No ALBA Backend specified
+            AlbaArakoonController.nsm_checkup(external_nsm_cluster_names=['test'])  # No ALBA Backend specified
         self.assertEqual(first=str(raise_info.exception), second='Additional NSMs can only be configured for a specific ALBA Backend')
         with self.assertRaises(ValueError) as raise_info:
-            AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, min_internal_nsms=2, external_nsm_cluster_names=['test'])
+            AlbaArakoonController.nsm_checkup(alba_backend_guid=alba_backend.guid, min_internal_nsms=2, external_nsm_cluster_names=['test'])
         self.assertEqual(first=str(raise_info.exception), second="'min_internal_nsms' and 'external_nsm_cluster_names' are mutually exclusive")
         with self.assertRaises(ValueError) as raise_info:
             # noinspection PyTypeChecker
-            AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, external_nsm_cluster_names={})  # NSM cluster names must be a list
+            AlbaArakoonController.nsm_checkup(alba_backend_guid=alba_backend.guid, external_nsm_cluster_names={})  # NSM cluster names must be a list
         self.assertEqual(first=str(raise_info.exception), second="'external_nsm_cluster_names' must be of type 'list'")
         with self.assertRaises(ValueError) as raise_info:
-            AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, external_nsm_cluster_names=['non-existing-cluster'])  # non-existing cluster names should raise
+            AlbaArakoonController.nsm_checkup(alba_backend_guid=alba_backend.guid, external_nsm_cluster_names=['non-existing-cluster'])  # non-existing cluster names should raise
         self.assertEqual(first=str(raise_info.exception), second="Arakoon cluster with name non-existing-cluster does not exist")
 
         # Create an external ABM and NSM Arakoon cluster
@@ -256,13 +257,13 @@ class NSMCheckup(unittest.TestCase):
 
         # Add cluster already invokes a NSM checkup, so nothing should have changed
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
-        AlbaController.nsm_checkup()
+        AlbaArakoonController.nsm_checkup()
         self.assertListEqual(list1=[], list2=VirtualAlbaBackend.run_log['backend_1-abm'])
 
         # Overload the only NSM and run NSM checkup. This should log a critical message, but change nothing
         VirtualAlbaBackend.data['backend_1-abm']['nsms'][0]['namespaces_count'] = 25
         Logger._logs = {}
-        AlbaController.nsm_checkup()
+        AlbaArakoonController.nsm_checkup()
         log_found = False
         for log_record in Logger._logs.get('lib', []):
             if 'All NSM clusters are overloaded' in log_record:
@@ -284,7 +285,7 @@ class NSMCheckup(unittest.TestCase):
         )
         # Try to add 1 additional NSM
         with self.assertRaises(ValueError) as raise_info:
-            AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, external_nsm_cluster_names=[external_nsm_2])
+            AlbaArakoonController.nsm_checkup(alba_backend_guid=alba_backend.guid, external_nsm_cluster_names=[external_nsm_2])
         self.assertEqual(first=str(raise_info.exception), second='The maximum of 50 NSM Arakoon clusters will be exceeded. Amount of clusters that can be deployed for this ALBA Backend: 0')
 
         # Remove the unused NSM clusters again
@@ -296,11 +297,11 @@ class NSMCheckup(unittest.TestCase):
 
         # Try to add a previously claimed NSM cluster
         with self.assertRaises(ValueError) as raise_info:
-            AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, external_nsm_cluster_names=[external_nsm_1])  # The provided cluster_name to claim has already been claimed
+            AlbaArakoonController.nsm_checkup(alba_backend_guid=alba_backend.guid, external_nsm_cluster_names=[external_nsm_1])  # The provided cluster_name to claim has already been claimed
         self.assertEqual(first=str(raise_info.exception), second='Some of the provided cluster_names have already been claimed before')
 
         # Add a 2nd NSM cluster
-        AlbaController.nsm_checkup(alba_backend_guid=alba_backend.guid, external_nsm_cluster_names=[external_nsm_2])
+        AlbaArakoonController.nsm_checkup(alba_backend_guid=alba_backend.guid, external_nsm_cluster_names=[external_nsm_2])
         self.assertEqual(first=1, second=len(alba_backend.abm_cluster.abm_services))
         self.assertEqual(first=2, second=len(alba_backend.nsm_clusters))
         self.assertEqual(first=1, second=len(alba_backend.nsm_clusters[0].nsm_services))

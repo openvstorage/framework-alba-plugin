@@ -29,6 +29,7 @@ from ovs.extensions.generic.logger import Logger
 from ovs_extensions.monitoring.statsmonkey import StatsMonkey
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.lib.alba import AlbaController
+from ovs.lib.albaarakoon import AlbaArakoonController
 from ovs.lib.helpers.decorators import ovs_task
 from ovs.lib.helpers.toolbox import Schedule
 from threading import Thread
@@ -55,6 +56,10 @@ class AlbaStatsMonkeyController(StatsMonkey):
                      'disabled': 0.0,
                      'ok_standalone': 0.0,
                      'checkup_required': 1.0}
+
+    @classmethod
+    def _get_configuration(cls):
+        return Configuration
 
     def __init__(self):
         """
@@ -92,7 +97,7 @@ class AlbaStatsMonkeyController(StatsMonkey):
                                        'environment': environment,
                                        'backend_name': alba_backend.name,
                                        'abm_service_name': alba_backend.abm_cluster.name},
-                              'fields': {'load': float(AlbaController.get_load(nsm))},
+                              'fields': {'load': float(AlbaArakoonController.get_load(nsm))},
                               'measurement': 'nsm'})
 
             config_path = Configuration.get_configuration_path(alba_backend.abm_cluster.config_location)

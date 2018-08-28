@@ -164,7 +164,8 @@ define([
                             );
                             $.each(self.albaBackends(), function(index, albaBackend) {
                                 if (guids.contains(albaBackend.guid())) {
-                                    albaBackend.fillData(bdata[albaBackend.guid()]);
+                                    albaBackend.update(bdata[albaBackend.guid()]);
+                                    albaBackend.loaded(true);
                                 }
                             });
                             self.albaBackends().sort(function(b1, b2) {

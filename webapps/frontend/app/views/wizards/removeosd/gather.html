@@ -18,9 +18,9 @@ but WITHOUT ANY WARRANTY of any kind.
 <div>
     <span data-i18n="alba:wizards.remove_osd.gather.warning"></span>
     <ul>
-        <li><span data-bind="text: data.albaOSD().osdID()"></span></li>
+        <li><span data-bind="text: data.albaOSD().osd_id"></span></li>
     </ul>
-    <div data-bind="visible: data.albaOSD().statusDetail() === 'nodedown' ">
+    <div data-bind="visible: data.albaOSD().status_detail() === 'nodedown' ">
         <span data-i18n="ovs:remove_osd.gather.nodedownwarning"></span>
     </div>
     <div data-bind="visible: data.shouldConfirm, css: {

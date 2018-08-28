@@ -17,15 +17,13 @@
 define([
     'jquery', 'knockout', 'ovs/generic', 'ovs/formBuilder',
     '../build', './confirm', './gather', './data'
-], function($, ko, generic, formBuilder, Build, Confirm, Gather, data) {
+], function($, ko, generic, formBuilder, Build, Confirm, Gather, Data) {
     "use strict";
     return function(options) {
         var self = this;
+
         // Inherit
         Build.call(self);
-
-        // Variables
-        self.data = data;
 
         // Setup
         self.title(generic.tryGet(options, 'title', $.t('alba:wizards.add_osd.title')));
@@ -59,26 +57,20 @@ define([
                 'displayOn': ['confirm']
             }
         };
-        var metadata = options.node.metadata();
+        var metadata = ko.toJS(options.node.node_metadata);  // Node metadata is given by the node cluster when working with a cluster
         var formData = formBuilder.generateFormData(metadata, formMapping);
         var formQuestions = formData.questions;
         var fieldMapping = formData.fieldMapping;
-
-        // Cleaning data
-        self.data.node(options.node);
-        self.data.slots(options.slots);
-        self.data.formQuestions(formQuestions());
-        self.data.formFieldMapping(fieldMapping);
-        self.data.formMetadata(metadata);
-        self.data.formMapping(formMapping);
-        self.data.completed(options.completed);
-
-        if (self.data.node().type() === 'ASD') {
-            self.data.confirmOnly(true);
-            self.steps([new Confirm()]);
+        var data = new Data(options.node, options.nodeCluster, options.slots, false, formQuestions(), fieldMapping, metadata, formMapping);
+        var stepOptions = {
+            parent: self,
+            data: data
+        };
+        if (options.node.type() === 'ASD') {
+            data.confirmOnly(true);
+            self.steps([new Confirm(stepOptions)]);
         } else {
-            self.data.confirmOnly(false);
-            self.steps([new Gather(), new Confirm()]);
+            self.steps([new Gather(stepOptions), new Confirm(stepOptions)]);
         }
         self.activateStep();
     };

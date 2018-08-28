@@ -15,122 +15,159 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'knockout', 'jquery',
+    'durandal/app', 'knockout', 'jquery',
     'ovs/generic',
-    'viewmodels/containers/backend/albabackend'
-], function(ko, $, generic, AlbaBackend) {
+    'viewmodels/containers/shared/base_container', 'viewmodels/containers/backend/albabackend',
+    'viewmodels/services/subscriber'
+], function(app, ko, $,
+            generic,
+            BaseContainer, AlbaBackend,
+            subscriberService) {
     "use strict";
-    return function(id, slot, node, parentAlbaBackend) {
+
+    var viewModelMapping = {
+        alba_backend: {
+            key: function (data) {  // For relation updates: check if the GUID has changed before discarding a model
+                return ko.utils.unwrapObservable(data.guid)
+            },
+            create: function (options) {
+                return new AlbaBackend(ko.utils.unwrapObservable(options.parent.alba_backend_guid) || null);
+            }
+        }
+    };
+    var albaBackendDetailContext = 'albaBackendDetail';
+    /**
+     * AlbaOSD viewModel
+     * @param data: Data about the model (see vmData for layout). Similar to the data retrieved from the API
+     */
+    function AlbaOSD(data) {
         var self = this;
+        BaseContainer.call(self);
 
-        // variables
-        self.errorStatuses = ['warning', 'error', 'unavailable', 'unknown'];
-
-        // External injected
-        self.node = node;
-        self.slot = slot;
-        self.disk = undefined;
+        // Enums
+        self.errorStatuses = Object.freeze({
+            warning: 'warning',
+            error: 'error',
+            unavailable: 'unavailable',
+            unknown: 'unknown'
+        });
+        self.statusses = Object.freeze($.extend({
+            available: 'available',
+            claimed: 'claimed',
+            nodedown: 'nodedown',
+            unknown: 'unknown',
+            uninitialized: 'uninitialized'
+        }, self.errorStatuses));
 
         // Observables
-        self.albaBackend     = ko.observable();
-        self.albaBackendGuid = ko.observable();
-        self.device          = ko.observable();
-        self.guid            = ko.observable();
-        self.ignoreNext      = ko.observable(false);
-        self.ips             = ko.observableArray([]);
-        self.loaded          = ko.observable(false);
-        self.mountpoint      = ko.observable();
-        self.nodeID          = ko.observable();
-        self.osdID           = ko.observable(id);
-        self.parentABGuid    = ko.observable(parentAlbaBackend.guid());
-        self.port            = ko.observable().extend({numeric: {min: 1, max: 65535}});
-        self.processing      = ko.observable(false);
-        self.slotID          = ko.observable();
-        self._status         = ko.observable();  // can be ok, warning, error, unavailable, unknown
-        self.statusDetail    = ko.observable();
-        self.type            = ko.observable();
-        self.usage           = ko.observable();
+        self._status =      ko.observable();
+        self.loaded =       ko.observable(false);
+        self.processing =   ko.observable(false);
+
+        var vmData = $.extend({
+            alba_backend: {},
+            alba_backend_guid: null,  // Guid of the AlbaBackend of the AlbaDetailView
+            claimed_by: null,
+            slot_id: null,
+            guid: null,
+            status_detail: null,
+            osd_id: null,
+            usage: null,
+            device: null,
+            mountpount: null,
+            port: null,
+            ips: [],
+            type: null,
+            status: null,  // One of the self.statusses options
+            node_id: null,
+            node_metadata: {} // Can be both an object with properties or a viewModel with observable
+        }, data);
+
+        ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
+        self.getBackend();
+        self.loaded(true);
 
         // Computed
-        self.status = ko.computed(function() {
-            if (self.errorStatuses.contains(self._status())) {
-                return self._status();
+        self.status = ko.computed({
+            deferEvaluation: true,  // Wait with computing for an actual subscription
+            read: function() {
+                if (Object.values(self.errorStatuses).contains(self.status())) {
+                    return self._status();
+                }
+                if ([null, undefined].contains(self.claimed_by())) {
+                    return self.statusses.available;
+                }
+                return self.claimed_by() === self.alba_backend_guid() ? self.statusses.claimed : self.errorStatuses.unavailable;
+            },
+            write: function(status) {
+                self._status(status)
             }
-            if ([null, undefined].contains(self.albaBackendGuid())) {
-                return 'available';
-            }
-            return self.albaBackendGuid() === self.parentABGuid() ? 'claimed' : 'unavailable';
         });
-        self.isLocal = ko.computed(function() {
-            return [null, undefined].contains(self.albaBackendGuid()) || self.parentABGuid() === self.albaBackendGuid();
+        self.hasErrorStatus = ko.pureComputed(function() {
+            return Object.values(self.errorStatuses).contains(self.status()) && self.status_detail() !== undefined && self.status_detail() !== ''
         });
-        self.locked = ko.computed(function() {
-            return ['nodedown', 'unknown'].contains(self.statusDetail()) || !self.isLocal();
+        self.isLocal = ko.pureComputed(function() {
+            return [null, undefined].contains(self.claimed_by()) || self.alba_backend_guid() === self.claimed_by();
         });
-        self.marked = ko.computed(function() {
-            return (self.status() === 'unavailable' || (!self.isLocal() && (self.status() === 'warning' || self.status() === 'error'))) && self.albaBackend() !== undefined;
+        self.locked = ko.pureComputed(function() {
+            return [self.statusses.nodedown, self.statusses.unknown].contains(self.status_detail()) || !self.isLocal();
         });
-        self.sockets = ko.computed(function() {
+        self.marked = ko.pureComputed(function() {
+            return (self.status() === self.errorStatuses.unavailable || (!self.isLocal() && (self.status() === self.errorStatuses.warning || self.status() === self.errorStatuses.error)))
+                && self.alba_backend.loaded();
+        });
+        self.sockets = ko.pureComputed(function() {
             var sockets = [];
             $.each(self.ips(), function(index, ip) {
                sockets.push(ip + ":" + self.port())
             });
             return sockets
         });
+        self.displayUsage = ko.pureComputed(function() {
+            return self.status() !== self.statusses.unavailable && self.status() !== self.statusses.uninitialized
+                && ko.utils.unwrapObservable(self.usage) && ko.utils.unwrapObservable(self.usage.used)
+        });
 
-        // Functions
-        self.fillData = function(data) {
-            if (self.ignoreNext() === true) {
-                self.ignoreNext(false);
-            } else {
-                self._status(data.status);
-                self.nodeID(data.node_id);
-                if (self.slot !== undefined) {
-                    self.slotID(self.slot.slotID());
-                }
-                generic.trySet(self.guid, data, 'guid');
-                generic.trySet(self.statusDetail, data, 'status_detail');
-                generic.trySet(self.osdID, data, 'asd_id');
-                generic.trySet(self.usage, data, 'usage');
-                generic.trySet(self.device, data, 'device');
-                generic.trySet(self.mountpoint, data, 'mountpoint');
-                generic.trySet(self.port, data, 'port');
-                generic.trySet(self.ips, data, 'ips');
-                generic.trySet(self.type, data, 'type');
-                generic.trySet(self.albaBackendGuid, data, 'claimed_by');
-            if (['unavailable', 'error', 'warning'].contains(self.status())) {
-                    self.loadAlbaBackend();
-                }
-            }
-            self.loaded(true);
-        };
+        // Events - albaBackendDetail
         self.claim = function() {
             var data = {};
-            data[self.slotID()] = {slot: self.slot, osds: [self]};
-            self.node.claimOSDs(data);
+            data[self.slot_id()] = {osds: [self]};
+            subscriberService.trigger('albanode_{0}:claim_osds'.format([self.node_id()]), data);
         };
         self.remove = function() {
-            self.node.removeOSD(self);
+            subscriberService.trigger('albanode_{0}:remove_osd'.format([self.node_id()]), self);
         };
         self.restart = function() {
-            self.node.restartOSD(self);
+            subscriberService.trigger('albanode_{0}:restart_osd'.format([self.node_id()]), self);
         };
-        self.loadAlbaBackend = function() {
-            if (self.node !== undefined && self.node.parentVM.hasOwnProperty('otherAlbaBackendsCache')) {
-                var cache = self.node.parentVM.otherAlbaBackendsCache(), ab;
-                if (self.albaBackendGuid() !== undefined && self.albaBackendGuid() !== 'unknown') {
-                    if (!cache.hasOwnProperty(self.albaBackendGuid())) {
-                        ab = new AlbaBackend(self.albaBackendGuid());
-                        ab.load('backend')
-                            .then(function () {
-                                ab.backend().load();
-                            });
-                        cache[self.albaBackendGuid()] = ab;
-                        self.node.parentVM.otherAlbaBackendsCache(cache);
+    }
+    // Prototypical inheritance
+    var functions = {
+        /**
+         * Retrieves the AlbaBackendData from the AlbaBackendDetail viewModel/controller
+         * @return {Promise}
+         */
+        getBackend: function() {
+            var self = this;
+            return $.when()
+                .then(function(){
+                    if (!self.alba_backend_guid()) {
+                        return null
                     }
-                    self.albaBackend(cache[self.albaBackendGuid()]);
-                }
-            }
-        };
+                    var responseEvent = 'osd_{0}:load_alba_backend'.format([self.osd_id()]);
+                    var data = {
+                        response: responseEvent,
+                        albaBackendGuid: self.alba_backend_guid()
+                    };
+                    var subscription = subscriberService.onEvents(responseEvent, albaBackendDetailContext).then(function(data){
+                        self.alba_backend.update(data);
+                        return data
+                    });
+                    subscriberService.trigger('alba_backend:load', data); // Trigger the ask
+                    return subscription
+                });
+        }
     };
+    AlbaOSD.prototype = $.extend({}, BaseContainer.prototype, functions);
+    return AlbaOSD
 });

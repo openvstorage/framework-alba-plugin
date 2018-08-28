@@ -28,6 +28,7 @@ from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs_extensions.api.exceptions import HttpForbiddenException, HttpNotAcceptableException, HttpNotFoundException
 from ovs.lib.alba import AlbaController
+from ovs.lib.albaarakoon import AlbaArakoonController
 from ovs.lib.albapreset import AlbaPresetController
 
 
@@ -407,7 +408,7 @@ class AlbaBackendViewSet(viewsets.ViewSet):
         if not isinstance(cluster_names, list):
             raise HttpNotAcceptableException(error='invalid_data',
                                              error_description="Cluster names passed should be of type 'list'")
-        return AlbaController.nsm_checkup.delay(alba_backend_guid=albabackend.guid, external_nsm_cluster_names=cluster_names)
+        return AlbaArakoonController.nsm_checkup.delay(alba_backend_guid=albabackend.guid, external_nsm_cluster_names=cluster_names)
 
     @action()
     @log()

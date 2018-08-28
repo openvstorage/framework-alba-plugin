@@ -24,6 +24,7 @@ import random
 import requests
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albaosd import AlbaOSD
+from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
@@ -36,6 +37,7 @@ from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs_extensions.generic.toolbox import ExtensionsToolbox
 from ovs.lib.alba import AlbaController
 from ovs.lib.disk import DiskController
+from ovs.constants.albanode import ASD_CONFIG, ASD_CONFIG_DIR
 from ovs.lib.helpers.decorators import add_hooks, ovs_task
 
 
@@ -44,8 +46,6 @@ class AlbaNodeController(object):
     Contains all BLL related to ALBA nodes
     """
     _logger = Logger('lib')
-    ASD_CONFIG_DIR = '/ovs/alba/asds/{0}'
-    ASD_CONFIG = '{0}/config'.format(ASD_CONFIG_DIR)
 
     @staticmethod
     @ovs_task(name='albanode.register')
@@ -171,6 +171,10 @@ class AlbaNodeController(object):
         :return: None
         :rtype: NoneType
         """
+        metadata_type_validation = {'integer': (int, None),
+                                    'osd_type': (str, AlbaOSD.OSD_TYPES.keys()),
+                                    'ip': (str, ExtensionsToolbox.regex_ip),
+                                    'port': (int, {'min': 1, 'max': 65535})}
         node = AlbaNode(node_guid)
         required_params = {'slot_id': (str, None)}
         can_be_filled = False
@@ -181,14 +185,8 @@ class AlbaNodeController(object):
             if flow == 'fill_add':
                 required_params['alba_backend_guid'] = (str, None)
             for key, mtype in node.node_metadata['{0}_metadata'.format(flow)].iteritems():
-                if mtype == 'integer':
-                    required_params[key] = (int, None)
-                elif mtype == 'osd_type':
-                    required_params[key] = (str, AlbaOSD.OSD_TYPES.keys())
-                elif mtype == 'ip':
-                    required_params[key] = (str, ExtensionsToolbox.regex_ip)
-                elif mtype == 'port':
-                    required_params[key] = (int, {'min': 1, 'max': 65535})
+                if mtype in metadata_type_validation:
+                    required_params[key] = metadata_type_validation[mtype]
         if can_be_filled is False:
             raise ValueError('The given node does not support filling slots')
 
@@ -204,19 +202,46 @@ class AlbaNodeController(object):
         for slot_info in slot_information:
             if node.node_metadata['fill'] is True:
                 # Only filling is required
-                node.client.fill_slot(slot_id=slot_info['slot_id'],
-                                      extra=dict((key, slot_info[key]) for key in node.node_metadata['fill_metadata']))
+                AlbaNodeController._fill_slot(node, slot_info['slot_id'], dict((key, slot_info[key]) for key in node.node_metadata['fill_metadata']))
             elif node.node_metadata['fill_add'] is True:
                 # Fill the slot
-                node.client.fill_slot(slot_id=slot_info['slot_id'],
-                                      extra=dict((key, slot_info[key]) for key in node.node_metadata['fill_add_metadata']))
-
+                AlbaNodeController._fill_slot(node, slot_info['slot_id'], dict((key, slot_info[key]) for key in node.node_metadata['fill_add_metadata']))
                 # And add/claim the OSD
                 AlbaController.add_osds(alba_backend_guid=slot_info['alba_backend_guid'],
                                         osds=[slot_info],
                                         alba_node_guid=node_guid,
                                         metadata=metadata)
         node.invalidate_dynamics('stack')
+
+    @classmethod
+    def _fill_slot(cls, node, slot_id, extra):
+        # type: (AlbaNode, str, any) -> None
+        """
+        Fills in the slots with ASDs and checks if the BACKEND role needs to be added
+        :param node: The AlbaNode to fill on
+        :type node: AlbaNode
+        :param slot_id: ID of the slot to fill (which is an alias of the slot)
+        :type slot_id: str
+        :param extra: Extra information for filling
+        :type extra: any
+        :return: None
+        :rtype: NoneType
+        """
+        node.client.fill_slot(slot_id=slot_id,
+                              extra=extra)
+
+        # Sync model
+        if node.storagerouter is not None:
+            stack = node.client.get_stack()  # type: dict
+            DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
+            slot_information = stack.get(slot_id, {})
+            slot_aliases = slot_information.get('aliases', [])
+            for disk in node.storagerouter.disks:
+                if set(disk.aliases).intersection(set(slot_aliases)):
+                    partition = disk.partitions[0]
+                    if DiskPartition.ROLES.BACKEND not in partition.roles:
+                        partition.roles.append(DiskPartition.ROLES.BACKEND)
+                        partition.save()
 
     @staticmethod
     @ovs_task(name='albanode.remove_slot', ensure_single_info={'mode': 'CHAINED'})
@@ -239,7 +264,17 @@ class AlbaNodeController(object):
         node.client.clear_slot(slot_id)
 
         node.invalidate_dynamics()
+        # Sync model
         if node.storagerouter is not None:
+            stack = node.client.get_stack()  # type: dict
+            slot_information = stack.get(slot_id, {})
+            slot_aliases = slot_information.get('aliases', [])
+            for disk in node.storagerouter.disks:
+                if set(disk.aliases).intersection(set(slot_aliases)):
+                    partition = disk.partitions[0]
+                    if DiskPartition.ROLES.BACKEND in partition.roles:
+                        partition.roles.remove(DiskPartition.ROLES.BACKEND)
+                        partition.save()
             DiskController.sync_with_reality(storagerouter_guid=node.storagerouter_guid)
 
     @staticmethod
@@ -283,8 +318,8 @@ class AlbaNodeController(object):
             raise RuntimeError('Error removing OSD: {0}'.format(result['_error']))
 
         # Clean configuration management and model - Well, just try it at least
-        if Configuration.exists(AlbaNodeController.ASD_CONFIG.format(osd_id), raw=True):
-            Configuration.delete(AlbaNodeController.ASD_CONFIG_DIR.format(osd_id), raw=True)
+        if Configuration.exists(ASD_CONFIG.format(osd_id), raw=True):
+            Configuration.delete(ASD_CONFIG_DIR.format(osd_id), raw=True)
 
         osd.delete()
         node.invalidate_dynamics()
@@ -322,7 +357,7 @@ class AlbaNodeController(object):
         if len(disk_aliases) == 0:
             return
         try:
-            node.client.fill_slot(osd.slot_id, fill_slot_extra)
+            AlbaNodeController._fill_slot(node, osd.slot_id, fill_slot_extra)
         except (requests.ConnectionError, requests.Timeout):
             AlbaNodeController._logger.warning('Could not connect to node {0} to (re)configure ASD'.format(node.guid))
         except NotFoundError:

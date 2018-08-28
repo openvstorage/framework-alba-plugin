@@ -21,103 +21,58 @@ Generic module for calling the ASD-Manager
 import json
 import time
 import base64
-import inspect
-import logging
 import requests
+from ovs.extensions.plugins.albabase import AlbaBaseClient
 from ovs.extensions.generic.configuration import Configuration
-from ovs_extensions.generic.exceptions import InvalidCredentialsError, NotFoundError
-from ovs.extensions.generic.logger import Logger
-try:
-    from requests.packages.urllib3 import disable_warnings
-except ImportError:
-    try:
-        reload(requests)  # Required for 2.6 > 2.7 upgrade (new requests.packages module)
-    except ImportError:
-        pass  # So, this reload fails because of some FileNodeWarning that can't be found. But it did reload. Yay.
-    from requests.packages.urllib3 import disable_warnings
-from requests.packages.urllib3.exceptions import InsecurePlatformWarning
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from requests.packages.urllib3.exceptions import SNIMissingWarning
-logging.getLogger('urllib3').setLevel(logging.WARNING)
-logging.getLogger('requests').setLevel(logging.WARNING)
+from ovs_extensions.generic.exceptions import NotFoundError
 
 
-class ASDManagerClient(object):
+class ASDManagerClient(AlbaBaseClient):
     """
     ASD Manager Client
     """
 
-    disable_warnings(InsecurePlatformWarning)
-    disable_warnings(InsecureRequestWarning)
-    disable_warnings(SNIMissingWarning)
-
     def __init__(self, node, timeout=None):
-        self.node = node
+        # type: (ovs.dal.hybrids.albanode.AlbaNode, int) -> None
         if timeout is None:
-            self.timeout = Configuration.get('/ovs/alba/asdnodes/main|client_timeout', default=20)
+            timeout = Configuration.get('/ovs/alba/asdnodes/main|client_timeout', default=20)
+        super(ASDManagerClient, self).__init__(node, timeout)
 
-        self._logger = Logger('extensions-plugins')
-        self._log_min_duration = 1
-
-    def _call(self, method, url, data=None, timeout=None, clean=False):
-        if timeout is None:
-            timeout = self.timeout
-
-        # Refresh URL / headers
-        self._base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
-        self._base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}
-
-        start = time.time()
-        kwargs = {'url': '{0}/{1}'.format(self._base_url, url),
-                  'headers': self._base_headers,
-                  'verify': False,
-                  'timeout': timeout}
-        if data is not None:
-            kwargs['data'] = data
-        response = method(**kwargs)
-        if response.status_code == 404:
-            msg = 'URL not found: {0}'.format(kwargs['url'])
-            self._logger.error('{0}. Response: {1}'.format(msg, response))
-            raise NotFoundError(msg)
-        try:
-            data = response.json()
-        except Exception:
-            raise RuntimeError(response.content)
-        internal_duration = data['_duration']
-        if data.get('_success', True) is False:
-            error_message = data.get('_error', 'Unknown exception: {0}'.format(data))
-            if error_message == 'Invalid credentials':
-                raise InvalidCredentialsError(error_message)
-            raise RuntimeError(error_message)
-        if clean is True:
-            def _clean(_dict):
-                for _key in _dict.keys():
-                    if _key.startswith('_'):
-                        del _dict[_key]
-                    elif isinstance(_dict[_key], dict):
-                        _clean(_dict[_key])
-            _clean(data)
-        duration = time.time() - start
-        if duration > self._log_min_duration:
-            self._logger.info('Request "{0}" took {1:.2f} seconds (internal duration {2:.2f} seconds)'.format(inspect.stack()[1][3], duration, internal_duration))
-        return data
+    def _refresh(self):
+        # type: () -> Tuple[str, dict]
+        """
+        Refresh the endpoint and credentials
+        This function is called before every request
+        :return: The base URL and the 'Authorization' header
+        :rtype: tuple
+        """
+        # The node data might have changed
+        # @todo revisit. THe node is never reloaded so this wont ever change?
+        base_url = 'https://{0}:{1}'.format(self.node.ip, self.node.port)
+        base_headers = {'Authorization': 'Basic {0}'.format(base64.b64encode('{0}:{1}'.format(self.node.username, self.node.password)).strip())}
+        return base_url, base_headers
 
     def get_metadata(self):
+        # type: () -> dict
         """
         Gets metadata from the node
         """
+        # Backward compatibility
         return self._call(requests.get, '')
 
     ##############
     # SLOTS/OSDS #
     ##############
     def get_stack(self):
+        # type: () -> dict
         """
         Gets the remote node stack
+        :return: stack data
+        :rtype: dict
         """
         # Version 3 introduced 'slots'
         if self.get_metadata()['_version'] >= 3:
-            data = self._call(requests.get, 'slots', timeout=5, clean=True)
+            data = self.extract_data(self._call(requests.get, 'slots', timeout=5))
             for slot_info in data.itervalues():
                 for osd in slot_info.get('osds', {}).itervalues():
                     osd['type'] = 'ASD'
@@ -140,66 +95,119 @@ class ASDManagerClient(object):
         return data
 
     def fill_slot(self, slot_id, extra):
+        # type: (str, dict) -> None
         """
         Fills a slot (disk) with one or more OSDs
         :param slot_id: Id of the slot to fill
         :param extra: Extra parameters to supply. Supported extra params: {count: number of asds to add}
         :type extra: dict
+        :return: None
+        :rtype: NoneType
         """
         # Call can raise a NotFoundException when the slot could no longer be found
         for _ in xrange(extra['count']):
             self._call(requests.post, 'slots/{0}/asds'.format(slot_id))
 
     def restart_osd(self, slot_id, osd_id):
+        # type: (str, str) -> None
         """
         Restarts a given OSD in a given Slot
+        :param slot_id: Identifier of the slot
+        :type slot_id: str
+        :param osd_id: Identifier of the OSD
+        :type osd_id: str
+        :return: None
+        :rtype: NoneType
         """
         return self._call(requests.post, 'slots/{0}/asds/{1}/restart'.format(slot_id, osd_id))
 
     def update_osd(self, slot_id, osd_id, update_data):
+        # type: (str, str, dict) -> None
         """
         Updates a given OSD in a given Slot
+        :param slot_id: Identifier of the slot
+        :type slot_id: str
+        :param osd_id: Identifier of the OSD
+        :type osd_id: str
+        :param update_data: Data to update the OSD with
+        :type update_data: dict
+        :return: None
+        :rtype: NoneType
         """
         return self._call(method=requests.post,
                           url='slots/{0}/asds/{1}/update'.format(slot_id, osd_id),
                           data={'update_data': json.dumps(update_data)})
 
     def delete_osd(self, slot_id, osd_id):
+        # type: (str, str) -> None
         """
         Deletes the OSD from the Slot
+        :param slot_id: Identifier of the slot
+        :type slot_id: str
+        :param osd_id: Identifier of the OSD
+        :type osd_id: str
+        :return: None
+        :rtype: NoneType
         """
         return self._call(requests.delete, 'slots/{0}/asds/{1}'.format(slot_id, osd_id))
 
     def build_slot_params(self, osd):
+        # type: (ovs.dal.hybrids.albaosd.AlbaOSD) -> dict
         """
         Builds the "extra" params for replacing an OSD
+        :param osd: The OSD to generate the params for
+        :type osd: ovs.dal.hybrids.albaosd.AlbaOSD
         """
         _ = self, osd
         return {'count': 1}
 
     def clear_slot(self, slot_id):
+        # type: (str) -> None
         """
         Clears the slot
+        :param slot_id: Identifier of the slot to clear
+        :type slot_id: str
+        :return: None
+        :rtype: NoneType
         """
         return self._call(requests.delete, 'slots/{0}'.format(slot_id))
 
     def restart_slot(self, slot_id):
+        # type: (str) -> None
         """
         Restart the slot with given slot id
+        :param slot_id: Identifier of the slot to clear
+        :type slot_id: str
+        :return: None
+        :rtype: NoneType
         """
         return self._call(requests.post, 'slots/{0}/restart'.format(slot_id))
+
+    def stop_slot(self, slot_id):
+        # type: (str) -> None
+        """
+        Stops all OSDs on the slot
+        :param slot_id: Identifier of the slot to clear
+        :type slot_id: str
+        :return: None
+        :rtype: NoneType
+        """
+        return self._call(requests.post, 'slots/{0}/stop'.format(slot_id))
 
     ##########
     # UPDATE #
     ##########
     def get_package_information(self):
+        # type: () -> dict
         """
         Retrieve the package information for this ALBA node
         :return: Latest available version and services which require a restart
+        :rtype: dict
         """
         # For backwards compatibility we first attempt to retrieve using the newest API
         try:
-            return self._call(requests.get, 'update/package_information', timeout=120, clean=True)
+            # Newest ASD Manager wraps it. Older ones require cleaning
+            return self.extract_data(self._call(requests.get, 'update/package_information', timeout=120))
         except NotFoundError:
             update_info = self._call(requests.get, 'update/information', timeout=120, clean=True)
             if update_info['version']:
@@ -209,9 +217,12 @@ class ASDManagerClient(object):
             return {}
 
     def execute_update(self, package_name):
+        # type: (str) -> None
         """
         Execute an update
+        :param package_name: Package to update
         :return: None
+        :rtype: NoneType
         """
         try:
             return self._call(requests.post, 'update/install/{0}'.format(package_name), timeout=300)
@@ -231,6 +242,7 @@ class ASDManagerClient(object):
                     raise Exception('Failed to update SDM')
 
     def update_execute_migration_code(self):
+        # type: () -> None
         """
         Run some migration code after an update has been done
         :return: None
@@ -239,6 +251,7 @@ class ASDManagerClient(object):
         return self._call(requests.post, 'update/execute_migration_code')
 
     def update_installed_version_package(self, package_name):
+        # type: (str) -> str
         """
         Retrieve the currently installed package version
         :param package_name: Name of the package to retrieve the version for
@@ -246,12 +259,14 @@ class ASDManagerClient(object):
         :return: Version of the currently installed package
         :rtype: str
         """
-        return self._call(requests.get, 'update/installed_version_package/{0}'.format(package_name), timeout=60)['version']
+        return self.extract_data(self._call(requests.get, 'update/installed_version_package/{0}'.format(package_name), timeout=60),
+                                 old_key='version')
 
     ############
     # SERVICES #
     ############
     def restart_services(self, service_names=None):
+        # type: (Optional[str]) -> None
         """
         Restart the specified services (alba-asd and maintenance services)
         :param service_names: Names of the services to restart
@@ -266,6 +281,7 @@ class ASDManagerClient(object):
                           data={'service_names': json.dumps(service_names)})
 
     def add_maintenance_service(self, name, alba_backend_guid, abm_name, read_preferences):
+        # type: (str, str, str, List[str]) -> dict
         """
         Add service to asd manager
         :param name: Name of the service to add
@@ -277,6 +293,7 @@ class ASDManagerClient(object):
         :param read_preferences: List of ALBA Node IDs (LOCAL) or linked ALBA Backend Guids (GLOBAL) for the maintenance services where they should prioritize the READ actions
         :type read_preferences: list[str]
         :return: result
+        :rtype: dict
         """
         return self._call(method=requests.post,
                           url='maintenance/{0}/add'.format(name),
@@ -285,6 +302,7 @@ class ASDManagerClient(object):
                                 'alba_backend_guid': alba_backend_guid})
 
     def remove_maintenance_service(self, name, alba_backend_guid):
+        # type: (str, str) -> dict
         """
         Remove service from asd manager
         :param name: Name of the maintenance service to remove
@@ -292,19 +310,24 @@ class ASDManagerClient(object):
         :param alba_backend_guid: Guid of the ALBA Backend to which the maintenance service belongs
         :type alba_backend_guid: str
         :return: result
+        :rtype: dict
         """
         return self._call(method=requests.post,
                           url='maintenance/{0}/remove'.format(name),
                           data={'alba_backend_guid': alba_backend_guid})
 
     def list_maintenance_services(self):
+        # type: () -> dict
         """
         Retrieve configured maintenance services from asd manager
         :return: dict of services
+        :rtype: dict
         """
-        return self._call(requests.get, 'maintenance', clean=True)['services']
+        return self.extract_data(self._call(requests.get, 'maintenance', clean=True),
+                                 old_key='services')
 
     def get_service_status(self, name):
+        # type: (str) -> str
         """
         Retrieve the status of the service specified
         :param name: Name of the service to check
@@ -312,4 +335,33 @@ class ASDManagerClient(object):
         :return: Status of the service
         :rtype: str
         """
-        return self._call(requests.get, 'service_status/{0}'.format(name))['status'][1]
+        return self.extract_data(self._call(requests.get, 'service_status/{0}'.format(name)),
+                                 old_key='status')[1]
+
+    def sync_stack(self, stack):
+        # type: (dict) -> None
+        """
+        Synchronize the stack of an AlbaNode with the stack of another AlbaNode
+        :param stack: Stack to sync
+        :return: None
+        :rtype: Nonetype
+        """
+        return self._call(requests.post, 'dual_controller/sync_stack', data={'stack': json.dumps(stack)})
+
+    @classmethod
+    def clean(cls, data):
+        # type: (dict) -> dict
+        """
+        Clean data of metadata keys
+        :param data: Dict with data
+        :type data: dict
+        :return: Cleaned data
+        :rtype: dict
+        """
+        data_copy = data.copy()
+        for key in data.iterkeys():
+            if key.startswith('_'):
+                del data_copy[key]
+            elif isinstance(data_copy[key], dict):
+                data_copy[key] = cls.clean(data_copy[key])
+        return data_copy

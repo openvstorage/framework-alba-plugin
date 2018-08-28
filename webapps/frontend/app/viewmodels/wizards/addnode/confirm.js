@@ -17,14 +17,14 @@
 define([
     'jquery', 'knockout',
     'ovs/api', 'ovs/shared', 'ovs/generic',
-    './data'
-], function($, ko, api, shared, generic, data) {
+    'viewmodels/services/albanode', 'viewmodels/services/albanodecluster'
+], function($, ko, api, shared, generic, albaNodeService, albaNodeClusterService) {
     "use strict";
-    return function() {
+    return function(stepOptions) {
         var self = this;
 
         // Variables
-        self.data   = data;
+        self.data   = stepOptions.data;
         self.shared = shared;
 
         // Computed
@@ -32,74 +32,69 @@ define([
             return {value: true, reasons: [], fields: []};
         });
 
-        self.finish = function () {
-            return $.Deferred(function (deferred) {
-                // Add ALBA node
-                if (self.data.oldNode() === undefined) {
-                    generic.alertInfo(
-                        $.t('alba:wizards.add_node.confirm.started'),
-                        $.t('alba:wizards.add_node.confirm.in_progress')
+        // Functions
+        function _handleMessaging(prefix, api) {
+            generic.alertInfo($.t(prefix +'.started'), $.t(prefix + '.in_progress'));
+            // Further data is present in args. This is JS-style *args
+            var args = Array.prototype.slice.call(arguments, _handleMessaging.length);
+            return api.apply(null, args)
+                .then(self.shared.tasks.wait)
+                .done(function () {
+                    generic.alertSuccess(
+                        $.t(prefix + '.complete'),
+                        $.t(prefix + '.success')
                     );
-                    deferred.resolve();
-                    api.post('alba/nodes', {
-                        data: {
-                            node_id: self.data.newNode().nodeID(),
-                            node_type: self.data.newNode().type(),
-                            name: self.data.name()
-                        }
-                    })
-                        .then(self.shared.tasks.wait)
-                        .done(function () {
-                            generic.alertSuccess(
-                                $.t('alba:wizards.add_node.confirm.complete'),
-                                $.t('alba:wizards.add_node.confirm.success')
-                            );
+                })
+                .fail(function (error) {
+                    error = generic.extractErrorMessage(error);
+                    generic.alertError(
+                        $.t('ovs:generic.error'),
+                        $.t(prefix + '.failed', {
+                            why: error
                         })
-                        .fail(function (error) {
-                            error = generic.extractErrorMessage(error);
-                            generic.alertError(
-                                $.t('ovs:generic.error'),
-                                $.t('alba:wizards.add_node.confirm.failed', {why: error})
-                            );
-                        });
-                // Replace ALBA node
-                } else {
+                    );
+                });
+        }
+        function addNode() {
+            var data = {
+                node_id: self.data.newNode().node_id(),
+                node_type: self.data.newNode().type(),
+                name: self.data.name() ? self.data.name(): null
+            };
+            return _handleMessaging('alba:wizards.add_node.confirm', albaNodeService.addAlbaNode, data)
+        }
+        function replaceNode() {
+            $.each(self.data.oldNode().slots(), function(index, slot) {
+                slot.processing(true);
+                $.each(slot.osds(), function(jndex, osd) {
+                    osd.processing(true);
+                })
+            });
+            return _handleMessaging('alba:wizards.replace_node', albaNodeService.replaceAlbaNode, self.data.oldNode().guid(), self.data.newNode().node_id())
+                .always(function() {
                     $.each(self.data.oldNode().slots(), function(index, slot) {
-                        slot.processing(true);
+                        slot.processing(false);
                         $.each(slot.osds(), function(jndex, osd) {
-                            osd.processing(true);
+                            osd.processing(false);
                         })
                     });
-                    generic.alertInfo(
-                        $.t('alba:wizards.replace_node.started'),
-                        $.t('alba:wizards.replace_node.in_progress')
-                    );
-                    deferred.resolve();
-                    api.post('alba/nodes/' + self.data.oldNode().guid() + '/replace_node', {data: {new_node_id: self.data.newNode().nodeID()}})
-                        .then(self.shared.tasks.wait)
-                        .done(function() {
-                            generic.alertSuccess(
-                                $.t('alba:wizards.replace_node.complete'),
-                                $.t('alba:wizards.replace_node.success')
-                            );
-                        })
-                        .fail(function (error) {
-                            error = generic.extractErrorMessage(error);
-                            generic.alertError(
-                                $.t('ovs:generic.error'),
-                                $.t('alba:wizards.replace_node.failed', {why: error})
-                            );
-                        })
-                        .always(function() {
-                            $.each(self.data.oldNode().slots(), function(index, slot) {
-                                slot.processing(false);
-                                $.each(slot.osds(), function(jndex, osd) {
-                                    osd.processing(false);
-                                })
-                            });
-                        })
-                }
-            }).promise();
+                })
+        }
+        function addNodecluster() {
+            var data = {name: self.data.name()};
+            return _handleMessaging('alba:wizards.add_nodecluster', albaNodeClusterService.addAlbaNodeCluster, data)
+        }
+        self.finish = function () {
+            // Add ALBA node
+            if (self.data.workingWithCluster()) {
+                return addNodecluster()
+            }
+            if (self.data.oldNode() === undefined) {
+                return addNode()
+            // Replace ALBA node
+            } else {
+                return replaceNode()
+            }
         };
     }
 });

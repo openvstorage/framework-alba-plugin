@@ -15,14 +15,14 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'knockout', 'ovs/shared', 'ovs/formBuilder', './data'
-], function($, ko, shared, formBuilder, data) {
+    'jquery', 'knockout', 'ovs/shared', 'ovs/formBuilder'
+], function($, ko, shared, formBuilder) {
     "use strict";
-    return function() {
+    return function(stepOptions) {
         var self = this;
 
         // Variables
-        self.data   = data;
+        self.data   = stepOptions.data;
         self.shared = shared;
 
         // Computed

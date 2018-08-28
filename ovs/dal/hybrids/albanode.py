@@ -22,14 +22,16 @@ import os
 import re
 import requests
 from ovs.dal.dataobject import DataObject
+from ovs.dal.hybrids.albanodecluster import AlbaNodeCluster
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
-from ovs.extensions.generic.configuration import Configuration
+from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs_extensions.generic.exceptions import InvalidCredentialsError
 from ovs.extensions.generic.logger import Logger
 from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 from ovs.extensions.plugins.asdmanager import ASDManagerClient
 from ovs.extensions.plugins.genericmanager import GenericManagerClient
+from ovs.extensions.plugins.s3manager import S3ManagerClient
 from ovs.extensions.plugins.tests.alba_mockups import ManagerClientMockup
 
 
@@ -37,7 +39,7 @@ class AlbaNode(DataObject):
     """
     The AlbaNode contains information about nodes (containing OSDs)
     """
-    NODE_TYPES = DataObject.enumerator('NodeType', ['ASD', 'GENERIC'])
+    NODE_TYPES = DataObject.enumerator('NodeType', ['ASD', 'GENERIC', 'S3'])
     OSD_STATUSES = DataObject.enumerator('OSDStatus', {'ERROR': 'error',
                                                        'MISSING': 'missing',
                                                        'OK': 'ok',
@@ -56,6 +58,9 @@ class AlbaNode(DataObject):
                                                          'UNAVAILABLE': 'unavailable',
                                                          'UNKNOWN': 'unknown',
                                                          'EMPTY': 'empty'})
+    _CLIENTS = {NODE_TYPES.ASD: ASDManagerClient,
+                NODE_TYPES.GENERIC: GenericManagerClient,
+                NODE_TYPES.S3: S3ManagerClient}
 
     _logger = Logger('hybrids')
     __properties = [Property('ip', str, indexed=True, mandatory=False, doc='IP Address'),
@@ -66,14 +71,16 @@ class AlbaNode(DataObject):
                     Property('password', str, mandatory=False, doc='Password of the AlbaNode'),
                     Property('type', NODE_TYPES.keys(), default=NODE_TYPES.ASD, doc='The type of the AlbaNode'),
                     Property('package_information', dict, mandatory=False, default={}, doc='Information about installed packages and potential available new versions')]
-    __relations = [Relation('storagerouter', StorageRouter, 'alba_node', onetoone=True, mandatory=False, doc='StorageRouter hosting the AlbaNode')]
+    __relations = [Relation('storagerouter', StorageRouter, 'alba_node', onetoone=True, mandatory=False, doc='StorageRouter hosting the Alba Node'),
+                   Relation('alba_node_cluster', AlbaNodeCluster, 'alba_nodes', mandatory=False, doc='The Alba Node Cluster to which the Alba Node belongs')]
     __dynamics = [Dynamic('stack', dict, 15, locked=True),
                   Dynamic('ips', list, 3600),
                   Dynamic('maintenance_services', dict, 30, locked=True),
                   Dynamic('node_metadata', dict, 3600),
                   Dynamic('supported_osd_types', list, 3600),
                   Dynamic('read_only_mode', bool, 60),
-                  Dynamic('local_summary', dict, 60)]
+                  Dynamic('local_summary', dict, 60),
+                  Dynamic('ipmi_info', dict, 3600)]
 
     def __init__(self, *args, **kwargs):
         """
@@ -84,10 +91,10 @@ class AlbaNode(DataObject):
         self.client = None
         if os.environ.get('RUNNING_UNITTESTS') == 'True':
             self.client = ManagerClientMockup(self)
-        elif self.type == AlbaNode.NODE_TYPES.ASD:
-            self.client = ASDManagerClient(self)
-        elif self.type == AlbaNode.NODE_TYPES.GENERIC:
-            self.client = GenericManagerClient(self)
+        else:
+            if self.type not in self._CLIENTS:
+                raise NotImplementedError('Type {0} is not implemented'.format(self.type))
+            self.client = self._CLIENTS[self.type](self)
         self._frozen = True
 
     def _ips(self):
@@ -215,8 +222,6 @@ class AlbaNode(DataObject):
                                 break
                             except (AlbaError, RuntimeError):
                                 AlbaNode._logger.warning('get-osd-claimed-by failed for IP:port {0}:{1}'.format(ip, port))
-                        if claimed_by == 'unknown' and len(ips) > 0:
-                            raise
                         alba_backend = AlbaBackendList.get_by_alba_id(claimed_by)
                         osd['claimed_by'] = alba_backend.guid if alba_backend is not None else claimed_by
                     except KeyError:
@@ -256,8 +261,11 @@ class AlbaNode(DataObject):
         from ovs.dal.hybrids.albaosd import AlbaOSD
         if self.type == AlbaNode.NODE_TYPES.GENERIC:
             return [AlbaOSD.OSD_TYPES.ASD, AlbaOSD.OSD_TYPES.AD]
-        if self.type == AlbaNode.NODE_TYPES.ASD:
+        elif self.type == AlbaNode.NODE_TYPES.ASD:
             return [AlbaOSD.OSD_TYPES.ASD]
+        elif self.type == AlbaNode.NODE_TYPES.S3:
+            return []
+        return []
 
     def _read_only_mode(self):
         """
@@ -305,3 +313,16 @@ class AlbaNode(DataObject):
                 if status in state_map:  # Can never be too sure
                     device_info[state_map[status]].append(osd_info)
         return local_summary
+
+    def _ipmi_info(self):
+        """
+        Retrieve the IPMI information of the AlbaNode
+        :return: Dict with ipmi information
+        :rtype: dict
+        """
+        try:
+            return Configuration.get('/ovs/alba/asdnodes/{0}/config/ipmi'.format(self.node_id))
+        except NotFoundException:  # Could be that the ASDManager does not yet have the IPMI info stored
+            return {'ip': None,
+                    'username': None,
+                    'password': None}

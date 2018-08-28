@@ -19,16 +19,18 @@ but WITHOUT ANY WARRANTY of any kind.
     <div>
         <p data-i18n="[html]alba:wizards.add_node.confirm.basic_info"></p>
         <ul>
-            <li>
+            <li data-bind="visible: !data.workingWithCluster()">
                 <b data-i18n="alba:wizards.add_node.confirm.id"></b>
-                <i data-i18n="alba:generic.generated" data-bind="visible: data.newNode().nodeID() === undefined"></i>
-                <span data-bind="text: data.newNode().nodeID, visible: data.newNode().nodeID() !== undefined"></span>
+                <i data-i18n="alba:generic.generated" data-bind="visible: !!data.newNode().node_id()"></i>
+                <span data-bind="text: data.newNode().node_id, visible: !data.newNode().node_id()"></span>
             </li>
             <!-- ko if: data.name.valid() -->
                 <li><b data-i18n="alba:wizards.add_node.confirm.name"></b> <span data-bind="text: data.name()"></span></li>
             <!-- /ko -->
+            <!-- ko ifnot: data.workingWithCluster -->
             <li><b data-i18n="alba:wizards.add_node.confirm.type"></b> <span data-bind="text: data.newNode().type()"></span></li>
-            <!-- ko if: data.newNode().type() !== 'GENERIC' -->
+            <!-- /ko -->
+            <!-- ko if: data.displayConnectionDetail -->
                 <li><b data-i18n="alba:wizards.add_node.confirm.ip"></b> <span data-bind="text: data.newNode().ip()"></span></li>
                 <li><b data-i18n="alba:wizards.add_node.confirm.port"></b> <span data-bind="text: data.newNode().port()"></span></li>
                 <li><b data-i18n="alba:wizards.add_node.confirm.username"></b> <span data-bind="text: data.newNode().username()"></span></li>
@@ -42,7 +44,7 @@ but WITHOUT ANY WARRANTY of any kind.
     <!-- ko if: data.oldNode() !== undefined -->
     <div class="alert alert-warning" style="margin-top: 10px;">
         <span data-i18n="alba:wizards.replace_node.replace_msg_1"></span>
-        <span data-bind="text: data.oldNode().nodeID()"></span>
+        <span data-bind="text: data.oldNode().node_id()"></span>
         <span data-i18n="alba:wizards.replace_node.replace_msg_2"></span>
         <span data-bind="text: data.newNode().ip()"></span>
         <span data-i18n="alba:wizards.replace_node.replace_msg_3"></span>

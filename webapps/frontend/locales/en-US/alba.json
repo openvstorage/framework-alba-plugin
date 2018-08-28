@@ -80,6 +80,7 @@
         "nodes": "ASD Nodes",
         "nodetype": "Type",
         "nodetypes": {
+            "albanodecluster": "Node Cluster",
             "asd": "ASD",
             "generic": "Generic"
         },
@@ -334,6 +335,14 @@
             },
             "title": "Add Node"
         },
+        "add_nodecluster": {
+            "complete": "Completed",
+            "failed": "Adding node cluster failed: __why__",
+            "in_progress": "Node cluster is being created",
+            "started": "Started",
+            "success": "Node cluster has been created",
+            "title": "Add Alba Node Cluster"
+        },
         "add_osd": {
             "confirm": {
                 "basic_info": "Validate and confirm information below",
@@ -449,6 +458,21 @@
             "success_msg": "Successfully linked __backend_to_link__ to __global_backend__",
             "title": "Link Backend",
             "use_local": "Link Local Backend:"
+        },
+        "register_node_under_cluster": {
+            "confirm": {
+                "basic_info": "Following Alba Nodes will be added to cluster:",
+                "complete": "Completed",
+                "failed": "Adding node cluster failed: __why__",
+                "in_progress": "Node is being registered in the cluster",
+                "ip": "IP Address",
+                "started": "Started",
+                "success": "Node cluster has been created"
+            },
+            "gather": {
+                "alba_node": "Alba Node"
+            },
+            "title": "Register Alba Node under a cluster"
         },
         "remove_osd": {
             "complete": "Removed",

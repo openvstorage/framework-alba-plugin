@@ -17,14 +17,13 @@
 define([
     'jquery', 'knockout',
     'ovs/api', 'ovs/shared', 'ovs/generic',
-    './data'
-], function($, ko, api, shared, generic, data) {
+], function($, ko, api, shared, generic) {
     "use strict";
-    return function() {
+    return function(stepOptions) {
         var self = this;
 
         // Variables
-        self.data   = data;
+        self.data   = stepOptions.data;
         self.shared = shared;
 
         // Computed

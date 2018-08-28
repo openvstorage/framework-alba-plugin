@@ -41,6 +41,7 @@ class AlbaMigrationController(object):
         """
         AlbaMigrationController._logger.info('Preparing out of band migrations...')
 
+        from ovs.dal.hybrids.diskpartition import DiskPartition
         from ovs.dal.lists.albabackendlist import AlbaBackendList
         from ovs.dal.lists.albanodelist import AlbaNodeList
         from ovs.dal.lists.albaosdlist import AlbaOSDList
@@ -52,6 +53,7 @@ class AlbaMigrationController(object):
         from ovs.extensions.services.albaservicefactory import ServiceFactory
         from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
         from ovs.lib.alba import AlbaController
+        from ovs.lib.disk import DiskController
 
         AlbaMigrationController._logger.info('Start out of band migrations...')
 
@@ -238,6 +240,38 @@ class AlbaMigrationController(object):
                     Configuration.set(key=migration_random_eviction_key, value=True)
             except Exception:
                 AlbaMigrationController._logger.exception('Updating auto cleanup failed')
+
+        ###################################################
+        # Sync all disks and apply the backend role. Backend role was removed with the AD (since 1.10)
+        albanode_backend_role_sync_key = '/ovs/framework/migration|albanode_backend_role_sync'
+        if not Configuration.get(key=albanode_backend_role_sync_key, default=False):
+            try:
+                errors = []
+                for alba_node in AlbaNodeList.get_albanodes():
+                    try:
+                        if not alba_node.storagerouter:
+                            continue
+                        stack = alba_node.client.get_stack()  # type: dict
+                        for slot_id, slot_information in stack.iteritems():
+                            osds = slot_information.get('osds', {})  # type: dict
+                            slot_aliases = slot_information.get('aliases', [])  # type: list
+                            if not osds:  # No osds means no partition was made
+                                continue
+                            # Sync to add all potential partitions that will need a backend role
+                            DiskController.sync_with_reality(storagerouter_guid=alba_node.storagerouter_guid)
+                            for disk in alba_node.storagerouter.disks:
+                                if set(disk.aliases).intersection(set(slot_aliases)):
+                                    partition = disk.partitions[0]
+                                    if DiskPartition.ROLES.BACKEND not in partition.roles:
+                                        partition.roles.append(DiskPartition.ROLES.BACKEND)
+                                        partition.save()
+                    except Exception as ex:
+                        AlbaMigrationController._logger.exception('Syncing for storagerouter/albanode {0} failed'.format(alba_node.storagerouter.ip))
+                        errors.append(ex)
+                if not errors:
+                    Configuration.set(key=albanode_backend_role_sync_key, value=True)
+            except Exception:
+                AlbaMigrationController._logger.exception('Syncing up the disks for backend roles failed')
 
         AlbaMigrationController._logger.info('Finished out of band migrations')
 

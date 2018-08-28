@@ -15,9 +15,9 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'ovs/generic',
+    'jquery', 'knockout', 'ovs/generic',
     '../build', './confirm', './gather', './data'
-], function($, generic, Build, Confirm, Gather, data) {
+], function($, ko, generic, Build, Confirm, Gather, Data) {
     "use strict";
     return function(options) {
         var self = this;
@@ -25,22 +25,24 @@ define([
         Build.call(self);
 
         // Variables
-        self.data = data;
+        var data = new Data(options.newNode, options.oldNode, options.confirmOnly);
+        var title = options.oldNode === undefined ? $.t('alba:wizards.add_node.title') : $.t('alba:wizards.replace_node.title');
+
+        // Observables
+        self.title = ko.pureComputed(function() {  // Overrule default title
+            if (data.workingWithCluster()) { return $.t('alba:wizards.add_nodecluster.title')}
+            else { return title }
+        });
+        self.modal(generic.tryGet(options, 'modal', false));
 
         // Setup
-        self.title(generic.tryGet(options, 'title', (options.oldNode === undefined ? $.t('alba:wizards.add_node.title') : $.t('alba:wizards.replace_node.title'))));
-        self.modal(generic.tryGet(options, 'modal', false));
-        self.data.newNode(options.newNode);
-        self.data.oldNode(options.oldNode);
-        self.data.confirmOnly(options.confirmOnly);
-        if (options.confirmOnly) {
-            self.steps([new Confirm()]);
-        } else {
-            self.steps([new Gather(), new Confirm()]);
-        }
-        self.activateStep();
+        var stepOptions = {
+            data: data,
+            title:self.title
+        };
+        if (options.confirmOnly) { self.steps([new Confirm(stepOptions)]); }
+        else { self.steps([new Gather(stepOptions), new Confirm(stepOptions)]); }
 
-        // Cleaning data
-        self.data.name(undefined);
+        self.activateStep();
     };
 });
