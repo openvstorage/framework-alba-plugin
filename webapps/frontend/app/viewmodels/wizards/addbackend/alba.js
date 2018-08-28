@@ -16,7 +16,7 @@
 /*global define */
 define([
     'jquery', 'knockout',
-    'ovs/api', 'ovs/shared', 'ovs/generic', 'ovs/pluginloader',
+    'ovs/api', 'ovs/shared', 'ovs/generic',
     'viewmodels/services/albabackend', 'viewmodels/services/storagerouter'
 ], function($, ko, api, shared, generic,
             albaBackendService, storageRouterService) {
