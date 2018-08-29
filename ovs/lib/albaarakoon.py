@@ -127,7 +127,10 @@ class AlbaArakoonController(object):
             try:
                 partition = AlbaArakoonInstaller.get_db_partition(storagerouter)
                 try:
-                    client = ssh_clients.get(storagerouter) if isinstance(ssh_clients, dict) else SSHClient(storagerouter)
+                    if ssh_clients:
+                        client = ssh_clients.get(storagerouter)
+                    else:
+                        client = SSHClient(storagerouter)
                     if client:
                         available_storagerouters[storagerouter] = partition
                 except UnableToConnectException:
@@ -369,7 +372,7 @@ class AlbaArakoonController(object):
 
     @classmethod
     def ensure_nsm_clusters_load(cls, alba_backend, nsms_per_storagerouter=None, min_internal_nsms=1, external_nsm_cluster_names=None, version_str=None, ssh_clients=None):
-        # type: (AlbaBackend, Optional[Dict[StorageRouter, int]], Optional[int], Optional[List[str], Optional[str]]) -> None
+        # type: (AlbaBackend, Optional[Dict[StorageRouter, int]], Optional[int], Optional[List[str], Optional[str]], Optional[StorageRouter, SSHClient]) -> None
         """
         Ensure that all NSM clusters are not overloaded
         :param alba_backend: Alba Backend to ensure NSM Cluster load for
@@ -382,6 +385,8 @@ class AlbaArakoonController(object):
         :type external_nsm_cluster_names: list
         :param version_str: Alba version string
         :type version_str: str
+        :param ssh_clients: SSHClients to use
+        :type ssh_clients: Dict[Storagerouter, SSHClient]
         :return: None
         :rtype: NoneType
         """

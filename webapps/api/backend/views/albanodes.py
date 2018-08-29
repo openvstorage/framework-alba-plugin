@@ -22,12 +22,10 @@ from rest_framework import viewsets
 from rest_framework.decorators import action, link
 from rest_framework.permissions import IsAuthenticated
 from api.backend.decorators import load, log, required_roles, return_list, return_object, return_simple, return_task
-from ovs.constants.albanode import S3_NODE_BASE_PATH, ASD_NODE_BASE_PATH
 from ovs.dal.datalist import DataList
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs_extensions.api.exceptions import HttpNotAcceptableException
-from ovs.extensions.generic.configuration import Configuration
 from ovs.lib.albanode import AlbaNodeController
 from ovs.lib.albanodecluster import AlbaNodeClusterController
 from ovs.lib.helpers.toolbox import Toolbox
@@ -41,24 +39,6 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     prefix = r'alba/nodes'
     base_name = 'albanodes'
     return_exceptions = ['albanodes.create', 'albanodes.destroy']
-
-    @staticmethod
-    def model_volatile_node(node_id, node_type, ip=None):
-        # type: (str, str, Optional[str]) -> AlbaNode
-        """
-        Models a non-existing AlbaNode
-        :param node_id: ID of the node
-        :type node_id: str
-        :param node_type: Type of the node
-        :type node_type: str
-        :param ip: IP of the node
-        :type ip: str
-        :return: The modeled node
-        :rtype: AlbaNode
-        """
-        node = AlbaNodeController.model_alba_node(node_id, node_type, ip)
-        node.volatile = True
-        return node
 
     @classmethod
     def _discover_nodes(cls, ip=None, node_id=None):
@@ -74,7 +54,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         nodes = {}
         if ip is not None:
             # List the requested node
-            node = cls.model_volatile_node(node_id, AlbaNode.NODE_TYPES.ASD, ip)
+            node = AlbaNodeController.model_volatile_node(node_id, AlbaNode.NODE_TYPES.ASD, ip)
             data = node.client.get_metadata()
             if data['_success'] is False and data['_error'] == 'Invalid credentials':
                 raise HttpNotAcceptableException(error='invalid_data',
@@ -85,21 +65,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
                                                      data['node_id'], node_id))
             nodes[node.guid] = node
         else:
-            model_node_ids = set(node.node_id for node in AlbaNodeList.get_albanodes())
-            found_node_ids = set()
-            node_ids_by_type = {}
-            for node_type, base_config_path in {AlbaNode.NODE_TYPES.ASD: ASD_NODE_BASE_PATH,
-                                                AlbaNode.NODE_TYPES.S3: S3_NODE_BASE_PATH}.iteritems():
-                if Configuration.dir_exists(base_config_path):
-                    node_ids = Configuration.list(base_config_path)
-                    node_ids_by_type[node_type] = node_ids
-
-            for node_type, node_ids in node_ids_by_type.iteritems():
-                for node_id in node_ids:
-                    node = cls.model_volatile_node(node_id, node_type)
-                    if node.node_id not in model_node_ids and node.node_id not in found_node_ids:
-                        nodes[node.guid] = node
-                        found_node_ids.add(node.node_id)
+            nodes.update(AlbaNodeController.discover_nodes())
         return nodes
 
     @log()

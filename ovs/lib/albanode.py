@@ -22,6 +22,7 @@ import uuid
 import string
 import random
 import requests
+from ovs.constants.albanode import S3_NODE_BASE_PATH, ASD_NODE_BASE_PATH
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.hybrids.diskpartition import DiskPartition
@@ -29,7 +30,6 @@ from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.albaosdlist import AlbaOSDList
-from ovs.dal.lists.albas3transactionclusterlist import S3TransactionClusterList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.generic.exceptions import InvalidCredentialsError, NotFoundError
@@ -48,6 +48,50 @@ class AlbaNodeController(object):
     Contains all BLL related to ALBA nodes
     """
     _logger = Logger('lib')
+
+    @classmethod
+    def discover_nodes(cls):
+        # type: () -> Dict[str, AlbaNode]
+        """
+        Discover nodes by querying the config mgmt
+        :return: The discovered nodes, mapped by their guid
+        :rtype: Dict[str, AlbaNode]
+        """
+        nodes = {}
+        model_node_ids = set(node.node_id for node in AlbaNodeList.get_albanodes())
+        found_node_ids = set()
+        node_ids_by_type = {}
+        for node_type, base_config_path in {AlbaNode.NODE_TYPES.ASD: ASD_NODE_BASE_PATH,
+                                            AlbaNode.NODE_TYPES.S3: S3_NODE_BASE_PATH}.iteritems():
+            if Configuration.dir_exists(base_config_path):
+                node_ids = Configuration.list(base_config_path)
+                node_ids_by_type[node_type] = node_ids
+
+        for node_type, node_ids in node_ids_by_type.iteritems():
+            for node_id in node_ids:
+                if node_id not in model_node_ids and node_id not in found_node_ids:
+                    node = cls.model_volatile_node(node_id, node_type)
+                    nodes[node.guid] = node
+                    found_node_ids.add(node.node_id)
+        return nodes
+
+    @classmethod
+    def model_volatile_node(cls, node_id, node_type, ip=None):
+        # type: (str, str, Optional[str]) -> AlbaNode
+        """
+        Models a non-existing AlbaNode
+        :param node_id: ID of the node
+        :type node_id: str
+        :param node_type: Type of the node
+        :type node_type: str
+        :param ip: IP of the node
+        :type ip: str
+        :return: The modeled node
+        :rtype: AlbaNode
+        """
+        node = cls.model_alba_node(node_id, node_type, ip)
+        node.volatile = True
+        return node
 
     @staticmethod
     def model_alba_node(node_id, node_type, ip=None):
@@ -88,10 +132,7 @@ class AlbaNodeController(object):
         :return: None
         :rtype: NoneType
         """
-        if node_type == AlbaNode.NODE_TYPES.S3:
-            # The transaction arakoon is needed. This wil check deployment & extend
-            AlbaArakoonController.configure_s3_transaction_cluster()
-            raise NotImplementedError('Saving an s3 node is not yet implemented')
+        # Generic is a special case. Nothing is registered within config mgmt
         if node_type == AlbaNode.NODE_TYPES.GENERIC:
             node = AlbaNode()
             node.name = name
@@ -99,27 +140,28 @@ class AlbaNodeController(object):
             node.type = AlbaNode.NODE_TYPES.GENERIC
             node.save()
         else:
+            # Both S3 and ASD type can be added now
             if node_id is None:
-                raise RuntimeError('A node_id must be given for type ASD')
+                raise RuntimeError('A node_id must be given for type ASD/S3')
             node = AlbaNodeList.get_albanode_by_node_id(node_id)
-            if node is None:
-                # node = AlbaNodeController.model_alba_node(node_id, node_type)
-                main_config = Configuration.get('/ovs/alba/asdnodes/{0}/config/main'.format(node_id))
-                node = AlbaNode()
-                node.name = name
-                node.ip = main_config['ip']
-                node.port = main_config['port']
-                node.username = main_config['username']
-                node.password = main_config['password']
-                node.storagerouter = StorageRouterList.get_by_ip(main_config['ip'])
+            if not node:
+                # Could be a node that was discovered
+                nodes = AlbaNodeController.discover_nodes()
+                for alba_node_guid, alba_node in nodes.iteritems():
+                    if alba_node.node_id == node_id:
+                        node = alba_node
+            if not node:
+                raise RuntimeError('No node with node_id {0} was found'.format(node_id))
             data = node.client.get_metadata()
             if data['_success'] is False and data['_error'] == 'Invalid credentials':
                 raise RuntimeError('Invalid credentials')
             if data['node_id'] != node_id:
                 AlbaNodeController._logger.error('Unexpected node_id: {0} vs {1}'.format(data['node_id'], node_id))
                 raise RuntimeError('Unexpected node identifier')
-            node.node_id = node_id
-            node.type = AlbaNode.NODE_TYPES.ASD
+            if node.type == AlbaNode.NODE_TYPES.S3:
+                # The transaction Arakoon is needed. This wil check deployment & extend
+                AlbaArakoonController.configure_s3_transaction_cluster()
+            node.volatile = False
             node.save()
         AlbaController.checkup_maintenance_agents.delay()
 

@@ -596,8 +596,7 @@ class S3TransactionInstaller(AlbaArakoonInstaller):
             arakoon_installer = ArakoonInstaller(cluster_name=cluster_name)
             arakoon_installer.create_cluster(cluster_type=ServiceType.ARAKOON_CLUSTER_TYPES.ABM,
                                              ip=storagerouter.ip,
-                                             base_dir=partition.folder,
-                                             plugins={ABM_PLUGIN: self.version_str})
+                                             base_dir=partition.folder)
             ssh_client = self.get_ssh_client(storagerouter)
             self.link_plugins(client=ssh_client, data_dir=partition.folder, plugins=[ABM_PLUGIN], cluster_name=cluster_name)
             arakoon_installer.start_cluster()

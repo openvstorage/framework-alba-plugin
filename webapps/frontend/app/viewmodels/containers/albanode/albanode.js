@@ -624,7 +624,7 @@ define([
                                 $.t('alba:node.remove.complete'),
                                 $.t('alba:node.remove.success', {what: self.node_id()})
                             );
-
+                            subscriberService.trigger('albanode:delete', self)
                         }, function(error) {
                             error = generic.extractErrorMessage(error);
                             generic.alertError(

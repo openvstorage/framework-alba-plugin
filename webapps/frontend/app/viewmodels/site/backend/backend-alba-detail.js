@@ -136,36 +136,6 @@ define([
         self.otherAlbaBackendsCache = ko.observable({});
         self.remoteStack            = ko.observableArray([]);
 
-        // Subscriptions
-        self.disposables.push(subscriberService.onEvents('alba_backend:load', viewModelContext).then(function(data){
-            var albaBackendGuid, responseEvent;
-            if (typeof data === 'object') {
-                albaBackendGuid = data.albaBackendGuid;
-                responseEvent = data.response;
-            } else {
-                albaBackendGuid = data;
-            }
-            var cache = self.otherAlbaBackendsCache(), ab;
-            return $.when()
-                .then(function() {
-                    if (!cache.hasOwnProperty(albaBackendGuid)) {
-                        ab = new AlbaBackend(albaBackendGuid);
-                        return ab.load('backend')
-                            .then(function () {
-                                ab.backend.load();  // Don't care about this item so not waiting until it is loaded
-                                cache[albaBackendGuid] = ab;
-                                self.otherAlbaBackendsCache(cache);
-                                return ab.toJS()
-                            });
-                    }
-                    return cache[albaBackendGuid].toJS();
-                })
-                .then(function(data){
-                    if (responseEvent) {
-                        subscriberService.trigger(responseEvent, data)
-                    }
-                });
-        }));
         var vmData = {
             backend: {},
             alba_backend: {},
@@ -322,8 +292,8 @@ define([
                     }
                     // Always fetch storagerouter relation and serialize them too
                     var contents = '_relations,_relation_contents_storagerouter=""';
-                    if (discover === true) {
-                        contents += ',ips,stack,node_metadata,local_summary';
+                    if (discover) {
+                        contents += ',ips';
                     } else {
                         contents += ',stack,node_metadata,local_summary,read_only_mode';
                     }
@@ -400,6 +370,43 @@ define([
                     deferred.reject();
                 }
             }).promise();
+        },
+        subscribeToEvents: function(){
+            var self = this;
+            self.disposables.push(
+                subscriberService.onEvents('albanode:delete').then(function(albaNode) {
+                    self.updateData()
+                }),
+                subscriberService.onEvents('alba_backend:load', viewModelContext).then(function(data){
+                    var albaBackendGuid, responseEvent;
+                    if (typeof data === 'object') {
+                        albaBackendGuid = data.albaBackendGuid;
+                        responseEvent = data.response;
+                    } else {
+                        albaBackendGuid = data;
+                    }
+                    var cache = self.otherAlbaBackendsCache(), ab;
+                    return $.when()
+                        .then(function() {
+                            if (!cache.hasOwnProperty(albaBackendGuid)) {
+                                ab = new AlbaBackend(albaBackendGuid);
+                                return ab.load('backend')
+                                    .then(function () {
+                                        ab.backend.load();  // Don't care about this item so not waiting until it is loaded
+                                        cache[albaBackendGuid] = ab;
+                                        self.otherAlbaBackendsCache(cache);
+                                        return ab.toJS()
+                                    });
+                            }
+                            return cache[albaBackendGuid].toJS();
+                        })
+                        .then(function(data){
+                            if (responseEvent) {
+                                subscriberService.trigger(responseEvent, data)
+                            }
+                        });
+                })
+            )
         }
     };
 
@@ -441,12 +448,16 @@ define([
                     return false;
                 }
             });
-            dialog.show(new AddNodeWizard({
+            var wizard = new AddNodeWizard({
                 modal: true,
                 newNode: node,
                 oldNode: oldNode,
                 confirmOnly: true
-            }));
+            });
+            wizard.completed.then(function() {
+                self.updateData()
+            });
+            dialog.show(wizard)
         },
         addPreset: function() {
             var self = this;
@@ -459,12 +470,16 @@ define([
         },
         addNode: function() {
             var node = new AlbaNode();
-            dialog.show(new AddNodeWizard({
+            var wizard = new AddNodeWizard({
                 modal: true,
                 newNode: node,
                 oldNode: undefined,
                 confirmOnly: false
-            }));
+            });
+            wizard.completed.then(function() {
+                self.updateData()
+            });
+            dialog.show(wizard);
         },
         removeBackend: function() {
             var self = this;
@@ -572,6 +587,7 @@ define([
             }, 5000);
             self.refresher.run();
             self.refresher.start();
+            self.subscribeToEvents()
         },
         deactivate: function() {
             var self = this;
