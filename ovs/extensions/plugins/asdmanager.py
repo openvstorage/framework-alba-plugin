@@ -94,8 +94,8 @@ class ASDManagerClient(AlbaBaseClient):
                 osd_info[u'folder'] = osd_id
         return data
 
-    def fill_slot(self, slot_id, extra):
-        # type: (str, dict) -> None
+    def fill_slot(self, slot_id, extra, *args, **kwargs):
+        # type: (str, dict, *any, **any) -> None
         """
         Fills a slot (disk) with one or more OSDs
         :param slot_id: Id of the slot to fill
@@ -108,8 +108,8 @@ class ASDManagerClient(AlbaBaseClient):
         for _ in xrange(extra['count']):
             self._call(requests.post, 'slots/{0}/asds'.format(slot_id))
 
-    def restart_osd(self, slot_id, osd_id):
-        # type: (str, str) -> None
+    def restart_osd(self, slot_id, osd_id, *args, **kwargs):
+        # type: (str, str, *any, **any) -> None
         """
         Restarts a given OSD in a given Slot
         :param slot_id: Identifier of the slot
@@ -138,8 +138,8 @@ class ASDManagerClient(AlbaBaseClient):
                           url='slots/{0}/asds/{1}/update'.format(slot_id, osd_id),
                           data={'update_data': json.dumps(update_data)})
 
-    def delete_osd(self, slot_id, osd_id):
-        # type: (str, str) -> None
+    def delete_osd(self, slot_id, osd_id, *args, **kwargs):
+        # type: (str, str, *any, **any) -> None
         """
         Deletes the OSD from the Slot
         :param slot_id: Identifier of the slot
@@ -151,18 +151,20 @@ class ASDManagerClient(AlbaBaseClient):
         """
         return self._call(requests.delete, 'slots/{0}/asds/{1}'.format(slot_id, osd_id))
 
-    def build_slot_params(self, osd):
-        # type: (ovs.dal.hybrids.albaosd.AlbaOSD) -> dict
+    def build_slot_params(self, osd, *args, **kwargs):
+        # type: (ovs.dal.hybrids.albaosd.AlbaOSD, *any, **any) -> dict
         """
         Builds the "extra" params for replacing an OSD
         :param osd: The OSD to generate the params for
         :type osd: ovs.dal.hybrids.albaosd.AlbaOSD
+        :return: The extra param used in the create osd code
+        :rtype: dict
         """
         _ = self, osd
         return {'count': 1}
 
-    def clear_slot(self, slot_id):
-        # type: (str) -> None
+    def clear_slot(self, slot_id, *args, **kwargs):
+        # type: (str, *any, **any) -> None
         """
         Clears the slot
         :param slot_id: Identifier of the slot to clear
@@ -172,8 +174,8 @@ class ASDManagerClient(AlbaBaseClient):
         """
         return self._call(requests.delete, 'slots/{0}'.format(slot_id))
 
-    def restart_slot(self, slot_id):
-        # type: (str) -> None
+    def restart_slot(self, slot_id, *args, **kwargs):
+        # type: (str, *any, **any) -> None
         """
         Restart the slot with given slot id
         :param slot_id: Identifier of the slot to clear
@@ -183,8 +185,8 @@ class ASDManagerClient(AlbaBaseClient):
         """
         return self._call(requests.post, 'slots/{0}/restart'.format(slot_id))
 
-    def stop_slot(self, slot_id):
-        # type: (str) -> None
+    def stop_slot(self, slot_id, *args, **kwargs):
+        # type: (str, *any, **any) -> None
         """
         Stops all OSDs on the slot
         :param slot_id: Identifier of the slot to clear
@@ -338,8 +340,8 @@ class ASDManagerClient(AlbaBaseClient):
         return self.extract_data(self._call(requests.get, 'service_status/{0}'.format(name)),
                                  old_key='status')[1]
 
-    def sync_stack(self, stack):
-        # type: (dict) -> None
+    def sync_stack(self, stack, *args, **kwargs):
+        # type: (dict, *any, **any) -> None
         """
         Synchronize the stack of an AlbaNode with the stack of another AlbaNode
         :param stack: Stack to sync
