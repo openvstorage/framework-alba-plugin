@@ -30,6 +30,7 @@ from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.albaosdlist import AlbaOSDList
+from ovs.dal.lists.albas3transactionclusterlist import S3TransactionClusterList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.generic.exceptions import InvalidCredentialsError, NotFoundError
@@ -227,7 +228,7 @@ class AlbaNodeController(object):
         :rtype: dict
         """
         alba_node = AlbaNode(alba_node_guid)
-        if alba_node.type != AlbaNode.NODE_TYPES.GENERIC:
+        if alba_node.type not in [AlbaNode.NODE_TYPES.GENERIC, AlbaNode.NODE_TYPES.S3]:
             raise RuntimeError('An empty slot can only be generated for a generic node')
         return {str(uuid.uuid4()): {'status': alba_node.SLOT_STATUSES.EMPTY}}
 
@@ -301,6 +302,13 @@ class AlbaNodeController(object):
         :return: None
         :rtype: NoneType
         """
+        if node.type == AlbaNode.NODE_TYPES.S3:
+            extra = extra.copy()
+            try:
+                s3_transaction_cluster = S3TransactionClusterList.get_s3_transaction_clusters()[0]
+                extra['transaction_arakoon_url'] = Configuration.get_configuration_path(key=s3_transaction_cluster.config_location)
+            except IndexError:
+                raise RuntimeError('No transaction arakoon was deployed for this cluster!')
         node.client.fill_slot(slot_id=slot_id,
                               extra=extra)
 

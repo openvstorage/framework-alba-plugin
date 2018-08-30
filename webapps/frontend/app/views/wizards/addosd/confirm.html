@@ -17,7 +17,7 @@ but WITHOUT ANY WARRANTY of any kind.
 -->
 <div>
     <!-- ko foreach: data.formQuestions() -->
-        <!-- ko if: display().contains('confirm') -->
+        <!-- ko if: display().length === 0 || display().contains('confirm') -->
             <div class="form-group" data-bind="css: { 'has-error': $parent.canContinue().fields.contains(id()) }">
                 <label class="col-lg-3 control-label" data-bind="attr: { 'for': id() }, translate: 'alba:wizards.add_osd.gather.' + field()"></label>
                 <div class="col-lg-7">
@@ -51,7 +51,7 @@ but WITHOUT ANY WARRANTY of any kind.
                     <!-- /ko -->
                 </div>
             </div>
-            <!-- ko if: extendable() === true -->
+            <!-- ko if: extendable -->
             <div class="form-group">
                 <div class="col-lg-3"></div>
                 <div class="col-lg-3">
@@ -67,7 +67,7 @@ but WITHOUT ANY WARRANTY of any kind.
             <!-- /ko -->
         <!-- /ko -->
     <!-- /ko -->
-    <!-- ko if: !data.confirmOnly() -->
+    <!-- ko ifnot: data.confirmOnly -->
         <div>
             <div>
                 <p data-i18n="alba:wizards.add_osd.confirm.basic_info"></p>

@@ -29,12 +29,19 @@ define([
         self.title(generic.tryGet(options, 'title', $.t('alba:wizards.add_osd.title')));
         self.modal(generic.tryGet(options, 'modal', false));
 
+        var countDisplay = ['gather'];
+        if (options.node.type() === 'ASD') {
+            countDisplay = ['confirm']
+        }
+        var osdTypeItems;
+        if (options.node.type() === 'S3') {
+            osdTypeItems = ['S3']
+        } else {
+            osdTypeItems = ['ASD', 'AD']
+        }
         var formMapping = {
             'ips': {
                 'extender': {regex: generic.ipRegex},
-                'inputType': 'text',  // default if missing
-                'inputItems': null,  // default if missing
-                'group': 0,
                 'displayOn': ['gather']
             },
             'port': {
@@ -45,16 +52,18 @@ define([
             'osd_type': {
                 'fieldMap': 'type',  // Translate osd_type to type so in the form it will be self.data.formdata().type
                 'inputType': 'dropdown',  // Generate dropdown, needs items
-                'inputItems': ko.observableArray(['ASD', 'AD']),
-                'group': 2,
+                'inputItems': ko.observableArray(osdTypeItems),
+                'group': 0,
                 'displayOn': ['gather']
             },
             'count': {
-                'inputType': 'widget',
-                'widgetName': 'numberinput',
-                'group': 0,
                 'extender': {numeric: {min: 1, max: 24}},
-                'displayOn': ['confirm']
+                'group': 2,
+                'displayOn': countDisplay
+            },
+            'buckets': {
+                'displayOn': ['gather'],
+                'group': 3
             }
         };
         var metadata = ko.toJS(options.node.node_metadata);  // Node metadata is given by the node cluster when working with a cluster

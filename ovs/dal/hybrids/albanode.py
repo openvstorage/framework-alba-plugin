@@ -255,7 +255,12 @@ class AlbaNode(DataObject):
                                                          'ips': 'list_of_ip',
                                                          'port': 'port'},
                                    'clear': True})
-
+        elif self.type == AlbaNode.NODE_TYPES.S3:
+            slots_metadata.update({'fill_add': True,
+                                   'fill_add_metadata': {'count': 'integer',
+                                                         'osd_type': 'osd_type',
+                                                         'buckets': 'list_of_string'},
+                                   'clear': True})
         return slots_metadata
 
     def _supported_osd_types(self):
@@ -280,10 +285,11 @@ class AlbaNode(DataObject):
         :rtype: bool
         """
         read_only = False
-        try:
-            read_only = self.client.get_metadata()['_version'] < 3
-        except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
-            pass  # When down, nothing can be edited.
+        if self.type in [AlbaNode.NODE_TYPES.GENERIC, AlbaNode.NODE_TYPES.ASD]:
+            try:
+                read_only = self.client.get_metadata()['_version'] < 3
+            except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
+                pass  # When down, nothing can be edited.
         return read_only  # Version 3 was introduced when Slots for Active Drives have been introduced
 
     def _local_summary(self):

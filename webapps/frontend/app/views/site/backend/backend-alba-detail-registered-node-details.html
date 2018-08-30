@@ -26,25 +26,15 @@ but WITHOUT ANY WARRANTY of any kind.
     <td data-part="node_id" style="border-top: 0;" data-bind="text: node_id"></td>
     <td style="border-top: 0;">
         <div>
-            <!-- ko if: type() !== 'GENERIC' -->
-                <!-- ko ifnot: hasStorageRouter()-->
-                    <span data-bind="text: ip"></span>:<span data-bind="text: port"></span>
-                <!-- /ko -->
-                <!-- ko if: hasStorageRouter() -->
-                    <span data-bind="lazyloader: { item: storagerouter, loadedObservable: 'loaded', undefinedLoading: true }">
-                        <a data-part="lazy-entry"
-                           data-bind="text: item().name,
-                                      attr: { href: item().pageHash }"></a>
-                    </span>
-                <!-- /ko -->
+            <!-- ko if: hasStorageRouter() -->
+                <span data-bind="lazyloader: { item: storagerouter, loadedObservable: 'loaded', undefinedLoading: true }">
+                    <a data-part="lazy-entry"
+                       data-bind="text: item().name,
+                                  attr: { href: item().pageHash }"></a>
+                </span>
             <!-- /ko -->
-            <!-- ko if: type() === 'GENERIC' -->
-                <!-- ko if: name() !== undefined -->
-                    <span data-bind="text: name()"></span>
-                <!-- /ko -->
-                <!-- ko if: name() === undefined -->
-                    <span data-i18n="ovs:generic.null"></span>
-                <!-- /ko -->
+            <!-- ko ifnot: hasStorageRouter()-->
+                <span data-bind="text: displayName"></span>
             <!-- /ko -->
         </div>
         <div class="notification-message" data-bind="visible: read_only_mode()">

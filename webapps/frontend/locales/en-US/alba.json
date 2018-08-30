@@ -97,7 +97,8 @@
         "osds": "ASDs",
         "osdtypes": {
             "ad": "Active Drive",
-            "asd": "ASD"
+            "asd": "ASD",
+            "s3": "S3"
         },
         "presets": "Presets",
         "refresh": "Refresh",
@@ -354,6 +355,7 @@
         "add_osd": {
             "confirm": {
                 "basic_info": "Validate and confirm information below",
+                "buckets": "Bucket:",
                 "count": "Amount:",
                 "detailed_info": "OSD(s) with these details will be registered to the backend",
                 "failure": "Failure",
@@ -371,8 +373,10 @@
             },
             "gather": {
                 "add_ips": "Add IP address",
+                "buckets": "Bucket",
                 "count": "Amount:",
                 "count_help": "Fill the desired amount of OSDs to be added.<br/><b>This cannot be changed afterwards.</b>",
+                "invalid_buckets": "Invalid bucket specified",
                 "invalid_ips": "Invalid IP address",
                 "invalid_port": "Invalid port specified. Port should be between 1 and 65535",
                 "ips": "IP Address:",

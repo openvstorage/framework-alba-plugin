@@ -34,7 +34,7 @@ class S3TransactionClusterList(object):
         :rtype: DataList[S3TransactionCluster]
         """
         return DataList(S3TransactionCluster, {'type': DataList.where_operator.AND,
-                                      'items': []})
+                                               'items': []})
 
     @staticmethod
     def get_by_name(cluster_name):
@@ -46,7 +46,7 @@ class S3TransactionClusterList(object):
         :raises: RuntimeError when multiple clusters were found with the specified name
         """
         items = DataList(S3TransactionCluster, {'type': DataList.where_operator.AND,
-                                                   'items': [('name', DataList.operator.EQUALS, cluster_name)]})
+                                                'items': [('name', DataList.operator.EQUALS, cluster_name)]})
         if len(items) > 1:
             raise RuntimeError('Multiple S3TransactionCluster found with name {0}'.format(cluster_name))
         if len(items) == 1:

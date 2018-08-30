@@ -23,6 +23,28 @@ import requests
 from ovs.extensions.plugins.albabase import AlbaBaseClient
 
 
+class OSDParams(object):
+    """
+    Parameters to provide when creating a new OSD
+    """
+    def __init__(self, count, transaction_arakoon_url, buckets, *args, **kwargs):
+        # type: (int, str, List[str], *any, **any) -> None
+        """
+        Initialize new params
+        :param count: Number of OSDs to add
+        :type count: int
+        :param transaction_arakoon_url: URL of the transaction arakoon
+        :type transaction_arakoon_url: str
+        :param buckets: Buckets to use
+        :type buckets: List[str]
+        :return: None
+        :rtype: NoneType
+        """
+        self.count = count
+        self.transaction_arakoon_url = transaction_arakoon_url
+        self.buckets = buckets
+
+
 class S3ManagerClient(AlbaBaseClient):
     """
     S3 Manager Client
@@ -48,7 +70,7 @@ class S3ManagerClient(AlbaBaseClient):
         S3 has no 'slot' concept yet this plugin does.
         Solution is to mock one using the osd_id
         """
-        data = self._call(requests.get, 'osds', timeout=5, clean=True)  # type: list
+        data = self.extract_data(self._call(requests.get, 'osds', timeout=5, clean=True))  # type: list
         stack = {}
         for osd_data in data:
             osd_id = osd_data['osd_id']
@@ -63,14 +85,15 @@ class S3ManagerClient(AlbaBaseClient):
         :param slot_id: Identifier of the slot
         :type slot_id: str
         :param extra: Extra parameters to account for
-        :type extra: dict
+        :type extra: OSDParams
         :return: None
         :rtype: NoneType
         """
         _ = slot_id
+        osd_params = OSDParams(**extra)  # Force right arguments
         # Call can raise a NotFoundException when the slot could no longer be found
-        for _ in xrange(extra['count']):
-            self._call(requests.post, 'osds')
+        for _ in xrange(osd_params.count):
+            self._call(requests.post, 'osds', data={'transaction_arakoon_url': osd_params.transaction_arakoon_url, 'buckets': osd_params.buckets})
 
     def restart_osd(self, slot_id, osd_id, *args, **kwargs):
         # type: (str, str, *any, **any) -> None
@@ -120,8 +143,7 @@ class S3ManagerClient(AlbaBaseClient):
         :return: The extra param used in the create osd code
         :rtype: dict
         """
-        _ = self, osd
-        return {'count': 1}
+        raise NotImplemented()
 
     def clear_slot(self, slot_id, *args, **kwargs):
         # type: (str, *any, **any) -> None
