@@ -58,7 +58,7 @@ class ASDManagerClient(AlbaBaseClient):
         Gets metadata from the node
         """
         # Backward compatibility
-        return self._call(requests.get, '')
+        return self.get('')
 
     ##############
     # SLOTS/OSDS #
@@ -79,14 +79,14 @@ class ASDManagerClient(AlbaBaseClient):
             return data
 
         # Version 2 and older used AlbaDisk
-        data = self._call(method=requests.get, url='disks', timeout=5, clean=True)
+        data = self.get(url='disks', timeout=5, clean=True)
         for disk_id, value in data.iteritems():
             if len(value.get('partition_aliases', [])) == 0:  # disks/<disk_id>/asds raises error if no partition_aliases could be found for current disk
                 value[ur'osds'] = {}
                 value[u'state'] = 'empty'
                 continue
 
-            value[u'osds'] = self._call(method=requests.get, url='disks/{0}/asds'.format(disk_id), clean=True)
+            value[u'osds'] = self.get(url='disks/{0}/asds'.format(disk_id), clean=True)
             value[u'state'] = 'empty' if len(value['osds']) == 0 else 'ok'
             for osd_id, osd_info in value['osds'].iteritems():
                 osd_info[u'ips'] = osd_info.get('ips', [])
@@ -106,7 +106,7 @@ class ASDManagerClient(AlbaBaseClient):
         """
         # Call can raise a NotFoundException when the slot could no longer be found
         for _ in xrange(extra['count']):
-            self._call(requests.post, 'slots/{0}/asds'.format(slot_id))
+            self.post('slots/{0}/asds'.format(slot_id))
 
     def restart_osd(self, slot_id, osd_id, *args, **kwargs):
         # type: (str, str, *any, **any) -> None
@@ -119,7 +119,7 @@ class ASDManagerClient(AlbaBaseClient):
         :return: None
         :rtype: NoneType
         """
-        return self._call(requests.post, 'slots/{0}/asds/{1}/restart'.format(slot_id, osd_id))
+        return self.post('slots/{0}/asds/{1}/restart'.format(slot_id, osd_id))
 
     def update_osd(self, slot_id, osd_id, update_data):
         # type: (str, str, dict) -> None
@@ -134,9 +134,7 @@ class ASDManagerClient(AlbaBaseClient):
         :return: None
         :rtype: NoneType
         """
-        return self._call(method=requests.post,
-                          url='slots/{0}/asds/{1}/update'.format(slot_id, osd_id),
-                          data={'update_data': json.dumps(update_data)})
+        return self.post(url='slots/{0}/asds/{1}/update'.format(slot_id, osd_id), data={'update_data': json.dumps(update_data)})
 
     def delete_osd(self, slot_id, osd_id, *args, **kwargs):
         # type: (str, str, *any, **any) -> None
@@ -149,7 +147,7 @@ class ASDManagerClient(AlbaBaseClient):
         :return: None
         :rtype: NoneType
         """
-        return self._call(requests.delete, 'slots/{0}/asds/{1}'.format(slot_id, osd_id))
+        return self.delete('slots/{0}/asds/{1}'.format(slot_id, osd_id))
 
     def build_slot_params(self, osd, *args, **kwargs):
         # type: (ovs.dal.hybrids.albaosd.AlbaOSD, *any, **any) -> dict
@@ -172,7 +170,7 @@ class ASDManagerClient(AlbaBaseClient):
         :return: None
         :rtype: NoneType
         """
-        return self._call(requests.delete, 'slots/{0}'.format(slot_id))
+        return self.delete('slots/{0}'.format(slot_id))
 
     def restart_slot(self, slot_id, *args, **kwargs):
         # type: (str, *any, **any) -> None
@@ -183,7 +181,7 @@ class ASDManagerClient(AlbaBaseClient):
         :return: None
         :rtype: NoneType
         """
-        return self._call(requests.post, 'slots/{0}/restart'.format(slot_id))
+        return self.post('slots/{0}/restart'.format(slot_id))
 
     def stop_slot(self, slot_id, *args, **kwargs):
         # type: (str, *any, **any) -> None
@@ -194,7 +192,7 @@ class ASDManagerClient(AlbaBaseClient):
         :return: None
         :rtype: NoneType
         """
-        return self._call(requests.post, 'slots/{0}/stop'.format(slot_id))
+        return self.post('slots/{0}/stop'.format(slot_id))
 
     ##########
     # UPDATE #
@@ -209,7 +207,7 @@ class ASDManagerClient(AlbaBaseClient):
         # For backwards compatibility we first attempt to retrieve using the newest API
         try:
             # Newest ASD Manager wraps it. Older ones require cleaning
-            return self.extract_data(self._call(requests.get, 'update/package_information', timeout=120))
+            return self.extract_data(self.get('update/package_information', timeout=120))
         except NotFoundError:
             update_info = self._call(requests.get, 'update/information', timeout=120, clean=True)
             if update_info['version']:
@@ -227,15 +225,15 @@ class ASDManagerClient(AlbaBaseClient):
         :rtype: NoneType
         """
         try:
-            return self._call(requests.post, 'update/install/{0}'.format(package_name), timeout=300)
+            return self.post('update/install/{0}'.format(package_name), timeout=300)
         except NotFoundError:
             # Backwards compatibility
-            status = self._call(requests.post, 'update/execute/started', timeout=300).get('status', 'done')
+            status = self.post('update/execute/started', timeout=300).get('status', 'done')
             if status != 'done':
                 counter = 0
                 max_counter = 12
                 while counter < max_counter:
-                    status = self._call(requests.post, 'update/execute/{0}'.format(status), timeout=300).get('status', 'done')
+                    status = self.post('update/execute/{0}'.format(status), timeout=300).get('status', 'done')
                     if status == 'done':
                         break
                     time.sleep(10)
@@ -250,7 +248,7 @@ class ASDManagerClient(AlbaBaseClient):
         :return: None
         :rtype: NoneType
         """
-        return self._call(requests.post, 'update/execute_migration_code')
+        return self.post('update/execute_migration_code')
 
     def update_installed_version_package(self, package_name):
         # type: (str) -> str
@@ -261,7 +259,7 @@ class ASDManagerClient(AlbaBaseClient):
         :return: Version of the currently installed package
         :rtype: str
         """
-        return self.extract_data(self._call(requests.get, 'update/installed_version_package/{0}'.format(package_name), timeout=60),
+        return self.extract_data(self.get('update/installed_version_package/{0}'.format(package_name), timeout=60),
                                  old_key='version')
 
     ############
@@ -278,9 +276,8 @@ class ASDManagerClient(AlbaBaseClient):
         """
         if service_names is None:
             service_names = []
-        return self._call(method=requests.post,
-                          url='update/restart_services',
-                          data={'service_names': json.dumps(service_names)})
+        return self.post(url='update/restart_services',
+                         data={'service_names': json.dumps(service_names)})
 
     def add_maintenance_service(self, name, alba_backend_guid, abm_name, read_preferences):
         # type: (str, str, str, List[str]) -> dict
@@ -297,11 +294,10 @@ class ASDManagerClient(AlbaBaseClient):
         :return: result
         :rtype: dict
         """
-        return self._call(method=requests.post,
-                          url='maintenance/{0}/add'.format(name),
-                          data={'abm_name': abm_name,
-                                'read_preferences': json.dumps(read_preferences),
-                                'alba_backend_guid': alba_backend_guid})
+        return self.post(url='maintenance/{0}/add'.format(name),
+                         data={'abm_name': abm_name,
+                               'read_preferences': json.dumps(read_preferences),
+                               'alba_backend_guid': alba_backend_guid})
 
     def remove_maintenance_service(self, name, alba_backend_guid):
         # type: (str, str) -> dict
@@ -314,9 +310,8 @@ class ASDManagerClient(AlbaBaseClient):
         :return: result
         :rtype: dict
         """
-        return self._call(method=requests.post,
-                          url='maintenance/{0}/remove'.format(name),
-                          data={'alba_backend_guid': alba_backend_guid})
+        return self.post(url='maintenance/{0}/remove'.format(name),
+                         data={'alba_backend_guid': alba_backend_guid})
 
     def list_maintenance_services(self):
         # type: () -> dict
@@ -325,7 +320,7 @@ class ASDManagerClient(AlbaBaseClient):
         :return: dict of services
         :rtype: dict
         """
-        return self.extract_data(self._call(requests.get, 'maintenance', clean=True),
+        return self.extract_data(self.get('maintenance', clean=True),
                                  old_key='services')
 
     def get_service_status(self, name):
@@ -337,7 +332,7 @@ class ASDManagerClient(AlbaBaseClient):
         :return: Status of the service
         :rtype: str
         """
-        return self.extract_data(self._call(requests.get, 'service_status/{0}'.format(name)),
+        return self.extract_data(self.get('service_status/{0}'.format(name)),
                                  old_key='status')[1]
 
     def sync_stack(self, stack, *args, **kwargs):
@@ -348,7 +343,7 @@ class ASDManagerClient(AlbaBaseClient):
         :return: None
         :rtype: Nonetype
         """
-        return self._call(requests.post, 'dual_controller/sync_stack', data={'stack': json.dumps(stack)})
+        return self.post('dual_controller/sync_stack', data={'stack': json.dumps(stack)})
 
     @classmethod
     def clean(cls, data):

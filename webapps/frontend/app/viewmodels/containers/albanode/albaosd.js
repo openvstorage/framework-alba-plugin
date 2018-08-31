@@ -17,11 +17,11 @@
 define([
     'durandal/app', 'knockout', 'jquery',
     'ovs/generic',
-    'viewmodels/containers/shared/base_container', 'viewmodels/containers/backend/albabackend',
+    'viewmodels/containers/shared/base_container', 'viewmodels/containers/backend/albabackend', 'viewmodels/containers/shared/albausage',
     'viewmodels/services/subscriber'
 ], function(app, ko, $,
             generic,
-            BaseContainer, AlbaBackend,
+            BaseContainer, AlbaBackend, AlbaUsage,
             subscriberService) {
     "use strict";
 
@@ -32,6 +32,11 @@ define([
             },
             create: function (options) {
                 return new AlbaBackend(ko.utils.unwrapObservable(options.parent.alba_backend_guid) || null);
+            }
+        },
+        'usage': {
+            create: function(options){
+                return new AlbaUsage(options.data)
             }
         }
     };
@@ -72,7 +77,7 @@ define([
             guid: null,
             status_detail: null,
             osd_id: null,
-            usage: null,
+            usage: {size: null, used: null, available: null},
             device: null,
             mountpount: null,
             port: null,
@@ -124,8 +129,7 @@ define([
             return sockets
         });
         self.displayUsage = ko.pureComputed(function() {
-            return self.status() !== self.statusses.unavailable && self.status() !== self.statusses.uninitialized
-                && ko.utils.unwrapObservable(self.usage) && ko.utils.unwrapObservable(self.usage.used)
+            return ![self.statusses.unavailable, self.statusses.uninitialized].contains(self.status) && ko.utils.unwrapObservable(self.usage.used)
         });
 
         // Events - albaBackendDetail

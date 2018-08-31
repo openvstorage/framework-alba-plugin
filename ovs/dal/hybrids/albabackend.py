@@ -65,16 +65,12 @@ class AlbaBackend(DataObject):
         """
         Returns a live list of all disks known to this AlbaBackend
         """
-        from ovs.dal.lists.albabackendlist import AlbaBackendList
-
         if self.abm_cluster is None:
             return {}  # No ABM cluster yet, so backend not fully installed yet
 
-        alba_backend_map = {}
-        for alba_backend in AlbaBackendList.get_albabackends():
-            alba_backend_map[alba_backend.alba_id] = alba_backend
-
         # Load information from node
+        osd_statistics = self.osd_statistics
+
         def _load_live_info(_node, _storage_map):
             node_id = _node.node_id
             _storage_map[node_id] = {}
@@ -84,6 +80,13 @@ class AlbaBackend(DataObject):
                                                   'name': slot_id,
                                                   'status': 'error',
                                                   'status_detail': 'unknown'}
+                # Extend the OSD info with the usage information
+                for osd_id, osd_data in _slot_data.get('osds', {}).iteritems():
+                    if osd_id in osd_statistics:
+                        stats = osd_statistics[osd_id]
+                        osd_data['usage'] = {'size': int(stats['capacity']),
+                                             'used': int(stats['disk_usage']),
+                                             'available': int(stats['capacity'] - stats['disk_usage'])}
                 _storage_map[node_id][slot_id].update(_slot_data)
 
         threads = []

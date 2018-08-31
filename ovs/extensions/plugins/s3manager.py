@@ -18,8 +18,6 @@
 Generic module for calling the ASD-Manager
 """
 
-import json
-import requests
 from ovs.extensions.plugins.albabase import AlbaBaseClient
 
 
@@ -58,7 +56,7 @@ class S3ManagerClient(AlbaBaseClient):
         """
         Gets metadata from the node
         """
-        return self._call(requests.get, '')
+        return self.get('')
 
     ##############
     # SLOTS/OSDS #
@@ -70,12 +68,12 @@ class S3ManagerClient(AlbaBaseClient):
         S3 has no 'slot' concept yet this plugin does.
         Solution is to mock one using the osd_id
         """
-        data = self.extract_data(self._call(requests.get, 'osds', timeout=5, clean=True))  # type: list
+        data = self.extract_data(self.get('osds', timeout=5, clean=True))  # type: list
         stack = {}
         for osd_data in data:
             osd_id = osd_data['osd_id']
             osd_data['type'] = 'S3'
-            stack[osd_id] = {'osds': [dict((osd_id, osd_data))]}
+            stack[osd_id] = {'osds': {osd_id: osd_data}}
         return stack
 
     def fill_slot(self, slot_id, extra, *args, **kwargs):
@@ -93,7 +91,7 @@ class S3ManagerClient(AlbaBaseClient):
         osd_params = OSDParams(**extra)  # Force right arguments
         # Call can raise a NotFoundException when the slot could no longer be found
         for _ in xrange(osd_params.count):
-            self._call(requests.post, 'osds', data={'transaction_arakoon_url': osd_params.transaction_arakoon_url, 'buckets': osd_params.buckets})
+            self.post('osds', json={'transaction_arakoon_url': osd_params.transaction_arakoon_url, 'buckets': osd_params.buckets})
 
     def restart_osd(self, slot_id, osd_id, *args, **kwargs):
         # type: (str, str, *any, **any) -> None
@@ -103,7 +101,7 @@ class S3ManagerClient(AlbaBaseClient):
         S3 has no 'slot' concept yet this plugin does.
         """
         _ = slot_id
-        return self._call(requests.post, 'osds/{0}/restart'.format(osd_id))
+        return self.post('osds/{0}/restart'.format(osd_id))
 
     def update_osd(self, slot_id, osd_id, update_data):
         # type: (str, str, dict) -> None
@@ -132,7 +130,7 @@ class S3ManagerClient(AlbaBaseClient):
         :rtype: NoneType
         """
         _ = slot_id
-        return self._call(requests.delete, 'osds/{0}'.format(osd_id))
+        return self.delete('osds/{0}'.format(osd_id))
 
     def build_slot_params(self, osd, *args, **kwargs):
         # type: (ovs.dal.hybrids.albaosd.AlbaOSD, *any, **any) -> dict
@@ -156,7 +154,7 @@ class S3ManagerClient(AlbaBaseClient):
         """
         # Slot id is the same as the osd id for the S3 OSD and only one OSD is on a mocked slot
         osd_id = slot_id
-        return self._call(requests.delete, 'osds/{0}'.format(osd_id))
+        return self.delete('osds/{0}'.format(osd_id))
 
     def restart_slot(self, slot_id, *args, **kwargs):
         # type: (str, *any, **any) -> None
@@ -169,7 +167,7 @@ class S3ManagerClient(AlbaBaseClient):
         """
         # Slot id is the same as the osd id for the S3 OSD
         osd_id = slot_id
-        return self._call(requests.post, 'osds/{0}/restart'.format(osd_id))
+        return self.post('osds/{0}/restart'.format(osd_id))
 
     def stop_slot(self, slot_id, *args, **kwargs):
         # type: (str, *any, **any) -> None
@@ -182,7 +180,7 @@ class S3ManagerClient(AlbaBaseClient):
         """
         # Slot id is the same as the osd id for the S3 OSD
         osd_id = slot_id
-        return self._call(requests.post, 'osds/{0}/stop'.format(osd_id))
+        return self.post('osds/{0}/stop'.format(osd_id))
 
     ##########
     # UPDATE #
@@ -192,14 +190,14 @@ class S3ManagerClient(AlbaBaseClient):
         Retrieve the package information for this ALBA node
         :return: Latest available version and services which require a restart
         """
-        return self._call(requests.get, 'update/package_information', timeout=120, clean=True)
+        return self.get('update/package_information', timeout=120, clean=True)
 
     def execute_update(self, package_name):
         """
         Execute an update
         :return: None
         """
-        return self._call(requests.post, 'update/install/{0}'.format(package_name), timeout=300)
+        return self.post('update/install/{0}'.format(package_name), timeout=300)
 
     def update_execute_migration_code(self):
         """
@@ -207,7 +205,7 @@ class S3ManagerClient(AlbaBaseClient):
         :return: None
         :rtype: NoneType
         """
-        return self._call(requests.post, 'update/execute_migration_code')
+        return self.post('update/execute_migration_code')
 
     def update_installed_version_package(self, package_name):
         """
@@ -217,7 +215,7 @@ class S3ManagerClient(AlbaBaseClient):
         :return: Version of the currently installed package
         :rtype: str
         """
-        return self._call(requests.get, 'update/installed_version_package/{0}'.format(package_name), timeout=60)['version']
+        return self.get('update/installed_version_package/{0}'.format(package_name), timeout=60)['version']
 
     ############
     # SERVICES #
@@ -232,9 +230,8 @@ class S3ManagerClient(AlbaBaseClient):
         """
         if service_names is None:
             service_names = []
-        return self._call(method=requests.post,
-                          url='update/restart_services',
-                          data={'service_names': json.dumps(service_names)})
+        return self.post(url='update/restart_services',
+                         json={'service_names': service_names})
 
     def get_service_status(self, name):
         """
@@ -244,7 +241,7 @@ class S3ManagerClient(AlbaBaseClient):
         :return: Status of the service
         :rtype: str
         """
-        return self._call(requests.get, 'service_status/{0}'.format(name))['status'][1]
+        return self.get('service_status/{0}'.format(name))['status'][1]
 
     def sync_stack(self, stack, *args, **kwargs):
         # type: (dict, *any, **any) -> None
@@ -256,3 +253,10 @@ class S3ManagerClient(AlbaBaseClient):
         :rtype: Nonetype
         """
         raise NotImplementedError()
+
+
+if __name__ == '__main__':
+    from ovs.dal.lists.albanodelist import AlbaNodeList
+    an = AlbaNodeList.get_albanodes_by_type('S3')[0]
+    stack = an.client.get_stack()
+    print stack
