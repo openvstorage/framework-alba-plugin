@@ -60,14 +60,21 @@ define([
             available: 'available',
             claimed: 'claimed',
             nodedown: 'nodedown',
+            ok: 'ok',
             unknown: 'unknown',
             uninitialized: 'uninitialized'
         }, self.errorStatuses));
 
+        self.statusDetails = Object.freeze({
+            null: null,
+            ownership_query_fail: 'ownership_query_fail'
+        });
+
         // Observables
-        self._status =      ko.observable();
-        self.loaded =       ko.observable(false);
-        self.processing =   ko.observable(false);
+        self._status =          ko.observable();
+        self._status_detail =   ko.observable();
+        self.loaded =           ko.observable(false);
+        self.processing =       ko.observable(false);
 
         var vmData = $.extend({
             alba_backend: {},
@@ -75,7 +82,6 @@ define([
             claimed_by: null,
             slot_id: null,
             guid: null,
-            status_detail: null,
             osd_id: null,
             usage: {size: null, used: null, available: null},
             device: null,
@@ -106,6 +112,18 @@ define([
             },
             write: function(status) {
                 self._status(status)
+            }
+        });
+        self.status_detail = ko.computed({
+            deferEvaluation: true,  // Wait with computing for an actual subscription
+            read: function() {
+                if (self._status() === self.statusses.ok && self._status_detail() === null) {
+                    return self.statusDetails.ownership_query_fail
+                }
+                return self._status_detail()
+            },
+            write: function(statusDetail) {
+                self._status_detail(statusDetail)
             }
         });
         self.hasErrorStatus = ko.pureComputed(function() {

@@ -175,6 +175,7 @@
                 "albaerror": "Error in alba",
                 "decommissioned": "Decommissioned",
                 "nodedown": "Node is unreachable",
+                "ownership_query_fail": "Unable to determine if the OSD is claimed",
                 "recenterrors": "Recent errors",
                 "unreachable": "OSD is unreachable",
                 "service_activating": "Service still activating",
