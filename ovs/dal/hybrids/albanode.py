@@ -23,6 +23,7 @@ import re
 import requests
 from ovs.constants.albanode import ASD_NODE_CONFIG_PATH, S3_NODE_CONFIG_PATH
 from ovs.dal.dataobject import DataObject
+from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.albanodecluster import AlbaNodeCluster
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
@@ -129,6 +130,7 @@ class AlbaNode(DataObject):
         """
         Returns an overview of this node's storage stack
         """
+        from ovs.dal.hybrids.albabackend import AlbaBackend
         from ovs.dal.lists.albabackendlist import AlbaBackendList
 
         def _move(info):
@@ -206,6 +208,7 @@ class AlbaNode(DataObject):
                     osd_data['status'] = self.OSD_STATUSES.OK
                     osd_data['status_detail'] = ''
 
+        statistics = {}
         for slot_info in stack.itervalues():
             for osd_id, osd in slot_info['osds'].iteritems():
                 if osd.get('status_detail') == self.OSD_STATUS_DETAILS.ACTIVATING:
@@ -236,6 +239,23 @@ class AlbaNode(DataObject):
                         if osd.get('status') not in ['error', 'warning']:
                             osd['status'] = self.OSD_STATUSES.ERROR
                             osd['status_detail'] = self.OSD_STATUS_DETAILS.UNREACHABLE
+                claimed_by = osd.get('claimed_by', 'unknown')
+                if claimed_by == 'unknown':
+                    continue
+                try:
+                    alba_backend = AlbaBackend(claimed_by)
+                except ObjectNotFoundException:
+                    continue
+                # Add usage information
+                if alba_backend not in statistics:
+                    statistics[alba_backend] = alba_backend.osd_statistics
+                osd_statistics = statistics[alba_backend]
+                if osd_id not in osd_statistics:
+                    continue
+                stats = osd_statistics[osd_id]
+                osd['usage'] = {'size': int(stats['capacity']),
+                                'used': int(stats['disk_usage']),
+                                'available': int(stats['capacity'] - stats['disk_usage'])}
         return stack
 
     def _node_metadata(self):
