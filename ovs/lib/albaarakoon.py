@@ -22,10 +22,10 @@ from ovs.constants.albarakoon import NSM_PLUGIN, MAX_NSM_AMOUNT
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.albansmcluster import NSMCluster
+from ovs.dal.hybrids.albas3transactioncluster import S3TransactionCluster
 from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.hybrids.storagerouter import StorageRouter
-from ovs.dal.hybrids.albas3transactioncluster import S3TransactionCluster
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albas3transactionclusterlist import S3TransactionClusterList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
@@ -648,7 +648,7 @@ class AlbaArakoonController(object):
 
     @classmethod
     def ensure_s3_transaction_safety(cls, s3_cluster, available_storagerouters, s3_installer=None):
-        # type: (S3TransactionCluster, Dict[StorageRouter, DiskPartition], S3TransactionInstaller) -> None
+        # type: (S3TransactionCluster, Dict[StorageRouter, DiskPartition], Optional[S3TransactionInstaller]) -> None
         """
         Ensure that the S3 transaction cluster is safe and sound
         :param s3_cluster: ABM Cluster object

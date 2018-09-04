@@ -144,14 +144,10 @@ class AlbaNodeController(object):
             # Both S3 and ASD type can be added now
             if node_id is None:
                 raise RuntimeError('A node_id must be given for type ASD/S3')
-            node = AlbaNodeList.get_albanode_by_node_id(node_id)
+            node = AlbaNodeList.get_albanode_by_node_id(node_id) or AlbaNodeController.get_discovered_node(node_id)
             if not node:
-                # Could be a node that was discovered
-                nodes = AlbaNodeController.discover_nodes()
-                for alba_node_guid, alba_node in nodes.iteritems():
-                    if alba_node.node_id == node_id:
-                        node = alba_node
-            if not node:
+                # No node could be found in the model or within the discovered nodes. User might have specified the ID
+                # of a node that does not exist
                 raise RuntimeError('No node with node_id {0} was found'.format(node_id))
             data = node.client.get_metadata()
             if data['_success'] is False and data['_error'] == 'Invalid credentials':
@@ -165,6 +161,21 @@ class AlbaNodeController(object):
             node.volatile = False
             node.save()
         AlbaController.checkup_maintenance_agents.delay()
+
+    @classmethod
+    def get_discovered_node(cls, node_id):
+        # type: (str) -> AlbaNode
+        """
+        Retrieve the node associated with the node_id from the pool of discovered nodes
+        :param node_id: ID of the node to look for
+        :type node_id: str
+        :return: The found node model
+        :rtype: AlbaNode
+        """
+        nodes = AlbaNodeController.discover_nodes()
+        for alba_node_guid, alba_node in nodes.iteritems():
+            if alba_node.node_id == node_id:
+                return alba_node
 
     @staticmethod
     @ovs_task(name='albanode.remove_node')

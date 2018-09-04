@@ -189,7 +189,7 @@ class AlbaArakoonInstaller(object):
 
     @classmethod
     def model_arakoon_service(cls, alba_backend, cluster_name, ports=None, storagerouter=None, number=None):
-        # type: (AlbaBackend, str, Optional[List[int]], Optional[StorageRouter], int) -> None
+        # type: (AlbaBackend, str, Optional[List[int]], Optional[StorageRouter], Optional[int]) -> None
         """
         Adds service to the model
         :param alba_backend: ALBA Backend with which the service is linked

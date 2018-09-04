@@ -476,6 +476,7 @@ class AlbaController(object):
 
             if is_claimed is False and is_available is False:
                 try:
+                    # Only one of these clusters should be up for this OVS cluster
                     s3_transaction_cluster = S3TransactionClusterList.get_s3_transaction_clusters()[0]
                 except IndexError:
                     cls._logger.exception('Unable to add the S3 osd. No S3 transaction arakoon found!')
@@ -588,6 +589,7 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.add_cluster')
     def add_cluster(alba_backend_guid, abm_cluster=None, nsm_clusters=None):
+        # type: (str, str, List[str]) -> None
         """
         Adds an Arakoon cluster to service Backend
         :param alba_backend_guid: Guid of the ALBA Backend
@@ -658,7 +660,7 @@ class AlbaController(object):
 
     @staticmethod
     def set_auto_cleanup(alba_backend_guid, days=30, config=None):
-        # type: (str, int, str) -> None
+        # type: (str, Optional[int], Optional[str]) -> None
         """
         Set the auto cleanup policy for an ALBA Backend
         :param alba_backend_guid: Guid of the ALBA Backend to set the auto cleanup for
