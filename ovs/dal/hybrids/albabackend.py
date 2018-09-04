@@ -260,9 +260,10 @@ class AlbaBackend(DataObject):
             raw_statistics = AlbaCLI.run(command='asd-multistatistics', config=config, named_params={'long-id': ','.join(osd_ids)})
         except RuntimeError:
             return statistics
-        for osd_id, stats in raw_statistics.iteritems():
-            if stats['success'] is True:
-                statistics[osd_id] = stats['result']
+        if raw_statistics:
+            for osd_id, stats in raw_statistics.iteritems():
+                if stats['success'] is True:
+                    statistics[osd_id] = stats['result']
         return statistics
 
     def _linked_backend_guids(self):

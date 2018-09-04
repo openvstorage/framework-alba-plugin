@@ -122,8 +122,8 @@ class AlbaNode(DataObject):
                     if backend_name not in services:
                         services[backend_name] = []
                     services[backend_name].append([service_name, service_status])
-        except:
-            pass
+        except Exception:
+            self._logger.exception('Unable to list the maintenance services')
         return services
 
     def _stack(self):
@@ -153,6 +153,7 @@ class AlbaNode(DataObject):
                 for osd_data in slot_data.get('osds', {}).itervalues():
                     _move(osd_data)
         except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
+            self._logger.warning('Error during stack retrieval. Assuming that the node is down')
             node_down = True
 
         model_osds = {}
@@ -228,13 +229,13 @@ class AlbaNode(DataObject):
                                                          named_params={'host': ip, 'port': port})
                                 break
                             except (AlbaError, RuntimeError):
-                                AlbaNode._logger.warning('get-osd-claimed-by failed for IP:port {0}:{1}'.format(ip, port))
+                                self._logger.warning('get-osd-claimed-by failed for IP:port {0}:{1}'.format(ip, port))
                         alba_backend = AlbaBackendList.get_by_alba_id(claimed_by)
                         osd['claimed_by'] = alba_backend.guid if alba_backend is not None else claimed_by
                     except KeyError:
                         osd['claimed_by'] = 'unknown'
                     except:
-                        AlbaNode._logger.exception('Could not load OSD info: {0}'.format(osd_id))
+                        self._logger.exception('Could not load OSD info: {0}'.format(osd_id))
                         osd['claimed_by'] = 'unknown'
                         if osd.get('status') not in ['error', 'warning']:
                             osd['status'] = self.OSD_STATUSES.ERROR
@@ -309,7 +310,8 @@ class AlbaNode(DataObject):
             try:
                 read_only = self.client.get_metadata()['_version'] < 3
             except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
-                pass  # When down, nothing can be edited.
+                # When down, nothing can be edited.
+                self._logger.warning('Error during stack retrieval. Assuming that the node is down and disabling read_only because nothing can be done')
         return read_only  # Version 3 was introduced when Slots for Active Drives have been introduced
 
     def _local_summary(self):
@@ -353,6 +355,7 @@ class AlbaNode(DataObject):
         try:
             return Configuration.get(os.path.join(self.CONFIG_LOCATIONS[self.type], 'ipmi').format(self.node_id))
         except NotFoundException:  # Could be that the ASDManager does not yet have the IPMI info stored
+            self._logger.warning('No IPMI config path found')
             return {'ip': None,
                     'username': None,
                     'password': None}
