@@ -112,11 +112,11 @@ but WITHOUT ANY WARRANTY of any kind.
                             </a>
                         </li>
                     <!-- /ko -->
-                    <!-- ko if: status() !== 'empty' && usage() !== undefined -->
+                    <!-- ko if: status() !== 'empty' -->
                         <li>
                             <a>
-                                <span data-i18n="ovs:generic.usage"></span>: <span data-bind="text: $root.formatBytes(usage().used)"></span> / <span data-bind="text: $root.formatBytes(usage().size)"></span>
-                                - <span data-bind="text: $root.formatPercentage(usage().used / usage().size)"></span>
+                                <span data-i18n="ovs:generic.usage"></span>: <span data-bind="text: usage.displayUsage"></span>
+                                - <span data-bind="text: usage.usagePercentage"></span>
                             </a>
                         </li>
                     <!-- /ko -->
@@ -205,8 +205,8 @@ but WITHOUT ANY WARRANTY of any kind.
                     <!-- ko if: displayUsage -->
                         <li>
                             <a>
-                                <span data-i18n="ovs:generic.usage"></span>: <span data-bind="text: $root.formatBytes(usage().used)"></span> / <span data-bind="text: $root.formatBytes(usage().size)"></span>
-                                - <span data-bind="text: $root.formatPercentage(usage().used / usage().size)"></span>
+                                <span data-i18n="ovs:generic.usage"></span>: <span data-bind="text: usage.displayUsage"></span>
+                                - <span data-bind="text: usage.usagePercentage"></span>
                             </a>
                         </li>
                     <!-- /ko -->

@@ -18,14 +18,35 @@
 Generic module for calling the ASD-Manager
 """
 
-import json
-import requests
 from ovs.extensions.plugins.albabase import AlbaBaseClient
+
+
+class OSDParams(object):
+    """
+    Parameters to provide when creating a new OSD
+    """
+    def __init__(self, count, transaction_arakoon_url, buckets, *args, **kwargs):
+        # type: (int, str, List[str], *any, **any) -> None
+        """
+        Initialize new params
+        :param count: Number of OSDs to add
+        :type count: int
+        :param transaction_arakoon_url: URL of the transaction arakoon
+        :type transaction_arakoon_url: str
+        :param buckets: Buckets to use
+        :type buckets: List[str]
+        :return: None
+        :rtype: NoneType
+        """
+        self.count = count
+        self.transaction_arakoon_url = transaction_arakoon_url
+        self.buckets = buckets
 
 
 class S3ManagerClient(AlbaBaseClient):
     """
-    ASD Manager Client
+    S3 Manager Client
+    The S3 manager client mocks the 'slot' associated with an OSD as the S3 OSD does not have a slot associated with it
     """
     def __init__(self, node, timeout=None):
         # type: (ovs.dal.hybrids.albanode.AlbaNode, int) -> None
@@ -35,7 +56,7 @@ class S3ManagerClient(AlbaBaseClient):
         """
         Gets metadata from the node
         """
-        return self._call(requests.get, '')
+        return self.get('')
 
     ##############
     # SLOTS/OSDS #
@@ -43,68 +64,123 @@ class S3ManagerClient(AlbaBaseClient):
     def get_stack(self):
         """
         Gets the remote node stack
+        The client has to compensate here.
+        S3 has no 'slot' concept yet this plugin does.
+        Solution is to mock one using the osd_id
         """
-        data = self._call(requests.get, 'slots', timeout=5, clean=True)
-        for slot_info in data.itervalues():
-            for osd in slot_info.get('osds', {}).itervalues():
-                osd['type'] = 'S3'
-        return data
+        data = self.extract_data(self.get('osds', timeout=5, clean=True))  # type: list
+        stack = {}
+        for osd_data in data:
+            osd_id = osd_data['osd_id']
+            osd_data['type'] = 'S3'
+            stack[osd_id] = {'osds': {osd_id: osd_data}}
+        return stack
 
-    def fill_slot(self, slot_id, extra):
+    def fill_slot(self, slot_id, extra, *args, **kwargs):
+        # type: (str, dict, *any, **any) -> None
         """
-        Fills a slot (disk) with one or more OSDs
-        :param slot_id: Id of the slot to fill
-        :param extra: Extra parameters to supply. Supported extra params: {count: number of asds to add}
-        :type extra: dict
+        Fill a slot with a set of osds
+        :param slot_id: Identifier of the slot
+        :type slot_id: str
+        :param extra: Extra parameters to account for
+        :type extra: OSDParams
+        :return: None
+        :rtype: NoneType
         """
+        _ = slot_id
+        osd_params = OSDParams(**extra)  # Force right arguments
         # Call can raise a NotFoundException when the slot could no longer be found
-        for _ in xrange(extra['count']):
-            self._call(requests.post, 'slots/{0}/osds'.format(slot_id))
+        for _ in xrange(osd_params.count):
+            self.post('osds', json={'transaction_arakoon_url': osd_params.transaction_arakoon_url, 'buckets': osd_params.buckets})
 
-    def restart_osd(self, slot_id, osd_id):
+    def restart_osd(self, slot_id, osd_id, *args, **kwargs):
+        # type: (str, str, *any, **any) -> None
         """
         Restarts a given OSD in a given Slot
+        The client has to compensate here.
+        S3 has no 'slot' concept yet this plugin does.
         """
-        return self._call(requests.post, 'slots/{0}/osds/{1}/restart'.format(slot_id, osd_id))
+        _ = slot_id
+        return self.post('osds/{0}/restart'.format(osd_id))
 
     def update_osd(self, slot_id, osd_id, update_data):
+        # type: (str, str, dict) -> None
         """
         Updates a given OSD in a given Slot
+        :param slot_id: Identifier of the slot
+        :type slot_id: str
+        :param osd_id: Identifier of the OSD
+        :type osd_id: str
+        :param update_data: Data to update the OSD with
+        :type update_data: dict
+        :return: None
+        :rtype: NoneType
         """
-        return self._call(method=requests.post,
-                          url='slots/{0}/osds/{1}/update'.format(slot_id, osd_id),
-                          data={'update_data': json.dumps(update_data)})
+        raise NotImplemented('Updating the S3 OSD has not yet been implemented')
 
-    def delete_osd(self, slot_id, osd_id):
+    def delete_osd(self, slot_id, osd_id, *args, **kwargs):
+        # type: (str, str, *any, **any) -> None
         """
-        Deletes the OSD from the Slot
+        Delete the OSD from the Slot
+        :param slot_id: Identifier of the slot
+        :type slot_id: str
+        :param osd_id: Identifier of the OSD
+        :type osd_id: str
+        :return: None
+        :rtype: NoneType
         """
-        return self._call(requests.delete, 'slots/{0}/osds/{1}'.format(slot_id, osd_id))
+        _ = slot_id
+        return self.delete('osds/{0}'.format(osd_id))
 
-    def build_slot_params(self, osd):
+    def build_slot_params(self, osd, *args, **kwargs):
+        # type: (ovs.dal.hybrids.albaosd.AlbaOSD, *any, **any) -> dict
         """
         Builds the "extra" params for replacing an OSD
+        :param osd: The OSD to generate the params for
+        :type osd: ovs.dal.hybrids.albaosd.AlbaOSD
+        :return: The extra param used in the create osd code
+        :rtype: dict
         """
-        _ = self, osd
-        return {'count': 1}
+        raise NotImplemented()
 
-    def clear_slot(self, slot_id):
+    def clear_slot(self, slot_id, *args, **kwargs):
+        # type: (str, *any, **any) -> None
         """
-        Clears the slot
+        Restart a slot
+        :param slot_id: Identifier of the slot
+        :type slot_id: str
+        :return: None
+        :rtype: NoneType
         """
-        return self._call(requests.delete, 'slots/{0}'.format(slot_id))
+        # Slot id is the same as the osd id for the S3 OSD and only one OSD is on a mocked slot
+        osd_id = slot_id
+        return self.delete('osds/{0}'.format(osd_id))
 
-    def restart_slot(self, slot_id):
+    def restart_slot(self, slot_id, *args, **kwargs):
+        # type: (str, *any, **any) -> None
         """
-        Restart the slot with given slot id
+        Restart a slot
+        :param slot_id: Identifier of the slot
+        :type slot_id: str
+        :return: None
+        :rtype: NoneType
         """
-        return self._call(requests.post, 'slots/{0}/restart'.format(slot_id))
+        # Slot id is the same as the osd id for the S3 OSD
+        osd_id = slot_id
+        return self.post('osds/{0}/restart'.format(osd_id))
 
-    def stop_slot(self, slot_id):
+    def stop_slot(self, slot_id, *args, **kwargs):
+        # type: (str, *any, **any) -> None
         """
-        Stops all OSDs on the slot
+        Stop a slot. This will cause all OSDs on that slot to stop
+        :param slot_id: Identifier of the slot
+        :type slot_id: str
+        :return: None
+        :rtype: NoneType
         """
-        return self._call(requests.post, 'slots/{0}/stop'.format(slot_id))
+        # Slot id is the same as the osd id for the S3 OSD
+        osd_id = slot_id
+        return self.post('osds/{0}/stop'.format(osd_id))
 
     ##########
     # UPDATE #
@@ -114,14 +190,14 @@ class S3ManagerClient(AlbaBaseClient):
         Retrieve the package information for this ALBA node
         :return: Latest available version and services which require a restart
         """
-        return self._call(requests.get, 'update/package_information', timeout=120, clean=True)
+        return self.get('update/package_information', timeout=120, clean=True)
 
     def execute_update(self, package_name):
         """
         Execute an update
         :return: None
         """
-        return self._call(requests.post, 'update/install/{0}'.format(package_name), timeout=300)
+        return self.post('update/install/{0}'.format(package_name), timeout=300)
 
     def update_execute_migration_code(self):
         """
@@ -129,7 +205,7 @@ class S3ManagerClient(AlbaBaseClient):
         :return: None
         :rtype: NoneType
         """
-        return self._call(requests.post, 'update/execute_migration_code')
+        return self.post('update/execute_migration_code')
 
     def update_installed_version_package(self, package_name):
         """
@@ -139,7 +215,7 @@ class S3ManagerClient(AlbaBaseClient):
         :return: Version of the currently installed package
         :rtype: str
         """
-        return self._call(requests.get, 'update/installed_version_package/{0}'.format(package_name), timeout=60)['version']
+        return self.get('update/installed_version_package/{0}'.format(package_name), timeout=60)['version']
 
     ############
     # SERVICES #
@@ -154,48 +230,8 @@ class S3ManagerClient(AlbaBaseClient):
         """
         if service_names is None:
             service_names = []
-        return self._call(method=requests.post,
-                          url='update/restart_services',
-                          data={'service_names': json.dumps(service_names)})
-
-    def add_maintenance_service(self, name, alba_backend_guid, abm_name, read_preferences):
-        """
-        Add service to asd manager
-        :param name: Name of the service to add
-        :type name: str
-        :param alba_backend_guid: ALBA Backend GUID for which the maintenance service needs to run
-        :type alba_backend_guid: str
-        :param abm_name: The name of the ABM cluster
-        :type abm_name: str
-        :param read_preferences: List of ALBA Node IDs (LOCAL) or linked ALBA Backend Guids (GLOBAL) for the maintenance services where they should prioritize the READ actions
-        :type read_preferences: list[str]
-        :return: result
-        """
-        return self._call(method=requests.post,
-                          url='maintenance/{0}/add'.format(name),
-                          data={'abm_name': abm_name,
-                                'read_preferences': json.dumps(read_preferences),
-                                'alba_backend_guid': alba_backend_guid})
-
-    def remove_maintenance_service(self, name, alba_backend_guid):
-        """
-        Remove service from asd manager
-        :param name: Name of the maintenance service to remove
-        :type name: str
-        :param alba_backend_guid: Guid of the ALBA Backend to which the maintenance service belongs
-        :type alba_backend_guid: str
-        :return: result
-        """
-        return self._call(method=requests.post,
-                          url='maintenance/{0}/remove'.format(name),
-                          data={'alba_backend_guid': alba_backend_guid})
-
-    def list_maintenance_services(self):
-        """
-        Retrieve configured maintenance services from asd manager
-        :return: dict of services
-        """
-        return self._call(requests.get, 'maintenance', clean=True)['services']
+        return self.post(url='update/restart_services',
+                         json={'service_names': service_names})
 
     def get_service_status(self, name):
         """
@@ -205,12 +241,14 @@ class S3ManagerClient(AlbaBaseClient):
         :return: Status of the service
         :rtype: str
         """
-        return self._call(requests.get, 'service_status/{0}'.format(name))['status'][1]
+        return self.get('service_status/{0}'.format(name))['status'][1]
 
-    def sync_stack(self, stack):
+    def sync_stack(self, stack, *args, **kwargs):
+        # type: (dict, *any, **any) -> None
         """
         Synchronize the stack of an AlbaNode with the stack of another AlbaNode
         :param stack: Stack to sync
+        :type stack: dict
         :return: None
         :rtype: Nonetype
         """

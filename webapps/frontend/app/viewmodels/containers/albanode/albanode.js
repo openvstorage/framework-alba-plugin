@@ -29,7 +29,8 @@ define([
     "use strict";
     var nodeTypes = {
         generic: 'GENERIC',
-        asd: 'ASD'
+        asd: 'ASD',
+        s3: 'S3'
     };
     var viewModelMapping = {
         // Avoid caching the same data twice in the mapping plugin. Stack is not required to be observable as we used the slot models instead
@@ -134,7 +135,7 @@ define([
         vmData = $.extend(vmData, {'slots': self.generateSlotsByStack(vmData.stack || {})});  // Add slot info
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
 
-        if (self.slots().length === 0 && self.type() === nodeTypes.generic) {
+        if (self.slots().length === 0 && [nodeTypes.generic, nodeTypes.s3].contains(self.type())) {
             self.generateEmptySlot();
         }
 
@@ -190,6 +191,15 @@ define([
             var storagerouter_guid = ko.utils.unwrapObservable(self.storagerouter.guid);  // Guid attached to the ViewModel
             return ![null, undefined].contains(self.storagerouter_guid()) && ![null, undefined].contains(storagerouter_guid)
         });
+        self.displayName = ko.pureComputed(function() {
+            if (self.type() === 'GENERIC'){
+                if (self.name()) {
+                    return self.name()
+                }
+                return $.t('ovs:generic.null')
+            }
+            return '{0}:{1}'.format([self.ip(), self.port()])
+        });
 
         // Computed factories
         self.canFill = function(slot) {
@@ -212,7 +222,7 @@ define([
          * @param data: Data to update on this view model (keys map with the observables)
          * @type data: Object
          */
-        update: function(data) {
+        update: function(data){
             var self = this;
             if ('stack' in data) {
                 data = $.extend(data, {'slots': self.generateSlotsByStack(data.stack)});
@@ -624,7 +634,7 @@ define([
                                 $.t('alba:node.remove.complete'),
                                 $.t('alba:node.remove.success', {what: self.node_id()})
                             );
-
+                            subscriberService.trigger('albanode:delete', self)
                         }, function(error) {
                             error = generic.extractErrorMessage(error);
                             generic.alertError(

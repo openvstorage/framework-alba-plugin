@@ -63,7 +63,9 @@ class DALMigrator(object):
                 backend_type.save()
 
             # Add service types
-            for service_type_info in [ServiceType.SERVICE_TYPES.NS_MGR, ServiceType.SERVICE_TYPES.ALBA_MGR]:
+            for service_type_info in [ServiceType.SERVICE_TYPES.NS_MGR,
+                                      ServiceType.SERVICE_TYPES.ALBA_MGR,
+                                      ServiceType.SERVICE_TYPES.ALBA_S3_TRANSACTION]:
                 service_type = ServiceType()
                 service_type.name = service_type_info
                 service_type.save()

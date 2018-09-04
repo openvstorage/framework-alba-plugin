@@ -19,10 +19,10 @@ define(['knockout', 'jquery', 'ovs/formBuilder'], function(ko, $, formBuilder){
 
     function Data(node, nodeCluster, slots, confirmOnly, formQuestions, fieldMapping, formMetadata, formMapping) {
         var self = this;
-        self.node               = ko.observable(node);
-        self.nodeCluster        = ko.observable(nodeCluster);
-        self.slots              = ko.observable(slots);
-        self.formQuestions      = ko.observable(formQuestions);
+        self.node               = node;
+        self.nodeCluster        = nodeCluster;
+        self.slots              = slots;
+        self.formQuestions      = ko.observableArray(formQuestions);
         self.formFieldMapping   = ko.observable(fieldMapping);
         self.formMetadata       = ko.observable(formMetadata);
         self.formMapping        = ko.observable(formMapping);
@@ -37,7 +37,7 @@ define(['knockout', 'jquery', 'ovs/formBuilder'], function(ko, $, formBuilder){
             return hasText;
         });
         self.workingWithCluster = ko.pureComputed(function() {
-            return !!self.nodeCluster()
+            return !!self.nodeCluster
         })
     }
     Data.prototype = {

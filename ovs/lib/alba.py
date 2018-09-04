@@ -34,6 +34,7 @@ from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.albaosdlist import AlbaOSDList
+from ovs.dal.lists.albas3transactionclusterlist import S3TransactionClusterList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs_extensions.api.client import OVSClient
 from ovs.extensions.db.arakooninstaller import ArakoonClusterConfig, ArakoonInstaller
@@ -377,8 +378,8 @@ class AlbaController(object):
         alba_backend.backend.invalidate_dynamics()
         return failure_osds, unclaimed_osds
 
-    @staticmethod
-    def _add_generic_osds(alba_backend_guid, alba_node_guid, osds, domain, metadata):
+    @classmethod
+    def _add_generic_osds(cls, alba_backend_guid, alba_node_guid, osds, domain, metadata):
         # type: (str, str, List[dict], Domain, dict) -> Tuple[List[str], List[str]]
         """
         Adds and claims an OSD to the Backend
@@ -427,7 +428,7 @@ class AlbaController(object):
             claimed_osds = AlbaCLI.run(command='list-osds', config=config)
             available_osds = AlbaCLI.run(command='list-available-osds', config=config)
         except AlbaError:
-            AlbaController._logger.exception('Could not load OSD information.')
+            cls._logger.exception('Could not load OSD information.')
             raise
 
         failure_osds = []
@@ -470,46 +471,62 @@ class AlbaController(object):
             osd_id = requested_osd_info['osd_id']
             is_claimed = requested_osd_info['claimed']
             is_available = requested_osd_info['available']
+            osd_type = getattr(AlbaOSD.OSD_TYPES, requested_osd_info['osd_type'])
+            slot_id = requested_osd_info['slot_id']
 
             if is_claimed is False and is_available is False:
-                register_ip = ips[0]
                 try:
-                    result = AlbaCLI.run(config=config,
-                                         command='add-osd',
-                                         named_params={'host': register_ip,
-                                                       'port': port,
-                                                       'node-id': alba_node.node_id})
-                    osd_id = result['long_id']
-                except AlbaError as ae:
-                    if ae.error_code == 7 and ae.exception_type == AlbaError.ALBAMGR_EXCEPTION:
-                        AlbaController._logger.warning('OSD {0}:{1} has already been added'.format(register_ip, port))
-                        unclaimed_osds.append(osd_id)
-                        continue
-                    AlbaController._logger.exception('Error adding OSD on IP:port {0}:{1}'.format(register_ip, port))
-                    failure_osds.append('{0}:{1}'.format(register_ip, port))
+                    # Only one of these clusters should be up for this OVS cluster
+                    s3_transaction_cluster = S3TransactionClusterList.get_s3_transaction_clusters()[0]
+                except IndexError:
+                    cls._logger.exception('Unable to add the S3 osd. No S3 transaction arakoon found!')
+                    failure_osds.append(osd_id)
                     continue
-
-                # TODO: Remove 'update-osd' once https://github.com/openvstorage/alba/issues/773 has been resolved, because we're supposed to register with all IPs right away
-                if len(ips) > 1:
+                # @todo Offload to S3 manager?
+                if osd_type == AlbaOSD.OSD_TYPES.S3:
+                    AlbaCLI.run(config=config,
+                                command='add-s3-osd',
+                                named_params={'arakoon-url': Configuration.get_configuration_path(key=s3_transaction_cluster.config_location),
+                                              'long-id': osd_id})
+                else:
+                    register_ip = ips[0]
                     try:
-                        AlbaCLI.run(config=config,
-                                    command='update-osd',
-                                    named_params={'long-id': osd_id,
-                                                  'ip': ','.join(ips)})  # update-osd needs IPs as comma separated list
-                    except AlbaError:
-                        AlbaController._logger.exception('Error Updating OSD on IP:port {0}:{1} with IPs {2}'.format(register_ip, port, ', '.join(ips)))
+                        result = AlbaCLI.run(config=config,
+                                             command='add-osd',
+                                             named_params={'host': register_ip,
+                                                           'port': port,
+                                                           'node-id': alba_node.node_id})
+                        osd_id = result['long_id']
+                    except AlbaError as ae:
+                        if ae.error_code == 7 and ae.exception_type == AlbaError.ALBAMGR_EXCEPTION:
+                            cls._logger.warning('OSD {0}:{1} has already been added'.format(register_ip, port))
+                            unclaimed_osds.append(osd_id)
+                            continue
+                        cls._logger.exception('Error adding OSD on IP:port {0}:{1}'.format(register_ip, port))
                         failure_osds.append('{0}:{1}'.format(register_ip, port))
                         continue
+
+                    # TODO: Remove 'update-osd' once https://github.com/openvstorage/alba/issues/773 has been resolved, because we're supposed to register with all IPs right away
+                    if len(ips) > 1:
+                        try:
+                            AlbaCLI.run(config=config,
+                                        command='update-osd',
+                                        named_params={'long-id': osd_id,
+                                                      'ip': ','.join(ips)})  # update-osd needs IPs as comma separated list
+                        except AlbaError:
+                            cls._logger.exception('Error Updating OSD on IP:port {0}:{1} with IPs {2}'.format(register_ip, port, ', '.join(ips)))
+                            failure_osds.append('{0}:{1}'.format(register_ip, port))
+                            continue
 
             if is_claimed is False:
                 try:
                     AlbaCLI.run(command='claim-osd', config=config, named_params={'long-id': osd_id})
                 except AlbaError as ae:
                     if ae.error_code == 11 and ae.exception_type == AlbaError.ALBAMGR_EXCEPTION:
-                        AlbaController._logger.warning('OSD with ID {0} has already been claimed'.format(osd_id))
+                        cls._logger.warning('OSD with ID {0} has already been claimed'.format(osd_id))
                         unclaimed_osds.append(osd_id)
                         continue
-                    AlbaController._logger.exception('Error claiming OSD with ID {0}'.format(osd_id))
+                    cls._logger.exception('Error claiming OSD with ID {0}'.format(osd_id))
                     failure_osds.append(port)
                     continue
 
@@ -522,8 +539,8 @@ class AlbaController(object):
             osd.port = port
             osd.osd_id = osd_id
             osd.domain = domain
-            osd.slot_id = requested_osd_info['slot_id']
-            osd.osd_type = getattr(AlbaOSD.OSD_TYPES, requested_osd_info['osd_type'])
+            osd.slot_id = slot_id
+            osd.osd_type = osd_type
             osd.metadata = metadata
             osd.alba_node = alba_node
             osd.alba_backend = alba_backend
@@ -572,6 +589,7 @@ class AlbaController(object):
     @staticmethod
     @ovs_task(name='alba.add_cluster')
     def add_cluster(alba_backend_guid, abm_cluster=None, nsm_clusters=None):
+        # type: (str, str, List[str]) -> None
         """
         Adds an Arakoon cluster to service Backend
         :param alba_backend_guid: Guid of the ALBA Backend
@@ -642,7 +660,7 @@ class AlbaController(object):
 
     @staticmethod
     def set_auto_cleanup(alba_backend_guid, days=30, config=None):
-        # type: (str, int) -> None
+        # type: (str, Optional[int], Optional[str]) -> None
         """
         Set the auto cleanup policy for an ALBA Backend
         :param alba_backend_guid: Guid of the ALBA Backend to set the auto cleanup for
