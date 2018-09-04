@@ -18,10 +18,8 @@
 Generic module for calling the ASD-Manager
 """
 
-import json
 import time
 import base64
-import requests
 from ovs.extensions.plugins.albabase import AlbaBaseClient
 from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.generic.exceptions import NotFoundError
@@ -72,7 +70,7 @@ class ASDManagerClient(AlbaBaseClient):
         """
         # Version 3 introduced 'slots'
         if self.get_metadata()['_version'] >= 3:
-            data = self.extract_data(self._call(requests.get, 'slots', timeout=5))
+            data = self.extract_data(self.get('slots', timeout=5))
             for slot_info in data.itervalues():
                 for osd in slot_info.get('osds', {}).itervalues():
                     osd['type'] = 'ASD'
@@ -134,7 +132,7 @@ class ASDManagerClient(AlbaBaseClient):
         :return: None
         :rtype: NoneType
         """
-        return self.post(url='slots/{0}/asds/{1}/update'.format(slot_id, osd_id), data={'update_data': json.dumps(update_data)})
+        return self.post(url='slots/{0}/asds/{1}/update'.format(slot_id, osd_id), json={'update_data': update_data})
 
     def delete_osd(self, slot_id, osd_id, *args, **kwargs):
         # type: (str, str, *any, **any) -> None
@@ -209,7 +207,7 @@ class ASDManagerClient(AlbaBaseClient):
             # Newest ASD Manager wraps it. Older ones require cleaning
             return self.extract_data(self.get('update/package_information', timeout=120))
         except NotFoundError:
-            update_info = self._call(requests.get, 'update/information', timeout=120, clean=True)
+            update_info = self.get('update/information', timeout=120, clean=True)
             if update_info['version']:
                 return {'alba': {'openvstorage-sdm': {'candidate': update_info['version'],
                                                       'installed': update_info['installed'],
@@ -277,7 +275,7 @@ class ASDManagerClient(AlbaBaseClient):
         if service_names is None:
             service_names = []
         return self.post(url='update/restart_services',
-                         data={'service_names': json.dumps(service_names)})
+                         json={'service_names': service_names})
 
     def add_maintenance_service(self, name, alba_backend_guid, abm_name, read_preferences):
         # type: (str, str, str, List[str]) -> dict
@@ -295,8 +293,8 @@ class ASDManagerClient(AlbaBaseClient):
         :rtype: dict
         """
         return self.post(url='maintenance/{0}/add'.format(name),
-                         data={'abm_name': abm_name,
-                               'read_preferences': json.dumps(read_preferences),
+                         json={'abm_name': abm_name,
+                               'read_preferences': read_preferences,
                                'alba_backend_guid': alba_backend_guid})
 
     def remove_maintenance_service(self, name, alba_backend_guid):
@@ -343,7 +341,7 @@ class ASDManagerClient(AlbaBaseClient):
         :return: None
         :rtype: Nonetype
         """
-        return self.post('dual_controller/sync_stack', data={'stack': json.dumps(stack)})
+        return self.post('dual_controller/sync_stack', json={'stack': stack})
 
     @classmethod
     def clean(cls, data):

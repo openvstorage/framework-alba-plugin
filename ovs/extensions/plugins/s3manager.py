@@ -253,10 +253,3 @@ class S3ManagerClient(AlbaBaseClient):
         :rtype: Nonetype
         """
         raise NotImplementedError()
-
-
-if __name__ == '__main__':
-    from ovs.dal.lists.albanodelist import AlbaNodeList
-    an = AlbaNodeList.get_albanodes_by_type('S3')[0]
-    stack = an.client.get_stack()
-    print stack

@@ -23,7 +23,7 @@ from ovs.dal.hybrids.albas3transactioncluster import S3TransactionCluster
 
 class S3TransactionClusterList(object):
     """
-    This AlbaBackendList class contains various lists regarding to the AlbaBackend class
+    This list class contains various lists regarding to the S3TransactionCluster class
     """
 
     @staticmethod
