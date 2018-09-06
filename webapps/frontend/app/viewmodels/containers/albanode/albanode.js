@@ -371,7 +371,8 @@ define([
                     osd.processing(true);
                 });
             });
-            wizard.closing.always(function() {
+            wizard.closing.fail(function() {
+                // Unsuccessful wizard or canceled
                 $.each(slots, function(index, slot) {
                     slot.processing(false);
                     $.each(slot.osds(), function(_, osd) {
@@ -379,7 +380,7 @@ define([
                     });
                 });
             });
-            wizard.completed.always(function() {
+            wizard.completed.done(function() {
                 self.refresh()
                     .then(function(){
                         $.each(slots, function(index, slot) {
@@ -515,12 +516,12 @@ define([
                     albaSlot: matchingSlot,
                     albaBackend: self.albaBackend
                 });
-            wizard.closing.always(function() {
+            wizard.closing.fail(function() {
                 // Indicates that it was canceled
                 osd.processing(false);
                 matchingSlot.processing(false);
             });
-            wizard.completed.always(function() {
+            wizard.completed.done(function(data) {
                 self.refresh()
                     .then(function() {
                         osd.processing(false);
