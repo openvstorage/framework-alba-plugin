@@ -84,7 +84,7 @@ define([
                 changedSlot.osds = osdList;
                 slots.push(changedSlot);
             });
-            slots.sort(self.sortSlotsFunction);
+            slots.sort(this.sortSlotsFunction);
             return slots;
         },
         /**
@@ -93,9 +93,12 @@ define([
          * @param slot2: Next slot to compare
          */
         sortSlotsFunction: function(slot1, slot2) {
-            if ((slot1.status() === 'empty' && slot2.status() === 'empty') || (slot1.status() !== 'empty' && slot2.status() !== 'empty')) {
-                    return slot1.node_id() < slot2.slot_id() ? -1 : 1;
-                } else if (slot1.status() === 'empty') {  // Move empty status last
+            var isEmpty = function(slot) {
+                return slot.status === 'empty'
+            };
+            if ((isEmpty(slot1) && isEmpty(slot2)) || (!isEmpty(slot1) && !isEmpty(slot2))) {
+                    return slot1.slot_id < slot2.slot_id ? -1 : 1;
+                } else if (isEmpty(slot1)) {  // Move empty status last
                     return 1;
                 }
                 return -1;
