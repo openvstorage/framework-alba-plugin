@@ -135,7 +135,7 @@ define([
         vmData = $.extend(vmData, {'slots': self.generateSlotsByStack(vmData.stack || {})});  // Add slot info
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
 
-        if (self.slots().length === 0 && [nodeTypes.generic, nodeTypes.s3].contains(self.type())) {
+        if (self.emptySlots().length === 0 && [nodeTypes.generic, nodeTypes.s3].contains(self.type())) {
             self.generateEmptySlot();
         }
 

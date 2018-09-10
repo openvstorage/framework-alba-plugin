@@ -151,7 +151,7 @@ class AlbaNodeClusterController(object):
 
     @staticmethod
     @ovs_task(name='albanodecluster.fill_slots')
-    def fill_slots(node_cluster_guid, node_guid, slot_information, metadata=None):
+    def fill_slots(node_cluster_guid, node_guid, osd_information, metadata=None):
         # type: (str, str, List[Dict[str, Any]]) -> None
         """
         Creates 1 or more new OSDs
@@ -159,8 +159,8 @@ class AlbaNodeClusterController(object):
         :type node_cluster_guid: basestring
         :param node_guid: Guid of the AlbaNode to act as the 'active' side
         :type node_guid: basestring
-        :param slot_information: Information about the amount of OSDs to add to each Slot
-        :type slot_information: list
+        :param osd_information: Information about the amount of OSDs to add to each Slot
+        :type osd_information: list
         :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
         :type metadata: dict
         :return: None
@@ -190,7 +190,7 @@ class AlbaNodeClusterController(object):
             raise ValueError('The given node cluster does not support filling slots')
 
         validation_reasons = []
-        for slot_info in slot_information:
+        for slot_info in osd_information:
             try:
                 ExtensionsToolbox.verify_required_params(required_params=required_params, actual_params=slot_info)
             except RuntimeError as ex:
@@ -198,7 +198,7 @@ class AlbaNodeClusterController(object):
         if len(validation_reasons) > 0:
             raise ValueError('Missing required parameter:\n *{0}'.format('\n* '.join(validation_reasons)))
 
-        for slot_info in slot_information:
+        for slot_info in osd_information:
             if node_cluster.cluster_metadata['fill'] is True:
                 # Only filling is required
                 active_node.client.fill_slot(slot_id=slot_info['slot_id'],

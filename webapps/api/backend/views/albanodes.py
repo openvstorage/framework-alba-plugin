@@ -193,26 +193,32 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaNode)
-    def fill_slots(self, albanode, slot_information, metadata=None):
+    def fill_slots(self, albanode, slot_information=None, osd_information=None, metadata=None):
+        # type: (AlbaNode, Optional[List[dict]], Optional[List[dict]], Optional[dict]) -> any
         """
         Fills 1 or more Slots
         :param albanode: The AlbaNode on which the Slots will be filled
         :type albanode: ovs.dal.hybrids.albanode.AlbaNode
-        :param slot_information: A list of Slot information
+        :param slot_information: A list of OSD information. The name was chosen poorly and it was rectified
         :type slot_information: list
+        :param osd_information: A list of OSD information. The name was chosen poorly and it was rectified
+        :type osd_information: list
         :param metadata: Extra metadata if required
         :type metadata: dict
         :return: Celery async task result
         :rtype: CeleryTask
         """
+        if all(param is None for param in [slot_information, osd_information]):
+            raise ValueError('Either slot_information or osd_information should be passed.')
+        osd_information = slot_information or osd_information
         if albanode.alba_node_cluster is not None:
             # The current node is treated as the 'active' side
             return AlbaNodeClusterController.fill_slots.delay(node_cluster_guid=albanode.alba_node_cluster.guid,
                                                               node_guid=albanode.guid,
-                                                              slot_information=slot_information,
+                                                              osd_information=osd_information,
                                                               metadata=metadata)
         return AlbaNodeController.fill_slots.delay(node_guid=albanode.guid,
-                                                   slot_information=slot_information,
+                                                   osd_information=osd_information,
                                                    metadata=metadata)
 
     @action()
@@ -238,13 +244,13 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         # Data: [{alba_backend_guid: "0d3829bb-98fb-4ead-8772-862f37fb45dd", count:1, osd_type:"ASD", slot_id:"ata-QEMU_HARDDISK_1a078cce-511c-11e7-8"}]
         # Alba backend guid can be ignored for just filling slots
         osd_type = 'ASD'  # Always for this backwards compatible call
-        slot_information = []
+        osd_information = []
         for disk_alias, count in disks.iteritems():
             slot_id = disk_alias.split('/')[-1]
-            slot_information.append({'slot_id': slot_id,
+            osd_information.append({'slot_id': slot_id,
                                      'count': count,
                                      'osd_type': osd_type})
-        return AlbaNodeController.fill_slots.delay(node_guid=albanode.guid, slot_information=slot_information)
+        return AlbaNodeController.fill_slots.delay(node_guid=albanode.guid, osd_information=osd_information)
 
     @action()
     @required_roles(['read', 'write', 'manage'])
