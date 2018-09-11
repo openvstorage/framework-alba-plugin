@@ -203,11 +203,13 @@ class AlbaController(object):
             try:
                 osd_list = backend_osds
                 required = {'osd_type': (str, AlbaOSD.OSD_TYPES.keys())}
-                if osd.get('osd_type') != AlbaOSD.OSD_TYPES.ALBA_BACKEND:
+                if osd.get('osd_type') in [AlbaOSD.OSD_TYPES.AD, AlbaOSD.OSD_TYPES.ASD, AlbaOSD.OSD_TYPES.S3]:
                     osd_list = generic_osds
+
                     required.update({'ips': (list, ExtensionsToolbox.regex_ip),
                                      'port': (int, {'min': 1, 'max': 65535}),
-                                     'slot_id': (str, None)})
+                                     'slot_id': (str, None),
+                                     'osd_id': (str, None)})
                 ExtensionsToolbox.verify_required_params(required_params=required, actual_params=osd)
                 osd_list.append(osd)
             except RuntimeError as ex:
@@ -404,13 +406,12 @@ class AlbaController(object):
         used_ip_ports = []
 
         for osd in AlbaOSDList.get_albaosds():
-            if osd.osd_type != AlbaOSD.OSD_TYPES.ALBA_BACKEND:  # Only iterate over non-backend osds
+            if osd.osd_type in [AlbaOSD.OSD_TYPES.AD, AlbaOSD.OSD_TYPES.ASD, AlbaOSD.OSD_TYPES.S3]:  # Only iterate over non-backend osds
                 for ip in osd.ips:
                     used_ip_ports.append('{0}:{1}'.format(ip, osd.port))
 
         for requested_osd_info in osds:
             # Update osd_info with some additional information
-            requested_osd_info['osd_id'] = None
             requested_osd_info['claimed'] = False
             requested_osd_info['available'] = False
             requested_osd_info['all_ip_ports'] = ['{0}:{1}'.format(ip, requested_osd_info['port']) for ip in requested_osd_info['ips']]
@@ -468,26 +469,30 @@ class AlbaController(object):
             handled_ip_ports.extend(requested_osd_info['all_ip_ports'])
             ips = requested_osd_info['ips']
             port = requested_osd_info['port']
-            osd_id = requested_osd_info['osd_id']
+            osd_id = requested_osd_info.get('osd_id')  # Information not available for ASDs
             is_claimed = requested_osd_info['claimed']
             is_available = requested_osd_info['available']
             osd_type = getattr(AlbaOSD.OSD_TYPES, requested_osd_info['osd_type'])
             slot_id = requested_osd_info['slot_id']
 
             if is_claimed is False and is_available is False:
-                try:
-                    # Only one of these clusters should be up for this OVS cluster
-                    s3_transaction_cluster = S3TransactionClusterList.get_s3_transaction_clusters()[0]
-                except IndexError:
-                    cls._logger.exception('Unable to add the S3 osd. No S3 transaction arakoon found!')
-                    failure_osds.append(osd_id)
-                    continue
-                # @todo Offload to S3 manager?
                 if osd_type == AlbaOSD.OSD_TYPES.S3:
-                    AlbaCLI.run(config=config,
-                                command='add-s3-osd',
-                                named_params={'arakoon-url': Configuration.get_configuration_path(key=s3_transaction_cluster.config_location),
-                                              'long-id': osd_id})
+                    try:
+                        # Only one of these clusters should be up for this OVS cluster
+                        s3_transaction_cluster = S3TransactionClusterList.get_s3_transaction_clusters()[0]
+                    except IndexError:
+                        cls._logger.exception('Unable to add the S3 osd. No S3 transaction arakoon found!')
+                        failure_osds.append(ip_port)
+                        continue
+                    try:
+                        AlbaCLI.run(config=config,
+                                    command='add-s3-osd',
+                                    named_params={'arakoon-url': Configuration.get_configuration_path(key=s3_transaction_cluster.config_location),
+                                                  'long-id': osd_id})
+                    except AlbaError:
+                        cls._logger.exception('Error adding OSD on IP:port {0}'.format(ip_port))
+                        failure_osds.append(ip_port)
+                        continue
                 else:
                     register_ip = ips[0]
                     try:

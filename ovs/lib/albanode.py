@@ -245,13 +245,13 @@ class AlbaNodeController(object):
 
     @staticmethod
     @ovs_task(name='albanode.fill_slots')
-    def fill_slots(node_guid, slot_information, metadata=None):
+    def fill_slots(node_guid, osd_information, metadata=None):
         """
         Creates 1 or more new OSDs
         :param node_guid: Guid of the node to which the disks belong
         :type node_guid: str
-        :param slot_information: Information about the amount of OSDs to add to each Slot
-        :type slot_information: list
+        :param osd_information: Information about the amount of OSDs to add to each Slot
+        :type osd_information: list
         :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
         :type metadata: dict
         :return: None
@@ -277,31 +277,40 @@ class AlbaNodeController(object):
             raise ValueError('The given node does not support filling slots')
 
         validation_reasons = []
-        for slot_info in slot_information:
+        for osd_info in osd_information:  # type: dict
             try:
-                ExtensionsToolbox.verify_required_params(required_params=required_params, actual_params=slot_info)
+                ExtensionsToolbox.verify_required_params(required_params=required_params, actual_params=osd_info)
             except RuntimeError as ex:
                 validation_reasons.append(str(ex))
         if len(validation_reasons) > 0:
             raise ValueError('Missing required parameter:\n *{0}'.format('\n* '.join(validation_reasons)))
 
-        for slot_info in slot_information:
+        for osd_info in osd_information:
             if node.node_metadata['fill'] is True:
                 # Only filling is required
-                AlbaNodeController._fill_slot(node, slot_info['slot_id'], dict((key, slot_info[key]) for key in node.node_metadata['fill_metadata']))
+                AlbaNodeController._fill_slot(node, osd_info['slot_id'], dict((key, osd_info[key]) for key in node.node_metadata['fill_metadata']))
             elif node.node_metadata['fill_add'] is True:
                 # Fill the slot
-                AlbaNodeController._fill_slot(node, slot_info['slot_id'], dict((key, slot_info[key]) for key in node.node_metadata['fill_add_metadata']))
+                created_osds = AlbaNodeController._fill_slot(node, osd_info['slot_id'], dict((key, osd_info[key]) for key in node.node_metadata['fill_add_metadata']))
                 # And add/claim the OSD
-                AlbaController.add_osds(alba_backend_guid=slot_info['alba_backend_guid'],
-                                        osds=[slot_info],
-                                        alba_node_guid=node_guid,
-                                        metadata=metadata)
+                if node.type == AlbaNode.NODE_TYPES.S3:
+                    # The S3 manager returns the information about the osd when filling it
+                    for created_osd_info in created_osds:
+                        osd_info.update(created_osd_info)  # Add additional information about the osd
+                        AlbaController.add_osds(alba_backend_guid=osd_info['alba_backend_guid'],
+                                                osds=[osd_info],
+                                                alba_node_guid=node_guid,
+                                                metadata=metadata)
+                else:
+                    AlbaController.add_osds(alba_backend_guid=osd_info['alba_backend_guid'],
+                                            osds=[osd_info],
+                                            alba_node_guid=node_guid,
+                                            metadata=metadata)
         node.invalidate_dynamics('stack')
 
     @classmethod
     def _fill_slot(cls, node, slot_id, extra):
-        # type: (AlbaNode, str, any) -> None
+        # type: (AlbaNode, str, any) -> List[dict]
         """
         Fills in the slots with ASDs and checks if the BACKEND role needs to be added
         :param node: The AlbaNode to fill on
@@ -310,8 +319,8 @@ class AlbaNodeController(object):
         :type slot_id: str
         :param extra: Extra information for filling
         :type extra: any
-        :return: None
-        :rtype: NoneType
+        :return: Information about the created osds
+        :rtype: List[dict]
         """
         if node.type == AlbaNode.NODE_TYPES.S3:
             extra = extra.copy()
@@ -320,8 +329,8 @@ class AlbaNodeController(object):
                 extra['transaction_arakoon_url'] = Configuration.get_configuration_path(key=s3_transaction_cluster.config_location)
             except IndexError:
                 raise RuntimeError('No transaction arakoon was deployed for this cluster!')
-        node.client.fill_slot(slot_id=slot_id,
-                              extra=extra)
+        created_osds = node.client.fill_slot(slot_id=slot_id, extra=extra)
+        cls._logger.info(created_osds)
 
         # Sync model
         if node.storagerouter is not None:
@@ -335,6 +344,7 @@ class AlbaNodeController(object):
                     if DiskPartition.ROLES.BACKEND not in partition.roles:
                         partition.roles.append(DiskPartition.ROLES.BACKEND)
                         partition.save()
+        return created_osds or []  # Always return a list
 
     @staticmethod
     @ovs_task(name='albanode.remove_slot', ensure_single_info={'mode': 'CHAINED'})

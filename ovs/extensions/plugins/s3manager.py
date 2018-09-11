@@ -77,21 +77,23 @@ class S3ManagerClient(AlbaBaseClient):
         return stack
 
     def fill_slot(self, slot_id, extra, *args, **kwargs):
-        # type: (str, dict, *any, **any) -> None
+        # type: (str, dict, *any, **any) -> List[any]
         """
         Fill a slot with a set of osds
         :param slot_id: Identifier of the slot
         :type slot_id: str
         :param extra: Extra parameters to account for
         :type extra: OSDParams
-        :return: None
-        :rtype: NoneType
+        :return: list with data about the created osds
+        :rtype: List[any]
         """
         _ = slot_id
         osd_params = OSDParams(**extra)  # Force right arguments
         # Call can raise a NotFoundException when the slot could no longer be found
+        return_value = []
         for _ in xrange(osd_params.count):
-            self.post('osds', json={'transaction_arakoon_url': osd_params.transaction_arakoon_url, 'buckets': osd_params.buckets})
+            return_value.append(self.post('osds', json={'transaction_arakoon_url': osd_params.transaction_arakoon_url, 'buckets': osd_params.buckets}))
+        return return_value
 
     def restart_osd(self, slot_id, osd_id, *args, **kwargs):
         # type: (str, str, *any, **any) -> None
