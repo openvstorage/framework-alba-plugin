@@ -208,8 +208,9 @@ class AlbaController(object):
 
                     required.update({'ips': (list, ExtensionsToolbox.regex_ip),
                                      'port': (int, {'min': 1, 'max': 65535}),
-                                     'slot_id': (str, None),
-                                     'osd_id': (str, None)})
+                                     'slot_id': (str, None)})
+                    if osd.get('osd_type') == AlbaOSD.OSD_TYPES.S3:
+                        required.update({'osd_id': (str, None)})
                 ExtensionsToolbox.verify_required_params(required_params=required, actual_params=osd)
                 osd_list.append(osd)
             except RuntimeError as ex:
