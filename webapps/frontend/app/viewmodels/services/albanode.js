@@ -142,11 +142,11 @@ define([
          * Fills in the slots of a particular node
          * Returns a Promise which resolves in data (Task is processed)
          * @param guid: Guid of the AlbaNode
-         * @param slotData: Data of the slots
+         * @param osdData: Data of the osds
          * @return {Promise<T>}
          */
-        self.fillSlots = function(guid, slotData) {
-            return api.post('alba/nodes/' + guid + '/fill_slots', { data: { slot_information: slotData } })
+        self.fillSlots = function(guid, osdData) {
+            return api.post('alba/nodes/' + guid + '/fill_slots', { data: { osd_information: osdData } })
                 .then(shared.tasks.wait)
         }
     }

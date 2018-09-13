@@ -23,12 +23,13 @@ define([
     'viewmodels/containers/albanode/albanodecluster',
     'viewmodels/wizards/addnode/index', 'viewmodels/wizards/addpreset/index', 'viewmodels/wizards/linkbackend/index',
     'viewmodels/wizards/unlinkbackend/index', 'viewmodels/wizards/editmaintenance/index',
-    'viewmodels/services/albanode', 'viewmodels/services/albanodecluster', 'viewmodels/services/subscriber'
+    'viewmodels/services/albabackend', 'viewmodels/services/domain', 'viewmodels/services/albanode',
+    'viewmodels/services/albanodecluster', 'viewmodels/services/subscriber'
 ], function($, app, ko, router, dialog, d3,
             shared, generic, Refresher, api,
             BaseContainer, AlbaBackend, AlbaNode, Backend, BackendType, Domain, StorageRouter, AlbaOSD, NodeCluster,
             AddNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard, EditMaintenanceWizard,
-            albaNodeService, albaNodeClusterService, subscriberService) {
+            albaBackendService, domainService, albaNodeService, albaNodeClusterService, subscriberService) {
     "use strict";
     var viewModelMapping = {
         backend: {
@@ -136,36 +137,6 @@ define([
         self.otherAlbaBackendsCache = ko.observable({});
         self.remoteStack            = ko.observableArray([]);
 
-        // Subscriptions
-        self.disposables.push(subscriberService.onEvents('alba_backend:load', viewModelContext).then(function(data){
-            var albaBackendGuid, responseEvent;
-            if (typeof data === 'object') {
-                albaBackendGuid = data.albaBackendGuid;
-                responseEvent = data.response;
-            } else {
-                albaBackendGuid = data;
-            }
-            var cache = self.otherAlbaBackendsCache(), ab;
-            return $.when()
-                .then(function() {
-                    if (!cache.hasOwnProperty(albaBackendGuid)) {
-                        ab = new AlbaBackend(albaBackendGuid);
-                        return ab.load('backend')
-                            .then(function () {
-                                ab.backend.load();  // Don't care about this item so not waiting until it is loaded
-                                cache[albaBackendGuid] = ab;
-                                self.otherAlbaBackendsCache(cache);
-                                return ab.toJS()
-                            });
-                    }
-                    return cache[albaBackendGuid].toJS();
-                })
-                .then(function(data){
-                    if (responseEvent) {
-                        subscriberService.trigger(responseEvent, data)
-                    }
-                });
-        }));
         var vmData = {
             backend: {},
             alba_backend: {},
@@ -228,7 +199,13 @@ define([
     var functions = {
         refresh: function() {
             var self = this;
-            self.updateNodes(true);
+            generic.alertInfo($.t('alba:detail.refresh_nodes.started'), $.t('alba:detail.refresh_nodes.started_msg'));
+            self.updateNodes(true).then(function() {
+                generic.alertSuccess($.t('alba:detail.refresh_nodes.success'), $.t('alba:detail.refresh_nodes.success_msg'));
+            }, function(error) {
+                error = generic.extractErrorMessage(error);
+                generic.alertError($.t('ovs:generic.error'), $.t('alba:detail.refresh_nodes.failed_msg', { why: error }));
+            })
         },
         load: function() {
             var self = this;
@@ -253,11 +230,7 @@ define([
             return generic.formatBytes(value);
         },
         formatPercentage: function(value) {
-            if (isNaN(value)) {
-                return "0 %";
-            } else {
-                return generic.formatPercentage(value);
-            }
+            return generic.formatPercentage(value, true);
         },
         /**
          * Updates all relevant data for this page
@@ -316,8 +289,8 @@ define([
                     }
                     // Always fetch storagerouter relation and serialize them too
                     var contents = '_relations,_relation_contents_storagerouter=""';
-                    if (discover === true) {
-                        contents += ',ips,stack,node_metadata,local_summary';
+                    if (discover) {
+                        contents += ',ips';
                     } else {
                         contents += ',stack,node_metadata,local_summary,read_only_mode';
                     }
@@ -361,12 +334,13 @@ define([
         },
         loadDomains: function() {
             var self = this;
-            return $.Deferred(function(deferred) {
-                if (generic.xhrCompleted(self.loadDomainsHandle)) {
-                    self.loadDomainsHandle = api.get('domains', {
-                        queryparams: { sort: 'name', contents: '' }
-                    })
-                        .done(function(data) {
+            return $.when()
+                .then(function() {
+                    if (! generic.xhrCompleted(self.loadDomainsHandle)) {
+                        return
+                    }
+                    return self.loadDomainsHandle = domainService.loadDomains({sort: 'name', contents: '' })
+                        .then(function(data) {
                             var guids = [], ddata = {};
                             $.each(data.data, function(index, item) {
                                 guids.push(item.guid);
@@ -387,13 +361,46 @@ define([
                             self.domains.sort(function(dom1, dom2) {
                                 return dom1.name() < dom2.name() ? -1 : 1;
                             });
-                            deferred.resolve();
+                            return self.domains()
                         })
-                        .fail(deferred.reject);
-                } else {
-                    deferred.reject();
-                }
-            }).promise();
+                })
+        },
+        subscribeToEvents: function(){
+            var self = this;
+            self.disposables.push(
+                subscriberService.onEvents('albanode:delete').then(function(albaNode) {
+                    self.updateData()
+                }),
+                subscriberService.onEvents('alba_backend:load', viewModelContext).then(function(data){
+                    var albaBackendGuid, responseEvent;
+                    if (typeof data === 'object') {
+                        albaBackendGuid = data.albaBackendGuid;
+                        responseEvent = data.response;
+                    } else {
+                        albaBackendGuid = data;
+                    }
+                    var cache = self.otherAlbaBackendsCache(), ab;
+                    return $.when()
+                        .then(function() {
+                            if (!cache.hasOwnProperty(albaBackendGuid)) {
+                                ab = new AlbaBackend(albaBackendGuid);
+                                return ab.load('backend')
+                                    .then(function () {
+                                        ab.backend.load();  // Don't care about this item so not waiting until it is loaded
+                                        cache[albaBackendGuid] = ab;
+                                        self.otherAlbaBackendsCache(cache);
+                                        return ab.toJS()
+                                    });
+                            }
+                            return cache[albaBackendGuid].toJS();
+                        })
+                        .then(function(data){
+                            if (responseEvent) {
+                                subscriberService.trigger(responseEvent, data)
+                            }
+                        });
+                })
+            )
         }
     };
 
@@ -435,12 +442,16 @@ define([
                     return false;
                 }
             });
-            dialog.show(new AddNodeWizard({
+            var wizard = new AddNodeWizard({
                 modal: true,
                 newNode: node,
                 oldNode: oldNode,
                 confirmOnly: true
-            }));
+            });
+            wizard.completed.then(function() {
+                self.updateData()
+            });
+            dialog.show(wizard)
         },
         addPreset: function() {
             var self = this;
@@ -453,77 +464,77 @@ define([
         },
         addNode: function() {
             var node = new AlbaNode();
-            dialog.show(new AddNodeWizard({
+            var wizard = new AddNodeWizard({
                 modal: true,
                 newNode: node,
                 oldNode: undefined,
                 confirmOnly: false
-            }));
+            });
+            wizard.completed.then(function() {
+                self.updateData()
+            });
+            dialog.show(wizard);
         },
         removeBackend: function() {
             var self = this;
-            return $.Deferred(function(deferred) {
+            return $.when().then(function() {
                 if (!self.alba_backend.initialized() || !self.alba_backend.availableActions().contains('REMOVE')) {
-                    deferred.reject();
-                    return;
+                    throw 'Unable to remove backend';
                 }
-                app.showMessage(
+                return app.showMessage(
                     $.t('alba:detail.delete.warning'),
                     $.t('ovs:generic.are_you_sure'),
                     [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
                 )
-                    .done(function(answer) {
+                    .then(function(answer) {
                         if (answer === $.t('ovs:generic.yes')) {
                             generic.alertInfo(
                                 $.t('alba:detail.delete.started'),
                                 $.t('alba:detail.delete.started_msg', {what: self.alba_backend.name()})
                             );
                             router.navigateBack();
-                            api.del('alba/backends/' + self.alba_backend.guid())
-                                .then(self.shared.tasks.wait)
-                                .done(function() {
+                            return albaBackendService.removeAlbaBackend(self.alba_backend.guid())
+                                .then(function() {
                                     generic.alertSuccess(
                                         $.t('alba:detail.delete.success'),
                                         $.t('alba:detail.delete.success_msg', {what: self.alba_backend.name()})
                                     );
-                                    deferred.resolve();
-                                })
-                                .fail(function(error) {
+                                    return null
+                                }, function(error) {
                                     error = generic.extractErrorMessage(error);
                                     generic.alertError(
                                         $.t('ovs:generic.error'),
                                         $.t('alba:detail.delete.failed', { why: error })
                                     );
-                                    deferred.reject();
+                                    throw error
                                 });
                         } else {
-                            deferred.reject();
+                            throw null;
                         }
                     });
-            }).promise();
+            })
         },
         removePreset: function(name) {
             var self = this;
-            return $.Deferred(function(deferred) {
-                app.showMessage(
+            return $.when().then(function() {
+                return app.showMessage(
                     $.t('alba:presets.delete.warning', { what: name }),
                     $.t('ovs:generic.are_you_sure'),
                     [$.t('ovs:generic.yes'), $.t('ovs:generic.no')]
                 )
-                    .done(function(answer) {
+                    .then(function(answer) {
                         if (answer === $.t('ovs:generic.yes')) {
                             generic.alertInfo(
                                 $.t('alba:presets.delete.started'),
                                 $.t('alba:presets.delete.started_msg')
                             );
-                            api.post('alba/backends/' + self.alba_backend.guid() + '/delete_preset', { data: { name: name } })
-                                .then(self.shared.tasks.wait)
-                                .done(function() {
+                            return albaBackendService.removePreset(self.alba_backend.guid(), name)
+                                .then(function(data) {
                                     generic.alertSuccess(
                                         $.t('alba:presets.delete.complete'),
                                         $.t('alba:presets.delete.success')
                                     );
-                                    deferred.resolve();
+                                    return data;
                                 })
                                 .fail(function(error) {
                                     error = generic.extractErrorMessage(error);
@@ -531,13 +542,13 @@ define([
                                         $.t('ovs:generic.error'),
                                         $.t('alba:presets.delete.failed', { why: error })
                                     );
-                                    deferred.reject();
+                                    throw error
                                 });
                         } else {
-                            deferred.reject();
+                            throw null;
                         }
                     });
-            }).promise();
+            })
         },
         editMaintenance: function() {
             var self = this;
@@ -566,6 +577,7 @@ define([
             }, 5000);
             self.refresher.run();
             self.refresher.start();
+            self.subscribeToEvents()
         },
         deactivate: function() {
             var self = this;

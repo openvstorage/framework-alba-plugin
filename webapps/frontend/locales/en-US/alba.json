@@ -34,6 +34,13 @@
         "link_backend": "Link Backend",
         "name": "Name",
         "preset": "Preset",
+        "refresh_nodes": {
+            "failed_msg": "Could not refresh the ALBA nodes: __why__",
+            "started": "Refreshing",
+            "started_msg": "ALBA nodes are being refreshed",
+            "success": "Refreshed",
+            "success_msg": "Refreshed the ALBA nodes"
+        },
         "scaling": "Scaling",
         "status": "Status",
         "title": "Open vStorage Backend",
@@ -90,7 +97,8 @@
         "osds": "ASDs",
         "osdtypes": {
             "ad": "Active Drive",
-            "asd": "ASD"
+            "asd": "ASD",
+            "s3": "S3"
         },
         "presets": "Presets",
         "refresh": "Refresh",
@@ -167,6 +175,7 @@
                 "albaerror": "Error in alba",
                 "decommissioned": "Decommissioned",
                 "nodedown": "Node is unreachable",
+                "ownership_query_fail": "Unable to determine if the OSD is claimed",
                 "recenterrors": "Recent errors",
                 "unreachable": "OSD is unreachable",
                 "service_activating": "Service still activating",
@@ -311,6 +320,7 @@
         },
         "add_node": {
             "confirm": {
+                "asd_ips": "Followings IPs are configured:",
                 "basic_info": "Validate and confirm information below",
                 "complete": "Completed",
                 "failed": "Adding node failed: __why__",
@@ -346,6 +356,7 @@
         "add_osd": {
             "confirm": {
                 "basic_info": "Validate and confirm information below",
+                "buckets": "Bucket:",
                 "count": "Amount:",
                 "detailed_info": "OSD(s) with these details will be registered to the backend",
                 "failure": "Failure",
@@ -363,8 +374,10 @@
             },
             "gather": {
                 "add_ips": "Add IP address",
+                "buckets": "Bucket",
                 "count": "Amount:",
                 "count_help": "Fill the desired amount of OSDs to be added.<br/><b>This cannot be changed afterwards.</b>",
+                "invalid_buckets": "Invalid bucket specified",
                 "invalid_ips": "Invalid IP address",
                 "invalid_port": "Invalid port specified. Port should be between 1 and 65535",
                 "ips": "IP Address:",

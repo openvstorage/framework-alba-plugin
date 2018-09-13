@@ -21,7 +21,9 @@ AlbaNode module
 import os
 import re
 import requests
+from ovs.constants.albanode import ASD_NODE_CONFIG_PATH, S3_NODE_CONFIG_PATH
 from ovs.dal.dataobject import DataObject
+from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.albanodecluster import AlbaNodeCluster
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
@@ -58,9 +60,12 @@ class AlbaNode(DataObject):
                                                          'UNAVAILABLE': 'unavailable',
                                                          'UNKNOWN': 'unknown',
                                                          'EMPTY': 'empty'})
-    _CLIENTS = {NODE_TYPES.ASD: ASDManagerClient,
-                NODE_TYPES.GENERIC: GenericManagerClient,
-                NODE_TYPES.S3: S3ManagerClient}
+    CLIENTS = DataObject.enumerator('AlbaNodeClients', {NODE_TYPES.ASD: ASDManagerClient,
+                                                        NODE_TYPES.GENERIC: GenericManagerClient,
+                                                        NODE_TYPES.S3: S3ManagerClient})
+    CONFIG_LOCATIONS = DataObject.enumerator('AlbaNodeConfigLocations', {NODE_TYPES.ASD: ASD_NODE_CONFIG_PATH,
+                                                                         NODE_TYPES.GENERIC: '',
+                                                                         NODE_TYPES.S3: S3_NODE_CONFIG_PATH})
 
     _logger = Logger('hybrids')
     __properties = [Property('ip', str, indexed=True, mandatory=False, doc='IP Address'),
@@ -92,16 +97,16 @@ class AlbaNode(DataObject):
         if os.environ.get('RUNNING_UNITTESTS') == 'True':
             self.client = ManagerClientMockup(self)
         else:
-            if self.type not in self._CLIENTS:
+            if self.type not in self.CLIENTS:
                 raise NotImplementedError('Type {0} is not implemented'.format(self.type))
-            self.client = self._CLIENTS[self.type](self)
+            self.client = self.CLIENTS[self.type](self)
         self._frozen = True
 
     def _ips(self):
         """
         Returns the IPs of the node
         """
-        return Configuration.get('/ovs/alba/asdnodes/{0}/config/network|ips'.format(self.node_id))
+        return Configuration.get(os.path.join(self.CONFIG_LOCATIONS[self.type], 'network|ips').format(self.node_id))
 
     def _maintenance_services(self):
         """
@@ -117,14 +122,15 @@ class AlbaNode(DataObject):
                     if backend_name not in services:
                         services[backend_name] = []
                     services[backend_name].append([service_name, service_status])
-        except:
-            pass
+        except Exception:
+            self._logger.exception('Unable to list the maintenance services')
         return services
 
     def _stack(self):
         """
         Returns an overview of this node's storage stack
         """
+        from ovs.dal.hybrids.albabackend import AlbaBackend
         from ovs.dal.lists.albabackendlist import AlbaBackendList
 
         def _move(info):
@@ -147,6 +153,7 @@ class AlbaNode(DataObject):
                 for osd_data in slot_data.get('osds', {}).itervalues():
                     _move(osd_data)
         except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
+            self._logger.warning('Error during stack retrieval. Assuming that the node is down')
             node_down = True
 
         model_osds = {}
@@ -202,6 +209,7 @@ class AlbaNode(DataObject):
                     osd_data['status'] = self.OSD_STATUSES.OK
                     osd_data['status_detail'] = ''
 
+        statistics = {}
         for slot_info in stack.itervalues():
             for osd_id, osd in slot_info['osds'].iteritems():
                 if osd.get('status_detail') == self.OSD_STATUS_DETAILS.ACTIVATING:
@@ -221,17 +229,34 @@ class AlbaNode(DataObject):
                                                          named_params={'host': ip, 'port': port})
                                 break
                             except (AlbaError, RuntimeError):
-                                AlbaNode._logger.warning('get-osd-claimed-by failed for IP:port {0}:{1}'.format(ip, port))
+                                self._logger.warning('get-osd-claimed-by failed for IP:port {0}:{1}'.format(ip, port))
                         alba_backend = AlbaBackendList.get_by_alba_id(claimed_by)
                         osd['claimed_by'] = alba_backend.guid if alba_backend is not None else claimed_by
                     except KeyError:
                         osd['claimed_by'] = 'unknown'
                     except:
-                        AlbaNode._logger.exception('Could not load OSD info: {0}'.format(osd_id))
+                        self._logger.exception('Could not load OSD info: {0}'.format(osd_id))
                         osd['claimed_by'] = 'unknown'
                         if osd.get('status') not in ['error', 'warning']:
                             osd['status'] = self.OSD_STATUSES.ERROR
                             osd['status_detail'] = self.OSD_STATUS_DETAILS.UNREACHABLE
+                claimed_by = osd.get('claimed_by', 'unknown')
+                if claimed_by == 'unknown':
+                    continue
+                try:
+                    alba_backend = AlbaBackend(claimed_by)
+                except ObjectNotFoundException:
+                    continue
+                # Add usage information
+                if alba_backend not in statistics:
+                    statistics[alba_backend] = alba_backend.osd_statistics
+                osd_statistics = statistics[alba_backend]
+                if osd_id not in osd_statistics:
+                    continue
+                stats = osd_statistics[osd_id]
+                osd['usage'] = {'size': int(stats['capacity']),
+                                'used': int(stats['disk_usage']),
+                                'available': int(stats['capacity'] - stats['disk_usage'])}
         return stack
 
     def _node_metadata(self):
@@ -251,7 +276,12 @@ class AlbaNode(DataObject):
                                                          'ips': 'list_of_ip',
                                                          'port': 'port'},
                                    'clear': True})
-
+        elif self.type == AlbaNode.NODE_TYPES.S3:
+            slots_metadata.update({'fill_add': True,
+                                   'fill_add_metadata': {'count': 'integer',
+                                                         'osd_type': 'osd_type',
+                                                         'buckets': 'list_of_string'},
+                                   'clear': True})
         return slots_metadata
 
     def _supported_osd_types(self):
@@ -276,10 +306,12 @@ class AlbaNode(DataObject):
         :rtype: bool
         """
         read_only = False
-        try:
-            read_only = self.client.get_metadata()['_version'] < 3
-        except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
-            pass  # When down, nothing can be edited.
+        if self.type in [AlbaNode.NODE_TYPES.GENERIC, AlbaNode.NODE_TYPES.ASD]:
+            try:
+                read_only = self.client.get_metadata()['_version'] < 3
+            except (requests.ConnectionError, requests.Timeout, InvalidCredentialsError):
+                # When down, nothing can be edited.
+                self._logger.warning('Error during stack retrieval. Assuming that the node is down and disabling read_only because nothing can be done')
         return read_only  # Version 3 was introduced when Slots for Active Drives have been introduced
 
     def _local_summary(self):
@@ -321,8 +353,9 @@ class AlbaNode(DataObject):
         :rtype: dict
         """
         try:
-            return Configuration.get('/ovs/alba/asdnodes/{0}/config/ipmi'.format(self.node_id))
+            return Configuration.get(os.path.join(self.CONFIG_LOCATIONS[self.type], 'ipmi').format(self.node_id))
         except NotFoundException:  # Could be that the ASDManager does not yet have the IPMI info stored
+            self._logger.warning('No IPMI config path found')
             return {'ip': None,
                     'username': None,
                     'password': None}

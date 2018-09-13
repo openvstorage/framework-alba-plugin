@@ -17,9 +17,8 @@
 """
 Mocks Alba backends
 """
-
-import json
-import inspect
+import re
+import requests
 from ovs.extensions.db.arakooninstaller import ArakoonClusterConfig
 from ovs.extensions.plugins.asdmanager import ASDManagerClient
 
@@ -193,6 +192,19 @@ class ManagerClientMockup(ASDManagerClient):
     test_exceptions = {}
     maintenance_agents = {}
 
+    # Map the requests method with the table of the url regex and methodname
+    api_method_mapping = {
+        requests.get: {re.compile('^$'): 'get_metadata',
+                       re.compile('^slots$'): 'get_stack',
+                       re.compile('^service_status\/.*$'): 'get_service_status',
+                       re.compile('^maintenance$'): 'list_maintenance_services'},
+        requests.put: {},
+        requests.delete: {},
+        requests.patch: {},
+        requests.post: {re.compile('^maintenance\/.*\/add$'): 'add_maintenance_service',
+                        re.compile('^maintenance\/.*\/remove'): 'remove_maintenance_service'},
+    }
+
     def __init__(self, node):
         super(ManagerClientMockup, self).__init__(node=node)
 
@@ -203,25 +215,48 @@ class ManagerClientMockup(ASDManagerClient):
         ManagerClientMockup.maintenance_agents = {}
 
     def _call(self, *args, **kwargs):
-        curframe = inspect.currentframe()
-        method_name = inspect.getouterframes(curframe, 2)[1][3]
-        exception = ManagerClientMockup.test_exceptions.get(self.node, {}).get(method_name)
-        if exception is not None:
+        # type: (*any, **any) -> any
+        """
+        Simulate API calls
+        :return: Result of the api call
+        :rtype: any
+        """
+        requests_method = kwargs['method']
+        url = kwargs['url']
+        data = kwargs['json']
+        method_name = self._convert_url_to_method(requests_method, url)
+        exception = self.test_exceptions.get(self.node, {}).get(method_name)
+        if exception:
             raise exception
+
         if method_name == 'add_maintenance_service':
-            service_name = kwargs['url'].split('/')[1]
-            read_preferences = json.loads(kwargs['data']['read_preferences'])
-            if self.node not in ManagerClientMockup.maintenance_agents:
-                ManagerClientMockup.maintenance_agents[self.node] = {}
-            ManagerClientMockup.maintenance_agents[self.node][service_name] = read_preferences
+            service_name = url.split('/')[1]
+            read_preferences = data['read_preferences']
+            if self.node not in self.maintenance_agents:
+                self.maintenance_agents[self.node] = {}
+            self.maintenance_agents[self.node][service_name] = read_preferences
         elif method_name == 'remove_maintenance_service':
-            service_name = kwargs['url'].split('/')[1]
-            ManagerClientMockup.maintenance_agents[self.node].pop(service_name, None)
-            if len(ManagerClientMockup.maintenance_agents[self.node]) == 0:
-                ManagerClientMockup.maintenance_agents.pop(self.node)
+            service_name = url.split('/')[1]
+            self.maintenance_agents[self.node].pop(service_name, None)
+            if len(self.maintenance_agents[self.node]) == 0:
+                self.maintenance_agents.pop(self.node)
         elif method_name == 'list_maintenance_services':
-            if self.node in ManagerClientMockup.maintenance_agents:
-                return {'services': ManagerClientMockup.maintenance_agents[self.node].keys()}
+            if self.node in self.maintenance_agents:
+                return {'services': self.maintenance_agents[self.node].keys()}
             return {'services': []}
 
-        return ManagerClientMockup.test_results[self.node][method_name]
+        return self.test_results[self.node][method_name]
+
+    @classmethod
+    def _convert_url_to_method(cls, requests_method, url):
+        # type: (callable, str) -> str
+        """
+        Converts the given url to a method name
+        These method names are used within unittesting instead of urls to keep it simpler
+        :return: The method name associated with the url
+        """
+        possible_methods = cls.api_method_mapping[requests_method]
+        for url_regex, method_name in possible_methods.iteritems():
+            if url_regex.match(url):
+                return method_name
+        raise NotImplementedError('No result found for {0} with url {1}'.format(requests_method, url))

@@ -36,10 +36,13 @@ define([
         };
         /**
          * Loads in all AlbaBackends for the current supplied data
-         * @param queryParams: Additional query params. Defaults to no params
-         * @param relayParams: Relay to use (Optional, defaults to no relay)
+         * @param guid: Guid of the AlbaBackend to remove
          * @returns {Promise}
          */
+        self.removeAlbaBackend = function(guid) {
+            return api.del('alba/backends/' + guid)
+                .then(shared.tasks.wait)
+        };
         self.loadAlbaBackends = function(queryParams, relayParams) {
             return api.get('alba/backends', { queryparams: queryParams, relayParams: relayParams })
         };
@@ -80,6 +83,16 @@ define([
             })
             .then(shared.tasks.wait)
         };
+        /**
+         * Remove a preset from the backend
+         * @param guid: Guid of the AlbaBackend
+         * @param presetName: Name of the preset
+         * @returns {Promise<T>}
+         */
+        self.removePreset = function(guid, presetName) {
+            return api.post('alba/backends/' + guid + '/delete_preset', { data: { name: presetName } })
+                .then(shared.tasks.wait)
+        }
     }
     return new AlbaBackendService();
 });

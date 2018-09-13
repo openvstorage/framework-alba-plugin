@@ -17,11 +17,11 @@
 define([
     'jquery', 'knockout',
     'ovs/generic',
-    'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albaosd',
+    'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albaosd', 'viewmodels/containers/shared/albausage',
     'viewmodels/services/subscriber'
 ], function($, ko,
             generic,
-            BaseContainer, OSD,
+            BaseContainer, OSD, AlbaUsage,
             subscriberService) {
     "use strict";
     var viewModelMapping = {
@@ -36,6 +36,11 @@ define([
                     slot_id: ko.utils.unwrapObservable(options.parent.slot_id)
                 });
                 return new OSD(data);
+            }
+        },
+        'usage': {
+            create: function(options){
+                return new AlbaUsage(options.data)
             }
         }
     };
@@ -63,14 +68,13 @@ define([
         // ASD slot properties
         self.device       = ko.observable();
         self.mountpoint   = ko.observable();
-        self.usage        = ko.observable();
 
         var vmData = $.extend({  // Order matters
             alba_backend_guid: null, // Guid of the AlbaBackend of the AlbaDetailView
             // Displaying props
             alba_backend_guids: null,
             // ASD slot props
-            usage: null,
+            usage: {size: null, used: null, available: null},  // Converted into a viewModel with observables,
             device: null,
             mountpoint: null,
             aliases: null,

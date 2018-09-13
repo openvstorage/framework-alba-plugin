@@ -38,10 +38,10 @@ define([
         self.gatherSlotData = function() {
             // Gather info from the dynamic form
             var slotData = [];
-            $.each(self.data.slots(), function(_, slot) {
+            $.each(self.data.slots, function(_, slot) {
                 var osdData = {
                     slot_id: slot.slot_id(),
-                    alba_backend_guid: self.data.node().albaBackend.guid()
+                    alba_backend_guid: self.data.node.albaBackend.guid()
                 };
                 $.extend(osdData, formBuilder.gatherData(self.data.formFieldMapping));
                 // @TODO remove this part as type should be fetched
@@ -54,8 +54,8 @@ define([
         };
         self.finish = function () {
             var slotData = self.gatherSlotData();
-            var node = self.data.node();
-            var nodeCluster = self.data.nodeCluster();
+            var node = self.data.node;
+            var nodeCluster = self.data.nodeCluster;
             var osdAmount = slotData[0].hasOwnProperty('count') ? slotData[0].count : 1;
             var slotAmount = slotData.length;
             if (slotAmount === 1) {

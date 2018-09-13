@@ -17,7 +17,6 @@
 """
 Contains the AlbaNodeViewSet
 """
-
 import re
 from rest_framework import viewsets
 from rest_framework.decorators import action, link
@@ -27,7 +26,6 @@ from ovs.dal.datalist import DataList
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs_extensions.api.exceptions import HttpNotAcceptableException
-from ovs.extensions.generic.configuration import Configuration
 from ovs.lib.albanode import AlbaNodeController
 from ovs.lib.albanodecluster import AlbaNodeClusterController
 from ovs.lib.helpers.toolbox import Toolbox
@@ -42,7 +40,34 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     base_name = 'albanodes'
     return_exceptions = ['albanodes.create', 'albanodes.destroy']
 
-    # noinspection PyProtectedMember
+    @classmethod
+    def _discover_nodes(cls, ip=None, node_id=None):
+        # type: (Optional[str], Optional[str]) -> Dict[str, AlbaNode]
+        """
+        :param ip: IP of ALBA node to retrieve
+        :type ip: str
+        :param node_id: ID of the ALBA node
+        :type node_id: str
+        :return: Dict with guid of the node mapped to the node itself
+        :rtype: Dict[str, AlbaNode]
+        """
+        nodes = {}
+        if ip is not None:
+            # List the requested node
+            node = AlbaNodeController.model_volatile_node(node_id, AlbaNode.NODE_TYPES.ASD, ip)
+            data = node.client.get_metadata()
+            if data['_success'] is False and data['_error'] == 'Invalid credentials':
+                raise HttpNotAcceptableException(error='invalid_data',
+                                                 error_description='Invalid credentials')
+            if data['node_id'] != node_id:
+                raise HttpNotAcceptableException(error='invalid_data',
+                                                 error_description='Unexpected node identifier. {0} vs {1}'.format(
+                                                     data['node_id'], node_id))
+            nodes[node.guid] = node
+        else:
+            nodes.update(AlbaNodeController.discover_nodes())
+        return nodes
+
     @log()
     @required_roles(['read'])
     @return_list(AlbaNode)
@@ -69,46 +94,9 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         if discover is False:
             return AlbaNodeList.get_albanodes()
 
-        if ip is not None:
-            node = AlbaNode(volatile=True)
-            node.ip = ip
-            node.type = 'ASD'
-            node.node_id = node_id
-            node.port = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|port'.format(node_id))
-            node.username = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|username'.format(node_id))
-            node.password = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|password'.format(node_id))
-            data = node.client.get_metadata()
-            if data['_success'] is False and data['_error'] == 'Invalid credentials':
-                raise HttpNotAcceptableException(error='invalid_data',
-                                                 error_description='Invalid credentials')
-            if data['node_id'] != node_id:
-                raise HttpNotAcceptableException(error='invalid_data',
-                                                 error_description='Unexpected node identifier. {0} vs {1}'.format(data['node_id'], node_id))
-            node_list = DataList(AlbaNode, {})
-            node_list._executed = True
-            node_list._guids = [node.guid]
-            node_list._objects = {node.guid: node}
-            node_list._data = {node.guid: {'guid': node.guid, 'data': node._data}}
-            return node_list
-
-        nodes = {}
-        model_node_ids = [node.node_id for node in AlbaNodeList.get_albanodes()]
-        found_node_ids = []
-        asd_node_ids = []
-        if Configuration.dir_exists('/ovs/alba/asdnodes'):
-            asd_node_ids = Configuration.list('/ovs/alba/asdnodes')
-
-        for node_id in asd_node_ids:
-            node = AlbaNode(volatile=True)
-            node.type = 'ASD'
-            node.node_id = node_id
-            node.ip = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|ip'.format(node_id))
-            node.port = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|port'.format(node_id))
-            node.username = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|username'.format(node_id))
-            node.password = Configuration.get('/ovs/alba/asdnodes/{0}/config/main|password'.format(node_id))
-            if node.node_id not in model_node_ids and node.node_id not in found_node_ids:
-                nodes[node.guid] = node
-                found_node_ids.append(node.node_id)
+        # Discover nodes
+        nodes = self._discover_nodes(ip=ip, node_id=node_id)
+        # Build the DataList
         node_list = DataList(AlbaNode)
         node_list._executed = True
         node_list._guids = nodes.keys()
@@ -205,26 +193,32 @@ class AlbaNodeViewSet(viewsets.ViewSet):
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(AlbaNode)
-    def fill_slots(self, albanode, slot_information, metadata=None):
+    def fill_slots(self, albanode, slot_information=None, osd_information=None, metadata=None):
+        # type: (AlbaNode, Optional[List[dict]], Optional[List[dict]], Optional[dict]) -> any
         """
         Fills 1 or more Slots
         :param albanode: The AlbaNode on which the Slots will be filled
         :type albanode: ovs.dal.hybrids.albanode.AlbaNode
-        :param slot_information: A list of Slot information
+        :param slot_information: A list of OSD information. The name was chosen poorly and it was rectified
         :type slot_information: list
+        :param osd_information: A list of OSD information. The name was chosen poorly and it was rectified
+        :type osd_information: list
         :param metadata: Extra metadata if required
         :type metadata: dict
         :return: Celery async task result
         :rtype: CeleryTask
         """
+        if all(param is None for param in [slot_information, osd_information]):
+            raise ValueError('Either slot_information or osd_information should be passed.')
+        osd_information = slot_information or osd_information
         if albanode.alba_node_cluster is not None:
             # The current node is treated as the 'active' side
             return AlbaNodeClusterController.fill_slots.delay(node_cluster_guid=albanode.alba_node_cluster.guid,
                                                               node_guid=albanode.guid,
-                                                              slot_information=slot_information,
+                                                              osd_information=osd_information,
                                                               metadata=metadata)
         return AlbaNodeController.fill_slots.delay(node_guid=albanode.guid,
-                                                   slot_information=slot_information,
+                                                   osd_information=osd_information,
                                                    metadata=metadata)
 
     @action()
@@ -250,13 +244,13 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         # Data: [{alba_backend_guid: "0d3829bb-98fb-4ead-8772-862f37fb45dd", count:1, osd_type:"ASD", slot_id:"ata-QEMU_HARDDISK_1a078cce-511c-11e7-8"}]
         # Alba backend guid can be ignored for just filling slots
         osd_type = 'ASD'  # Always for this backwards compatible call
-        slot_information = []
+        osd_information = []
         for disk_alias, count in disks.iteritems():
             slot_id = disk_alias.split('/')[-1]
-            slot_information.append({'slot_id': slot_id,
+            osd_information.append({'slot_id': slot_id,
                                      'count': count,
                                      'osd_type': osd_type})
-        return AlbaNodeController.fill_slots.delay(node_guid=albanode.guid, slot_information=slot_information)
+        return AlbaNodeController.fill_slots.delay(node_guid=albanode.guid, osd_information=osd_information)
 
     @action()
     @required_roles(['read', 'write', 'manage'])

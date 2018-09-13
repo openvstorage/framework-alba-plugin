@@ -93,9 +93,6 @@ define([
             parent.closing.always(function() {
                 self.refresher.stop();
             });
-            parent.finishing.always(function() {
-                self.refresher.stop();
-            });
         };
     };
 });

@@ -40,8 +40,8 @@ class AlbaBaseClient(APIClient):
         super(AlbaBaseClient, self).__init__(self.node.ip, self.node.port, credentials, timeout)
 
     # Metadata
-    def get_metadata(self):
-        # type: () -> dict
+    def get_metadata(self, *args, **kwargs):
+        # type: (*any, **any) -> dict
         """
         Gets metadata from the node
         :return: Dict with metadata
@@ -50,8 +50,8 @@ class AlbaBaseClient(APIClient):
         raise NotImplementedError()
 
     # Osds
-    def restart_osd(self, slot_id, osd_id):
-        # type: (str, str) -> None
+    def restart_osd(self, slot_id, osd_id, *args, **kwargs):
+        # type: (str, str, *any, **any) -> None
         """
         Restart an OSD.
         :param slot_id: Identifier of the slot
@@ -63,8 +63,8 @@ class AlbaBaseClient(APIClient):
         """
         raise NotImplementedError()
 
-    def delete_osd(self, slot_id, osd_id):
-        # type: (str, str) -> None
+    def delete_osd(self, slot_id, osd_id, *args, **kwargs):
+        # type: (str, str, *any, **any) -> None
         """
         Delete the OSD from the Slot
         :param slot_id: Identifier of the slot
@@ -77,8 +77,8 @@ class AlbaBaseClient(APIClient):
         raise NotImplementedError()
 
     # Slots
-    def fill_slot(self, slot_id, extra):
-        # type: (str, dict) -> None
+    def fill_slot(self, slot_id, extra, *args, **kwargs):
+        # type: (str, dict, *any, **any) -> None
         """
         Fill a slot with a set of osds
         :param slot_id: Identifier of the slot
@@ -90,8 +90,8 @@ class AlbaBaseClient(APIClient):
         """
         raise NotImplementedError()
 
-    def restart_slot(self, slot_id):
-        # type: (str) -> None
+    def restart_slot(self, slot_id, *args, **kwargs):
+        # type: (str, *any, **any) -> None
         """
         Restart a slot
         :param slot_id: Identifier of the slot
@@ -101,8 +101,8 @@ class AlbaBaseClient(APIClient):
         """
         raise NotImplementedError()
 
-    def stop_slot(self, slot_id):
-        # type: (str) -> None
+    def stop_slot(self, slot_id, *args, **kwargs):
+        # type: (str, *any, **any) -> None
         """
         Stop a slot. This will cause all OSDs on that slot to stop
         :param slot_id: Identifier of the slot
@@ -112,8 +112,19 @@ class AlbaBaseClient(APIClient):
         """
         raise NotImplementedError()
 
-    def build_slot_params(self, osd):
-        # type: (any) -> dict
+    def clear_slot(self, slot_id, *args, **kwargs):
+        # type: (str, *any, **any) -> None
+        """
+        Clears the slot
+        :param slot_id: Identifier of the slot to clear
+        :type slot_id: str
+        :return: None
+        :rtype: NoneType
+        """
+        raise NotImplementedError()
+
+    def build_slot_params(self, osd, *args, **kargs):
+        # type: (any, *any, **any) -> dict
         """
         Builds the "extra" params for replacing an OSD
         :param osd: The OSD object
@@ -124,8 +135,8 @@ class AlbaBaseClient(APIClient):
         raise NotImplementedError()
 
     # Stack
-    def get_stack(self):
-        # type: () -> dict
+    def get_stack(self, *args, **kwargs):
+        # type: (*any, **any) -> dict
         """
         Returns the node's stack
         :return: Dict with stack information
@@ -133,8 +144,8 @@ class AlbaBaseClient(APIClient):
         """
         raise NotImplementedError()
 
-    def sync_stack(self, stack):
-        # type: (dict) -> None
+    def sync_stack(self, stack, *args, **kwargs):
+        # type: (dict, *any, **any) -> None
         """
         Synchronize the stack of an AlbaNode with the stack of another AlbaNode
         :param stack: Stack to sync

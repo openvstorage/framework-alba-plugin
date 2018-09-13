@@ -17,11 +17,11 @@
 define([
     'durandal/app', 'knockout', 'jquery',
     'ovs/generic',
-    'viewmodels/containers/shared/base_container', 'viewmodels/containers/backend/albabackend',
+    'viewmodels/containers/shared/base_container', 'viewmodels/containers/backend/albabackend', 'viewmodels/containers/shared/albausage',
     'viewmodels/services/subscriber'
 ], function(app, ko, $,
             generic,
-            BaseContainer, AlbaBackend,
+            BaseContainer, AlbaBackend, AlbaUsage,
             subscriberService) {
     "use strict";
 
@@ -32,6 +32,11 @@ define([
             },
             create: function (options) {
                 return new AlbaBackend(ko.utils.unwrapObservable(options.parent.alba_backend_guid) || null);
+            }
+        },
+        'usage': {
+            create: function(options){
+                return new AlbaUsage(options.data)
             }
         }
     };
@@ -55,14 +60,21 @@ define([
             available: 'available',
             claimed: 'claimed',
             nodedown: 'nodedown',
+            ok: 'ok',
             unknown: 'unknown',
             uninitialized: 'uninitialized'
         }, self.errorStatuses));
 
+        self.statusDetails = Object.freeze({
+            null: null,
+            ownership_query_fail: 'ownership_query_fail'
+        });
+
         // Observables
-        self._status =      ko.observable();
-        self.loaded =       ko.observable(false);
-        self.processing =   ko.observable(false);
+        self._status =          ko.observable();
+        self._status_detail =   ko.observable();
+        self.loaded =           ko.observable(false);
+        self.processing =       ko.observable(false);
 
         var vmData = $.extend({
             alba_backend: {},
@@ -70,9 +82,8 @@ define([
             claimed_by: null,
             slot_id: null,
             guid: null,
-            status_detail: null,
             osd_id: null,
-            usage: null,
+            usage: {size: null, used: null, available: null},
             device: null,
             mountpount: null,
             port: null,
@@ -103,6 +114,18 @@ define([
                 self._status(status)
             }
         });
+        self.status_detail = ko.computed({
+            deferEvaluation: true,  // Wait with computing for an actual subscription
+            read: function() {
+                if (self._status() === self.statusses.ok && self._status_detail() === null) {
+                    return self.statusDetails.ownership_query_fail
+                }
+                return self._status_detail()
+            },
+            write: function(statusDetail) {
+                self._status_detail(statusDetail)
+            }
+        });
         self.hasErrorStatus = ko.pureComputed(function() {
             return Object.values(self.errorStatuses).contains(self.status()) && self.status_detail() !== undefined && self.status_detail() !== ''
         });
@@ -124,8 +147,7 @@ define([
             return sockets
         });
         self.displayUsage = ko.pureComputed(function() {
-            return self.status() !== self.statusses.unavailable && self.status() !== self.statusses.uninitialized
-                && ko.utils.unwrapObservable(self.usage) && ko.utils.unwrapObservable(self.usage.used)
+            return ![self.statusses.unavailable, self.statusses.uninitialized].contains(self.status) && ko.utils.unwrapObservable(self.usage.used)
         });
 
         // Events - albaBackendDetail

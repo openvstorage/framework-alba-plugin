@@ -17,11 +17,12 @@
 """
 AlbaNodeController module
 """
-
+import os
 import uuid
 import string
 import random
 import requests
+from ovs.constants.albanode import S3_NODE_BASE_PATH, ASD_NODE_BASE_PATH
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albaosd import AlbaOSD
 from ovs.dal.hybrids.diskpartition import DiskPartition
@@ -29,6 +30,7 @@ from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.albaosdlist import AlbaOSDList
+from ovs.dal.lists.albas3transactionclusterlist import S3TransactionClusterList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.generic.exceptions import InvalidCredentialsError, NotFoundError
@@ -36,6 +38,7 @@ from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs_extensions.generic.toolbox import ExtensionsToolbox
 from ovs.lib.alba import AlbaController
+from ovs.lib.albaarakoon import AlbaArakoonController
 from ovs.lib.disk import DiskController
 from ovs.constants.albanode import ASD_CONFIG, ASD_CONFIG_DIR
 from ovs.lib.helpers.decorators import add_hooks, ovs_task
@@ -46,6 +49,75 @@ class AlbaNodeController(object):
     Contains all BLL related to ALBA nodes
     """
     _logger = Logger('lib')
+
+    @classmethod
+    def discover_nodes(cls):
+        # type: () -> Dict[str, AlbaNode]
+        """
+        Discover nodes by querying the config mgmt
+        :return: The discovered nodes, mapped by their guid
+        :rtype: Dict[str, AlbaNode]
+        """
+        nodes = {}
+        model_node_ids = set(node.node_id for node in AlbaNodeList.get_albanodes())
+        found_node_ids = set()
+        node_ids_by_type = {}
+        for node_type, base_config_path in {AlbaNode.NODE_TYPES.ASD: ASD_NODE_BASE_PATH,
+                                            AlbaNode.NODE_TYPES.S3: S3_NODE_BASE_PATH}.iteritems():
+            if Configuration.dir_exists(base_config_path):
+                node_ids = Configuration.list(base_config_path)
+                node_ids_by_type[node_type] = node_ids
+
+        for node_type, node_ids in node_ids_by_type.iteritems():
+            for node_id in node_ids:
+                if node_id not in model_node_ids and node_id not in found_node_ids:
+                    node = cls.model_volatile_node(node_id, node_type)
+                    nodes[node.guid] = node
+                    found_node_ids.add(node.node_id)
+        return nodes
+
+    @classmethod
+    def model_volatile_node(cls, node_id, node_type, ip=None):
+        # type: (str, str, Optional[str]) -> AlbaNode
+        """
+        Models a non-existing AlbaNode
+        :param node_id: ID of the node
+        :type node_id: str
+        :param node_type: Type of the node
+        :type node_type: str
+        :param ip: IP of the node
+        :type ip: str
+        :return: The modeled node
+        :rtype: AlbaNode
+        """
+        node = cls.model_alba_node(node_id, node_type, ip)
+        node.volatile = True
+        return node
+
+    @staticmethod
+    def model_alba_node(node_id, node_type, ip=None):
+        # type: (str, str, Optional[str]) -> AlbaNode
+        """
+        Models a non-existing AlbaNode
+        :param node_id: ID of the node
+        :type node_id: str
+        :param node_type: Type of the node
+        :type node_type: str
+        :param ip: IP of the node
+        :type ip: str
+        :return: The modeled node
+        :rtype: AlbaNode
+        """
+        node = AlbaNode()
+        node.type = node_type
+        node.node_id = node_id
+        config_path = AlbaNode.CONFIG_LOCATIONS[node_type].format(node_id)  # type str
+        node.ip = ip or Configuration.get(os.path.join(config_path, 'main|ip'))
+        node.port = Configuration.get(os.path.join(config_path, 'main|port'))
+        node.username = Configuration.get(os.path.join(config_path, 'main|username'))
+        node.password = Configuration.get(os.path.join(config_path, 'main|password'))
+        node.storagerouter = StorageRouterList.get_by_ip(node.ip)
+        return node
 
     @staticmethod
     @ovs_task(name='albanode.register')
@@ -61,6 +133,7 @@ class AlbaNodeController(object):
         :return: None
         :rtype: NoneType
         """
+        # Generic is a special case. Nothing is registered within config mgmt
         if node_type == AlbaNode.NODE_TYPES.GENERIC:
             node = AlbaNode()
             node.name = name
@@ -68,28 +141,41 @@ class AlbaNodeController(object):
             node.type = AlbaNode.NODE_TYPES.GENERIC
             node.save()
         else:
+            # Both S3 and ASD type can be added now
             if node_id is None:
-                raise RuntimeError('A node_id must be given for type ASD')
-            node = AlbaNodeList.get_albanode_by_node_id(node_id)
-            if node is None:
-                main_config = Configuration.get('/ovs/alba/asdnodes/{0}/config/main'.format(node_id))
-                node = AlbaNode()
-                node.name = name
-                node.ip = main_config['ip']
-                node.port = main_config['port']
-                node.username = main_config['username']
-                node.password = main_config['password']
-                node.storagerouter = StorageRouterList.get_by_ip(main_config['ip'])
+                raise RuntimeError('A node_id must be given for type ASD/S3')
+            node = AlbaNodeList.get_albanode_by_node_id(node_id) or AlbaNodeController.get_discovered_node(node_id)
+            if not node:
+                # No node could be found in the model or within the discovered nodes. User might have specified the ID
+                # of a node that does not exist
+                raise RuntimeError('No node with node_id {0} was found'.format(node_id))
             data = node.client.get_metadata()
             if data['_success'] is False and data['_error'] == 'Invalid credentials':
                 raise RuntimeError('Invalid credentials')
             if data['node_id'] != node_id:
                 AlbaNodeController._logger.error('Unexpected node_id: {0} vs {1}'.format(data['node_id'], node_id))
                 raise RuntimeError('Unexpected node identifier')
-            node.node_id = node_id
-            node.type = AlbaNode.NODE_TYPES.ASD
+            if node.type == AlbaNode.NODE_TYPES.S3:
+                # The transaction Arakoon is needed. This wil check deployment & extend
+                AlbaArakoonController.configure_s3_transaction_cluster()
+            node.volatile = False
             node.save()
         AlbaController.checkup_maintenance_agents.delay()
+
+    @classmethod
+    def get_discovered_node(cls, node_id):
+        # type: (str) -> AlbaNode
+        """
+        Retrieve the node associated with the node_id from the pool of discovered nodes
+        :param node_id: ID of the node to look for
+        :type node_id: str
+        :return: The found node model
+        :rtype: AlbaNode
+        """
+        nodes = AlbaNodeController.discover_nodes()
+        for alba_node_guid, alba_node in nodes.iteritems():
+            if alba_node.node_id == node_id:
+                return alba_node
 
     @staticmethod
     @ovs_task(name='albanode.remove_node')
@@ -153,19 +239,19 @@ class AlbaNodeController(object):
         :rtype: dict
         """
         alba_node = AlbaNode(alba_node_guid)
-        if alba_node.type != AlbaNode.NODE_TYPES.GENERIC:
+        if alba_node.type not in [AlbaNode.NODE_TYPES.GENERIC, AlbaNode.NODE_TYPES.S3]:
             raise RuntimeError('An empty slot can only be generated for a generic node')
         return {str(uuid.uuid4()): {'status': alba_node.SLOT_STATUSES.EMPTY}}
 
     @staticmethod
     @ovs_task(name='albanode.fill_slots')
-    def fill_slots(node_guid, slot_information, metadata=None):
+    def fill_slots(node_guid, osd_information, metadata=None):
         """
         Creates 1 or more new OSDs
         :param node_guid: Guid of the node to which the disks belong
         :type node_guid: str
-        :param slot_information: Information about the amount of OSDs to add to each Slot
-        :type slot_information: list
+        :param osd_information: Information about the amount of OSDs to add to each Slot
+        :type osd_information: list
         :param metadata: Metadata to add to the OSD (connection information for remote Backend, general Backend information)
         :type metadata: dict
         :return: None
@@ -191,31 +277,40 @@ class AlbaNodeController(object):
             raise ValueError('The given node does not support filling slots')
 
         validation_reasons = []
-        for slot_info in slot_information:
+        for osd_info in osd_information:  # type: dict
             try:
-                ExtensionsToolbox.verify_required_params(required_params=required_params, actual_params=slot_info)
+                ExtensionsToolbox.verify_required_params(required_params=required_params, actual_params=osd_info)
             except RuntimeError as ex:
                 validation_reasons.append(str(ex))
         if len(validation_reasons) > 0:
             raise ValueError('Missing required parameter:\n *{0}'.format('\n* '.join(validation_reasons)))
 
-        for slot_info in slot_information:
+        for osd_info in osd_information:
             if node.node_metadata['fill'] is True:
                 # Only filling is required
-                AlbaNodeController._fill_slot(node, slot_info['slot_id'], dict((key, slot_info[key]) for key in node.node_metadata['fill_metadata']))
+                AlbaNodeController._fill_slot(node, osd_info['slot_id'], dict((key, osd_info[key]) for key in node.node_metadata['fill_metadata']))
             elif node.node_metadata['fill_add'] is True:
                 # Fill the slot
-                AlbaNodeController._fill_slot(node, slot_info['slot_id'], dict((key, slot_info[key]) for key in node.node_metadata['fill_add_metadata']))
+                created_osds = AlbaNodeController._fill_slot(node, osd_info['slot_id'], dict((key, osd_info[key]) for key in node.node_metadata['fill_add_metadata']))
                 # And add/claim the OSD
-                AlbaController.add_osds(alba_backend_guid=slot_info['alba_backend_guid'],
-                                        osds=[slot_info],
-                                        alba_node_guid=node_guid,
-                                        metadata=metadata)
+                if node.type == AlbaNode.NODE_TYPES.S3:
+                    # The S3 manager returns the information about the osd when filling it
+                    for created_osd_info in created_osds:
+                        osd_info.update(created_osd_info)  # Add additional information about the osd
+                        AlbaController.add_osds(alba_backend_guid=osd_info['alba_backend_guid'],
+                                                osds=[osd_info],
+                                                alba_node_guid=node_guid,
+                                                metadata=metadata)
+                else:
+                    AlbaController.add_osds(alba_backend_guid=osd_info['alba_backend_guid'],
+                                            osds=[osd_info],
+                                            alba_node_guid=node_guid,
+                                            metadata=metadata)
         node.invalidate_dynamics('stack')
 
     @classmethod
     def _fill_slot(cls, node, slot_id, extra):
-        # type: (AlbaNode, str, any) -> None
+        # type: (AlbaNode, str, any) -> List[dict]
         """
         Fills in the slots with ASDs and checks if the BACKEND role needs to be added
         :param node: The AlbaNode to fill on
@@ -224,11 +319,18 @@ class AlbaNodeController(object):
         :type slot_id: str
         :param extra: Extra information for filling
         :type extra: any
-        :return: None
-        :rtype: NoneType
+        :return: Information about the created osds
+        :rtype: List[dict]
         """
-        node.client.fill_slot(slot_id=slot_id,
-                              extra=extra)
+        if node.type == AlbaNode.NODE_TYPES.S3:
+            extra = extra.copy()
+            try:
+                s3_transaction_cluster = S3TransactionClusterList.get_s3_transaction_clusters()[0]
+                extra['transaction_arakoon_url'] = Configuration.get_configuration_path(key=s3_transaction_cluster.config_location)
+            except IndexError:
+                raise RuntimeError('No transaction arakoon was deployed for this cluster!')
+        created_osds = node.client.fill_slot(slot_id=slot_id, extra=extra)
+        cls._logger.info(created_osds)
 
         # Sync model
         if node.storagerouter is not None:
@@ -242,6 +344,7 @@ class AlbaNodeController(object):
                     if DiskPartition.ROLES.BACKEND not in partition.roles:
                         partition.roles.append(DiskPartition.ROLES.BACKEND)
                         partition.save()
+        return created_osds or []  # Always return a list
 
     @staticmethod
     @ovs_task(name='albanode.remove_slot', ensure_single_info={'mode': 'CHAINED'})

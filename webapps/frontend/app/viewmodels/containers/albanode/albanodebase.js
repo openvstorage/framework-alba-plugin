@@ -68,21 +68,23 @@ define([
          */
         generateSlotsByStack: function(stack) {
             if (typeof stack === 'undefined') { stack = this.stack }  // No need to copy as we won't change the observable value
-            else { stack = $.extend({}, stack) }  // Copy before we mutate
             if (!ko.utils.unwrapObservable(stack)) {
                 throw new Error('No stack information available')
             }
+            var slots = [];
             $.each(ko.utils.unwrapObservable(stack) || {}, function(slotID, slotInfo) {
+                var changedSlot = $.extend({}, slotInfo);
                 // Inject the slot_id back into the the slotInfo so the mapping plugin can do it's work
-                slotInfo.slot_id = slotID;
+                changedSlot.slot_id = slotID;
                 // Change the osds item to an Array so we can observe it
-                slotInfo.osds = Object.keys(slotInfo.osds).map(function(osdID) {
-                    slotInfo.osds[osdID].osd_id = osdID;
-                    return slotInfo.osds[osdID]
+                var osdList = Object.keys(changedSlot.osds).map(function(osdID) {
+                    changedSlot.osds[osdID].osd_id = osdID;
+                    return changedSlot.osds[osdID]
                 });
+                changedSlot.osds = osdList;
+                slots.push(changedSlot);
             });
-            var slots = Object.values(ko.utils.unwrapObservable(stack));
-            slots.sort(self.sortSlotsFunction);
+            slots.sort(this.sortSlotsFunction);
             return slots;
         },
         /**
@@ -91,9 +93,12 @@ define([
          * @param slot2: Next slot to compare
          */
         sortSlotsFunction: function(slot1, slot2) {
-            if ((slot1.status() === 'empty' && slot2.status() === 'empty') || (slot1.status() !== 'empty' && slot2.status() !== 'empty')) {
-                    return slot1.node_id() < slot2.slot_id() ? -1 : 1;
-                } else if (slot1.status() === 'empty') {  // Move empty status last
+            var isEmpty = function(slot) {
+                return slot.status === 'empty'
+            };
+            if ((isEmpty(slot1) && isEmpty(slot2)) || (!isEmpty(slot1) && !isEmpty(slot2))) {
+                    return slot1.slot_id < slot2.slot_id ? -1 : 1;
+                } else if (isEmpty(slot1)) {  // Move empty status last
                     return 1;
                 }
                 return -1;
