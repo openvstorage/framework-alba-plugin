@@ -15,7 +15,7 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'knockout', 'ovs/generic', 'ovs/formBuilder', 'ovs/api',
+    'jquery', 'knockout', 'ovs/generic', 'ovs/services/forms/form', 'ovs/api',
     '../build', './confirm', './gather', './data'
 ], function($, ko, generic, formBuilder, api, Build, Confirm, Gather, Data) {
     "use strict";

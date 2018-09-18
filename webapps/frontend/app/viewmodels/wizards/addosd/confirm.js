@@ -16,10 +16,10 @@
 /*global define */
 define([
     'jquery', 'knockout',
-    'ovs/api', 'ovs/shared', 'ovs/generic', 'ovs/formBuilder',
+    'ovs/api', 'ovs/shared', 'ovs/generic',
     'viewmodels/services/albanode', 'viewmodels/services/albanodecluster'
 ], function($, ko,
-            api, shared, generic, formBuilder,
+            api, shared, generic,
             albaNodeService, albaNodeClusterService) {
     "use strict";
     return function(stepOptions) {
@@ -43,7 +43,7 @@ define([
                     slot_id: slot.slot_id(),
                     alba_backend_guid: self.data.node.albaBackend.guid()
                 };
-                $.extend(osdData, formBuilder.gatherData(self.data.formFieldMapping));
+                $.extend(osdData, self.data.form.gatherData());
                 // @TODO remove this part as type should be fetched
                 if (!('osd_type' in osdData)) {
                     osdData.osd_type = 'ASD';

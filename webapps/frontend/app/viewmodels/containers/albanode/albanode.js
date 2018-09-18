@@ -132,7 +132,7 @@ define([
             type: null
         }, data || {});
 
-        vmData = $.extend(vmData, {'slots': self.generateSlotsByStack(vmData.stack || {})});  // Add slot info
+        vmData = $.extend(vmData, {'slots': self.generateSlotsByStack(vmData.stack || {}, vmData.node_id)});  // Add slot info
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
 
         if (self.emptySlots().length === 0 && [nodeTypes.generic, nodeTypes.s3].contains(self.type())) {
@@ -225,7 +225,7 @@ define([
         update: function(data){
             var self = this;
             if ('stack' in data) {
-                data = $.extend(data, {'slots': self.generateSlotsByStack(data.stack)});
+                data = $.extend(data, {'slots': self.generateSlotsByStack(data.stack, self.node_id())});
             }
             return AlbaNodeBase.prototype.update.call(this, data)
         },

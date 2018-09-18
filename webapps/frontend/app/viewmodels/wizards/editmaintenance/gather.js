@@ -15,7 +15,7 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'knockout', 'ovs/shared', 'ovs/formBuilder'
+    'jquery', 'knockout', 'ovs/shared', 'ovs/services/forms/form'
 ], function($, ko, shared, formBuilder) {
     "use strict";
     return function(stepOptions) {

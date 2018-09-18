@@ -14,18 +14,57 @@
 // Open vStorage is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
-define(['knockout', 'jquery', 'ovs/formBuilder'], function(ko, $, formBuilder){
+define(['knockout', 'jquery',
+    'ovs/generic', 'ovs/services/forms/form'],
+    function(ko, $,
+             generic, Form){
     "use strict";
 
-    function Data(node, nodeCluster, slots, confirmOnly, formQuestions, fieldMapping, formMetadata, formMapping) {
+    function Data(node, nodeCluster, slots, confirmOnly) {
         var self = this;
+
+        var countDisplay = ['gather'];
+        if (node.type() === 'ASD') {
+            countDisplay = ['confirm']
+        }
+        var osdTypeItems;
+        if (node.type() === 'S3') {
+            osdTypeItems = ['S3']
+        } else {
+            osdTypeItems = ['ASD', 'AD']
+        }
+        var formMapping = {
+            'ips': {
+                'extender': {regex: generic.ipRegex},
+                'displayOn': ['gather']
+            },
+            'port': {
+                'extender': {numeric: {min: 1, max: 65535}},
+                'group': 1,
+                'displayOn': ['gather']
+            },
+            'osd_type': {
+                'fieldMap': 'type',  // Translate osd_type to type so in the form it will be self.data.formdata().type
+                'inputType': 'dropdown',  // Generate dropdown, needs items
+                'inputItems': ko.observableArray(osdTypeItems),
+                'group': 0,
+                'displayOn': ['gather']
+            },
+            'count': {
+                'extender': {numeric: {min: 1, max: 24}},
+                'group': 2,
+                'displayOn': countDisplay
+            },
+            'buckets': {
+                'displayOn': ['gather'],
+                'group': 3
+            }
+        };
+
         self.node               = node;
         self.nodeCluster        = nodeCluster;
         self.slots              = slots;
-        self.formQuestions      = ko.observableArray(formQuestions);
-        self.formFieldMapping   = ko.observable(fieldMapping);
-        self.formMetadata       = ko.observable(formMetadata);
-        self.formMapping        = ko.observable(formMapping);
+        self.form               = new Form(ko.toJS(node.node_metadata), formMapping);
         self.confirmOnly        = ko.observable(confirmOnly);
 
         self.hasHelpText = ko.pureComputed(function() {
@@ -42,10 +81,10 @@ define(['knockout', 'jquery', 'ovs/formBuilder'], function(ko, $, formBuilder){
     }
     Data.prototype = {
         insertItem: function(field) {
-            return formBuilder.insertGeneratedFormItem(field, this.formMetadata(), this.formMapping(), this.formQuestions, this.formFieldMapping);
+            return self.form.insertGeneratedFormItem(field);
         },
         removeItem: function(index) {
-            return formBuilder.removeFormItem(index, this.formQuestions, this.formFieldMapping)
+            return self.form.removeFormItem(index);
         }
     };
     return Data;

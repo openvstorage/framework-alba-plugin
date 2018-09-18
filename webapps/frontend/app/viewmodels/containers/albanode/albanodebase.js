@@ -66,7 +66,7 @@ define([
         /**
          * Generate the slot relations based on the stack property
          */
-        generateSlotsByStack: function(stack) {
+        generateSlotsByStack: function(stack, node_id) {
             if (typeof stack === 'undefined') { stack = this.stack }  // No need to copy as we won't change the observable value
             if (!ko.utils.unwrapObservable(stack)) {
                 throw new Error('No stack information available')
@@ -79,6 +79,10 @@ define([
                 // Change the osds item to an Array so we can observe it
                 var osdList = Object.keys(changedSlot.osds).map(function(osdID) {
                     changedSlot.osds[osdID].osd_id = osdID;
+                    // Add the ID of the node for easier access
+                    if (!changedSlot.osds[osdID].node_id) {
+                        changedSlot.osds[osdID].node_id = node_id
+                    }
                     return changedSlot.osds[osdID]
                 });
                 changedSlot.osds = osdList;

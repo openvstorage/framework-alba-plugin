@@ -142,7 +142,7 @@ class AlbaNode(DataObject):
 
         stack = {}
         node_down = False
-        # Fetch stack from asd-manager
+        # Fetch stack from manager
         try:
             remote_stack = self.client.get_stack()
             for slot_id, slot_data in remote_stack.iteritems():

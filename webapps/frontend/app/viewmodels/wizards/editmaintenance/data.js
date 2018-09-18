@@ -14,7 +14,7 @@
 // Open vStorage is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
-define(['knockout', 'jquery', 'ovs/formBuilder'], function(ko, $, formBuilder){
+define(['knockout', 'jquery', 'ovs/services/forms/form'], function(ko, $, formBuilder){
     "use strict";
 
     function viewModel (backend, formQuestions, fieldMapping, metadata, formMapping) {
