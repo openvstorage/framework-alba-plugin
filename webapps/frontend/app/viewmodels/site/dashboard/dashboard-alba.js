@@ -73,7 +73,7 @@ define([
                 if (key === 'GLOBAL' || key === 'LOCAL') {
                     return true;
                 }
-                if (!generic.arrayHasElementWithProperty(customgroups, 'name', key)) {
+                if (!customgroups.hasElementWithProperty('name', key)) {
                     customgroups.push(item);
                 }
                 customgroups.sort(function(group1, group2) {

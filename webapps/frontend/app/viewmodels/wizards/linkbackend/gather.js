@@ -206,7 +206,7 @@ define([
                                         .then(function(data) {
                                             var alreadyLinked = false, albaBackendDomainMap = {};
                                             if (self.data.localHost()) {  // We only care about domains for backends on the local system
-                                                albaBackendDomainMap[data.guid] = generic.keys(data.local_summary['domain_info']);
+                                                albaBackendDomainMap[data.guid] = Object.keys(data.local_summary['domain_info']);
                                                 $.extend(self.albaBackendDomainMap(), albaBackendDomainMap);
                                             }
                                             $.each(data.linked_backend_guids, function(index, guid) {
