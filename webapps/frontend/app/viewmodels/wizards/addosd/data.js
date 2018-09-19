@@ -47,17 +47,18 @@ define(['knockout', 'jquery',
                 'fieldMap': 'type',  // Translate osd_type to type so in the form it will be self.data.formdata().type
                 'inputType': 'dropdown',  // Generate dropdown, needs items
                 'inputItems': ko.observableArray(osdTypeItems),
-                'group': 0,
+                'inputTextFormatFunc': function(item) { return $.t('alba:generic.osdtypes.' + item.toLowerCase()); },
+                'group': 2,
                 'displayOn': ['gather']
             },
             'count': {
                 'extender': {numeric: {min: 1, max: 24}},
-                'group': 2,
+                'group': 3,
                 'displayOn': countDisplay
             },
             'buckets': {
                 'displayOn': ['gather'],
-                'group': 3
+                'group': 4
             }
         };
 
@@ -67,25 +68,9 @@ define(['knockout', 'jquery',
         self.form               = new Form(ko.toJS(node.node_metadata), formMapping);
         self.confirmOnly        = ko.observable(confirmOnly);
 
-        self.hasHelpText = ko.pureComputed(function() {
-            var hasText = {};
-            $.each(self.formQuestions(), function(index, item) {
-                var key = 'alba:wizards.add_osd.gather.' + item().field() + '_help';
-                hasText[item().field()] = key !== $.t(key);
-            });
-            return hasText;
-        });
         self.workingWithCluster = ko.pureComputed(function() {
             return !!self.nodeCluster
         })
     }
-    Data.prototype = {
-        insertItem: function(field) {
-            return self.form.insertGeneratedFormItem(field);
-        },
-        removeItem: function(index) {
-            return self.form.removeFormItem(index);
-        }
-    };
     return Data;
 });

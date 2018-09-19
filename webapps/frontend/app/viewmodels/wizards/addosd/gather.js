@@ -18,7 +18,8 @@ define([
     'jquery', 'knockout', 'ovs/shared'
 ], function($, ko, shared) {
     "use strict";
-    return function(stepOptions) {
+
+    function GatherStep(stepOptions){
         var self = this;
 
         // Variables
@@ -27,7 +28,15 @@ define([
 
         // Computed
         self.canContinue = ko.pureComputed(function() {
-            return self.data.form.validateForm('alba:wizards.add_osd.gather.invalid_')
+            return self.data.form.validation()
         });
     }
+    GatherStep.prototype = {
+        activate: function() {
+            this.data.form.setTranslationPrefix('alba:wizards.add_osd.gather.');
+            this.data.form.setDisplayPage('gather');
+        }
+    };
+
+    return GatherStep
 });

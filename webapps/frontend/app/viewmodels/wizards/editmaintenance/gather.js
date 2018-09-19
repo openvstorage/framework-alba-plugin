@@ -15,10 +15,13 @@
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
 define([
-    'jquery', 'knockout', 'ovs/shared', 'ovs/services/forms/form'
-], function($, ko, shared, formBuilder) {
+    'jquery', 'knockout',
+    'ovs/shared'
+], function($, ko,
+            shared) {
     "use strict";
-    return function(stepOptions) {
+
+    function GatherStep(stepOptions) {
         var self = this;
 
         // Variables
@@ -26,11 +29,18 @@ define([
         self.shared = shared;
 
         // Computed
-        self.canContinue = ko.computed(function() {
+        self.canContinue = ko.pureComputed(function() {
             if (self.data.loading()) {
                 return {value: false, reasons: [$.t('alba:wizards.' + self.data.wizardName + '.gather.loading')], fields: []}
             }
-            return formBuilder.validateForm('alba:wizards.' + self.data.wizardName + '.invalid_', self.data.formQuestions());
+            return self.data.form.validation()
         });
     }
+    GatherStep.prototype = {
+        activate: function() {
+            this.data.form.setTranslationPrefix('alba:wizards.' + this.data.wizardName + '.gather.');
+            this.data.form.setDisplayPage('gather');
+        }
+    };
+    return GatherStep
 });

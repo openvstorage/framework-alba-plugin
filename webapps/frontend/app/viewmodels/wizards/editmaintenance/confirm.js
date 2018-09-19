@@ -16,10 +16,11 @@
 /*global define */
 define([
     'jquery', 'knockout',
-    'ovs/api', 'ovs/shared', 'ovs/generic', 'ovs/services/forms/form'
-], function($, ko, api, shared, generic, formBuilder) {
+    'ovs/api', 'ovs/shared', 'ovs/generic'
+], function($, ko,
+            api, shared, generic) {
     "use strict";
-    return function(stepOptions) {
+    function ConfirmStep(stepOptions) {
         var self = this;
 
         // Variables
@@ -27,20 +28,20 @@ define([
         self.shared = shared;
 
         // Computed
-        self.canContinue = ko.computed(function () {
+        self.canContinue = ko.pureComputed(function () {
             return {value: true, reasons: [], fields: []};
         });
 
         // Function
         self.finish = function () {
-            var maintenanceConfig = formBuilder.gatherData(self.data.formFieldMapping);
+            var maintenanceConfig = self.data.form.gatherData();
             return $.when()
                 .then(function() {
                     generic.alertInfo(
                             $.t('alba:wizards.' + self.data.wizardName + '.confirm.started'),
                             $.t('alba:wizards.' + self.data.wizardName + '.confirm.started_msg', {})
                     );
-                    return api.post('alba/backends/' + self.data.backend().guid() + '/set_maintenance_config', {data: {maintenance_config: maintenanceConfig}})
+                    return api.post('alba/backends/' + self.data.backend.guid() + '/set_maintenance_config', {data: {maintenance_config: maintenanceConfig}})
                         .then(function() {
                             generic.alertSuccess(
                                 $.t('alba:wizards.' + self.data.wizardName + '.confirm.success'),
@@ -56,4 +57,10 @@ define([
                 });
         };
     }
+    ConfirmStep.prototype = {
+        activate: function() {
+            this.data.form.setDisplayPage('confirm');
+        }
+    };
+    return ConfirmStep
 });

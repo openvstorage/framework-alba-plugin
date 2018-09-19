@@ -22,7 +22,7 @@ define([
             api, shared, generic,
             albaNodeService, albaNodeClusterService) {
     "use strict";
-    return function(stepOptions) {
+    function ConfirmStep(stepOptions) {
         var self = this;
 
         // Variables
@@ -124,4 +124,11 @@ define([
                 });
         };
     }
+    ConfirmStep.prototype = {
+        activate: function() {
+            this.data.form.setTranslationPrefix('alba:wizards.add_osd.gather.');
+            this.data.form.setDisplayPage('confirm');
+        }
+    };
+    return ConfirmStep
 });

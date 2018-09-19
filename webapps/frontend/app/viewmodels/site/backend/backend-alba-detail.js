@@ -109,6 +109,7 @@ define([
             }
         }
     };
+    var backendLoaders = {};
     var viewModelContext = 'albaBackendDetail';
 
     function AlbaBackendDetail() {
@@ -380,21 +381,26 @@ define([
                         albaBackendGuid = data;
                     }
                     var cache = self.otherAlbaBackendsCache(), ab;
-                    return $.when()
-                        .then(function() {
-                            if (!cache.hasOwnProperty(albaBackendGuid)) {
+                    return $.when().then(function() {
+                        if (!(albaBackendGuid in cache)) {
+                            // Might be loading still or the loading is not being done
+                            if (backendLoaders[albaBackendGuid]) { return backendLoaders[albaBackendGuid] }
+                            return backendLoaders[albaBackendGuid] = $.when().then(function() {
                                 ab = new AlbaBackend(albaBackendGuid);
                                 return ab.load('backend')
                                     .then(function () {
                                         ab.backend.load();  // Don't care about this item so not waiting until it is loaded
                                         cache[albaBackendGuid] = ab;
+                                        delete backendLoaders[albaBackendGuid];
                                         self.otherAlbaBackendsCache(cache);
                                         return ab.toJS()
-                                    });
-                            }
+                                     });
+                            })
+                        } else {
                             return cache[albaBackendGuid].toJS();
-                        })
-                        .then(function(data){
+                        }
+                    })
+                    .then(function(data){
                             if (responseEvent) {
                                 subscriberService.trigger(responseEvent, data)
                             }
