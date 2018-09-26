@@ -17,10 +17,12 @@
 define([
     'jquery', 'durandal/app', 'knockout',
     'ovs/generic', 'ovs/refresher', 'ovs/api', 'ovs/shared',
+    'ovs/services/authentication',
     'viewmodels/containers/shared/base_container', 'viewmodels/containers/albanode/albanode',
     'viewmodels/services/albanode'
 ], function($, app, ko,
             generic, Refresher, api, shared,
+            authentication,
             BaseContainer, AlbaNode,
             albaNodeService) {
     "use strict";
@@ -55,6 +57,9 @@ define([
         };
         ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
 
+        self.canManage = ko.pureComputed(function() {
+            return authentication.user.canManage()
+        });
         // Functions
         self.loadAlbaNodes = function() {
                 var contents = '_relations';

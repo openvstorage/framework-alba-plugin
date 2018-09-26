@@ -24,7 +24,7 @@ but WITHOUT ANY WARRANTY of any kind.
                 <span>
                     <button type="button" class="btn btn-mini btn-default hand" id="buttonDownload"
                             data-bind="click: downloadLogfiles,
-                                       enable: $root.shared.user.roles().contains('manage') && downLoadingLogs() === false,
+                                       enable: $root.canManage() && downLoadingLogs() === false,
                                        tooltip: downloadLogState()">
                         <span class="hand fa" data-bind="visible: downLoadingLogs() === false" data-i18n="[html]alba:icons.download"></span>
                         <span class="hand fa fa-spin" data-bind="visible: downLoadingLogs() === true" data-i18n="[html]alba:icons.loading"></span>

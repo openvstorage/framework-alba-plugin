@@ -117,7 +117,13 @@ define([
             if (self.usages.size) {
                 return ko.utils.unwrapObservable(self.usages.size)
             }
-        })
+        });
+        self.isLocalBackend = ko.pureComputed(function() {
+            return self.scaling() !== 'GLOBAL'
+        });
+        self.isGlobalBackend= ko.pureComputed(function() {
+            return self.scaling() === 'GLOBAL'
+        });
     }
     var functions = {
         getAvailableActions: function() {

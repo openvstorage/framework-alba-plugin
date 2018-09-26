@@ -34,7 +34,7 @@ but WITHOUT ANY WARRANTY of any kind.
                 <span data-i18n="ovs:generic.actions"></span>:
                 <button type="button" class="btn btn-mini btn-default hand" style="color: #428bca;" id="buttonEdit"
                         data-bind="click: function() { if (backend.edit()) { backend.save(); } else { backend.edit(true); } },
-                                   enable: backend.loaded() && $root.shared.user.roles().contains('manage'),
+                                   enable: canEditBackend(),
                                    tooltip: 'ovs:backends.edit.edit'">
                     <span class="hand fa" data-bind="visible: backend.edit() && !backend.saving()" data-i18n="[html]ovs:icons.save"></span>
                     <span class="hand fa fa-spin" data-bind="visible: backend.edit() && backend.saving()" data-i18n="[html]ovs:icons.loading"></span>
@@ -44,13 +44,13 @@ but WITHOUT ANY WARRANTY of any kind.
                         data-bind="click: $root.removeBackend,
                                    style: { color: !alba_backend.initialized() || !alba_backend.availableActions().contains('REMOVE') ? 'lightgrey' : '#428bca' },
                                    tooltip: !alba_backend.initialized() || !alba_backend.availableActions().contains('REMOVE') ? 'alba:generic.asds_remaining' : 'alba:generic.delete_backend',
-                                   enable: $root.shared.user.roles().contains('manage') && backend !== undefined && backend.status() === 'running'">
+                                   enable: canRemoveBackend()">
                     <span class="fa" data-i18n="[html]ovs:icons.delete"></span>
                 </button>
                 <button type="button" class="btn btn-mini btn-default" id="editMaintenance" style="color: #428bca;"
                         data-bind="click: $root.editMaintenance,
                                    tooltip: 'alba:backend_detail.actions.edit_maintenance',
-                                   enable: backend.loaded() && backend.status() === 'running' && $root.shared.user.roles().contains('manage')">
+                                   enable: canEditMaintenance()">
                     <span class="fa" data-i18n="[html]ovs:icons.cog"></span>
                 </button>
             </li>
@@ -148,23 +148,23 @@ but WITHOUT ANY WARRANTY of any kind.
     <div data-bind="if: showActions()">
         <ul class="nav nav-tabs">
             <li data-bind="tooltip: 'alba:generic.nodes',
-                           visible: $root.shared.user.roles().contains('manage') && alba_backend.scaling() !== 'GLOBAL',
-                           css: { active: alba_backend.scaling() !== 'GLOBAL' }">
+                           visible: $root.canManage() && alba_backend.isLocalBackend(),
+                           css: { active: alba_backend.isLocalBackend() }">
                 <a href="#nodes" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>
             </li>
             <li data-bind="tooltip: 'alba:generic.backends',
-                           visible: $root.shared.user.roles().contains('manage') && alba_backend.scaling() !== 'LOCAL',
-                           css: { active: alba_backend.scaling() === 'GLOBAL' }">
+                           visible: $root.canManage() && alba_backend.isGlobalBackend(),
+                           css: { active: alba_backend.isGlobalBackend() }">
                 <a href="#backends" data-toggle="tab" class="fa" data-i18n="[html]alba:icons.nodes"></a>
             </li>
             <li data-bind="tooltip: 'alba:generic.presets',
-                           visible: $root.shared.user.roles().contains('manage')">
+                           visible: $root.canManage()">
                 <a href="#presets" data-toggle="tab">
                     <span class="fa fa-flip-vertical hand" data-i18n="[html]alba:icons.presets"></span>
                 </a>
             </li>
             <li data-bind="tooltip: 'ovs:generic.access_rights',
-                           css: { active: !$root.shared.user.roles().contains('manage') }">
+                           css: { active: !$root.canManage() }">
                 <a href="#rights" data-toggle="tab">
                     <span class="fa hand" data-i18n="[html]ovs:icons.rights"></span>
                 </a>
@@ -172,8 +172,8 @@ but WITHOUT ANY WARRANTY of any kind.
         </ul>
         <div class="tab-content">
             <div class="tab-pane" id="backends" style="padding: 15px;"
-                 data-bind="visible: $root.shared.user.roles().contains('manage'),
-                            css: { active: alba_backend.scaling() === 'GLOBAL' }">
+                 data-bind="visible: $root.canManage(),
+                            css: { active: alba_backend.isGlobalBackend() }">
                 <h4 class="pull-left" data-i18n="alba:generic.backends"></h4>
                 <button class="btn btn-default pull-right" id="buttonLinkBackend"
                         data-bind="click: linkBackend,
@@ -268,8 +268,8 @@ but WITHOUT ANY WARRANTY of any kind.
                 </table>
             </div>
             <div class="tab-pane" id="nodes" style="padding: 15px;"
-                 data-bind="visible: $root.shared.user.roles().contains('manage'),
-                            css: { active: alba_backend.scaling() !== 'GLOBAL' }">
+                 data-bind="visible: $root.canManage(),
+                            css: { active: alba_backend.isLocalBackend() }">
                 <h4 class="pull-left" data-i18n="alba:generic.nodes"></h4>
                 <button class="btn btn-default pull-right" id="buttonRefresh"
                         data-bind="click: refresh"
@@ -318,12 +318,12 @@ but WITHOUT ANY WARRANTY of any kind.
                             <td align="right">
                                 <i data-bind="attr: { id: 'registernode_' + node_id() },
                                               click: function() {
-                                                  if ($root.shared.user.roles().contains('manage')) {
+                                                  if ($root.canManage()) {
                                                       $root.register($data);
                                                   }
                                               },
                                               tooltip: 'alba:generic.register',
-                                              style: { color: $root.shared.user.roles().contains('manage') ? 'black' : 'lightgrey' }"
+                                              style: { color: $root.canManage() ? 'black' : 'lightgrey' }"
                                    class="hand fa fa-fw" data-i18n="[html]alba:icons.registernode"></i>
                             </td>
                         </tr>
@@ -413,7 +413,7 @@ but WITHOUT ANY WARRANTY of any kind.
                                 <span data-i18n="alba:presets.policies.title"></span>
                                 <a data-bind="popover: {
                                                   title: 'alba:presets.policies.helptitle',
-                                                  content: !$root.alba_backend.scaling() || $root.alba_backend.scaling === 'LOCAL' ? 'alba:presets.policies.helpcontent_storage' : 'alba:presets.policies.helpcontent_backend'
+                                                  content: !$root.alba_backend.scaling() || $root.alba_backend.isLocalBackend() ? 'alba:presets.policies.helpcontent_storage' : 'alba:presets.policies.helpcontent_backend'
                                               }" class="hand fa noline" data-i18n="[html]ovs:icons.help" role="button" tabindex="-1">
                                 </a>
                             </th>
@@ -488,7 +488,7 @@ but WITHOUT ANY WARRANTY of any kind.
                 </div>
             </div>
             <div class="tab-pane" id="rights" style="padding: 15px;"
-                 data-bind="css: { active: !$root.shared.user.roles().contains('manage') }">
+                 data-bind="css: { active: !$root.canManage() }">
                 <h4 data-i18n="ovs:generic.access_rights"></h4>
                 <div data-bind="accessrights: {
                                     rights: backend.accessRights(), save: backend.saveAccessRights

@@ -56,21 +56,21 @@ but WITHOUT ANY WARRANTY of any kind.
               data-bind="attr: { id: 'initialize_all_' + node_id() },
                          click: function() { addOSDs(); },
                          tooltip: 'alba:generic.initialize_all',
-                         style: { color: $root.shared.user.roles().contains('manage') && canInitializeAll() && !read_only_mode() ? 'black': 'lightgrey' }">
+                         style: { color: $root.canManage() && canInitializeAll() && !read_only_mode() ? 'black': 'lightgrey' }">
         </span>
         <span class="hand fa fa-fw"
               data-i18n="[html]alba:icons.claim"
               data-bind="attr: { id: 'claim_all_' + node_id() },
                          click: function() { claimAll(); },
                          tooltip: 'alba:generic.claim_all',
-                         style: { color: $root.shared.user.roles().contains('manage') && canClaimAll() && !read_only_mode() ? 'black' : 'lightgrey' }">
+                         style: { color: $root.canManage() && canClaimAll() && !read_only_mode() ? 'black' : 'lightgrey' }">
         </span>
         <span class="hand fa fa-fw"
               data-i18n="[html]alba:icons.delete"
               data-bind="attr: { id: 'delete_' + node_id() },
                          click: function() { deleteNode(); },
                          tooltip: 'alba:generic.remove',
-                         style: { color: $root.shared.user.roles().contains('manage') && canDelete() ? 'black' : 'lightgrey' }">
+                         style: { color: $root.canManage() && canDelete() ? 'black' : 'lightgrey' }">
         </span>
     </td>
 </tr>
