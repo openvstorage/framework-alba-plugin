@@ -16,14 +16,14 @@
 /*global define */
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
-    'ovs/generic',
+    'ovs/generic', 'ovs/shared',
     'ovs/services/authentication',
     'viewmodels/containers/albanode/albanodebase', 'viewmodels/containers/albanode/albaslot', 'viewmodels/containers/albanode/localsummary',
     'viewmodels/containers/storagerouter/storagerouter',
     'viewmodels/wizards/addosd/index', 'viewmodels/wizards/removeosd/index',
     'viewmodels/services/subscriber', 'viewmodels/services/albabackend', 'viewmodels/services/albanode'
 ], function($, app, ko, dialog,
-            generic,
+            generic, shared,
             authentication,
             AlbaNodeBase, Slot, LocalSummary, StorageRouter,
             AddOSDWizard, RemoveOSDWizard,
