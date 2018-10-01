@@ -294,20 +294,20 @@ class AlbaNodeController(object):
                 AlbaNodeController._logger.info(osd_info)
                 # Fill the slot
                 created_osds = AlbaNodeController._fill_slot(node, osd_info['slot_id'], dict((key, osd_info[key]) for key in node.node_metadata['fill_add_metadata']))
+                # The S3 manager currently returns the information about the osd when filling it
+                AlbaNodeController._logger.info('OSD information retrieved after creating them: {0}'.format(created_osds))
                 # And add/claim the OSD
                 if node.type == AlbaNode.NODE_TYPES.S3:
-                    # The S3 manager returns the information about the osd when filling it
-                    AlbaNodeController._logger.info('Created osds')
-                    AlbaNodeController._logger.info(created_osds)
                     for created_osd_info in created_osds:
+                        # There is some information missing for S3 that the S3 manager return
                         osd_info.update(created_osd_info)  # Add additional information about the osd
-                        AlbaNodeController._logger.info('Osd info add osds')
-                        AlbaNodeController._logger.info(osd_info)
+                        AlbaNodeController._logger.info('Creating OSD with data: {0}'.format(osd_info))
                         AlbaController.add_osds(alba_backend_guid=osd_info['alba_backend_guid'],
                                                 osds=[osd_info],
                                                 alba_node_guid=node_guid,
                                                 metadata=metadata)
                 else:
+                    AlbaNodeController._logger.info('Creating OSD with data: {0}'.format(osd_info))
                     AlbaController.add_osds(alba_backend_guid=osd_info['alba_backend_guid'],
                                             osds=[osd_info],
                                             alba_node_guid=node_guid,
