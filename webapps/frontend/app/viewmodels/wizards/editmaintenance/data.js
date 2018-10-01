@@ -14,42 +14,50 @@
 // Open vStorage is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY of any kind.
 /*global define */
-define(['knockout', 'jquery', 'ovs/formBuilder'], function(ko, $, formBuilder){
+define(['knockout', 'jquery',
+    'ovs/api', 'ovs/services/forms/form'],
+    function(ko, $,
+             api, Form){
     "use strict";
 
-    function viewModel (backend, formQuestions, fieldMapping, metadata, formMapping) {
+    var formMapping = {
+            'auto_cleanup_deleted_namespaces': {
+                'inputType': 'widget',
+                'widgetName': 'numberinput',
+                'group': 0,
+                'extender': {numeric: {min: 0}},
+                'displayOn': ['gather'],
+                'value': 30
+            }
+        };
+
+    function viewModel (backend) {
         var self = this;
 
         // Variables
+        self.form = new Form({}, {});
         self.wizardName = 'edit_maintenance';
+        self.backend = backend;
 
         // Observables
-        self.backend = ko.observable(backend);
         self.loading = ko.observable(true);
-        self.formQuestions = ko.observableArray(formQuestions || []);
-        self.formFieldMapping = ko.observable(fieldMapping || {});
-        self.formMapping = ko.observable(formMapping || {});
-        self.formMetadata = ko.observable(metadata || {});
+
         self.confirmOnly = ko.observable(false);
 
-        // Computed
-        self.hasHelpText = ko.computed(function() {
-            var hasText = {};
-            $.each(self.formQuestions(), function(index, item) {
-                var key = 'alba:wizards.' + self.wizardName + '.gather.' + item().field() + '_help';
-                hasText[item().field()] = key !== $.t(key);
-            });
-            return hasText;
+        // Asynchronously generate the formData
+        $.when(api.get('alba/backends/get_maintenance_metadata'), api.get('alba/backends/' + self.backend.guid() + '/get_maintenance_config'))
+            .then(function(metadata, maintenance_data) {
+                var auto_cleanup_days = maintenance_data.auto_cleanup_deleted_namespaces;
+                if (!(auto_cleanup_days === 0))  {
+                    // Special case - 0 is false-ish so using || for easier assignment would not work
+                    auto_cleanup_days = 30;
+                }
+                formMapping.auto_cleanup_deleted_namespaces.value = auto_cleanup_days;
+                self.form.metadata = metadata;
+                self.form.formMapping = formMapping;
+                self.form.generateQuestions.call(self.form);
+                self.loading(false)
         });
-
-        // Functions
-        self.insertItem = function(field){
-            // Generates an item to be added to the form
-            return formBuilder.insertGeneratedFormItem(field, self.formMetadata(), self.formMapping(), self.formQuestions, self.formFieldMapping);
-        };
-        self.removeItem = function(index){
-            return formBuilder.removeFormItem(index, self.formQuestions, self.formFieldMapping)
-        };
     }
     return viewModel;
 });

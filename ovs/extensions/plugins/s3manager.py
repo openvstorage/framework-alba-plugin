@@ -92,7 +92,10 @@ class S3ManagerClient(AlbaBaseClient):
         # Call can raise a NotFoundException when the slot could no longer be found
         return_value = []
         for _ in xrange(osd_params.count):
-            return_value.append(self.post('osds', json={'transaction_arakoon_url': osd_params.transaction_arakoon_url, 'buckets': osd_params.buckets}))
+            response = self.post('osds', json={'transaction_arakoon_url': osd_params.transaction_arakoon_url, 'buckets': osd_params.buckets})
+            # Mock the slot_id
+            response['slot_id'] = response['osd_id']
+            return_value.append(response)
         return return_value
 
     def restart_osd(self, slot_id, osd_id, *args, **kwargs):

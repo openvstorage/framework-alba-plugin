@@ -16,13 +16,13 @@
 /*global define */
 define([
     'jquery', 'knockout',
-    'ovs/api', 'ovs/shared', 'ovs/generic', 'ovs/formBuilder',
+    'ovs/api', 'ovs/shared', 'ovs/generic',
     'viewmodels/services/albanode', 'viewmodels/services/albanodecluster'
 ], function($, ko,
-            api, shared, generic, formBuilder,
+            api, shared, generic,
             albaNodeService, albaNodeClusterService) {
     "use strict";
-    return function(stepOptions) {
+    function ConfirmStep(stepOptions) {
         var self = this;
 
         // Variables
@@ -43,7 +43,7 @@ define([
                     slot_id: slot.slot_id(),
                     alba_backend_guid: self.data.node.albaBackend.guid()
                 };
-                $.extend(osdData, formBuilder.gatherData(self.data.formFieldMapping));
+                $.extend(osdData, self.data.form.gatherData());
                 // @TODO remove this part as type should be fetched
                 if (!('osd_type' in osdData)) {
                     osdData.osd_type = 'ASD';
@@ -124,4 +124,11 @@ define([
                 });
         };
     }
+    ConfirmStep.prototype = {
+        activate: function() {
+            this.data.form.setTranslationPrefix('alba:wizards.add_osd.gather.');
+            this.data.form.setDisplayPage('confirm');
+        }
+    };
+    return ConfirmStep
 });

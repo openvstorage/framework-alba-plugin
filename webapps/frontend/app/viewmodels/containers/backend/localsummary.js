@@ -20,8 +20,23 @@ define([
 ], function($, ko,
             BaseContainer) {
     "use strict";
-    var viewModelMapping = {};
+    var LocalSummaryMapping = {
+        devices: {
+            create: function(options) {
+                return new Devices(options.data);
+            }
+        }
+    };
 
+    function Devices(data) {
+        var vmData = $.extend({
+            green: 0,
+            orange: 0,
+            red: 0,
+            gray: 0
+        }, data || {});
+        ko.mapping.fromJS(vmData, {}, this);  // Bind the data into this
+    }
     /**
      * LocalSummaryModel class
      * @param data: Data to bind into the model. This data maps with model in the Framework
@@ -38,7 +53,7 @@ define([
 
         // Default data - replaces fillData - this always creates observables for the passed keys
         // Most of these properties are given by the API but setting them explicitly to have a view of how this model looks
-        var vmData = $.extend(vmData, {
+        var vmData = $.extend({
             backend_guid: null,
             devices: {},
             domain_info: {},
@@ -47,7 +62,7 @@ define([
             scaling: null
         }, data || {});
 
-        ko.mapping.fromJS(vmData, viewModelMapping, self);  // Bind the data into this
+        ko.mapping.fromJS(vmData, LocalSummaryMapping, self);  // Bind the data into this
 
         // Computed
         /**
@@ -56,8 +71,9 @@ define([
         self.listView = ko.pureComputed(function(){
             var map = self.colourInfoMap();
             return $.map(map, function(value, key) {
+                var text = self.devices[key]();
                 return $.extend({
-                    text: ko.utils.unwrapObservable(self.devices[key]) || 0
+                    text: text
                 }, map[key])
             })
         });
