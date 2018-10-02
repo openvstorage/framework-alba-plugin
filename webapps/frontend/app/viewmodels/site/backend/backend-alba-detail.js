@@ -17,6 +17,7 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/router', 'plugins/dialog', 'd3',
     'ovs/shared', 'ovs/generic', 'ovs/refresher', 'ovs/api',
+    'ovs/services/authentication',
     'viewmodels/containers/shared/base_container', 'viewmodels/containers/backend/albabackend', 'viewmodels/containers/albanode/albanode',
     'viewmodels/containers/backend/backend', 'viewmodels/containers/backend/backendtype', 'viewmodels/containers/domain/domain',
     'viewmodels/containers/storagerouter/storagerouter', 'viewmodels/containers/albanode/albaosd',
@@ -27,6 +28,7 @@ define([
     'viewmodels/services/albanodecluster', 'viewmodels/services/subscriber'
 ], function($, app, ko, router, dialog, d3,
             shared, generic, Refresher, api,
+            authentication,
             BaseContainer, AlbaBackend, AlbaNode, Backend, BackendType, Domain, StorageRouter, AlbaOSD, NodeCluster,
             AddNodeWizard, AddPresetWizard, LinkBackendWizard, UnlinkBackendWizard, EditMaintenanceWizard,
             albaBackendService, domainService, albaNodeService, albaNodeClusterService, subscriberService) {
@@ -195,6 +197,19 @@ define([
             });
             return albaBackends;
         });
+        self.canManage = ko.pureComputed(function() {
+            return authentication.user.canManage()
+        });
+        self.canEditBackend = ko.pureComputed(function() {
+            return self.canManage() && self.backend.loaded()
+        });
+        self.canRemoveBackend = ko.pureComputed(function() {
+            return self.canManage() && self.backend.isRunning()
+        });
+        self.canEditMaintenance = ko.pureComputed(function() {
+            return self.backend.isRunning() && self.canManage()
+        });
+
     }
 
     var functions = {

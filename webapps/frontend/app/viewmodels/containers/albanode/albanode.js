@@ -17,12 +17,14 @@
 define([
     'jquery', 'durandal/app', 'knockout', 'plugins/dialog',
     'ovs/generic', 'ovs/shared',
+    'ovs/services/authentication',
     'viewmodels/containers/albanode/albanodebase', 'viewmodels/containers/albanode/albaslot', 'viewmodels/containers/albanode/localsummary',
     'viewmodels/containers/storagerouter/storagerouter',
     'viewmodels/wizards/addosd/index', 'viewmodels/wizards/removeosd/index',
     'viewmodels/services/subscriber', 'viewmodels/services/albabackend', 'viewmodels/services/albanode'
 ], function($, app, ko, dialog,
             generic, shared,
+            authentication,
             AlbaNodeBase, Slot, LocalSummary, StorageRouter,
             AddOSDWizard, RemoveOSDWizard,
             subscriberService, albaBackendService, albaNodeService) {
@@ -283,7 +285,7 @@ define([
         },
         claimAll: function() {
             var self = this;
-            if (!self.canClaimAll() || self.read_only_mode() || !self.shared.user.roles().contains('manage')) {
+            if (!self.canClaimAll() || self.read_only_mode() || !authentication.user.canManage()) {
                 return;
             }
             var osds = self.allSlots().reduce(function(result, slot) {
@@ -346,7 +348,7 @@ define([
          */
         addOSDs: function(slot) {  // Fill the slot specified or all empty Slots if 'slot' is undefined
             var self = this;
-            if (!self.canInitializeAll() || self.read_only_mode() || !self.shared.user.roles().contains('manage')) {
+            if (!self.canInitializeAll() || self.read_only_mode() || !authentication.user.canManage()) {
                 return;
             }
             var slots = [];
@@ -605,7 +607,7 @@ define([
          */
         deleteNode: function() {
             var self = this;
-            if (!self.canDelete() || !self.shared.user.roles().contains('manage')) {
+            if (!self.canDelete() || !authentication.user.canManage()) {
                 return $.Deferred(function(deferred){
                     deferred.reject('Unable to delete the node')
                 }).promise()
