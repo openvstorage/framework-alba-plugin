@@ -245,15 +245,9 @@ class AlbaBackend(DataObject):
         """
         Loads statistics from all it's asds in one call
         """
-        from ovs.dal.hybrids.albaosd import AlbaOSD
-
         statistics = {}
         if self.abm_cluster is None:
             return statistics  # No ABM cluster yet, so backend not fully installed yet
-
-        osd_ids = [osd.osd_id for osd in self.osds if osd.osd_type in [AlbaOSD.OSD_TYPES.ASD, AlbaOSD.OSD_TYPES.AD]]
-        if len(osd_ids) == 0:
-            return statistics
         try:
             config = Configuration.get_configuration_path(self.abm_cluster.config_location)
             # TODO: This will need to be changed to osd-multistatistics, see openvstorage/alba#749
@@ -262,9 +256,8 @@ class AlbaBackend(DataObject):
             return statistics
         if raw_statistics:
             for osd_id, stats in raw_statistics.iteritems():
-                if osd_id in osd_ids:
-                    if stats['success'] is True:
-                        statistics[osd_id] = stats['result']
+                if stats['success'] is True:
+                    statistics[osd_id] = stats['result']
         return statistics
 
     def _linked_backend_guids(self):
