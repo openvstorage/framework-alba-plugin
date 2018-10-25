@@ -257,13 +257,14 @@ class AlbaBackend(DataObject):
         try:
             config = Configuration.get_configuration_path(self.abm_cluster.config_location)
             # TODO: This will need to be changed to osd-multistatistics, see openvstorage/alba#749
-            raw_statistics = AlbaCLI.run(command='asd-multistatistics', config=config, named_params={'long-id': ','.join(osd_ids)})
+            raw_statistics = AlbaCLI.run(command='asd-multistatistics', config=config, extra_params=['--all'])
         except RuntimeError:
             return statistics
         if raw_statistics:
             for osd_id, stats in raw_statistics.iteritems():
-                if stats['success'] is True:
-                    statistics[osd_id] = stats['result']
+                if osd_id in osd_ids:
+                    if stats['success'] is True:
+                        statistics[osd_id] = stats['result']
         return statistics
 
     def _linked_backend_guids(self):
