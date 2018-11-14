@@ -177,16 +177,26 @@ class AlbaArakoonController(object):
 
             # ABM Arakoon cluster creation
             if alba_backend.abm_cluster is None:
-                # Fallback to installing the cluster on an available storagerouter
-                storagerouter, partition = available_storagerouters.items()[0]
-                abm_installer.deploy_abm_cluster(alba_backend, abm_cluster_name,
-                                                 requested_abm_cluster_name=abm_cluster,
-                                                 storagerouter=storagerouter)
+                if abm_cluster:
+                    abm_installer.deploy_abm_cluster(alba_backend, abm_cluster_name,
+                                                     requested_abm_cluster_name=abm_cluster)
+                else:
+                    # Fallback to installing the cluster on an available storagerouter
+                    if not available_storagerouters:
+                        raise RuntimeError('No StorageRouters available to deploy ABM Arakoon cluster on')
+                    storagerouter, partition = available_storagerouters.items()[0]
+                    abm_installer.deploy_abm_cluster(alba_backend, abm_cluster_name,
+                                                     storagerouter=storagerouter)
 
             # NSM Arakoon cluster creation
-            if len(alba_backend.nsm_clusters) == 0 and nsm_clusters is not None:
-                storagerouter, partition = available_storagerouters.items()[0]
-                nsm_installer.deploy_nsm_cluster(alba_backend, storagerouter=storagerouter, nsm_clusters=nsm_clusters)
+            if len(alba_backend.nsm_clusters) == 0:
+                if nsm_clusters:
+                    nsm_installer.deploy_nsm_cluster(alba_backend, nsm_clusters=nsm_clusters)
+                else:
+                    if not available_storagerouters:
+                        raise RuntimeError('No StorageRouters available to deploy NSM Arakoon cluster on')
+                    storagerouter, partition = available_storagerouters.items()[0]
+                    nsm_installer.deploy_nsm_cluster(alba_backend, storagerouter=storagerouter)
 
         # ABM Cluster extension
         for alba_backend in AlbaBackendList.get_albabackends():
@@ -210,8 +220,8 @@ class AlbaArakoonController(object):
     @staticmethod
     @ovs_task(name='alba.manual_alba_arakoon_checkup',
               ensure_single_info={'mode': 'DEFAULT', 'extra_task_names': ['alba.scheduled_alba_arakoon_checkup']})
-    def manual_alba_arakoon_checkup(alba_backend_guid, nsm_clusters, abm_cluster=None):
-        # type: (str, List[str], Optional[str]) -> Union[bool, None]
+    def manual_alba_arakoon_checkup(alba_backend_guid, nsm_clusters=None, abm_cluster=None):
+        # type: (str, Optional[List[str]], Optional[str]) -> Union[bool, None]
         """
         Creates a new Arakoon cluster if required and extends cluster if possible on all available master nodes
         :param alba_backend_guid: Guid of the ALBA Backend
@@ -225,6 +235,8 @@ class AlbaArakoonController(object):
         :return: True if task completed, None if task was discarded (by decorator)
         :rtype: bool|None
         """
+        if nsm_clusters is None:
+            nsm_clusters = []
         if (abm_cluster is not None and len(nsm_clusters) == 0) or (len(nsm_clusters) > 0 and abm_cluster is None):
             raise ValueError('Both ABM cluster and NSM clusters must be provided')
         if abm_cluster is not None:

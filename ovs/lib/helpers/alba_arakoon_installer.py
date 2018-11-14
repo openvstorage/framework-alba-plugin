@@ -306,7 +306,8 @@ class ABMInstaller(AlbaArakoonInstaller):
         :type abm_cluster_name: str
         :param requested_abm_cluster_name: The request ABM name for this backend
         :type requested_abm_cluster_name: str
-        :param storagerouter: StorageRouter to install the ABM on
+        :param storagerouter: StorageRouter to install the ABM on. Used for internal installation.
+        Does not pair up with requested_abm_cluster_name
         :type storagerouter: StorageRouter
         :return:None
         :rtype: NoneType
