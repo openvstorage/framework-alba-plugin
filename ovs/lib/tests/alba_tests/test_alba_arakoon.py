@@ -18,7 +18,9 @@ ALBA Arakoon test module
 """
 
 import unittest
+from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.servicetype import ServiceType
+from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.tests.alba_helpers import AlbaDalHelper
 from ovs.dal.tests.helpers import DalHelper
 from ovs.extensions.db.arakooninstaller import ArakoonInstaller
@@ -174,3 +176,71 @@ class AlbaGeneric(unittest.TestCase):
         self.assertEqual(first=len(unused_nsms), second=1)
         self.assertEqual(first=unused_abms[0]['cluster_name'], second='manual-abm-1')
         self.assertEqual(first=unused_nsms[0]['cluster_name'], second='manual-nsm-2')
+
+    def test_external_arakoon_backend(self):
+        """
+        Test if a backend can be created with external arakoons
+        - No DB role should be required
+        :return: None
+        :rtype: NoneType
+        """
+        ovs_structure = DalHelper.build_dal_structure(structure={'storagerouters': [1]})
+        alba_structure = AlbaDalHelper.build_dal_structure(structure={'alba_backends': [[1, 'LOCAL']]})
+
+        sr_1 = ovs_structure['storagerouters'][1]
+        ab_1 = alba_structure['alba_backends'][1]
+
+        partition = sr_1.disks[0].partitions[0]
+        partition.roles = [DiskPartition.ROLES.SCRUB]   # Only have a scrub role
+        partition.save()
+
+        abm_cluster_name = '{0}-abm'.format(ab_1.name)
+        nsm_cluster_name = '{0}-nsm_0'.format(ab_1.name)
+
+        self._create_external_abm(abm_cluster_name, sr_1.ip)
+        self._create_external_nsm(nsm_cluster_name, sr_1.ip)
+
+        # Mock the plugin linking
+        MockedSSHClient._run_returns[sr_1.ip] = {}
+        MockedSSHClient._run_returns[sr_1.ip]['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
+        MockedSSHClient._run_returns[sr_1.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_0/db'] = None
+        AlbaController.add_cluster(ab_1.guid, abm_cluster=abm_cluster_name, nsm_clusters=[nsm_cluster_name])
+
+        arakoon_clusters = sorted(Configuration.list('/ovs/arakoon'))
+        self.assertListEqual(list1=[abm_cluster_name, nsm_cluster_name], list2=arakoon_clusters)
+
+        abm_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=abm_cluster_name)
+        nsm_metadata = ArakoonInstaller.get_arakoon_metadata_by_cluster_name(cluster_name=nsm_cluster_name)
+        self.assertTrue(expr=abm_metadata['in_use'])
+        self.assertTrue(expr=nsm_metadata['in_use'])
+
+    @staticmethod
+    def _create_external_arakoon_cluster(cluster_name, cluster_type, ip):
+        base_dir = DalHelper.CLUSTER_DIR.format(cluster_name)
+        arakoon_installer = ArakoonInstaller(cluster_name=cluster_name)
+        arakoon_installer.create_cluster(cluster_type=cluster_type,
+                                         ip=ip,
+                                         base_dir=base_dir,
+                                         internal=False)
+        arakoon_installer.start_cluster()
+        arakoon_installer.unclaim_cluster()
+        if cluster_type == ServiceType.ARAKOON_CLUSTER_TYPES.ABM:
+            service_type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.ALBA_MGR)
+        elif cluster_type == ServiceType.ARAKOON_CLUSTER_TYPES.NSM:
+            service_type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.NS_MGR)
+        else:
+            service_type = ServiceTypeList.get_by_name(ServiceType.SERVICE_TYPES.ARAKOON)
+
+        service_name = ArakoonInstaller.get_service_name_for_cluster(cluster_name=cluster_name)
+        DalHelper.create_service(service_name=service_name,
+                                 service_type=service_type)
+
+    @classmethod
+    def _create_external_abm(cls, cluster_name, ip):
+        cluster_type = ServiceType.ARAKOON_CLUSTER_TYPES.ABM
+        cls._create_external_arakoon_cluster(cluster_name, cluster_type, ip)
+
+    @classmethod
+    def _create_external_nsm(cls, cluster_name, ip):
+        cluster_type = ServiceType.ARAKOON_CLUSTER_TYPES.NSM
+        cls._create_external_arakoon_cluster(cluster_name, cluster_type, ip)
