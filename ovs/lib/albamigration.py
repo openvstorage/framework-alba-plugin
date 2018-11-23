@@ -239,7 +239,7 @@ class AlbaMigrationController(object):
                 if len(errors) == 0:
                     Configuration.set(key=migration_random_eviction_key, value=True)
             except Exception:
-                AlbaMigrationController._logger.exception('Updating auto cleanup failed')
+                AlbaMigrationController._logger.exception('Updating cache eviction failed')
 
         ###################################################
         # Sync all disks and apply the backend role. Backend role was removed with the AD (since 1.10)
