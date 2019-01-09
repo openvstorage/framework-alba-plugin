@@ -23,6 +23,7 @@ from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.tests.alba_helpers import AlbaDalHelper
 from ovs.dal.tests.helpers import DalHelper
+from ovs_extensions.constants.arakoon import ARAKOON_CONFIG
 from ovs.extensions.db.arakooninstaller import ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
@@ -93,8 +94,8 @@ class AlbaGeneric(unittest.TestCase):
         MockedSSHClient._run_returns[sr_3.ip] = {}
         MockedSSHClient._run_returns[sr_2.ip]['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
         MockedSSHClient._run_returns[sr_3.ip]['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_3/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
-        MockedSSHClient._run_returns[sr_2.ip]['arakoon --node {0} -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-abm/config -catchup-only'.format(sr_2.machine_id)] = None
-        MockedSSHClient._run_returns[sr_3.ip]['arakoon --node {0} -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-abm/config -catchup-only'.format(sr_3.machine_id)] = None
+        MockedSSHClient._run_returns[sr_2.ip]['arakoon --node {0} -config {1} -catchup-only'.format(sr_2.machine_id, Configuration.get_configuration_path(ARAKOON_CONFIG.format('backend_1-abm')))] = None
+        MockedSSHClient._run_returns[sr_3.ip]['arakoon --node {0} -config {1} -catchup-only'.format(sr_3.machine_id, Configuration.get_configuration_path(ARAKOON_CONFIG.format('backend_1-abm')))] = None
         AlbaArakoonController.scheduled_alba_arakoon_checkup()
         self.assertListEqual(list1=[abm_cluster_name, nsm_cluster_name], list2=arakoon_clusters)
         self.assertEqual(first=len(ab_1.abm_cluster.abm_services), second=3)  # Gone up from 1 to 3

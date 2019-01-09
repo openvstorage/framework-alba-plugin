@@ -21,6 +21,7 @@ import copy
 import unittest
 from ovs.dal.tests.alba_helpers import AlbaDalHelper
 from ovs.dal.tests.helpers import DalHelper
+from ovs_extensions.constants.arakoon import ARAKOON_CONFIG
 from ovs.extensions.db.arakooninstaller import ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.generic.tests.sshclient_mock import MockedSSHClient
@@ -116,14 +117,14 @@ class NSMCheckup(unittest.TestCase):
 
         storagerouter_2 = structure['storagerouters'][2]
         MockedSSHClient._run_returns[storagerouter_2.ip] = {}
-        MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-abm/config -catchup-only'] = None
+        MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config {0} -catchup-only'.format(Configuration.get_configuration_path(ARAKOON_CONFIG.format('backend_1-abm')))] = None
         MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/albamgr_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-abm/db'] = None
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaArakoonController.manual_alba_arakoon_checkup(alba_backend.guid, nsm_clusters=[])
 
         self.assertListEqual(VirtualAlbaBackend.run_log['backend_1-abm'], [['update_abm_client_config']])
 
-        MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_0/config -catchup-only'] = None
+        MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config {0} -catchup-only'.format(Configuration.get_configuration_path(ARAKOON_CONFIG.format('backend_1-nsm_0')))] = None
         MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_0/db'] = None
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaArakoonController.nsm_checkup()
@@ -136,8 +137,8 @@ class NSMCheckup(unittest.TestCase):
         MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_1/db'] = None
         MockedSSHClient._run_returns[storagerouter_1.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_1/db'] = None
         MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_1/db'] = None
-        MockedSSHClient._run_returns[storagerouter_1.ip]['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_1/config -catchup-only'] = None
-        MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_1/config -catchup-only'] = None
+        MockedSSHClient._run_returns[storagerouter_1.ip]['arakoon --node 1 -config {0} -catchup-only'.format(Configuration.get_configuration_path(ARAKOON_CONFIG.format('backend_1-nsm_1')))] = None
+        MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config {0} -catchup-only'.format(Configuration.get_configuration_path(ARAKOON_CONFIG.format('backend_1-nsm_1')))] = None
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaArakoonController.nsm_checkup(min_internal_nsms=2)
 
@@ -162,8 +163,8 @@ class NSMCheckup(unittest.TestCase):
         MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_1/disk_1/partition_1/arakoon/backend_1-nsm_2/db'] = None
         MockedSSHClient._run_returns[storagerouter_1.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_2/db'] = None
         MockedSSHClient._run_returns[storagerouter_2.ip]['ln -s /usr/lib/alba/nsm_host_plugin.cmxs /tmp/unittest/sr_2/disk_1/partition_1/arakoon/backend_1-nsm_2/db'] = None
-        MockedSSHClient._run_returns[storagerouter_1.ip]['arakoon --node 1 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_2/config -catchup-only'] = None
-        MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config file://opt/OpenvStorage/config/framework.json?key=/ovs/arakoon/backend_1-nsm_2/config -catchup-only'] = None
+        MockedSSHClient._run_returns[storagerouter_1.ip]['arakoon --node 1 -config {0} -catchup-only'.format(Configuration.get_configuration_path(ARAKOON_CONFIG.format('backend_1-nsm_2')))] = None
+        MockedSSHClient._run_returns[storagerouter_2.ip]['arakoon --node 2 -config {0} -catchup-only'.format(Configuration.get_configuration_path(ARAKOON_CONFIG.format('backend_1-nsm_2')))] = None
         VirtualAlbaBackend.run_log['backend_1-abm'] = []
         AlbaArakoonController.nsm_checkup()
 
