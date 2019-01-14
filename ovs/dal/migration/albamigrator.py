@@ -30,7 +30,7 @@ class DALMigrator(object):
     """
 
     identifier = PackageFactory.COMP_MIGRATION_ALBA
-    _logger = Logger('ALBA_migration')
+    _logger = Logger('update')
     THIS_VERSION = 15
 
     def __init__(self):
@@ -39,9 +39,15 @@ class DALMigrator(object):
 
     @staticmethod
     def critical_migrate():
+        """
+        This migrate reflects the alba related changes in the config management, where raw is removed as parameter of get and set methods.
+        Instead, files that are to be interpreted as raw need a suffix of either .ini or .raw. Everything else will be default read and
+        interpreted as a JSON file.
+        AlbaBackend objects their abm_cluster and nsm_cluster attributes have such a value, so we update these here
+        :return:
+        """
         try:
             from ovs.dal.lists.albabackendlist import AlbaBackendList
-            # todo no use of constants -> regex?
             for abe in AlbaBackendList.get_albabackends():
                 if not abe.abm_cluster.config_location.endswith('.ini'):
                     abe.abm_cluster.config_location = '{0}.ini'.format(abe.abm_cluster.config_location)
