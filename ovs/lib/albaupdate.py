@@ -469,21 +469,3 @@ class AlbaUpdateController(object):
 
         cls._logger.info('Executed hook {0}'.format(method_name))
 
-    @classmethod
-    @add_hooks('update', 'pre_update')
-    def _pre_update_hooks(cls):
-        try:
-            #todo geen gebruik van constant -> regex?
-            for abe in AlbaBackendList.get_albabackends():
-                if not abe.abm_cluster.config_location.endswith('.ini'):
-                    abe.abm_cluster.config_location = '{0}.ini'.format(abe.abm_cluster.config_location)
-                    abe.abm_cluster.save()
-
-                for nsm in abe.nsm_clusters:
-                    if not nsm.config_location.endswith('.ini'):
-                        nsm.config_location = '{0}.ini'.format(nsm.config_location)
-                        nsm.save()
-            cls._logger.info('Succesfully migrated hook to update abm_cluster and nsm_clusters')
-        except Exception as ex:
-            cls._logger.info('Unexpected error occurred in updating abm- and nsm clusters config location: {0}'.format(ex))
-

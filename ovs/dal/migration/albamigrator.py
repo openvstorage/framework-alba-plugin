@@ -20,6 +20,7 @@ ALBA migration module
 
 from ovs.dal.hybrids.backendtype import BackendType
 from ovs.dal.lists.backendtypelist import BackendTypeList
+from ovs.extensions.generic.logger import Logger
 from ovs_extensions.packages.packagefactory import PackageFactory
 
 
@@ -29,11 +30,29 @@ class DALMigrator(object):
     """
 
     identifier = PackageFactory.COMP_MIGRATION_ALBA
+    _logger = Logger('ALBA_migration')
     THIS_VERSION = 15
 
     def __init__(self):
         """ Init method """
         pass
+
+    @staticmethod
+    def critical_migrate():
+        try:
+            from ovs.dal.lists.albabackendlist import AlbaBackendList
+            # todo no use of constants -> regex?
+            for abe in AlbaBackendList.get_albabackends():
+                if not abe.abm_cluster.config_location.endswith('.ini'):
+                    abe.abm_cluster.config_location = '{0}.ini'.format(abe.abm_cluster.config_location)
+                    abe.abm_cluster.save()
+
+                for nsm in abe.nsm_clusters:
+                    if not nsm.config_location.endswith('.ini'):
+                        nsm.config_location = '{0}.ini'.format(nsm.config_location)
+                        nsm.save()
+        except Exception as ex:
+            DALMigrator._logger.info('Unexpected error occurred in updating abm- and nsm clusters config location: {0}'.format(ex))
 
     @staticmethod
     def migrate(previous_version):
@@ -72,6 +91,7 @@ class DALMigrator(object):
 
         # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
         elif working_version < DALMigrator.THIS_VERSION:
+            DALMigrator.critical_migrate()
             import hashlib
             from ovs.dal.exceptions import ObjectNotFoundException
             from ovs.dal.helpers import HybridRunner, Descriptor
