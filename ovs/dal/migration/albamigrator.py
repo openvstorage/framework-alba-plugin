@@ -31,7 +31,7 @@ class DALMigrator(object):
 
     identifier = PackageFactory.COMP_MIGRATION_ALBA
     _logger = Logger('update')
-    THIS_VERSION = 15
+    THIS_VERSION = 16
 
     def __init__(self):
         """ Init method """
