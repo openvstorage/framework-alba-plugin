@@ -38,29 +38,6 @@ class DALMigrator(object):
         pass
 
     @staticmethod
-    def migrate_critical():
-        """
-        This migrate reflects the alba related changes in the config management, where raw is removed as parameter of get and set methods.
-        Instead, files that are to be interpreted as raw need a suffix of either .ini or .raw. Everything else will be default read and
-        interpreted as a JSON file.
-        AlbaBackend objects their abm_cluster and nsm_cluster attributes have such a value, so we update these here
-        :return:
-        """
-        try:
-            from ovs.dal.lists.albabackendlist import AlbaBackendList
-            for abe in AlbaBackendList.get_albabackends():
-                if not abe.abm_cluster.config_location.endswith('.ini'):
-                    abe.abm_cluster.config_location = '{0}.ini'.format(abe.abm_cluster.config_location)
-                    abe.abm_cluster.save()
-
-                for nsm in abe.nsm_clusters:
-                    if not nsm.config_location.endswith('.ini'):
-                        nsm.config_location = '{0}.ini'.format(nsm.config_location)
-                        nsm.save()
-        except Exception as ex:
-            DALMigrator._logger.info('Unexpected error occurred in updating abm- and nsm clusters config location: {0}'.format(ex))
-
-    @staticmethod
     def migrate(previous_version):
         """
         Migrates from a given version to the current version. It uses 'previous_version' to be smart
@@ -97,7 +74,6 @@ class DALMigrator(object):
 
         # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
         elif working_version < DALMigrator.THIS_VERSION:
-            DALMigrator.migrate_critical()
             import hashlib
             from ovs.dal.exceptions import ObjectNotFoundException
             from ovs.dal.helpers import HybridRunner, Descriptor
@@ -342,5 +318,28 @@ class DALMigrator(object):
             for key in client.prefix('ovs_reverseindex_albanode_'):
                 if '|disks|' in key:
                     client.delete(key=key, must_exist=False)
+
+
+            ###############################
+            # Changes to config managemnt #
+            ###############################
+            """
+            This migrate reflects the alba related changes in the config management, where raw is removed as parameter of get and set methods.
+            Instead, files that are to be interpreted as raw need a suffix of either .ini or .raw. Everything else will be default read and
+            interpreted as a JSON file.
+            AlbaBackend objects their abm_cluster and nsm_cluster attributes have such a value, so we update these here
+            """
+            try:
+                for abe in AlbaBackendList.get_albabackends():
+                    if not abe.abm_cluster.config_location.endswith('.ini'):
+                        abe.abm_cluster.config_location = '{0}.ini'.format(abe.abm_cluster.config_location)
+                        abe.abm_cluster.save()
+
+                    for nsm in abe.nsm_clusters:
+                        if not nsm.config_location.endswith('.ini'):
+                            nsm.config_location = '{0}.ini'.format(nsm.config_location)
+                            nsm.save()
+            except Exception as ex:
+                DALMigrator._logger.info('Unexpected error occurred in updating abm- and nsm clusters config location: {0}'.format(ex))
 
         return DALMigrator.THIS_VERSION
