@@ -20,14 +20,14 @@ Shared albanode constants module
 import os
 
 # ASD
-ASD_BASE_PATH = '/ovs/alba/asds/'
-ASD_CONFIG_DIR = '/ovs/alba/asds/{0}'
-ASD_CONFIG = '{0}/config.raw'.format(ASD_CONFIG_DIR)
+ASD_BASE_PATH = os.path.join(os.path.sep, 'ovs', 'alba', 'asds')            #/ovs/alba/asds
+ASD_CONFIG_DIR = os.path.join(ASD_BASE_PATH, '{0}')                         #/ovs/alba/asds/{0}
+ASD_CONFIG = os.path.join(ASD_CONFIG_DIR, 'config.ini')                     #/ovs/alba/asds/{0}/config.raw
 
 # ASD NODES
-ASD_NODE_BASE_PATH = '/ovs/alba/asdnodes'
-ASD_NODE_CONFIG_PATH = os.path.join(ASD_NODE_BASE_PATH, '{0}/config')
+ASD_NODE_BASE_PATH = os.path.join(os.path.sep, 'ovs', 'alba', 'asdnodes')   #/ovs/alba/asdsnodes
+ASD_NODE_CONFIG_PATH = os.path.join(ASD_NODE_BASE_PATH, '{0}, config')      #/ovs/alba/asdsnodes/{0}/config
 
 # S3 NODES
-S3_NODE_BASE_PATH = '/ovs/alba/s3nodes'
-S3_NODE_CONFIG_PATH = os.path.join(S3_NODE_BASE_PATH, '{0}/config')
+S3_NODE_BASE_PATH = os.path.join(os.path.sep,'ovs', 'alba', 's3nodes')      #/ovs/alba/s3nodes
+S3_NODE_CONFIG_PATH = os.path.join(S3_NODE_BASE_PATH, '{0}, config')        #/ovs/alba/s3nodes/{0}/config

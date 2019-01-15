@@ -327,7 +327,8 @@ class DALMigrator(object):
             This migrate reflects the alba related changes in the config management, where raw is removed as parameter of get and set methods.
             Instead, files that are to be interpreted as raw need a suffix of either .ini or .raw. Everything else will be default read and
             interpreted as a JSON file.
-            AlbaBackend objects their abm_cluster and nsm_cluster attributes have such a value, so we update these here
+            AlbaBackend objects their abm_cluster and nsm_cluster attributes have such a value, so we update existing AlbaBackends their ABM and nsm
+            cluster DAL values here. The updating of the config paths static templates occurs in the framework update. 
             """
             try:
                 for abe in AlbaBackendList.get_albabackends():
