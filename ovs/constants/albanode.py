@@ -20,6 +20,7 @@ Shared albanode constants module
 import os
 
 # ASD
+ASD_BASE_PATH = '/ovs/alba/asds/'
 ASD_CONFIG_DIR = '/ovs/alba/asds/{0}'
 ASD_CONFIG = '{0}/config.raw'.format(ASD_CONFIG_DIR)
 
