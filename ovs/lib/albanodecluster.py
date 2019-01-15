@@ -312,8 +312,8 @@ class AlbaNodeClusterController(object):
                     AlbaNodeClusterController._logger.exception('Error while syncing stacks to the passive side')
 
         # Clean configuration management and model - Well, just try it at least
-        if Configuration.exists(ASD_CONFIG.format(osd_id), raw=True):
-            Configuration.delete(ASD_CONFIG_DIR.format(osd_id), raw=True)
+        if Configuration.exists(ASD_CONFIG.format(osd_id)):
+            Configuration.delete(ASD_CONFIG_DIR.format(osd_id))
 
         osd.delete()
         active_node.invalidate_dynamics()

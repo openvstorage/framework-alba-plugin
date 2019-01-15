@@ -24,6 +24,7 @@ import requests
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.albanodelist import AlbaNodeList
+from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.dal.migration.albamigrator import DALMigrator
 from ovs.extensions.db.arakooninstaller import ArakoonInstaller
@@ -467,3 +468,4 @@ class AlbaUpdateController(object):
         AlbaController.checkup_maintenance_agents.delay()
 
         cls._logger.info('Executed hook {0}'.format(method_name))
+
