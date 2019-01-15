@@ -38,7 +38,7 @@ class DALMigrator(object):
         pass
 
     @staticmethod
-    def critical_migrate():
+    def migrate_critical():
         """
         This migrate reflects the alba related changes in the config management, where raw is removed as parameter of get and set methods.
         Instead, files that are to be interpreted as raw need a suffix of either .ini or .raw. Everything else will be default read and
@@ -97,7 +97,7 @@ class DALMigrator(object):
 
         # From here on, all actual migration should happen to get to the expected state for THIS RELEASE
         elif working_version < DALMigrator.THIS_VERSION:
-            DALMigrator.critical_migrate()
+            DALMigrator.migrate_critical()
             import hashlib
             from ovs.dal.exceptions import ObjectNotFoundException
             from ovs.dal.helpers import HybridRunner, Descriptor
