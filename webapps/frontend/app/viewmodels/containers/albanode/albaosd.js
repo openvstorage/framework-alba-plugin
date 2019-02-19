@@ -154,13 +154,13 @@ define([
         self.claim = function() {
             var data = {};
             data[self.slot_id()] = {osds: [self]};
-            subscriberService.trigger('albanode_{0}:claim_osds'.format([self.node_id()]), data);
+            subscriberService.trigger('albanode_{0}:claim_osds'.format(self.node_id()), data);
         };
         self.remove = function() {
-            subscriberService.trigger('albanode_{0}:remove_osd'.format([self.node_id()]), self);
+            subscriberService.trigger('albanode_{0}:remove_osd'.format(self.node_id()), self);
         };
         self.restart = function() {
-            subscriberService.trigger('albanode_{0}:restart_osd'.format([self.node_id()]), self);
+            subscriberService.trigger('albanode_{0}:restart_osd'.format(self.node_id()), self);
         };
     }
     // Prototypical inheritance
@@ -176,7 +176,7 @@ define([
                     if (!self.alba_backend_guid()) {
                         return null
                     }
-                    var responseEvent = 'osd_{0}:load_alba_backend'.format([self.osd_id()]);
+                    var responseEvent = 'osd_{0}:load_alba_backend'.format(self.osd_id());
                     var data = {
                         response: responseEvent,
                         albaBackendGuid: self.alba_backend_guid()

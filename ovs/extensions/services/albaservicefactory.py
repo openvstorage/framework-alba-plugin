@@ -17,9 +17,7 @@
 """
 Service Factory for the ALBA plugin
 """
-
 from ovs.extensions.generic.configuration import Configuration
-from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.system import System
 from ovs_extensions.services.servicefactory import ServiceFactory as _ServiceFactory
 
@@ -33,8 +31,6 @@ class ServiceFactory(_ServiceFactory):
     CONFIG_TEMPLATE_DIR = '/opt/OpenvStorage/config/templates/{0}'
     MONITOR_PREFIXES = ['ovs-']
 
-    _logger = Logger('extensions-service_factory')
-
     def __init__(self):
         """Init method"""
         raise Exception('This class cannot be instantiated')
@@ -46,7 +42,3 @@ class ServiceFactory(_ServiceFactory):
     @classmethod
     def _get_configuration(cls):
         return Configuration
-
-    @classmethod
-    def _get_logger_instance(cls):
-        return cls._logger

@@ -13,16 +13,17 @@
 #
 # Open vStorage is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY of any kind.
-import random
 import time
+import random
+import logging
 from threading import Thread
+from ovs.constants.albalogging import HEARTBEAT_LOGGER
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.lists.albanodeclusterlist import AlbaNodeClusterList
 from ovs.extensions.generic.configuration import Configuration
-from ovs_extensions.generic.exceptions import NoLockAvailableException
+from ovs_extensions.generic.configuration import NoLockAvailableException
 from ovs_extensions.generic.ipmi import IPMIController
 from ovs.extensions.generic.sshclient import SSHClient
-from ovs.extensions.generic.logger import Logger
 
 
 class AlbaHeartBeat(object):
@@ -30,7 +31,7 @@ class AlbaHeartBeat(object):
     Heartbeat class. Responsible for checking the state of OSDs within a Dual Controller
     """
 
-    _logger = Logger('alba_heart_beat')
+    _logger = logging.getLogger(HEARTBEAT_LOGGER)
     _client = SSHClient('127.0.0.1', username='root')
 
     @classmethod

@@ -22,7 +22,9 @@ import re
 import json
 import time
 import select
+import logging
 from subprocess import Popen, PIPE, CalledProcessError
+from ovs_extensions.constants import is_unittest_mode
 from ovs.extensions.generic.logger import Logger
 
 
@@ -86,8 +88,8 @@ class AlbaCLI(object):
         if extra_params is None:
             extra_params = []
 
-        logger = Logger('extensions-plugins')
-        if os.environ.get('RUNNING_UNITTESTS') == 'True':
+        logger = logging.getLogger(__name__)
+        if is_unittest_mode():
             # For the unittest, all commands are passed to a mocked Alba
             from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
             named_params.update({'config': config})

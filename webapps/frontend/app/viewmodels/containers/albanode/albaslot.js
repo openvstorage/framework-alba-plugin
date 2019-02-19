@@ -140,10 +140,10 @@ define([
 
         // Event Functions
         self.addOSDs = function() {
-            subscriberService.trigger('albanode_{0}:add_osds'.format([self.node_id()]), self)
+            subscriberService.trigger('albanode_{0}:add_osds'.format(self.node_id()), self)
         };
         self.clear = function() {
-            subscriberService.trigger('albanode_{0}:clear_slot'.format([self.node_id()]), self);
+            subscriberService.trigger('albanode_{0}:clear_slot'.format(self.node_id()), self);
         };
         self.claimOSDs = function() {
             var data = {}, osds = [];
@@ -153,7 +153,7 @@ define([
                 }
             });
             data[self.slot_id()] = {osds: osds};
-            subscriberService.trigger('albanode_{0}:claim_osds'.format([self.node_id()]), data);
+            subscriberService.trigger('albanode_{0}:claim_osds'.format(self.node_id()), data);
         };
     }
     // Prototypical inheritance

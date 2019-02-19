@@ -22,10 +22,10 @@ import os
 import re
 import json
 import random
+import logging
 import tempfile
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.extensions.generic.configuration import Configuration
-from ovs.extensions.generic.logger import Logger
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.lib.helpers.decorators import ovs_task
 from ovs.lib.helpers.toolbox import Toolbox
@@ -35,7 +35,7 @@ class AlbaPresetController(object):
     """
     Contains all BLL related to ALBA presets
     """
-    _logger = Logger('lib')
+    _logger = logging.getLogger(__name__)
 
     @staticmethod
     @ovs_task(name='alba.add_preset')

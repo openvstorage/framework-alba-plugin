@@ -20,16 +20,16 @@ Module for AlbaUpdateController
 
 import copy
 import inspect
+import logging
 import requests
+from ovs.constants.logging import UPDATE_LOGGER
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.albanodelist import AlbaNodeList
-from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.dal.migration.albamigrator import DALMigrator
 from ovs.extensions.db.arakooninstaller import ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
-from ovs.extensions.generic.logger import Logger
 from ovs_extensions.generic.remote import remote
 from ovs.extensions.generic.system import System
 from ovs_extensions.generic.toolbox import ExtensionsToolbox
@@ -46,7 +46,7 @@ class AlbaUpdateController(object):
     """
     This class contains all logic for updating an environment
     """
-    _logger = Logger(name='update', forced_target_type='file')
+    _logger = logging.getLogger(UPDATE_LOGGER)
     _package_manager = PackageFactory.get_manager()
     _service_manager = ServiceFactory.get_manager()
 

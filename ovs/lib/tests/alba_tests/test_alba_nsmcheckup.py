@@ -18,20 +18,20 @@
 NSMCheckup test module
 """
 import copy
-import unittest
+import logging
 from ovs.dal.tests.alba_helpers import AlbaDalHelper
 from ovs.dal.tests.helpers import DalHelper
 from ovs_extensions.constants.arakoon import ARAKOON_CONFIG
 from ovs.extensions.db.arakooninstaller import ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.generic.tests.sshclient_mock import MockedSSHClient
-from ovs_extensions.log.logger import Logger
 from ovs.extensions.plugins.tests.alba_mockups import VirtualAlbaBackend
+from ovs_extensions.testing.testcase import LogTestCase
 from ovs.lib.alba import AlbaController
 from ovs.lib.albaarakoon import AlbaArakoonController
 
 
-class NSMCheckup(unittest.TestCase):
+class NSMCheckup(LogTestCase):
     """
     This test class will validate the various scenarios of the ALBA NSM logic
     """
@@ -229,22 +229,19 @@ class NSMCheckup(unittest.TestCase):
                                  d2=arakoon_installer.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name))
 
         # Let the 'add_cluster` claim the externally managed clusters and model the services
-        Logger._logs = {}
-        AlbaController.add_cluster(alba_backend_guid=alba_backend.guid,
-                                   abm_cluster=external_abm_1,
-                                   nsm_clusters=[external_nsm_1])  # Only claim external_nsm_1
-        for cluster_name, cluster_type in {external_abm_1: 'ABM', external_nsm_1: 'NSM', external_nsm_2: 'NSM'}.iteritems():
-            arakoon_installer = ArakoonInstaller(cluster_name=cluster_name)
-            self.assertDictEqual(d1={'cluster_name': cluster_name,
-                                     'cluster_type': cluster_type,
-                                     'internal': False,
-                                     'in_use': False if cluster_name == external_nsm_2 else True},
-                                 d2=arakoon_installer.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name))
-        log_found = False
-        for log_record in Logger._logs.get('lib', []):
-            if 'NSM load OK' in log_record:
-                log_found = True
-                break
+        with self.assertLogs(level=logging.DEBUG) as logging_watcher:
+
+            AlbaController.add_cluster(alba_backend_guid=alba_backend.guid,
+                                       abm_cluster=external_abm_1,
+                                       nsm_clusters=[external_nsm_1])  # Only claim external_nsm_1
+            for cluster_name, cluster_type in {external_abm_1: 'ABM', external_nsm_1: 'NSM', external_nsm_2: 'NSM'}.iteritems():
+                arakoon_installer = ArakoonInstaller(cluster_name=cluster_name)
+                self.assertDictEqual(d1={'cluster_name': cluster_name,
+                                         'cluster_type': cluster_type,
+                                         'internal': False,
+                                         'in_use': False if cluster_name == external_nsm_2 else True},
+                                     d2=arakoon_installer.get_arakoon_metadata_by_cluster_name(cluster_name=cluster_name))
+        log_found = any('NSM load OK' in log_record for log_record in logging_watcher.get_message_severity_map().keys())
         self.assertTrue(expr=log_found)
         self.assertEqual(first=1, second=len(alba_backend.abm_cluster.abm_services))
         self.assertEqual(first=1, second=len(alba_backend.nsm_clusters))
@@ -263,13 +260,10 @@ class NSMCheckup(unittest.TestCase):
 
         # Overload the only NSM and run NSM checkup. This should log a critical message, but change nothing
         VirtualAlbaBackend.data['backend_1-abm']['nsms'][0]['namespaces_count'] = 25
-        Logger._logs = {}
-        AlbaArakoonController.nsm_checkup()
-        log_found = False
-        for log_record in Logger._logs.get('lib', []):
-            if 'All NSM clusters are overloaded' in log_record:
-                log_found = True
-                break
+
+        with self.assertLogs(level=logging.DEBUG) as logging_watcher:
+            AlbaArakoonController.nsm_checkup()
+        log_found = any('All NSM clusters are overloaded' in log_record for log_record in logging_watcher.get_message_severity_map().keys())
         self.assertTrue(expr=log_found)
         self.assertEqual(first=1, second=len(alba_backend.abm_cluster.abm_services))
         self.assertEqual(first=1, second=len(alba_backend.nsm_clusters))

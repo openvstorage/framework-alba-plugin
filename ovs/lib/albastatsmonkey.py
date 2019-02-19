@@ -18,17 +18,15 @@
 Statsmonkey module responsible for retrieving certain statistics from the cluster and send them to an Influx DB or Redis DB
 Classes: AlbaStatsMonkeyController
 """
-
+import logging
 from ovs.dal.hybrids.albabackend import AlbaBackend
 from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.storagedriverlist import StorageDriverList
 from ovs.dal.lists.vpoollist import VPoolList
 from ovs.extensions.generic.configuration import Configuration
-from ovs.extensions.generic.logger import Logger
 from ovs_extensions.monitoring.statsmonkey import StatsMonkey
 from ovs.extensions.plugins.albacli import AlbaCLI
-from ovs.lib.alba import AlbaController
 from ovs.lib.albaarakoon import AlbaArakoonController
 from ovs.lib.helpers.decorators import ovs_task
 from ovs.lib.helpers.toolbox import Schedule
@@ -46,7 +44,7 @@ class AlbaStatsMonkeyController(StatsMonkey):
         * get_stats_proxies
         * get_stats_alba_backends
     """
-    _logger = Logger(name='lib')
+    _logger = logging.getLogger(__name__)
     _dynamic_dependencies = {'get_stats_osds': {AlbaBackend: ['osd_statistics']},  # The statistics being retrieved depend on the caching timeouts of these properties
                              'get_stats_alba_backends': {AlbaBackend: ['local_summary']}}
 

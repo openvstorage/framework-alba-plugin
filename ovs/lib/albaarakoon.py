@@ -17,6 +17,7 @@
 """
 Module which does everything Arakoon related for the Alba plugin
 """
+import logging
 import collections
 from ovs.constants.albarakoon import NSM_PLUGIN, MAX_NSM_AMOUNT
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
@@ -31,7 +32,6 @@ from ovs.dal.lists.albas3transactionclusterlist import S3TransactionClusterList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.db.arakooninstaller import ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
-from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs.extensions.plugins.albacli import AlbaCLI
 from ovs.lib.helpers.alba_arakoon_installer import AlbaArakoonInstaller, ABMInstaller, NSMInstaller, S3TransactionInstaller
@@ -41,7 +41,7 @@ from ovs.lib.helpers.toolbox import Schedule
 
 class AlbaArakoonController(object):
 
-    _logger = Logger('lib')
+    _logger = logging.getLogger(__name__)
 
     @staticmethod
     def abms_reachable(alba_backend):

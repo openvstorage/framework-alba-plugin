@@ -17,8 +17,8 @@
 """
 Alba migration module
 """
-
-from ovs.extensions.generic.logger import Logger
+import logging
+from ovs.constants.logging import UPDATE_LOGGER
 from ovs_extensions.packages.packagefactory import PackageFactory
 
 
@@ -30,7 +30,7 @@ class ExtensionMigrator(object):
     identifier = PackageFactory.COMP_MIGRATION_ALBA
     THIS_VERSION = 12
 
-    _logger = Logger('extensions')
+    _logger = logging.getLogger(UPDATE_LOGGER)
 
     def __init__(self):
         """ Init method """

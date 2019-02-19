@@ -29,7 +29,6 @@ from ovs.dal.structures import Property, Relation, Dynamic
 from ovs_extensions.api.client import OVSClient
 from ovs_extensions.api.exceptions import HttpForbiddenException, HttpNotFoundException
 from ovs.extensions.generic.configuration import Configuration
-from ovs.extensions.generic.logger import Logger
 from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 from ovs.extensions.storage.volatilefactory import VolatileFactory
 
@@ -44,7 +43,6 @@ class AlbaBackend(DataObject):
                                                 'WARNING': 'warning',
                                                 'RUNNING': 'running'})  # lower-case values for backwards compatibility
 
-    _logger = Logger('hybrids')
     __properties = [Property('alba_id', str, mandatory=False, indexed=True, doc='ALBA internal identifier'),
                     Property('scaling', SCALINGS.keys(), doc='Scaling for an ALBA Backend can be {0}'.format(' or '.join(SCALINGS.keys())))]
     __relations = [Relation('backend', Backend, 'alba_backend', onetoone=True, doc='Linked generic Backend')]
