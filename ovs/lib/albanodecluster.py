@@ -18,6 +18,7 @@
 AlbaNodeController module
 """
 import copy
+import logging
 import requests
 from ovs.dal.hybrids.albanode import AlbaNode
 from ovs.dal.hybrids.albanodecluster import AlbaNodeCluster
@@ -26,7 +27,6 @@ from ovs.dal.lists.albanodelist import AlbaNodeList
 from ovs.dal.lists.albaosdlist import AlbaOSDList
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs_extensions.generic.exceptions import NotFoundError
-from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import UnableToConnectException
 from ovs_extensions.generic.toolbox import ExtensionsToolbox
 from ovs.lib.alba import AlbaController
@@ -39,7 +39,7 @@ class AlbaNodeClusterController(object):
     """
     Contains all BLL related to ALBA nodes
     """
-    _logger = Logger('lib')
+    _logger = logging.getLogger(__name__)
 
     ASD_NODE_LOCATION = '/ovs/alba/asdnodes/{0}'
     CLUSTER_NODE_RELATION_LOCATION = '{0}/config/cluster_node_relation'.format(ASD_NODE_LOCATION)

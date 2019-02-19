@@ -13,6 +13,8 @@
 #
 # Open vStorage is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY of any kind.
+
+import logging
 from ovs.constants.albarakoon import ABM_PLUGIN, NSM_PLUGIN, ARAKOON_PLUGIN_DIR
 from ovs.dal.hybrids.albaabmcluster import ABMCluster
 from ovs.dal.hybrids.albabackend import AlbaBackend
@@ -40,7 +42,7 @@ class AlbaArakoonInstaller(object):
     """
     Installs all alba-related Arakoons
     """
-    _logger = Logger('lib')
+    _logger = logging.getLogger(__name__)
 
     def __init__(self, version_str=None, ssh_clients=None):
         # type: (Optional[str], Optional[Dict[StorageRouter, SSHClient]]) -> None
