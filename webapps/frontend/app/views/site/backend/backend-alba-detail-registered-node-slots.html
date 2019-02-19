@@ -51,10 +51,10 @@ but WITHOUT ANY WARRANTY of any kind.
                     </span>
                 </button>
                 <ul class="dropdown-menu" role="menu" style="max-height: 250px; overflow: auto; z-index: 6000;">
-                    <li style="width: 300px;">
-                        <a style="position: relative;">
+                    <li>
+                        <a>
                             <span data-i18n="ovs:generic.status"></span>: <span data-bind="translate: 'alba:generic.states.slot.' + status()"></span>
-                            <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                            <span style="float: right;">
                                 <!-- ko if: canClaim() -->
                                     <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
                                             data-bind="click: claimOSDs, css: { disabled: processing() || node_or_cluster.read_only_mode() }"></button>
@@ -150,40 +150,34 @@ but WITHOUT ANY WARRANTY of any kind.
                     </span>
                 </button>
                 <ul class="dropdown-menu" role="menu" style="max-height: 250px; overflow: auto; z-index: 6000;">
-                    <li style="width: 300px;">
-                        <a style="position: relative;">
+                    <li>
+                        <a>
                             <span data-i18n="ovs:generic.status"></span>: <span data-bind="translate: 'alba:generic.states.osd.' + status()"></span>
-                            <!-- ko ifnot: claimed_by -->
-                                <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                            <span style="float: right;">
+                                <!-- ko ifnot: claimed_by -->
                                     <button type="button" class="btn btn-success btn-xs" data-i18n="alba:generic.claim"
                                             data-bind="click: claim, css: { disabled: processing() || !loaded() || locked() || node_or_cluster.read_only_mode() }
                                                        placement: 'bottom'"></button>
-                                </span>
-                            <!-- /ko -->
-                            <!-- ko if: claimed_by() === $root.alba_backend.guid() -->
-                                <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                <!-- /ko -->
+                                <!-- ko if: claimed_by() === $root.alba_backend.guid() -->
                                     <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
                                             data-bind="click: remove, css: { disabled: processing() || !loaded() || locked() || node_or_cluster.read_only_mode() }"></button>
-                                </span>
-                            <!-- /ko -->
-                            <!-- ko if: status() === 'warning' && isLocal() -->
-                                <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                <!-- /ko -->
+                                <!-- ko if: status() === 'warning' && isLocal() -->
                                     <button type="button" class="btn btn-warning btn-xs" data-i18n="alba:generic.restart"
                                             data-bind="click: restart, css: { disabled: processing() || !loaded() || locked() || node_or_cluster.read_only_mode() }"></button>
                                     <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
                                             data-bind="click: remove, css: { disabled: processing() || !loaded() || locked() || node_or_cluster.read_only_mode() }"></button>
-                                </span>
-                            <!-- /ko -->
-                            <!-- ko if: status() === 'error' && isLocal() -->
-                                <span style="display: inline-block; position: absolute; right: 20px; top: 2px;">
+                                <!-- /ko -->
+                                <!-- ko if: status() === 'error' && isLocal() -->
                                     <!-- ko if: status_detail() !== 'nodedown' -->
                                         <button type="button" class="btn btn-warning btn-xs" data-i18n="alba:generic.restart"
                                                 data-bind="click: restart, css: { disabled: processing() || !loaded() || node_or_cluster.read_only_mode() }"></button>
                                     <!-- /ko -->
                                     <button type="button" class="btn btn-danger btn-xs" data-i18n="alba:generic.remove"
                                             data-bind="click: remove, css: { disabled: processing() || !loaded() || node_or_cluster.read_only_mode() }"></button>
-                                </span>
-                            <!-- /ko -->
+                                <!-- /ko -->
+                            </span>
                         </a>
                     </li>
                     <!-- ko if: hasErrorStatus -->

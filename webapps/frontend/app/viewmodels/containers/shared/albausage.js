@@ -59,7 +59,7 @@ define([
             return generic.formatPercentage(self.available() / self.size(), true)
         });
         self.displayUsage = ko.pureComputed(function() {
-            return '{0} / {1}'.format([self.usedBytes(), self.sizeBytes()])
+            return '{0} / {1}'.format(self.usedBytes(), self.sizeBytes())
         });
     }
     // Prototypical inheritance
