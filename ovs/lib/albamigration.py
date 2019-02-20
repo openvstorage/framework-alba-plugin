@@ -45,7 +45,10 @@ class AlbaMigrationController(object):
         from ovs.dal.lists.albabackendlist import AlbaBackendList
         from ovs.dal.lists.albanodelist import AlbaNodeList
         from ovs.dal.lists.albaosdlist import AlbaOSDList
+        from ovs.dal.lists.backendlist import BackendList
         from ovs.dal.lists.storagerouterlist import StorageRouterList
+        from ovs_extensions.constants.alba import BACKEND_MAINTENANCE_CONFIG
+        from ovs_extensions.constants.arakoon import ARAKOON_CONFIG
         from ovs.extensions.generic.configuration import Configuration
         from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
         from ovs.extensions.migration.migration.albamigrator import ExtensionMigrator
@@ -129,7 +132,7 @@ class AlbaMigrationController(object):
                         for service_name, _ in services:
                             AlbaMigrationController._logger.info('Processing service {0}'.format(service_name))
                             old_config_key = '/ovs/alba/backends/{0}/maintenance/config'.format(alba_backend.guid)
-                            new_config_key = '/ovs/alba/backends/{0}/maintenance/{1}/config'.format(alba_backend.guid, service_name)
+                            new_config_key = BACKEND_MAINTENANCE_CONFIG.format(alba_backend.guid, service_name)
                             if Configuration.exists(key=old_config_key):
                                 new_config = Configuration.get(key=old_config_key)
                                 new_config['read_preference'] = read_preferences
@@ -277,14 +280,12 @@ class AlbaMigrationController(object):
         # Regenerate maintenance service
         try:
             for node in AlbaNodeList.get_albanodes():
-                _local_client = SSHClient(node.ip, node.username)
-                _service_manager = ServiceFactory.get_manager()
-
-                for backen_name, maintenance_services in node.maintenance_services.iteritems():
-                    for maintenance_name in maintenance_services:
-                        _service_manager.regenerate_service(name='alba-maintenance',
-                                                            client=_local_client,
-                                                            target_name=maintenance_name)
+                for backend_name, maintenance_services in node.maintenance_services.iteritems():
+                    be = BackendList.get_by_name(backend_name)
+                    abe = be.alba_backend
+                    for maintenance_name, status in maintenance_services:
+                        Configuration.set('{0}|albamgr_cfg_url'.format(BACKEND_MAINTENANCE_CONFIG.format(abe.guid, maintenance_name)),
+                                          ARAKOON_CONFIG.format(abe.guid))
         except Exception as ex:
             AlbaMigrationController._logger.exception('Failed to regenerate maintenance services: {0}'.format(ex))
 
