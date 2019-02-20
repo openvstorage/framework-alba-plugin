@@ -45,10 +45,9 @@ class AlbaMigrationController(object):
         from ovs.dal.lists.albabackendlist import AlbaBackendList
         from ovs.dal.lists.albanodelist import AlbaNodeList
         from ovs.dal.lists.albaosdlist import AlbaOSDList
-        from ovs.dal.lists.backendlist import BackendList
         from ovs.dal.lists.storagerouterlist import StorageRouterList
-        from ovs_extensions.constants.alba import BACKEND_MAINTENANCE_CONFIG
-        from ovs_extensions.constants.arakoon import ARAKOON_CONFIG
+        from ovs_extensions.constants.alba import BACKEND_MAINTENANCE_CONFIG, BACKENDS_BASE, MAINTENANCE_PREFIX, BACKEND_MAINTENANCE
+        from ovs_extensions.constants.arakoon import ARAKOON_ABM_CONFIG
         from ovs.extensions.generic.configuration import Configuration
         from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
         from ovs.extensions.migration.migration.albamigrator import ExtensionMigrator
@@ -279,13 +278,12 @@ class AlbaMigrationController(object):
         ###################################################
         # Regenerate maintenance service
         try:
-            for node in AlbaNodeList.get_albanodes():
-                for backend_name, maintenance_services in node.maintenance_services.iteritems():
-                    be = BackendList.get_by_name(backend_name)
-                    abe = be.alba_backend
-                    for maintenance_name, status in maintenance_services:
-                        Configuration.set('{0}|albamgr_cfg_url'.format(BACKEND_MAINTENANCE_CONFIG.format(abe.guid, maintenance_name)),
-                                          ARAKOON_CONFIG.format(abe.guid))
+            for alba_backend_guid in Configuration.list(BACKENDS_BASE):
+                for entry in Configuration.list(BACKEND_MAINTENANCE.format(alba_backend_guid)):
+                    if entry.startswith(MAINTENANCE_PREFIX):
+                        backend_name = entry.split('_')[1].split('-')[0]
+                        Configuration.set('{0}|albamgr_cfg_url'.format(BACKEND_MAINTENANCE_CONFIG.format(alba_backend_guid, entry)),
+                                          Configuration.get_configuration_path(ARAKOON_ABM_CONFIG.format(backend_name)))
         except Exception as ex:
             AlbaMigrationController._logger.exception('Failed to regenerate maintenance services: {0}'.format(ex))
 
