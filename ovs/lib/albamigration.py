@@ -273,6 +273,21 @@ class AlbaMigrationController(object):
             except Exception:
                 AlbaMigrationController._logger.exception('Syncing up the disks for backend roles failed')
 
+        ###################################################
+        # Regenerate maintenance service
+        try:
+            for node in AlbaNodeList.get_albanodes():
+                _local_client = SSHClient(node.ip, node.username)
+                _service_manager = ServiceFactory.get_manager()
+
+                for backen_name, maintenance_services in node.maintenance_services.iteritems():
+                    for maintenance_name in maintenance_services:
+                        _service_manager.regenerate_service(name='alba-maintenance',
+                                                            client=_local_client,
+                                                            target_name=maintenance_name)
+        except Exception as ex:
+            AlbaMigrationController._logger.exception('Failed to regenerate maintenance services: {0}'.format(ex))
+
         AlbaMigrationController._logger.info('Finished out of band migrations')
 
     @staticmethod
