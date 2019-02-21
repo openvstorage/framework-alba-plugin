@@ -46,6 +46,8 @@ class AlbaMigrationController(object):
         from ovs.dal.lists.albanodelist import AlbaNodeList
         from ovs.dal.lists.albaosdlist import AlbaOSDList
         from ovs.dal.lists.storagerouterlist import StorageRouterList
+        from ovs_extensions.constants.alba import BACKEND_MAINTENANCE_CONFIG, BACKENDS_BASE, MAINTENANCE_PREFIX, BACKEND_MAINTENANCE
+        from ovs_extensions.constants.arakoon import ARAKOON_ABM_CONFIG
         from ovs.extensions.generic.configuration import Configuration
         from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
         from ovs.extensions.migration.migration.albamigrator import ExtensionMigrator
@@ -129,7 +131,7 @@ class AlbaMigrationController(object):
                         for service_name, _ in services:
                             AlbaMigrationController._logger.info('Processing service {0}'.format(service_name))
                             old_config_key = '/ovs/alba/backends/{0}/maintenance/config'.format(alba_backend.guid)
-                            new_config_key = '/ovs/alba/backends/{0}/maintenance/{1}/config'.format(alba_backend.guid, service_name)
+                            new_config_key = BACKEND_MAINTENANCE_CONFIG.format(alba_backend.guid, service_name)
                             if Configuration.exists(key=old_config_key):
                                 new_config = Configuration.get(key=old_config_key)
                                 new_config['read_preference'] = read_preferences
@@ -272,6 +274,18 @@ class AlbaMigrationController(object):
                     Configuration.set(key=albanode_backend_role_sync_key, value=True)
             except Exception:
                 AlbaMigrationController._logger.exception('Syncing up the disks for backend roles failed')
+
+        ###################################################
+        # Regenerate maintenance service
+        try:
+            for alba_backend_guid in Configuration.list(BACKENDS_BASE):
+                for entry in Configuration.list(BACKEND_MAINTENANCE.format(alba_backend_guid)):
+                    if entry.startswith(MAINTENANCE_PREFIX):
+                        backend_name = entry.split('_')[1].split('-')[0]
+                        Configuration.set('{0}|albamgr_cfg_url'.format(BACKEND_MAINTENANCE_CONFIG.format(alba_backend_guid, entry)),
+                                          Configuration.get_configuration_path(ARAKOON_ABM_CONFIG.format(backend_name)))
+        except Exception as ex:
+            AlbaMigrationController._logger.exception('Failed to regenerate maintenance services: {0}'.format(ex))
 
         AlbaMigrationController._logger.info('Finished out of band migrations')
 
