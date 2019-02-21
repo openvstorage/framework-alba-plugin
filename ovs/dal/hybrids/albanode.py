@@ -29,7 +29,6 @@ from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.structures import Dynamic, Property, Relation
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs_extensions.generic.exceptions import InvalidCredentialsError
-from ovs.extensions.generic.logger import Logger
 from ovs.extensions.plugins.albacli import AlbaCLI, AlbaError
 from ovs.extensions.plugins.asdmanager import ASDManagerClient
 from ovs.extensions.plugins.genericmanager import GenericManagerClient
@@ -67,7 +66,6 @@ class AlbaNode(DataObject):
                                                                          NODE_TYPES.GENERIC: '',
                                                                          NODE_TYPES.S3: S3_NODE_CONFIG_PATH})
 
-    _logger = Logger('hybrids')
     __properties = [Property('ip', str, indexed=True, mandatory=False, doc='IP Address'),
                     Property('port', int, mandatory=False, doc='Port'),
                     Property('node_id', str, unique=True, indexed=True, doc='Alba node_id identifier'),

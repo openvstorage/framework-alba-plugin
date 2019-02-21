@@ -23,6 +23,7 @@ import re
 import time
 import string
 import random
+import logging
 import requests
 from ovs.dal.exceptions import ObjectNotFoundException
 from ovs.dal.hybrids.albabackend import AlbaBackend
@@ -39,7 +40,6 @@ from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs_extensions.api.client import OVSClient
 from ovs.extensions.db.arakooninstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
-from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs_extensions.generic.toolbox import ExtensionsToolbox
 from ovs.extensions.migration.migration.albamigrator import ExtensionMigrator
@@ -69,7 +69,7 @@ class AlbaController(object):
     AGENTS_LAYOUT_CONFIG_KEY = '/ovs/alba/backends/{0}/maintenance/agents_layout'
     CONFIG_DEFAULT_NSM_HOSTS_KEY = CONFIG_ALBA_BACKEND_KEY.format('default_nsm_hosts')
 
-    _logger = Logger('lib')
+    _logger = logging.getLogger(__name__)
 
     @staticmethod
     @ovs_task(name='alba.update_osds')

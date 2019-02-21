@@ -17,8 +17,8 @@
 """
 AlbaMigrationController module
 """
-
-from ovs.extensions.generic.logger import Logger
+import logging
+from ovs.constants.logging import UPDATE_LOGGER
 from ovs.lib.helpers.decorators import ovs_task
 from ovs.lib.helpers.toolbox import Schedule
 
@@ -27,7 +27,7 @@ class AlbaMigrationController(object):
     """
     This controller contains (part of the) migration code. It runs out-of-band with the updater so we reduce the risk of failures during the update
     """
-    _logger = Logger(name='update', forced_target_type='file')
+    _logger = logging.getLogger(UPDATE_LOGGER)
 
     @staticmethod
     @ovs_task(name='alba.migration.migrate', schedule=Schedule(minute='15', hour='6'), ensure_single_info={'mode': 'DEFAULT'})
@@ -46,6 +46,8 @@ class AlbaMigrationController(object):
         from ovs.dal.lists.albanodelist import AlbaNodeList
         from ovs.dal.lists.albaosdlist import AlbaOSDList
         from ovs.dal.lists.storagerouterlist import StorageRouterList
+        from ovs_extensions.constants.alba import BACKEND_MAINTENANCE_CONFIG, BACKENDS_BASE, MAINTENANCE_PREFIX, BACKEND_MAINTENANCE
+        from ovs_extensions.constants.arakoon import ARAKOON_ABM_CONFIG
         from ovs.extensions.generic.configuration import Configuration
         from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
         from ovs.extensions.migration.migration.albamigrator import ExtensionMigrator
@@ -129,7 +131,7 @@ class AlbaMigrationController(object):
                         for service_name, _ in services:
                             AlbaMigrationController._logger.info('Processing service {0}'.format(service_name))
                             old_config_key = '/ovs/alba/backends/{0}/maintenance/config'.format(alba_backend.guid)
-                            new_config_key = '/ovs/alba/backends/{0}/maintenance/{1}/config'.format(alba_backend.guid, service_name)
+                            new_config_key = BACKEND_MAINTENANCE_CONFIG.format(alba_backend.guid, service_name)
                             if Configuration.exists(key=old_config_key):
                                 new_config = Configuration.get(key=old_config_key)
                                 new_config['read_preference'] = read_preferences
@@ -276,15 +278,12 @@ class AlbaMigrationController(object):
         ###################################################
         # Regenerate maintenance service
         try:
-            for node in AlbaNodeList.get_albanodes():
-                _local_client = SSHClient(node.ip, node.username)
-                _service_manager = ServiceFactory.get_manager()
-
-                for backen_name, maintenance_services in node.maintenance_services.iteritems():
-                    for maintenance_name in maintenance_services:
-                        _service_manager.regenerate_service(name='alba-maintenance',
-                                                            client=_local_client,
-                                                            target_name=maintenance_name)
+            for alba_backend_guid in Configuration.list(BACKENDS_BASE):
+                for entry in Configuration.list(BACKEND_MAINTENANCE.format(alba_backend_guid)):
+                    if entry.startswith(MAINTENANCE_PREFIX):
+                        backend_name = entry.split('_')[1].split('-')[0]
+                        Configuration.set('{0}|albamgr_cfg_url'.format(BACKEND_MAINTENANCE_CONFIG.format(alba_backend_guid, entry)),
+                                          Configuration.get_configuration_path(ARAKOON_ABM_CONFIG.format(backend_name)))
         except Exception as ex:
             AlbaMigrationController._logger.exception('Failed to regenerate maintenance services: {0}'.format(ex))
 

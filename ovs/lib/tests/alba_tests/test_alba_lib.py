@@ -18,15 +18,16 @@
 ALBA generic test module
 """
 
-import unittest
+import logging
 from ovs.dal.tests.alba_helpers import AlbaDalHelper
 from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.log.logger import Logger
 from ovs.extensions.plugins.tests.alba_mockups import ManagerClientMockup, VirtualAlbaBackend
+from ovs_extensions.testing.testcase import LogTestCase
 from ovs.lib.alba import AlbaController
 
 
-class AlbaGeneric(unittest.TestCase):
+class AlbaGeneric(LogTestCase):
     """
     This test class will validate various ALBA generic scenarios
     """
@@ -68,9 +69,11 @@ class AlbaGeneric(unittest.TestCase):
 
         # Checkup maintenance agents will not find any suitable ALBA Nodes to deploy a maintenance agent on, because no ALBA Nodes are linked to the ALBA Backend yet,
         # therefore it'll deploy a maintenance on a random ALBA Node
-        AlbaController.checkup_maintenance_agents()
-        self.assertIn(member=log_entry, container=Logger._logs['lib'].keys())
-        self.assertEqual(first='WARNING', second=Logger._logs['lib'][log_entry])
+        with self.assertLogs(level=logging.DEBUG) as logging_watcher:
+            AlbaController.checkup_maintenance_agents()
+        logs = logging_watcher.get_message_severity_map()
+        self.assertIn(member=log_entry, container=logs.keys())
+        self.assertEqual(first='WARNING', second=logs[log_entry])
 
         # Example of ManagerClientMockup.maintenance_agents
         # {<AlbaNode (guid: c015cf06-8bd0-46c5-811d-41ac6f521a63, at: 0x7f77cb0af390)>: {'alba-maintenance_backend_1-J6PMBcEk1Ej42udp': ['node_1']}}
@@ -128,12 +131,13 @@ class AlbaGeneric(unittest.TestCase):
 
         #########################################
         # Verify all ALBA Nodes unknown in layout
-        Logger._logs['lib'] = {}
         log_entry = 'Layout does not contain any known/reachable nodes and will be ignored'
         Configuration.set(key=config_key, value=[unknown_node_name])  # Only unknown Nodes in layout
-        AlbaController.checkup_maintenance_agents()
-        self.assertIn(member=log_entry, container=Logger._logs['lib'].keys())
-        self.assertEqual(first='WARNING', second=Logger._logs['lib'][log_entry])
+        with self.assertLogs(level=logging.DEBUG) as logging_watcher:
+            AlbaController.checkup_maintenance_agents()
+        logs = logging_watcher.get_message_severity_map()
+        self.assertIn(member=log_entry, container=logs.keys())
+        self.assertEqual(first='WARNING', second=logs[log_entry])
         self.assertIn(member=alba_node, container=ManagerClientMockup.maintenance_agents)  # The ALBA Node linked to the ALBA Backend should again have the maintenance agent
         self.assertEqual(first=1, second=len(ManagerClientMockup.maintenance_agents[alba_node]))  # Only 1 maintenance agent should have been deployed
         self.assertEqual(first=[alba_node.node_id],
@@ -145,13 +149,14 @@ class AlbaGeneric(unittest.TestCase):
 
         #############################################
         # Verify at least 1 known ALBA Node in layout
-        Logger._logs['lib'] = {}
         node_3 = alba_structure['alba_nodes'][3]
         log_entry = 'Layout contains unknown/unreachable node {0}'.format(unknown_node_name)
         Configuration.set(key=config_key, value=[unknown_node_name, node_3.node_id])  # 1 known ALBA Node in layout
-        AlbaController.checkup_maintenance_agents()
-        self.assertIn(member=log_entry, container=Logger._logs['lib'].keys())
-        self.assertEqual(first='WARNING', second=Logger._logs['lib'][log_entry])
+        with self.assertLogs(level=logging.DEBUG) as logging_watcher:
+            AlbaController.checkup_maintenance_agents()
+        logs = logging_watcher.get_message_severity_map()
+        self.assertIn(member=log_entry, container=logs.keys())
+        self.assertEqual(first='WARNING', second=logs[log_entry])
         self.assertIn(member=node_3, container=ManagerClientMockup.maintenance_agents)  # The ALBA Node specified in the layout should have the maintenance agent
         self.assertEqual(first=1, second=len(ManagerClientMockup.maintenance_agents[node_3]))  # Only 1 maintenance agent should have been deployed
         self.assertEqual(first=[node_3.node_id],

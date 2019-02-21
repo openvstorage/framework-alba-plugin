@@ -20,7 +20,6 @@ AlbaNodeCluster module
 
 from ovs.dal.dataobject import DataObject
 from ovs.dal.structures import Dynamic, Property
-from ovs.extensions.generic.logger import Logger
 
 
 class AlbaNodeCluster(DataObject):
@@ -32,7 +31,6 @@ class AlbaNodeCluster(DataObject):
     """
     CLUSTER_TYPES = DataObject.enumerator('ClusterType', ['ASD', 'GENERIC', 'MIXED'])
 
-    _logger = Logger('hybrids')
     __properties = [Property('name', str, mandatory=False, doc='Optional name for the AlbaNode')]
     __dynamics = [Dynamic('type', CLUSTER_TYPES.keys(), 3600),
                   Dynamic('ips', list, 3600),

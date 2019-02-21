@@ -17,7 +17,7 @@
 ALBA Arakoon test module
 """
 
-import unittest
+import logging
 from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.servicetype import ServiceType
 from ovs.dal.lists.servicetypelist import ServiceTypeList
@@ -28,12 +28,12 @@ from ovs.extensions.db.arakooninstaller import ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs_extensions.generic.tests.sshclient_mock import MockedSSHClient
-from ovs_extensions.log.logger import Logger
+from ovs_extensions.testing.testcase import LogTestCase
 from ovs.lib.alba import AlbaController
 from ovs.lib.albaarakoon import AlbaArakoonController
 
 
-class AlbaGeneric(unittest.TestCase):
+class AlbaGeneric(LogTestCase):
     """
     This test class will validate various ALBA generic scenarios
     """
@@ -105,8 +105,9 @@ class AlbaGeneric(unittest.TestCase):
         # Make sure 1 StorageRouter is unreachable
         SSHClient._raise_exceptions[sr_3.ip] = {'users': ['ovs'],
                                                 'exception': UnableToConnectException('No route to host')}
-        AlbaArakoonController.scheduled_alba_arakoon_checkup()
-        alba_logs = Logger._logs.get('lib', [])
+        with self.assertLogs(level=logging.DEBUG) as logging_watcher:
+            AlbaArakoonController.scheduled_alba_arakoon_checkup()
+        alba_logs = logging_watcher.get_message_severity_map().keys()
         self.assertIn(member='Storage Router with IP {0} is not reachable'.format(sr_3.ip),
                       container=alba_logs)
 

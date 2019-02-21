@@ -21,6 +21,7 @@ import os
 import uuid
 import string
 import random
+import logging
 import requests
 from ovs.constants.albanode import S3_NODE_BASE_PATH, ASD_NODE_BASE_PATH
 from ovs.dal.hybrids.albanode import AlbaNode
@@ -34,7 +35,6 @@ from ovs.dal.lists.albas3transactionclusterlist import S3TransactionClusterList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.extensions.generic.configuration import Configuration
 from ovs_extensions.generic.exceptions import InvalidCredentialsError, NotFoundError
-from ovs.extensions.generic.logger import Logger
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
 from ovs_extensions.generic.toolbox import ExtensionsToolbox
 from ovs.lib.alba import AlbaController
@@ -48,7 +48,7 @@ class AlbaNodeController(object):
     """
     Contains all BLL related to ALBA nodes
     """
-    _logger = Logger('lib')
+    _logger = logging.getLogger(__name__)
 
     @classmethod
     def discover_nodes(cls):

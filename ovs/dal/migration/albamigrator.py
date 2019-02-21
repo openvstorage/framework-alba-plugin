@@ -17,10 +17,10 @@
 """
 ALBA migration module
 """
-
+import logging
+from ovs.constants.logging import UPDATE_LOGGER
 from ovs.dal.hybrids.backendtype import BackendType
 from ovs.dal.lists.backendtypelist import BackendTypeList
-from ovs.extensions.generic.logger import Logger
 from ovs_extensions.packages.packagefactory import PackageFactory
 
 
@@ -30,7 +30,7 @@ class DALMigrator(object):
     """
 
     identifier = PackageFactory.COMP_MIGRATION_ALBA
-    _logger = Logger('update')
+    _logger = logging.getLogger(UPDATE_LOGGER)
     THIS_VERSION = 16
 
     def __init__(self):
@@ -318,7 +318,6 @@ class DALMigrator(object):
             for key in client.prefix('ovs_reverseindex_albanode_'):
                 if '|disks|' in key:
                     client.delete(key=key, must_exist=False)
-
 
             ###############################
             # Changes to config managemnt #

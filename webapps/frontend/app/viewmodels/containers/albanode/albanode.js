@@ -200,7 +200,7 @@ define([
                 }
                 return $.t('ovs:generic.null')
             }
-            return '{0}:{1}'.format([self.ip(), self.port()])
+            return '{0}:{1}'.format(self.ip(), self.port())
         });
 
         // Computed factories
@@ -305,19 +305,19 @@ define([
         subscribeToSlotEvents: function() {
             var self = this;
             self.disposables.push(
-                subscriberService.onEvents('albanode_{0}:add_osds'.format([self.node_id()]), albaBackendDetailContext).then(function (slot) {
+                subscriberService.onEvents('albanode_{0}:add_osds'.format(self.node_id()), albaBackendDetailContext).then(function (slot) {
                     self.addOSDs(slot);
                 }),
-                subscriberService.onEvents('albanode_{0}:clear_slot'.format([self.node_id()]), albaBackendDetailContext).then(function (slot) {
+                subscriberService.onEvents('albanode_{0}:clear_slot'.format(self.node_id()), albaBackendDetailContext).then(function (slot) {
                     self.removeSlot(slot);
                 }),
-                subscriberService.onEvents('albanode_{0}:claim_osds'.format([self.node_id()]), albaBackendDetailContext).then(function (data) {
+                subscriberService.onEvents('albanode_{0}:claim_osds'.format(self.node_id()), albaBackendDetailContext).then(function (data) {
                     self.claimOSDs(data);
                 }),
-                subscriberService.onEvents('albanode_{0}:restart_osd'.format([self.node_id()]), albaBackendDetailContext).then(function (osd) {
+                subscriberService.onEvents('albanode_{0}:restart_osd'.format(self.node_id()), albaBackendDetailContext).then(function (osd) {
                     self.restartOSD(osd);
                 }),
-                subscriberService.onEvents('albanode_{0}:remove_osd'.format([self.node_id()]), albaBackendDetailContext).then(function (osd) {
+                subscriberService.onEvents('albanode_{0}:remove_osd'.format(self.node_id()), albaBackendDetailContext).then(function (osd) {
                     self.removeOSD(osd);
                 }))
         },
