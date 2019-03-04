@@ -38,6 +38,7 @@ from ovs.dal.lists.albaosdlist import AlbaOSDList
 from ovs.dal.lists.albas3transactionclusterlist import S3TransactionClusterList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs_extensions.api.client import OVSClient
+from ovs_extensions.constants.framework import PLUGINS_INSTALLED, PLUGINS_ALBA_CONFIG
 from ovs.extensions.db.arakooninstaller import ArakoonClusterConfig, ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
@@ -1089,15 +1090,13 @@ class AlbaController(object):
     def _add_base_configuration(*args, **kwargs):
         # type: (any, any) -> None
         _ = args, kwargs
-        key = '/ovs/framework/plugins/alba/config'
-        if not Configuration.exists(key):
-            Configuration.set(key, {'nsm': {'maxload': 75,
-                                            'safety': 3}})
-        key = '/ovs/framework/plugins/installed'
-        installed = Configuration.get(key)
+        if not Configuration.exists(PLUGINS_ALBA_CONFIG):
+            Configuration.set(PLUGINS_ALBA_CONFIG, {'nsm': {'maxload': 75,
+                                                            'safety': 3}})
+        installed = Configuration.get(PLUGINS_INSTALLED)
         if 'alba' not in installed['backends']:
             installed['backends'].append('alba')
-            Configuration.set(key, installed)
+            Configuration.set(PLUGINS_INSTALLED, installed)
         key = '/ovs/alba/backends/global_gui_error_interval'
         if not Configuration.exists(key):
             Configuration.set(key, 300)
