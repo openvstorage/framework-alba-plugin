@@ -30,6 +30,7 @@ from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.lists.albabackendlist import AlbaBackendList
 from ovs.dal.lists.albas3transactionclusterlist import S3TransactionClusterList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
+from ovs_extensions.constants.framework import PLUGINS_ALBA_CONFIG
 from ovs.extensions.db.arakooninstaller import ArakoonInstaller
 from ovs.extensions.generic.configuration import Configuration, NotFoundException
 from ovs.extensions.generic.sshclient import SSHClient, UnableToConnectException
@@ -612,8 +613,8 @@ class AlbaArakoonController(object):
         ##################
         # Check Clusters #
         ##################
-        safety = Configuration.get('/ovs/framework/plugins/alba/config|nsm.safety')
-        maxload = Configuration.get('/ovs/framework/plugins/alba/config|nsm.maxload')
+        safety = Configuration.get('{0}|nsm.safety'.format(PLUGINS_ALBA_CONFIG))
+        maxload = Configuration.get('{0}|nsm.maxload'.format(PLUGINS_ALBA_CONFIG))
 
         AlbaArakoonController._logger.debug('NSM safety is configured at: {0}'.format(safety))
         AlbaArakoonController._logger.debug('NSM max load is configured at: {0}'.format(maxload))
