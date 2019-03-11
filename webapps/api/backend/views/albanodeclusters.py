@@ -96,6 +96,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         return AlbaNodeClusterController.remove_cluster.delay(node_cluster_guid=albanodecluster.guid)
 
+    @log()
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
@@ -112,6 +113,8 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         return AlbaNodeClusterController.register_node.delay(albanodecluster.guid, node_id=node_id)
 
+
+    @log()
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()

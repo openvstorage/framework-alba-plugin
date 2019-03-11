@@ -145,6 +145,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
                                              error_description='Field node_id is mandatory for node_type != GENERIC')
         return AlbaNodeController.register.delay(node_id, node_type, name)
 
+    @log()
     @action()
     @required_roles(['manage'])
     @return_task()
@@ -175,6 +176,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         return AlbaNodeController.remove_node.delay(node_guid=albanode.guid)
 
+    @log()
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_simple()
@@ -189,6 +191,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         """
         return AlbaNodeController.generate_empty_slot(albanode.guid)
 
+    @log()
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
@@ -221,6 +224,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
                                                    osd_information=osd_information,
                                                    metadata=metadata)
 
+    @log()
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
@@ -252,6 +256,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
                                      'osd_type': osd_type})
         return AlbaNodeController.fill_slots.delay(node_guid=albanode.guid, osd_information=osd_information)
 
+    @log()
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
@@ -271,6 +276,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         slot_id = disk.split('/')[-1]
         return AlbaNodeController.remove_slot.delay(albanode.guid, slot_id)  # Giving a disk alias a try
 
+    @log()
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
@@ -292,6 +298,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
                                                                slot_id=slot)
         return AlbaNodeController.remove_slot.delay(albanode.guid, slot)
 
+    @log()
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
@@ -314,6 +321,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
                                              error_description='Safety must be passed')
         return AlbaNodeController.reset_osd.delay(albanode.guid, asd_id, safety)
 
+    @log()
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
@@ -341,6 +349,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
                                                              safety=safety)
         return AlbaNodeController.reset_osd.delay(albanode.guid, osd_id, safety)
 
+    @log()
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
@@ -359,6 +368,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         # Currently backwards compatible, should be removed at some point
         return AlbaNodeController.restart_osd.delay(albanode.guid, osd_id=asd_id)
 
+    @log()
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
@@ -376,6 +386,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         # Changes nothing for the Dual Controller implementation. The 'Active side' will restart the OSD
         return AlbaNodeController.restart_osd.delay(albanode.guid, osd_id)
 
+    @log()
     @action()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
@@ -395,6 +406,7 @@ class AlbaNodeViewSet(viewsets.ViewSet):
         slot_id = disk.split('/')[-1]
         return AlbaNodeController.restart_slot.delay(albanode.guid, slot_id)
 
+    @log()
     @link()
     @required_roles(['read', 'manage'])
     @return_task()
